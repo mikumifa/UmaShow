@@ -23,10 +23,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dmg-license only on macOS
-        if: matrix.os == 'macos-latest'
-        run: npm install dmg-license
-
       - name: Install and build
         run: |
           npm install
