@@ -180,7 +180,7 @@
   "build": {
     "productName": "uma-show",
     "appId": "io.github.mikumifa.UmaShow",
-    "asar": false,
+    "asar": true,
     "afterSign": ".erb/scripts/notarize.js",
     "asarUnpack": "**\\*.{node,dll,mdb}",
     "files": [
