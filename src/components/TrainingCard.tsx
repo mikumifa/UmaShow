@@ -16,7 +16,6 @@ import {
   COMMAND_TARGET_TYPE_MAP,
 } from '../types/gameTypes';
 
-
 export interface TargetConfig {
   label: string;
   icon: ComponentType<any>;
@@ -266,7 +265,7 @@ export default function TrainingCard({
                   <div
                     className={`h-full ${progressColor}`}
                     style={{ width: `${progress}%` }}
-                   />
+                  />
                 </div>
                 {/* Exclamation Mark Alert (Example: Show on partner 4) */}
                 {isTip && (

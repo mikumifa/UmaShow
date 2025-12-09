@@ -8,6 +8,7 @@ module.exports = {
     'react/jsx-filename-extension': 'off',
     'import/extensions': 'off',
     'import/no-unresolved': 'off',
+    'react/no-array-index-key': 'off',
     'import/no-import-module-exports': 'off',
     'no-shadow': 'off',
     '@typescript-eslint/no-shadow': 'error',

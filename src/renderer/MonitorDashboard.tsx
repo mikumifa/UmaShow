@@ -5,7 +5,6 @@ import { CharInfo, mergeCharInfo } from '../types/gameTypes';
 import StatBox from '../components/StatBox';
 import TrainingCard from '../components/TrainingCard';
 import EventCard from '../components/EventCard';
-import { log } from 'console';
 
 export default function MonitorDashboard() {
   const [charInfo, setCharInfo] = useState<CharInfo | null>(null);

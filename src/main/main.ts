@@ -8,38 +8,136 @@ import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import MenuBuilder from './menu';
-import { resolveHtmlPath } from './util';
 import express from 'express';
 import { decode } from '@msgpack/msgpack';
-import fs from 'fs';
-import { CharStats, GameEvent, GameStats } from '../types/gameTypes';
+import { resolveHtmlPath } from './util';
+import MenuBuilder from './menu';
+import { CharStats, GameStats } from '../types/gameTypes';
 import { loadSupportCardMapping, SupportCardMap } from './dataload';
-import { __assets } from './paths';
+import { ASSETS_PATH } from './paths';
 import { resolveEventRule } from '../constant/events';
 
-// 路径冲突避免：此文件已经 import { app } from 'electron'
 const PORT = 4639;
-function jsonReplacer(key: string, value: any) {
-  if (typeof value === 'bigint') return value.toString();
-  if (value && value.type === 'Buffer') return Buffer.from(value.data).toString('hex');
-  return value;
-}
-
-class AppUpdater {
+export default class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
+  }
+
+  static checkForUpdates() {
     autoUpdater.checkForUpdatesAndNotify();
   }
 }
 
 let mainWindow: BrowserWindow | null = null;
 
+function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
+  const chara = decodedData.data?.chara_info;
+  if (!chara) return;
+  const home = decodedData.data?.home_info;
+
+  const stats: CharStats = {
+    speed: { value: chara?.speed, max: chara?.max_speed },
+    stamina: { value: chara?.stamina, max: chara?.max_stamina },
+    power: { value: chara?.power, max: chara?.max_power },
+    wiz: { value: chara?.wiz, max: chara?.max_wiz },
+    guts: { value: chara?.guts, max: chara?.max_guts },
+    vital: { value: chara?.vital, max: chara?.max_vital },
+    skillPoint: chara?.skill_point,
+  };
+  const gameStats: GameStats = {
+    turn: chara?.turn,
+  };
+
+  const commands = (home?.command_info_array || []).map((cmd: any) => ({
+    commandId: cmd.command_id,
+    commandType: cmd.command_type,
+    isEnable: cmd.is_enable,
+    failureRate: cmd.failure_rate,
+    level: cmd.level,
+    trainingPartners: cmd.training_partner_array || [],
+    tipsPartners: cmd.tips_event_partner_array || [],
+    params: (cmd.params_inc_dec_info_array || []).map((p: any) => ({
+      targetType: p.target_type,
+      value: p.value,
+    })),
+  }));
+
+  // ---------- partner Stats ----------
+  const supportCards: any[] = chara?.support_card_array || [];
+  const evaluations: any[] = chara?.evaluation_info_array || [];
+
+  const partnerStats = evaluations.map((evalEntry) => {
+    const position = evalEntry.training_partner_id;
+    const matchedCard = supportCards.find((card) => card.position === position);
+    const result = {
+      position,
+      evaluation: evalEntry.evaluation ?? 0,
+      supportCardId: null,
+      charaPath: '',
+      limitBreak: 0,
+      exp: 0,
+    };
+    if (matchedCard) {
+      result.supportCardId = matchedCard.support_card_id;
+      result.charaPath = SupportCardMap[matchedCard.support_card_id] ?? '';
+      result.limitBreak = matchedCard.limit_break_count;
+      result.exp = matchedCard.exp;
+    }
+    return result;
+  });
+
+  const rawEvents = decodedData.data?.unchecked_event_array || [];
+  const gameEvents = rawEvents.flatMap((ev: any) => {
+    const storyId = ev.story_id;
+    const choiceArray = ev.event_contents_info?.choice_array || [];
+
+    log.log('=== Event ===');
+    log.log('story_id:', storyId);
+    log.log('choice_array:');
+    choiceArray.forEach((choice: any) => {
+      log.log('  -', choice);
+    });
+    log.log('================\n');
+    const rule = resolveEventRule(storyId);
+    if (!rule) {
+      return [];
+    }
+    const options = choiceArray.map((choice: any, position: number) => {
+      const idx = choice.select_index;
+      const group = rule.options?.[position];
+      const matched = group?.[idx];
+
+      return (
+        matched ?? {
+          desp: 'unknown',
+          detail: '',
+          type: 'unknown',
+        }
+      );
+    });
+
+    return [
+      {
+        eventId: storyId,
+        eventName: rule.name,
+        options,
+      },
+    ];
+  });
+  _mainWindow.webContents.send('core-info-update', {
+    gameStats,
+    stats,
+    commands,
+    partnerStats,
+    gameEvents,
+  });
+}
+
 /**
  * ⭐ Express server 启动（完整）
  */
-function startExpressServer(mainWindow: BrowserWindow) {
+function startExpressServer(_mainWindow: BrowserWindow) {
   const serverApp = express();
   serverApp.use(express.raw({ type: '*/*', limit: '50mb' }));
 
@@ -49,17 +147,17 @@ function startExpressServer(mainWindow: BrowserWindow) {
 
       if (buffer && buffer.length > 0) {
         const decoded: any = decode(buffer);
-        mainWindow.webContents.send('server-log', {
+        _mainWindow.webContents.send('server-log', {
           type: 'Info',
           message: `收到 Response 包 (${buffer.length} bytes)`,
         });
-        extractCoreInfo(decoded, mainWindow);
+        extractCoreInfo(decoded, _mainWindow);
         // handleUncheckedEventInfo(decoded, mainWindow);
         // handleRaceInfo(decoded, mainWindow);
       }
     } catch (e: any) {
       console.error(e);
-      mainWindow.webContents.send('server-log', {
+      _mainWindow.webContents.send('server-log', {
         type: 'Error',
         message: e.message,
       });
@@ -70,7 +168,7 @@ function startExpressServer(mainWindow: BrowserWindow) {
 
   serverApp.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    mainWindow.webContents.send('server-log', {
+    _mainWindow.webContents.send('server-log', {
       type: 'System',
       message: `监听端口: ${PORT}`,
     });
@@ -112,119 +210,6 @@ function startExpressServer(mainWindow: BrowserWindow) {
 //   }
 // }
 
-function extractCoreInfo(decodedData: any, mainWindow: BrowserWindow) {
-  const chara = decodedData.data?.chara_info;
-  if (!chara) return;
-  const home = decodedData.data?.home_info;
-
-  const stats: CharStats = {
-    speed:  { value: chara?.speed,     max: chara?.max_speed },
-    stamina:{ value: chara?.stamina,   max: chara?.max_stamina },
-    power:  { value: chara?.power,     max: chara?.max_power },
-    wiz:    { value: chara?.wiz,       max: chara?.max_wiz },
-    guts:   { value: chara?.guts,      max: chara?.max_guts },
-    vital:  { value: chara?.vital,     max: chara?.max_vital },
-    skillPoint: chara?.skill_point,
-  };
-  const gameStats: GameStats = {
-    turn: chara?.turn,
-  };
-
-  const commands = (home?.command_info_array || []).map((cmd: any) => ({
-    commandId: cmd.command_id,
-    commandType: cmd.command_type,
-    isEnable: cmd.is_enable,
-    failureRate: cmd.failure_rate,
-    level: cmd.level,
-    trainingPartners: cmd.training_partner_array || [],
-    tipsPartners: cmd.tips_event_partner_array || [],
-    params: (cmd.params_inc_dec_info_array || []).map((p: any) => ({
-      targetType: p.target_type,
-      value: p.value
-    })),
-  }));
-
-    // ---------- partner Stats ----------
-  const supportCards: any[] = chara?.support_card_array || [];
-  const evaluations: any[] = chara?.evaluation_info_array || [];
-
-  const partnerStats = evaluations.map((evalEntry) => {
-    const position = evalEntry.training_partner_id;
-    const matchedCard = supportCards.find((card) => card.position === position);
-    const result = {
-      position: position,
-      evaluation: evalEntry.evaluation ?? 0,
-      supportCardId: null,
-      charaPath: "",
-      limitBreak: 0,
-      exp: 0
-    };
-    if (matchedCard) {
-      result.supportCardId = matchedCard.support_card_id;
-      result.charaPath = SupportCardMap[matchedCard.support_card_id] ?? "";
-      result.limitBreak = matchedCard.limit_break_count;
-      result.exp = matchedCard.exp;
-    }
-    return result;
-  });
-
-
-  const rawEvents = decodedData.data?.unchecked_event_array || [];
-  const gameEvents: GameEvent[] = [];
-
-  for (const ev of rawEvents) {
-    const storyId = ev.story_id;
-    const choiceArray = ev.event_contents_info?.choice_array || [];
-    const indices = choiceArray.map(c => c.select_index);
-    console.log("=== Event ===");
-    console.log("story_id:", storyId);
-    console.log("choice_array:");
-    for (const choice of choiceArray) {
-      console.log("  -", choice);
-    }
-    console.log("================\n");
-    const rule = resolveEventRule(storyId);
-    if (!rule) {
-      // eventList.push({
-      //   eventId: storyId.,
-      //   eventName: `事件 ${storyId}`,
-      //   options: indices.map((idx) => ({
-      //     desp: `选项 ${idx}`,
-      //     detail: "",
-      //     type: "unknown",
-      //   }))
-      // });
-      continue;
-    }
-    const options = indices.map((idx, position) => {
-    const group = rule.options?.[position]; // rule 的第 position 位规则
-
-      if (!group) {
-        return {
-          desp: "unknown",
-          detail: "",
-          type: "unknown",
-        };
-      }
-
-      const matched = group[idx];
-
-      return matched ?? {
-        desp: "unknown",
-        detail: "",
-        type: "unknown",
-      };
-    });
-    gameEvents.push({
-      eventId: storyId,
-      eventName: rule.name,
-      options
-    });
-  }
-  mainWindow.webContents.send("core-info-update", {gameStats, stats, commands, partnerStats,gameEvents });
-}
-
-
 /**
  * ⭐ 创建窗口（集成 Express）
  */
@@ -260,15 +245,15 @@ const createWindow = async () => {
 
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
-  ipcMain.handle("get-assets-path", () => __assets);
+  ipcMain.handle('get-assets-path', () => ASSETS_PATH);
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
-  // ⭐ 启动 express server
   startExpressServer(mainWindow);
-  // 自动更新
-  new AppUpdater();
+  // eslint-disable-next-line no-new
+  const appUpdater = new AppUpdater();
+  appUpdater.checkForUpdates();
 };
 
 /**
@@ -278,9 +263,14 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.whenReady().then(() => {
-  createWindow();
-  app.on('activate', () => {
-    if (mainWindow === null) createWindow();
+app
+  .whenReady()
+  .then(() => {
+    createWindow();
+    app.on('activate', () => {
+      if (mainWindow === null) createWindow();
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to start app:', err);
   });
-});

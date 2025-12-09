@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+
 export type Channels = 'ipc-example';
 
 const electronHandler = {
@@ -24,7 +25,7 @@ const electronHandler = {
     },
   },
   utils: {
-     getAssetsPath: () => ipcRenderer.invoke("get-assets-path"),
+    getAssetsPath: () => ipcRenderer.invoke('get-assets-path'),
   },
   packetListener: {
     onLog(callback: (data: any) => void) {

@@ -1,7 +1,6 @@
-
 export interface CharStat {
-  value: number;   // 当前值
-  max: number;     // 最大值
+  value: number; // 当前值
+  max: number; // 最大值
 }
 // =============================
 // Character Stats Types
@@ -19,7 +18,6 @@ export interface CharStats {
 export interface GameStats {
   turn: number;
 }
-
 
 // =============================
 // Training Command Types
@@ -40,47 +38,14 @@ export interface TrainingCommand {
   params: CommandParam[];
 }
 
-// =============================
-// Wrapper for Character Info
-// =============================
-export interface CharInfo {
-  partnerStats: PartnerStats;
-  gameEvents: GameEvents;
-  gameStats: GameStats;
-  stats: CharStats;
-  commands: TrainingCommands;
-
-}
-export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
-  return {
-    ...incoming,
-    stats: isEmptyField(incoming.stats) ? prev.stats : incoming.stats,
-    partnerStats: isEmptyField(incoming.partnerStats)
-      ? prev.partnerStats
-      : incoming.partnerStats,
-    commands: isEmptyField(incoming.commands)
-      ? prev.commands
-      : incoming.commands,
-  };
-}
-
-
-export function isEmptyField(field: any): boolean {
-  if (field == null) return true;
-  if (typeof field !== "object") return false;
-  return Object.keys(field).length === 0;
-}
-
 export interface PartnerStat {
   position: number;
   supportCardId: number;
   charaPath: string;
-  evaluation: number;   // 来自 evaluation_info_array
+  evaluation: number; // 来自 evaluation_info_array
   limitBreak: number;
   exp: number;
 }
-
-
 export interface EventOption {
   desp: string;
   detail: string;
@@ -97,6 +62,36 @@ export interface PartnerStats extends Array<PartnerStat> {}
 export interface GameEvents extends Array<GameEvent> {}
 export interface TrainingCommands extends Array<TrainingCommand> {}
 
+// =============================
+// Wrapper for Character Info
+// =============================
+export interface CharInfo {
+  partnerStats: PartnerStats;
+  gameEvents: GameEvents;
+  gameStats: GameStats;
+  stats: CharStats;
+  commands: TrainingCommands;
+}
+
+export function isEmptyField(field: any): boolean {
+  if (field == null) return true;
+  if (typeof field !== 'object') return false;
+  return Object.keys(field).length === 0;
+}
+
+export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
+  return {
+    ...incoming,
+    stats: isEmptyField(incoming.stats) ? prev.stats : incoming.stats,
+    partnerStats: isEmptyField(incoming.partnerStats)
+      ? prev.partnerStats
+      : incoming.partnerStats,
+    commands: isEmptyField(incoming.commands)
+      ? prev.commands
+      : incoming.commands,
+  };
+}
+
 export enum TARGET_TYPE {
   SPEED = 1,
   STAMINA = 2,
@@ -108,18 +103,17 @@ export enum TARGET_TYPE {
   UNKNOWN = 0,
 }
 
-
 export const COMMAND_NAME_MAP: Record<number, string> = {
-  101: "速度训练",
-  105: "耐力训练",
-  102: "力量训练",
-  103: "毅力训练",
-  106: "智力训练",
-  601: "速度夏训",
-  602: "耐力夏训",
-  603: "力量夏训",
-  604: "毅力夏训",
-  605: "智力夏训",
+  101: '速度训练',
+  105: '耐力训练',
+  102: '力量训练',
+  103: '毅力训练',
+  106: '智力训练',
+  601: '速度夏训',
+  602: '耐力夏训',
+  603: '力量夏训',
+  604: '毅力夏训',
+  605: '智力夏训',
   // 301: "休息",
   // 390: "外出",
   // 401: "保健室",
