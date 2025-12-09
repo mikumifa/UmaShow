@@ -178,11 +178,11 @@
     "webpack-merge": "^6.0.1"
   },
   "build": {
-    "productName": "UmaShow",
+    "productName": "uma-show",
     "appId": "io.github.mikumifa.UmaShow",
     "asar": true,
     "afterSign": ".erb/scripts/notarize.js",
-    "asarUnpack": "**\\*.{node,dll}",
+    "asarUnpack": "**\\*.{node,dll,mdb}",
     "files": [
       "dist",
       "assets/**/*",
