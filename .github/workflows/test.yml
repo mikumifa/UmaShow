@@ -24,10 +24,6 @@ jobs:
         run: |
           npm install
 
-      - name: Install dmg-license only on macOS
-        if: matrix.os == 'macos-latest'
-        run: npm install dmg-license
-
       - name: npm test
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
