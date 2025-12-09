@@ -37,12 +37,10 @@ const getStatConfig = (key: string) => {
 };
 
 export default function StatBox({
-  label,
   value,
   max,
   keyName,
 }: {
-  label: string;
   keyName: string;
   value: number;
   max: number;
@@ -56,7 +54,7 @@ export default function StatBox({
         className={`${conf.bg} text-white text-xs font-bold py-1 px-2 rounded-t-lg flex items-center justify-center gap-1`}
       >
         <Icon size={14} fill="currentColor" className="opacity-90" />
-        <span>{label || conf.label}</span>
+        <span>{conf.label}</span>
       </div>
 
       <div className="bg-white border-x-2 border-b-2 border-gray-200 rounded-b-lg p-1 h-14 flex items-center justify-between relative">

@@ -24,7 +24,7 @@ export default class AppUpdater {
     autoUpdater.logger = log;
   }
 
-  static checkForUpdates() {
+  checkForUpdates() {
     autoUpdater.checkForUpdatesAndNotify();
   }
 }
@@ -35,7 +35,6 @@ function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
   const chara = decodedData.data?.chara_info;
   if (!chara) return;
   const home = decodedData.data?.home_info;
-
   const stats: CharStats = {
     speed: { value: chara?.speed, max: chara?.max_speed },
     stamina: { value: chara?.stamina, max: chara?.max_stamina },

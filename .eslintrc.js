@@ -13,6 +13,7 @@ module.exports = {
     'no-shadow': 'off',
     '@typescript-eslint/no-shadow': 'error',
     'no-unused-vars': 'off',
+    'class-methods-use-this': 'off',
     '@typescript-eslint/no-unused-vars': 'error',
   },
   parserOptions: {
