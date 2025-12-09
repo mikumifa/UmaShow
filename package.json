@@ -180,7 +180,7 @@
   "build": {
     "productName": "uma-show",
     "appId": "io.github.mikumifa.UmaShow",
-    "asar": true,
+    "asar": false,
     "afterSign": ".erb/scripts/notarize.js",
     "asarUnpack": "**\\*.{node,dll,mdb}",
     "files": [
@@ -235,13 +235,7 @@
       "output": "release/build"
     },
     "extraResources": [
-      {
-        "from": "assets/",
-        "to": "assets",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "./assets/**"
     ],
     "publish": {
       "provider": "github",
