@@ -7,10 +7,6 @@ on:
 
 jobs:
   publish:
-    # To enable auto publishing to github, update your electron publisher
-    # config in package.json > "build" and remove the conditional below
-    if: ${{ github.repository_owner == 'mikumifa' }}
-
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -26,6 +22,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Install dmg-license only on macOS
+        if: matrix.os == 'macos-latest'
+        run: npm install dmg-license
 
       - name: Install and build
         run: |
