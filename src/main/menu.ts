@@ -205,6 +205,20 @@ export default class MenuBuilder {
       //     },
       //   ],
       // },
+
+      {
+        label: 'Dashboard',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', { path: '/' });
+        },
+      },
+      {
+        label: 'Races',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', { path: '/races' });
+        },
+      },
+
       {
         label: '&View',
         submenu:

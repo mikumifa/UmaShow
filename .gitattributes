@@ -11,3 +11,4 @@
 *.woff  binary
 *.woff2 binary
 *.mdb binary
+*.binarypb.gz binary

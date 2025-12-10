@@ -25,7 +25,20 @@ const electronHandler = {
     },
   },
   utils: {
-    getAssetsPath: () => ipcRenderer.invoke('get-assets-path'),
+    getFile: (filePath: string) =>
+      ipcRenderer.invoke('get-asset-file', filePath),
+    getUmaDatabase: () => {
+      return ipcRenderer.invoke('umdb-get');
+    },
+    navigation: {
+      onNavigate: (callback: (data: { path: string }) => void) => {
+        ipcRenderer.on('navigate-to', (_, data) => callback(data));
+      },
+    },
+  },
+  race: {
+    list: () => ipcRenderer.invoke('race:list'),
+    delete: (names: string[]) => ipcRenderer.invoke('race:delete', names),
   },
   packetListener: {
     onLog(callback: (data: any) => void) {
@@ -58,6 +71,16 @@ const electronHandler = {
         ipcRenderer.removeListener('core-info-update', subscription);
       };
     },
+    onNew(callback: (data: any) => void) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+
+      ipcRenderer.on('race:new', subscription);
+
+      return () => {
+        ipcRenderer.removeListener('race:new', subscription);
+      };
+    },
     openRaceFolder() {
       ipcRenderer.send('open-race-folder');
     },
@@ -66,4 +89,5 @@ const electronHandler = {
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);
+
 export type ElectronHandler = typeof electronHandler;

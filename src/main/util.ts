@@ -11,3 +11,10 @@ export function resolveHtmlPath(htmlFileName: string) {
   }
   return `file://${path.resolve(__dirname, '../renderer/', htmlFileName)}`;
 }
+
+export function jsonReplacer(key: any, value: any) {
+  if (typeof value === 'bigint') return value.toString();
+  if (value && value.type === 'Buffer')
+    return Buffer.from(value.data).toString('hex');
+  return value;
+}
