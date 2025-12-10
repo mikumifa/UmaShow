@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import log from 'electron-log';
 import { jsonReplacer } from '../util';
+import { RaceMetaInfo, RaceRecord } from '../../types/gameTypes';
 
 /**
  * ⭐ 处理赛马数据：race_scenario + race_horse_data_array
@@ -13,16 +14,22 @@ import { jsonReplacer } from '../util';
 export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
   const data = decodedData?.data || decodedData;
 
-  const raceScenario = data?.race_scenario ?? null;
-  const raceHorseData = data?.race_horse_data_array ?? null;
-  const raceResult = data?.race_result ?? null;
+  const raceScenario =
+    data?.race_scenario ??
+    data?.race_result_info?.race_scenario ??
+    data?.result_info?.race_scenario ??
+    null;
 
-  if (!raceScenario && !raceHorseData && !raceResult) return;
+  const raceHorseData =
+    data?.race_horse_data_array ??
+    data?.race_result_info?.race_horse_data_array ??
+    data?.result_info?.race_horse_data_array ??
+    null;
 
-  let raceName: string | null = null;
-  if (raceResult?.race_instance_id != null) {
-    raceName = UMDB.raceInstances[raceResult.race_instance_id]?.name ?? null;
-  }
+  const raceMetaInfo =
+    data?.race_result ?? data?.race_result_info ?? data ?? null;
+  if (!raceScenario || !raceHorseData || !raceMetaInfo) return;
+  if (raceMetaInfo?.random_seed == null) return;
 
   try {
     const timestamp = Math.floor(Date.now() / 1000);
@@ -30,12 +37,21 @@ export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
     const filepath = path.join(RACE_DIR, filename);
 
     const record = {
-      saved_at: new Date().toISOString(),
-      race_name: raceName,
-      race_result: raceResult,
-      race_scenario: raceScenario,
-      race_horse_data: raceHorseData,
-    };
+      filename: filename,
+      fullPath: filepath,
+      createdAt: raceMetaInfo.start_time ?? new Date().toISOString(),
+      raceMetaInfo: {
+        race_instance_id: raceMetaInfo.race_instance_id,
+        season: raceMetaInfo.season ?? -1,
+        weather: raceMetaInfo.weather ?? -1,
+        ground_condition: raceMetaInfo.ground_condition ?? -1,
+        random_seed: raceMetaInfo.random_seed ?? -1,
+        entry_num: raceMetaInfo.entry_num ?? -1,
+        current_entry_num: raceMetaInfo.current_entry_num ?? -1,
+      } as RaceMetaInfo,
+      scenario: raceScenario,
+      horses: raceHorseData,
+    } as RaceRecord;
 
     fs.writeFileSync(
       filepath,
@@ -44,16 +60,7 @@ export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
     );
     log.info(`[RaceData] ✅ Saved to ${filepath}`);
 
-    win.webContents.send('race:new', {
-      filename,
-      fullPath: filepath,
-      createdAt: Date.now(),
-      raceName,
-      raceResult,
-      scenario: raceScenario,
-      horses: raceHorseData,
-      savedAt: record.saved_at,
-    });
+    win.webContents.send('race:new', record);
   } catch (e: any) {
     log.error(`[RaceData] ❌ Save failed: ${e.message}`);
   }
@@ -68,29 +75,16 @@ export function handleRaceList(ipcMain: Electron.IpcMain) {
     const files = fs
       .readdirSync(RACE_DIR)
       .filter((f) => f.endsWith('.json'))
-      .map((f) => {
+      .flatMap((f) => {
         const full = path.join(RACE_DIR, f);
-        const stat = fs.statSync(full);
-
-        let json: any = {};
-
         try {
           const content = fs.readFileSync(full, 'utf-8');
-          json = JSON.parse(content);
+          const record = JSON.parse(content) as RaceRecord;
+          return [record];
         } catch (e) {
           console.error('[RaceData] ❌ Failed to parse:', full, e);
+          return [];
         }
-
-        return {
-          filename: f,
-          fullPath: full,
-          createdAt: stat.birthtimeMs,
-          raceName: json.race_name ?? null,
-          raceResult: json.race_result ?? null,
-          scenario: json.race_scenario ?? null,
-          horses: json.race_horse_data ?? null,
-          savedAt: json.saved_at ?? null,
-        };
       });
 
     return files;

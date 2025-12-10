@@ -26,8 +26,6 @@ def populate_charas(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         c.id = row[0]
         c.name = row[1]
         c.cast_name = row[2]
-
-        # 直接从源目录读取，文件名格式通常为 chr_icon_training_{id}.png
         icon_filename = f"chr_icon_training_{c.id}.png"
         icon_path = os.path.join(SOURCE_ICON_DIR, icon_filename)
 
@@ -42,8 +40,6 @@ def populate_charas(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
             except Exception as e:
                 print(f"Error encoding image for chara {c.id}: {e}")
         else:
-            # 调试用：如果找不到图片，可以打印一下（可选）
-            # print(f"Icon not found for {c.id} at {icon_path}")
             pass
 
         pb.chara.append(c)

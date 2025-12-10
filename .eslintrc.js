@@ -14,6 +14,10 @@ module.exports = {
     '@typescript-eslint/no-shadow': 'error',
     'no-unused-vars': 'off',
     'class-methods-use-this': 'off',
+    camelcase: 'off',
+    'react/require-default-props': 'off',
+    'no-alert': 'off',
+    'no-restricted-globals': 'off',
     '@typescript-eslint/no-unused-vars': 'error',
   },
   parserOptions: {

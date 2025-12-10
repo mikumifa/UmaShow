@@ -1,5 +1,4 @@
 import _ from 'lodash';
-import { toKatakana, toRomaji } from 'wanakana';
 import { Chara, SuccessionRelation, SupportCard } from './data_pb';
 import { RaceSimulateHorseResultData_RunningStyle } from './race_data_pb';
 

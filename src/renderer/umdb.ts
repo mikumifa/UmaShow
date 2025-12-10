@@ -1,3 +1,5 @@
+import { RaceInstance } from '../data/data_pb';
+
 let umdbInstance: any = null;
 let loadPromise: Promise<any> | null = null;
 
@@ -18,6 +20,9 @@ export const UMDB = {
 
   get charas() {
     return umdbInstance?.charas ?? {};
+  },
+  get raceInstances(): Record<number, RaceInstance> {
+    return umdbInstance?.raceInstances ?? {};
   },
   get cards() {
     return umdbInstance?.cards ?? {};

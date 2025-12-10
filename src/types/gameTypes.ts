@@ -73,6 +73,32 @@ export interface CharInfo {
   commands: TrainingCommands;
 }
 
+export interface RaceHorseInfo {
+  select_index?: number;
+  receive_item_id?: number;
+  target_race_id?: number;
+  [key: string]: unknown;
+}
+
+export interface RaceMetaInfo {
+  race_instance_id: number; // 比赛实例 ID
+  season: number; // 赛季
+  weather: number; // 天气
+  ground_condition: number; // 地面状况
+  random_seed: number; // 随机种子
+  entry_num?: number | null; // 报名人数
+  current_entry_num?: number | null; // 实际参赛人数
+  [key: string]: unknown;
+}
+export interface RaceRecord {
+  filename: string;
+  fullPath: string;
+  createdAt: number;
+  raceMetaInfo: RaceMetaInfo;
+  scenario: string;
+  horses: RaceHorseInfo[];
+}
+
 export function isEmptyField(field: any): boolean {
   if (field == null) return true;
   if (typeof field !== 'object') return false;
