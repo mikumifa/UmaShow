@@ -88,9 +88,10 @@ export default function RaceMetaTag({
 
   // 1. 比赛名称 & 距离
   const raceName =
-    (instance?.name ?? meta.race_instance_id === undefined)
+    instance?.name ??
+    (meta.race_instance_id === undefined
       ? `自定义赛事`
-      : `未知赛事 (${meta.race_instance_id})`;
+      : `未知赛事 (${meta.race_instance_id})`);
 
   const distance = instance?.distance ?? 0;
 
