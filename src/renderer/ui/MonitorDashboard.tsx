@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Battery } from 'lucide-react';
-import './App.css';
-import { CharInfo, mergeCharInfo } from '../types/gameTypes';
-import StatBox from '../components/StatBox';
-import TrainingCard from '../components/TrainingCard';
-import EventCard from '../components/EventCard';
-import GameStartScreen from '../components/GameStartScreen';
+import log from 'electron-log';
+import { CharInfo, mergeCharInfo } from 'types/gameTypes';
+import StatBox from 'renderer/components/StatBox';
+import TrainingCard from 'renderer/components/TrainingCard';
+import EventCard from 'renderer/components/EventCard';
+import GameStartScreen from 'renderer/components/GameStartScreen';
+import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function MonitorDashboard() {
   const [charInfo, setCharInfo] = useState<CharInfo | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
@@ -18,12 +20,17 @@ export default function MonitorDashboard() {
           return mergeCharInfo(prev, incoming);
         }),
     );
+    loadUMDB()
+      .then(() => setReady(true))
+      .catch((err) => {
+        log.error('UMDB load failed:', err);
+      });
     return () => {
       removeCharInfoListener?.();
     };
   }, []);
 
-  return charInfo ? (
+  return ready && charInfo ? (
     <div className="p-4 flex flex-col gap-4 bg-gray-100 min-h-screen">
       {/* =================== VITAL =================== */}
       <div className="flex items-center gap-3 w-full">

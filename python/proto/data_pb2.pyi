@@ -54,14 +54,16 @@ class Card(_message.Message):
     def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ...) -> None: ...
 
 class SupportCard(_message.Message):
-    __slots__ = ("id", "name", "chara_id")
+    __slots__ = ("id", "name", "chara_id", "command_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CHARA_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_ID_FIELD_NUMBER: _ClassVar[int]
     id: int
     name: str
     chara_id: int
-    def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ..., chara_id: _Optional[int] = ...) -> None: ...
+    command_id: int
+    def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ..., chara_id: _Optional[int] = ..., command_id: _Optional[int] = ...) -> None: ...
 
 class SuccessionRelation(_message.Message):
     __slots__ = ("relation_type", "relation_point", "member")

@@ -54,7 +54,7 @@ def populate_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         pb.card.append(c)
 
 def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
-    cursor.execute("""SELECT s.id, t.text, s.chara_id
+    cursor.execute("""SELECT s.id, t.text, s.chara_id, s.command_id
                       FROM support_card_data AS s
                       JOIN text_data AS t ON t."index"=s.id AND t.category=75;""")
     rows = cursor.fetchall()
@@ -63,6 +63,7 @@ def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         c.id = row[0]
         c.name = row[1]
         c.chara_id = row[2]
+        c.command_id = row[3]
         pb.support_card.append(c)
 
 def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
@@ -211,12 +212,6 @@ def main():
         populate_stories,
     ):
         p(pb, cursor)
-
-    print(f"Loaded {len(pb.chara)} characters.")
-    if len(pb.chara) > 0:
-        # 打印一个样本看看是否成功读取了 icon_url
-        print(f"Sample Chara: {pb.chara[0].name}, Icon URL length: {len(pb.chara[0].icon_url)}")
-
     os.makedirs("assets/data", exist_ok=True)
     with open("assets/data/umdb.binarypb.gz", "wb") as f:
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))

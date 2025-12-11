@@ -23055,11 +23055,7 @@
     {
       "id": 1,
       "name": "经典三冠",
-      "raceInstanceId": [
-        100501,
-        101001,
-        101501
-      ],
+      "raceInstanceId": [100501, 101001, 101501],
       "priority": 1,
       "groupId": 1,
       "type": "SPECIAL"
@@ -23067,11 +23063,7 @@
     {
       "id": 2,
       "name": "秋季高级三冠",
-      "raceInstanceId": [
-        101601,
-        101901,
-        102301
-      ],
+      "raceInstanceId": [101601, 101901, 102301],
       "priority": 3,
       "groupId": 3,
       "type": "SPECIAL"
@@ -23079,11 +23071,7 @@
     {
       "id": 3,
       "name": "三后冠",
-      "raceInstanceId": [
-        100401,
-        100901,
-        101401
-      ],
+      "raceInstanceId": [100401, 100901, 101401],
       "priority": 4,
       "groupId": 4,
       "type": "SPECIAL"
@@ -23091,11 +23079,7 @@
     {
       "id": 4,
       "name": "春季高级三冠",
-      "raceInstanceId": [
-        100301,
-        100601,
-        101201
-      ],
+      "raceInstanceId": [100301, 100601, 101201],
       "priority": 5,
       "groupId": 5,
       "type": "SPECIAL"
@@ -23103,10 +23087,7 @@
     {
       "id": 5,
       "name": "天王奖春秋连霸",
-      "raceInstanceId": [
-        100601,
-        101601
-      ],
+      "raceInstanceId": [100601, 101601],
       "priority": 7,
       "groupId": 7,
       "type": "SPECIAL"
@@ -23114,10 +23095,7 @@
     {
       "id": 6,
       "name": "春秋大奖赛",
-      "raceInstanceId": [
-        101201,
-        102301
-      ],
+      "raceInstanceId": [101201, 102301],
       "priority": 8,
       "groupId": 8,
       "type": "SPECIAL"
@@ -23125,10 +23103,7 @@
     {
       "id": 7,
       "name": "春秋英里赛",
-      "raceInstanceId": [
-        101101,
-        101801
-      ],
+      "raceInstanceId": [101101, 101801],
       "priority": 10,
       "groupId": 10,
       "type": "SPECIAL"
@@ -23136,10 +23111,7 @@
     {
       "id": 8,
       "name": "春秋短距离赛",
-      "raceInstanceId": [
-        101301,
-        100201
-      ],
+      "raceInstanceId": [101301, 100201],
       "priority": 11,
       "groupId": 11,
       "type": "SPECIAL"
@@ -23147,10 +23119,7 @@
     {
       "id": 9,
       "name": "春秋泥地赛",
-      "raceInstanceId": [
-        100101,
-        102001
-      ],
+      "raceInstanceId": [100101, 102001],
       "priority": 12,
       "groupId": 12,
       "type": "SPECIAL"
@@ -23158,9 +23127,7 @@
     {
       "id": 10,
       "name": "中山大奖赛",
-      "raceInstanceId": [
-        102301
-      ],
+      "raceInstanceId": [102301],
       "priority": 13,
       "groupId": 37,
       "type": "G1"
@@ -23168,9 +23135,7 @@
     {
       "id": 11,
       "name": "全国杯",
-      "raceInstanceId": [
-        101901
-      ],
+      "raceInstanceId": [101901],
       "priority": 14,
       "groupId": 33,
       "type": "G1"
@@ -23178,9 +23143,7 @@
     {
       "id": 12,
       "name": "全国德比",
-      "raceInstanceId": [
-        101001
-      ],
+      "raceInstanceId": [101001],
       "priority": 15,
       "groupId": 22,
       "type": "G1"
@@ -23188,9 +23151,7 @@
     {
       "id": 13,
       "name": "天王奖（春）",
-      "raceInstanceId": [
-        100601
-      ],
+      "raceInstanceId": [100601],
       "priority": 16,
       "groupId": 18,
       "type": "G1"
@@ -23198,9 +23159,7 @@
     {
       "id": 14,
       "name": "宝冢纪念",
-      "raceInstanceId": [
-        101201
-      ],
+      "raceInstanceId": [101201],
       "priority": 17,
       "groupId": 24,
       "type": "G1"
@@ -23208,9 +23167,7 @@
     {
       "id": 15,
       "name": "天王奖（秋）",
-      "raceInstanceId": [
-        101601
-      ],
+      "raceInstanceId": [101601],
       "priority": 19,
       "groupId": 30,
       "type": "G1"
@@ -23218,9 +23175,7 @@
     {
       "id": 16,
       "name": "菊花奖",
-      "raceInstanceId": [
-        101501
-      ],
+      "raceInstanceId": [101501],
       "priority": 20,
       "groupId": 28,
       "type": "G1"
@@ -23228,9 +23183,7 @@
     {
       "id": 17,
       "name": "大阪杯",
-      "raceInstanceId": [
-        100301
-      ],
+      "raceInstanceId": [100301],
       "priority": 22,
       "groupId": 15,
       "type": "G1"
@@ -23238,9 +23191,7 @@
     {
       "id": 18,
       "name": "皋月奖",
-      "raceInstanceId": [
-        100501
-      ],
+      "raceInstanceId": [100501],
       "priority": 23,
       "groupId": 17,
       "type": "G1"
@@ -23248,9 +23199,7 @@
     {
       "id": 19,
       "name": "奥克斯",
-      "raceInstanceId": [
-        100901
-      ],
+      "raceInstanceId": [100901],
       "priority": 24,
       "groupId": 21,
       "type": "G1"
@@ -23258,9 +23207,7 @@
     {
       "id": 20,
       "name": "中京短途赛",
-      "raceInstanceId": [
-        100201
-      ],
+      "raceInstanceId": [100201],
       "priority": 25,
       "groupId": 14,
       "type": "G1"
@@ -23268,9 +23215,7 @@
     {
       "id": 21,
       "name": "东京英里赛",
-      "raceInstanceId": [
-        101101
-      ],
+      "raceInstanceId": [101101],
       "priority": 26,
       "groupId": 23,
       "type": "G1"
@@ -23278,9 +23223,7 @@
     {
       "id": 22,
       "name": "短途者锦标赛",
-      "raceInstanceId": [
-        101301
-      ],
+      "raceInstanceId": [101301],
       "priority": 27,
       "groupId": 26,
       "type": "G1"
@@ -23288,9 +23231,7 @@
     {
       "id": 23,
       "name": "英里冠军赛",
-      "raceInstanceId": [
-        101801
-      ],
+      "raceInstanceId": [101801],
       "priority": 28,
       "groupId": 32,
       "type": "G1"
@@ -23298,9 +23239,7 @@
     {
       "id": 24,
       "name": "樱花奖",
-      "raceInstanceId": [
-        100401
-      ],
+      "raceInstanceId": [100401],
       "priority": 29,
       "groupId": 16,
       "type": "G1"
@@ -23308,9 +23247,7 @@
     {
       "id": 25,
       "name": "维多利亚英里赛",
-      "raceInstanceId": [
-        100801
-      ],
+      "raceInstanceId": [100801],
       "priority": 30,
       "groupId": 20,
       "type": "G1"
@@ -23318,9 +23255,7 @@
     {
       "id": 26,
       "name": "伊丽莎白女王杯",
-      "raceInstanceId": [
-        101701
-      ],
+      "raceInstanceId": [101701],
       "priority": 31,
       "groupId": 31,
       "type": "G1"
@@ -23328,9 +23263,7 @@
     {
       "id": 27,
       "name": "广播协会英里杯",
-      "raceInstanceId": [
-        100701
-      ],
+      "raceInstanceId": [100701],
       "priority": 32,
       "groupId": 19,
       "type": "G1"
@@ -23338,9 +23271,7 @@
     {
       "id": 28,
       "name": "秋华奖",
-      "raceInstanceId": [
-        101401
-      ],
+      "raceInstanceId": [101401],
       "priority": 33,
       "groupId": 27,
       "type": "G1"
@@ -23348,9 +23279,7 @@
     {
       "id": 29,
       "name": "全国冠军杯",
-      "raceInstanceId": [
-        102001
-      ],
+      "raceInstanceId": [102001],
       "priority": 34,
       "groupId": 34,
       "type": "G1"
@@ -23358,9 +23287,7 @@
     {
       "id": 30,
       "name": "二月锦标赛",
-      "raceInstanceId": [
-        100101
-      ],
+      "raceInstanceId": [100101],
       "priority": 35,
       "groupId": 13,
       "type": "G1"
@@ -23368,9 +23295,7 @@
     {
       "id": 31,
       "name": "全国育成杯经典赛",
-      "raceInstanceId": [
-        110501
-      ],
+      "raceInstanceId": [110501],
       "priority": 36,
       "groupId": 43,
       "type": "G1"
@@ -23378,9 +23303,7 @@
     {
       "id": 32,
       "name": "东京大奖赛",
-      "raceInstanceId": [
-        110601
-      ],
+      "raceInstanceId": [110601],
       "priority": 37,
       "groupId": 44,
       "type": "G1"
@@ -23388,9 +23311,7 @@
     {
       "id": 33,
       "name": "朝日杯未来锦标赛",
-      "raceInstanceId": [
-        102201
-      ],
+      "raceInstanceId": [102201],
       "priority": 38,
       "groupId": 36,
       "type": "G1"
@@ -23398,9 +23319,7 @@
     {
       "id": 34,
       "name": "希望锦标赛",
-      "raceInstanceId": [
-        102401
-      ],
+      "raceInstanceId": [102401],
       "priority": 39,
       "groupId": 38,
       "type": "G1"
@@ -23408,9 +23327,7 @@
     {
       "id": 35,
       "name": "阪神初级少女杯赛",
-      "raceInstanceId": [
-        102101
-      ],
+      "raceInstanceId": [102101],
       "priority": 40,
       "groupId": 35,
       "type": "G1"
@@ -23418,9 +23335,7 @@
     {
       "id": 36,
       "name": "帝王奖",
-      "raceInstanceId": [
-        110101
-      ],
+      "raceInstanceId": [110101],
       "priority": 41,
       "groupId": 39,
       "type": "G1"
@@ -23428,9 +23343,7 @@
     {
       "id": 37,
       "name": "全国育成杯短途赛",
-      "raceInstanceId": [
-        110401
-      ],
+      "raceInstanceId": [110401],
       "priority": 42,
       "groupId": 42,
       "type": "G1"
@@ -23438,9 +23351,7 @@
     {
       "id": 38,
       "name": "全国泥地德比",
-      "raceInstanceId": [
-        110201
-      ],
+      "raceInstanceId": [110201],
       "priority": 43,
       "groupId": 40,
       "type": "G1"
@@ -23448,9 +23359,7 @@
     {
       "id": 39,
       "name": "全国育成杯女士经典赛",
-      "raceInstanceId": [
-        110301
-      ],
+      "raceInstanceId": [110301],
       "priority": 44,
       "groupId": 41,
       "type": "G1"
@@ -23458,9 +23367,7 @@
     {
       "id": 40,
       "name": "日经新春杯",
-      "raceInstanceId": [
-        200101
-      ],
+      "raceInstanceId": [200101],
       "priority": 45,
       "groupId": 45,
       "type": "G2"
@@ -23468,9 +23375,7 @@
     {
       "id": 41,
       "name": "东海锦标赛",
-      "raceInstanceId": [
-        200201
-      ],
+      "raceInstanceId": [200201],
       "priority": 46,
       "groupId": 46,
       "type": "G2"
@@ -23478,9 +23383,7 @@
     {
       "id": 42,
       "name": "合众国交流杯",
-      "raceInstanceId": [
-        200301
-      ],
+      "raceInstanceId": [200301],
       "priority": 47,
       "groupId": 47,
       "type": "G2"
@@ -23488,9 +23391,7 @@
     {
       "id": 43,
       "name": "京都纪念",
-      "raceInstanceId": [
-        200401
-      ],
+      "raceInstanceId": [200401],
       "priority": 48,
       "groupId": 48,
       "type": "G2"
@@ -23498,9 +23399,7 @@
     {
       "id": 44,
       "name": "中山纪念",
-      "raceInstanceId": [
-        200501
-      ],
+      "raceInstanceId": [200501],
       "priority": 49,
       "groupId": 49,
       "type": "G2"
@@ -23508,9 +23407,7 @@
     {
       "id": 45,
       "name": "弥生奖",
-      "raceInstanceId": [
-        200601
-      ],
+      "raceInstanceId": [200601],
       "priority": 50,
       "groupId": 50,
       "type": "G2"
@@ -23518,9 +23415,7 @@
     {
       "id": 46,
       "name": "金鯱奖",
-      "raceInstanceId": [
-        200701
-      ],
+      "raceInstanceId": [200701],
       "priority": 51,
       "groupId": 51,
       "type": "G2"
@@ -23528,9 +23423,7 @@
     {
       "id": 47,
       "name": "少女竞技赛",
-      "raceInstanceId": [
-        200801
-      ],
+      "raceInstanceId": [200801],
       "priority": 52,
       "groupId": 52,
       "type": "G2"
@@ -23538,9 +23431,7 @@
     {
       "id": 48,
       "name": "阪神大奖赛",
-      "raceInstanceId": [
-        200901
-      ],
+      "raceInstanceId": [200901],
       "priority": 53,
       "groupId": 53,
       "type": "G2"
@@ -23548,9 +23439,7 @@
     {
       "id": 49,
       "name": "春季锦标赛",
-      "raceInstanceId": [
-        201001
-      ],
+      "raceInstanceId": [201001],
       "priority": 54,
       "groupId": 54,
       "type": "G2"
@@ -23558,9 +23447,7 @@
     {
       "id": 50,
       "name": "日经奖",
-      "raceInstanceId": [
-        201101
-      ],
+      "raceInstanceId": [201101],
       "priority": 56,
       "groupId": 56,
       "type": "G2"
@@ -23568,9 +23455,7 @@
     {
       "id": 51,
       "name": "阪神优俊少女锦标赛",
-      "raceInstanceId": [
-        201201
-      ],
+      "raceInstanceId": [201201],
       "priority": 57,
       "groupId": 57,
       "type": "G2"
@@ -23578,9 +23463,7 @@
     {
       "id": 52,
       "name": "无翼鸟杯",
-      "raceInstanceId": [
-        201301
-      ],
+      "raceInstanceId": [201301],
       "priority": 58,
       "groupId": 58,
       "type": "G2"
@@ -23588,9 +23471,7 @@
     {
       "id": 53,
       "name": "英里杯",
-      "raceInstanceId": [
-        201401
-      ],
+      "raceInstanceId": [201401],
       "priority": 59,
       "groupId": 59,
       "type": "G2"
@@ -23598,9 +23479,7 @@
     {
       "id": 54,
       "name": "芙洛拉锦标赛",
-      "raceInstanceId": [
-        201501
-      ],
+      "raceInstanceId": [201501],
       "priority": 60,
       "groupId": 60,
       "type": "G2"
@@ -23608,9 +23487,7 @@
     {
       "id": 55,
       "name": "青叶奖",
-      "raceInstanceId": [
-        201601
-      ],
+      "raceInstanceId": [201601],
       "priority": 61,
       "groupId": 61,
       "type": "G2"
@@ -23618,9 +23495,7 @@
     {
       "id": 56,
       "name": "京都新闻杯",
-      "raceInstanceId": [
-        201701
-      ],
+      "raceInstanceId": [201701],
       "priority": 62,
       "groupId": 62,
       "type": "G2"
@@ -23628,9 +23503,7 @@
     {
       "id": 57,
       "name": "京王杯春季杯",
-      "raceInstanceId": [
-        201801
-      ],
+      "raceInstanceId": [201801],
       "priority": 63,
       "groupId": 63,
       "type": "G2"
@@ -23638,9 +23511,7 @@
     {
       "id": 58,
       "name": "目黑纪念",
-      "raceInstanceId": [
-        201901
-      ],
+      "raceInstanceId": [201901],
       "priority": 64,
       "groupId": 64,
       "type": "G2"
@@ -23648,9 +23519,7 @@
     {
       "id": 59,
       "name": "札幌纪念",
-      "raceInstanceId": [
-        202001
-      ],
+      "raceInstanceId": [202001],
       "priority": 65,
       "groupId": 65,
       "type": "G2"
@@ -23658,9 +23527,7 @@
     {
       "id": 60,
       "name": "人马锦标赛",
-      "raceInstanceId": [
-        202101
-      ],
+      "raceInstanceId": [202101],
       "priority": 66,
       "groupId": 66,
       "type": "G2"
@@ -23668,9 +23535,7 @@
     {
       "id": 61,
       "name": "玫瑰锦标赛",
-      "raceInstanceId": [
-        202201
-      ],
+      "raceInstanceId": [202201],
       "priority": 67,
       "groupId": 67,
       "type": "G2"
@@ -23678,9 +23543,7 @@
     {
       "id": 62,
       "name": "圣光纪念",
-      "raceInstanceId": [
-        202301
-      ],
+      "raceInstanceId": [202301],
       "priority": 68,
       "groupId": 68,
       "type": "G2"
@@ -23688,9 +23551,7 @@
     {
       "id": 63,
       "name": "神户新闻杯",
-      "raceInstanceId": [
-        202401
-      ],
+      "raceInstanceId": [202401],
       "priority": 69,
       "groupId": 69,
       "type": "G2"
@@ -23698,9 +23559,7 @@
     {
       "id": 64,
       "name": "全国邀请赛",
-      "raceInstanceId": [
-        202501
-      ],
+      "raceInstanceId": [202501],
       "priority": 70,
       "groupId": 70,
       "type": "G2"
@@ -23708,9 +23567,7 @@
     {
       "id": 65,
       "name": "每日王冠",
-      "raceInstanceId": [
-        202601
-      ],
+      "raceInstanceId": [202601],
       "priority": 71,
       "groupId": 71,
       "type": "G2"
@@ -23718,9 +23575,7 @@
     {
       "id": 66,
       "name": "京都大奖赛",
-      "raceInstanceId": [
-        202701
-      ],
+      "raceInstanceId": [202701],
       "priority": 72,
       "groupId": 72,
       "type": "G2"
@@ -23728,9 +23583,7 @@
     {
       "id": 67,
       "name": "府中优俊少女锦标赛",
-      "raceInstanceId": [
-        202801
-      ],
+      "raceInstanceId": [202801],
       "priority": 73,
       "groupId": 73,
       "type": "G2"
@@ -23738,9 +23591,7 @@
     {
       "id": 68,
       "name": "天鹅锦标赛",
-      "raceInstanceId": [
-        202901
-      ],
+      "raceInstanceId": [202901],
       "priority": 74,
       "groupId": 74,
       "type": "G2"
@@ -23748,9 +23599,7 @@
     {
       "id": 69,
       "name": "京王杯初级锦标赛",
-      "raceInstanceId": [
-        203001
-      ],
+      "raceInstanceId": [203001],
       "priority": 75,
       "groupId": 75,
       "type": "G2"
@@ -23758,9 +23607,7 @@
     {
       "id": 70,
       "name": "白银杯",
-      "raceInstanceId": [
-        203101
-      ],
+      "raceInstanceId": [203101],
       "priority": 76,
       "groupId": 76,
       "type": "G2"
@@ -23768,9 +23615,7 @@
     {
       "id": 71,
       "name": "每日杯初级锦标赛",
-      "raceInstanceId": [
-        203201
-      ],
+      "raceInstanceId": [203201],
       "priority": 77,
       "groupId": 77,
       "type": "G2"
@@ -23778,9 +23623,7 @@
     {
       "id": 72,
       "name": "长途锦标赛",
-      "raceInstanceId": [
-        203301
-      ],
+      "raceInstanceId": [203301],
       "priority": 78,
       "groupId": 78,
       "type": "G2"
@@ -23788,9 +23631,7 @@
     {
       "id": 73,
       "name": "阪神杯",
-      "raceInstanceId": [
-        203401
-      ],
+      "raceInstanceId": [203401],
       "priority": 79,
       "groupId": 79,
       "type": "G2"
@@ -23798,9 +23639,7 @@
     {
       "id": 74,
       "name": "京都金杯",
-      "raceInstanceId": [
-        300101
-      ],
+      "raceInstanceId": [300101],
       "priority": 80,
       "groupId": 80,
       "type": "G3"
@@ -23808,9 +23647,7 @@
     {
       "id": 75,
       "name": "中山金杯",
-      "raceInstanceId": [
-        300201
-      ],
+      "raceInstanceId": [300201],
       "priority": 81,
       "groupId": 81,
       "type": "G3"
@@ -23818,9 +23655,7 @@
     {
       "id": 76,
       "name": "新山纪念",
-      "raceInstanceId": [
-        300301
-      ],
+      "raceInstanceId": [300301],
       "priority": 82,
       "groupId": 82,
       "type": "G3"
@@ -23828,9 +23663,7 @@
     {
       "id": 77,
       "name": "精灵锦标赛",
-      "raceInstanceId": [
-        300401
-      ],
+      "raceInstanceId": [300401],
       "priority": 83,
       "groupId": 83,
       "type": "G3"
@@ -23838,9 +23671,7 @@
     {
       "id": 78,
       "name": "爱知杯",
-      "raceInstanceId": [
-        300501
-      ],
+      "raceInstanceId": [300501],
       "priority": 84,
       "groupId": 84,
       "type": "G3"
@@ -23848,9 +23679,7 @@
     {
       "id": 79,
       "name": "京成杯",
-      "raceInstanceId": [
-        300601
-      ],
+      "raceInstanceId": [300601],
       "priority": 85,
       "groupId": 85,
       "type": "G3"
@@ -23858,9 +23687,7 @@
     {
       "id": 80,
       "name": "丝绸之路锦标赛",
-      "raceInstanceId": [
-        300701
-      ],
+      "raceInstanceId": [300701],
       "priority": 86,
       "groupId": 86,
       "type": "G3"
@@ -23868,9 +23695,7 @@
     {
       "id": 81,
       "name": "根岸锦标赛",
-      "raceInstanceId": [
-        300801
-      ],
+      "raceInstanceId": [300801],
       "priority": 87,
       "groupId": 87,
       "type": "G3"
@@ -23878,9 +23703,7 @@
     {
       "id": 82,
       "name": "如月奖",
-      "raceInstanceId": [
-        300901
-      ],
+      "raceInstanceId": [300901],
       "priority": 88,
       "groupId": 88,
       "type": "G3"
@@ -23888,9 +23711,7 @@
     {
       "id": 83,
       "name": "东京新闻杯",
-      "raceInstanceId": [
-        301001
-      ],
+      "raceInstanceId": [301001],
       "priority": 89,
       "groupId": 89,
       "type": "G3"
@@ -23898,9 +23719,7 @@
     {
       "id": 84,
       "name": "女王杯",
-      "raceInstanceId": [
-        301101
-      ],
+      "raceInstanceId": [301101],
       "priority": 90,
       "groupId": 90,
       "type": "G3"
@@ -23908,9 +23727,7 @@
     {
       "id": 85,
       "name": "共同通信杯",
-      "raceInstanceId": [
-        301201
-      ],
+      "raceInstanceId": [301201],
       "priority": 91,
       "groupId": 91,
       "type": "G3"
@@ -23918,9 +23735,7 @@
     {
       "id": 86,
       "name": "京都优俊少女锦标赛",
-      "raceInstanceId": [
-        301301
-      ],
+      "raceInstanceId": [301301],
       "priority": 92,
       "groupId": 92,
       "type": "G3"
@@ -23928,9 +23743,7 @@
     {
       "id": 87,
       "name": "钻石锦标赛",
-      "raceInstanceId": [
-        301401
-      ],
+      "raceInstanceId": [301401],
       "priority": 93,
       "groupId": 93,
       "type": "G3"
@@ -23938,9 +23751,7 @@
     {
       "id": 88,
       "name": "小仓大奖赛",
-      "raceInstanceId": [
-        301501
-      ],
+      "raceInstanceId": [301501],
       "priority": 94,
       "groupId": 94,
       "type": "G3"
@@ -23948,9 +23759,7 @@
     {
       "id": 89,
       "name": "阿灵顿杯",
-      "raceInstanceId": [
-        301601
-      ],
+      "raceInstanceId": [301601],
       "priority": 95,
       "groupId": 95,
       "type": "G3"
@@ -23958,9 +23767,7 @@
     {
       "id": 90,
       "name": "阪急杯",
-      "raceInstanceId": [
-        301701
-      ],
+      "raceInstanceId": [301701],
       "priority": 96,
       "groupId": 96,
       "type": "G3"
@@ -23968,9 +23775,7 @@
     {
       "id": 91,
       "name": "郁金香奖",
-      "raceInstanceId": [
-        301801
-      ],
+      "raceInstanceId": [301801],
       "priority": 97,
       "groupId": 97,
       "type": "G2"
@@ -23978,9 +23783,7 @@
     {
       "id": 92,
       "name": "海洋锦标赛",
-      "raceInstanceId": [
-        301901
-      ],
+      "raceInstanceId": [301901],
       "priority": 98,
       "groupId": 98,
       "type": "G3"
@@ -23988,9 +23791,7 @@
     {
       "id": 93,
       "name": "中山优俊少女锦标赛",
-      "raceInstanceId": [
-        302001
-      ],
+      "raceInstanceId": [302001],
       "priority": 99,
       "groupId": 99,
       "type": "G3"
@@ -23998,9 +23799,7 @@
     {
       "id": 94,
       "name": "游隼锦标赛",
-      "raceInstanceId": [
-        302101
-      ],
+      "raceInstanceId": [302101],
       "priority": 100,
       "groupId": 100,
       "type": "G3"
@@ -24008,9 +23807,7 @@
     {
       "id": 95,
       "name": "百花杯",
-      "raceInstanceId": [
-        302201
-      ],
+      "raceInstanceId": [302201],
       "priority": 101,
       "groupId": 101,
       "type": "G3"
@@ -24018,9 +23815,7 @@
     {
       "id": 96,
       "name": "每日杯",
-      "raceInstanceId": [
-        302301
-      ],
+      "raceInstanceId": [302301],
       "priority": 102,
       "groupId": 102,
       "type": "G3"
@@ -24028,9 +23823,7 @@
     {
       "id": 97,
       "name": "三月锦标赛",
-      "raceInstanceId": [
-        302401
-      ],
+      "raceInstanceId": [302401],
       "priority": 103,
       "groupId": 103,
       "type": "G3"
@@ -24038,9 +23831,7 @@
     {
       "id": 98,
       "name": "德比伯爵挑战赛",
-      "raceInstanceId": [
-        302501
-      ],
+      "raceInstanceId": [302501],
       "priority": 104,
       "groupId": 104,
       "type": "G3"
@@ -24048,9 +23839,7 @@
     {
       "id": 99,
       "name": "心宿二锦标赛",
-      "raceInstanceId": [
-        302601
-      ],
+      "raceInstanceId": [302601],
       "priority": 105,
       "groupId": 105,
       "type": "G3"
@@ -24058,9 +23847,7 @@
     {
       "id": 100,
       "name": "松浪优俊少女锦标赛",
-      "raceInstanceId": [
-        302701
-      ],
+      "raceInstanceId": [302701],
       "priority": 106,
       "groupId": 106,
       "type": "G3"
@@ -24068,9 +23855,7 @@
     {
       "id": 101,
       "name": "新潟大奖赛",
-      "raceInstanceId": [
-        302801
-      ],
+      "raceInstanceId": [302801],
       "priority": 107,
       "groupId": 107,
       "type": "G3"
@@ -24078,9 +23863,7 @@
     {
       "id": 102,
       "name": "平安锦标赛",
-      "raceInstanceId": [
-        302901
-      ],
+      "raceInstanceId": [302901],
       "priority": 108,
       "groupId": 108,
       "type": "G3"
@@ -24088,9 +23871,7 @@
     {
       "id": 103,
       "name": "鸣尾纪念",
-      "raceInstanceId": [
-        303001
-      ],
+      "raceInstanceId": [303001],
       "priority": 110,
       "groupId": 110,
       "type": "G3"
@@ -24098,9 +23879,7 @@
     {
       "id": 104,
       "name": "人鱼锦标赛",
-      "raceInstanceId": [
-        303101
-      ],
+      "raceInstanceId": [303101],
       "priority": 111,
       "groupId": 111,
       "type": "G3"
@@ -24108,9 +23887,7 @@
     {
       "id": 105,
       "name": "叶森杯",
-      "raceInstanceId": [
-        303201
-      ],
+      "raceInstanceId": [303201],
       "priority": 112,
       "groupId": 112,
       "type": "G3"
@@ -24118,9 +23895,7 @@
     {
       "id": 106,
       "name": "独角兽锦标赛",
-      "raceInstanceId": [
-        303301
-      ],
+      "raceInstanceId": [303301],
       "priority": 113,
       "groupId": 113,
       "type": "G3"
@@ -24128,9 +23903,7 @@
     {
       "id": 107,
       "name": "函馆短途锦标赛",
-      "raceInstanceId": [
-        303401
-      ],
+      "raceInstanceId": [303401],
       "priority": 114,
       "groupId": 114,
       "type": "G3"
@@ -24138,9 +23911,7 @@
     {
       "id": 108,
       "name": "中部广播奖",
-      "raceInstanceId": [
-        303501
-      ],
+      "raceInstanceId": [303501],
       "priority": 115,
       "groupId": 115,
       "type": "G3"
@@ -24148,9 +23919,7 @@
     {
       "id": 109,
       "name": "日经广播奖",
-      "raceInstanceId": [
-        303601
-      ],
+      "raceInstanceId": [303601],
       "priority": 116,
       "groupId": 116,
       "type": "G3"
@@ -24158,9 +23927,7 @@
     {
       "id": 110,
       "name": "南河三锦标赛",
-      "raceInstanceId": [
-        303701
-      ],
+      "raceInstanceId": [303701],
       "priority": 117,
       "groupId": 117,
       "type": "G3"
@@ -24168,9 +23935,7 @@
     {
       "id": 111,
       "name": "七夕奖",
-      "raceInstanceId": [
-        303801
-      ],
+      "raceInstanceId": [303801],
       "priority": 118,
       "groupId": 118,
       "type": "G3"
@@ -24178,9 +23943,7 @@
     {
       "id": 112,
       "name": "函馆纪念",
-      "raceInstanceId": [
-        303901
-      ],
+      "raceInstanceId": [303901],
       "priority": 119,
       "groupId": 119,
       "type": "G3"
@@ -24188,9 +23951,7 @@
     {
       "id": 113,
       "name": "中京纪念",
-      "raceInstanceId": [
-        304001
-      ],
+      "raceInstanceId": [304001],
       "priority": 120,
       "groupId": 120,
       "type": "G3"
@@ -24198,9 +23959,7 @@
     {
       "id": 114,
       "name": "函馆初级锦标赛",
-      "raceInstanceId": [
-        304101
-      ],
+      "raceInstanceId": [304101],
       "priority": 121,
       "groupId": 121,
       "type": "G3"
@@ -24208,9 +23967,7 @@
     {
       "id": 115,
       "name": "朱鹭夏季冲刺赛",
-      "raceInstanceId": [
-        304201
-      ],
+      "raceInstanceId": [304201],
       "priority": 122,
       "groupId": 122,
       "type": "G3"
@@ -24218,9 +23975,7 @@
     {
       "id": 116,
       "name": "皇后锦标赛",
-      "raceInstanceId": [
-        304301
-      ],
+      "raceInstanceId": [304301],
       "priority": 123,
       "groupId": 123,
       "type": "G3"
@@ -24228,9 +23983,7 @@
     {
       "id": 117,
       "name": "小仓纪念",
-      "raceInstanceId": [
-        304401
-      ],
+      "raceInstanceId": [304401],
       "priority": 124,
       "groupId": 124,
       "type": "G3"
@@ -24238,9 +23991,7 @@
     {
       "id": 118,
       "name": "猎豹锦标赛",
-      "raceInstanceId": [
-        304501
-      ],
+      "raceInstanceId": [304501],
       "priority": 125,
       "groupId": 125,
       "type": "G3"
@@ -24248,9 +23999,7 @@
     {
       "id": 119,
       "name": "关屋纪念",
-      "raceInstanceId": [
-        304601
-      ],
+      "raceInstanceId": [304601],
       "priority": 126,
       "groupId": 126,
       "type": "G3"
@@ -24258,9 +24007,7 @@
     {
       "id": 120,
       "name": "榆木锦标赛",
-      "raceInstanceId": [
-        304701
-      ],
+      "raceInstanceId": [304701],
       "priority": 127,
       "groupId": 127,
       "type": "G3"
@@ -24268,9 +24015,7 @@
     {
       "id": 121,
       "name": "北九州纪念",
-      "raceInstanceId": [
-        304801
-      ],
+      "raceInstanceId": [304801],
       "priority": 128,
       "groupId": 128,
       "type": "G3"
@@ -24278,9 +24023,7 @@
     {
       "id": 122,
       "name": "新潟初级锦标赛",
-      "raceInstanceId": [
-        304901
-      ],
+      "raceInstanceId": [304901],
       "priority": 129,
       "groupId": 129,
       "type": "G3"
@@ -24288,9 +24031,7 @@
     {
       "id": 123,
       "name": "科尼杯",
-      "raceInstanceId": [
-        305001
-      ],
+      "raceInstanceId": [305001],
       "priority": 130,
       "groupId": 130,
       "type": "G3"
@@ -24298,9 +24039,7 @@
     {
       "id": 124,
       "name": "札幌初级锦标赛",
-      "raceInstanceId": [
-        305101
-      ],
+      "raceInstanceId": [305101],
       "priority": 131,
       "groupId": 131,
       "type": "G3"
@@ -24308,9 +24047,7 @@
     {
       "id": 125,
       "name": "小仓初级锦标赛",
-      "raceInstanceId": [
-        305201
-      ],
+      "raceInstanceId": [305201],
       "priority": 132,
       "groupId": 132,
       "type": "G3"
@@ -24318,9 +24055,7 @@
     {
       "id": 126,
       "name": "新潟纪念",
-      "raceInstanceId": [
-        305301
-      ],
+      "raceInstanceId": [305301],
       "priority": 133,
       "groupId": 133,
       "type": "G3"
@@ -24328,9 +24063,7 @@
     {
       "id": 127,
       "name": "紫苑锦标赛",
-      "raceInstanceId": [
-        305401
-      ],
+      "raceInstanceId": [305401],
       "priority": 134,
       "groupId": 134,
       "type": "G3"
@@ -24338,9 +24071,7 @@
     {
       "id": 128,
       "name": "京成杯秋季让磅赛",
-      "raceInstanceId": [
-        305501
-      ],
+      "raceInstanceId": [305501],
       "priority": 135,
       "groupId": 135,
       "type": "G3"
@@ -24348,9 +24079,7 @@
     {
       "id": 129,
       "name": "天狼星锦标赛",
-      "raceInstanceId": [
-        305601
-      ],
+      "raceInstanceId": [305601],
       "priority": 136,
       "groupId": 136,
       "type": "G3"
@@ -24358,9 +24087,7 @@
     {
       "id": 130,
       "name": "沙漠皇家杯",
-      "raceInstanceId": [
-        305701
-      ],
+      "raceInstanceId": [305701],
       "priority": 137,
       "groupId": 137,
       "type": "G3"
@@ -24368,9 +24095,7 @@
     {
       "id": 131,
       "name": "富士锦标赛",
-      "raceInstanceId": [
-        305801
-      ],
+      "raceInstanceId": [305801],
       "priority": 138,
       "groupId": 138,
       "type": "G2"
@@ -24378,9 +24103,7 @@
     {
       "id": 132,
       "name": "阿耳忒弥斯锦标赛",
-      "raceInstanceId": [
-        305901
-      ],
+      "raceInstanceId": [305901],
       "priority": 139,
       "groupId": 139,
       "type": "G3"
@@ -24388,9 +24111,7 @@
     {
       "id": 133,
       "name": "幻想锦标赛",
-      "raceInstanceId": [
-        306001
-      ],
+      "raceInstanceId": [306001],
       "priority": 140,
       "groupId": 140,
       "type": "G3"
@@ -24398,9 +24119,7 @@
     {
       "id": 134,
       "name": "都城锦标赛",
-      "raceInstanceId": [
-        306101
-      ],
+      "raceInstanceId": [306101],
       "priority": 141,
       "groupId": 141,
       "type": "G3"
@@ -24408,9 +24127,7 @@
     {
       "id": 135,
       "name": "武藏野锦标赛",
-      "raceInstanceId": [
-        306201
-      ],
+      "raceInstanceId": [306201],
       "priority": 142,
       "groupId": 142,
       "type": "G3"
@@ -24418,9 +24135,7 @@
     {
       "id": 136,
       "name": "松浪纪念",
-      "raceInstanceId": [
-        306301
-      ],
+      "raceInstanceId": [306301],
       "priority": 143,
       "groupId": 143,
       "type": "G3"
@@ -24428,9 +24143,7 @@
     {
       "id": 137,
       "name": "体育杯初级锦标赛",
-      "raceInstanceId": [
-        306401
-      ],
+      "raceInstanceId": [306401],
       "priority": 144,
       "groupId": 144,
       "type": "G3"
@@ -24438,9 +24151,7 @@
     {
       "id": 138,
       "name": "京都初级锦标赛",
-      "raceInstanceId": [
-        306501
-      ],
+      "raceInstanceId": [306501],
       "priority": 145,
       "groupId": 145,
       "type": "G3"
@@ -24448,9 +24159,7 @@
     {
       "id": 139,
       "name": "京阪杯",
-      "raceInstanceId": [
-        306601
-      ],
+      "raceInstanceId": [306601],
       "priority": 146,
       "groupId": 146,
       "type": "G3"
@@ -24458,9 +24167,7 @@
     {
       "id": 140,
       "name": "挑战杯",
-      "raceInstanceId": [
-        306701
-      ],
+      "raceInstanceId": [306701],
       "priority": 147,
       "groupId": 147,
       "type": "G3"
@@ -24468,9 +24175,7 @@
     {
       "id": 141,
       "name": "中日新闻杯",
-      "raceInstanceId": [
-        306801
-      ],
+      "raceInstanceId": [306801],
       "priority": 148,
       "groupId": 148,
       "type": "G3"
@@ -24478,9 +24183,7 @@
     {
       "id": 142,
       "name": "五车二锦标赛",
-      "raceInstanceId": [
-        306901
-      ],
+      "raceInstanceId": [306901],
       "priority": 149,
       "groupId": 149,
       "type": "G3"
@@ -24488,9 +24191,7 @@
     {
       "id": 143,
       "name": "绿松石锦标赛",
-      "raceInstanceId": [
-        307001
-      ],
+      "raceInstanceId": [307001],
       "priority": 150,
       "groupId": 150,
       "type": "G3"
@@ -24498,11 +24199,7 @@
     {
       "id": 144,
       "name": "经典三冠",
-      "raceInstanceId": [
-        100501,
-        101001,
-        102601
-      ],
+      "raceInstanceId": [100501, 101001, 102601],
       "priority": 2,
       "groupId": 1,
       "type": "SPECIAL"
@@ -24510,11 +24207,7 @@
     {
       "id": 145,
       "name": "春季高级三冠",
-      "raceInstanceId": [
-        100301,
-        100601,
-        102501
-      ],
+      "raceInstanceId": [100301, 100601, 102501],
       "priority": 6,
       "groupId": 5,
       "type": "SPECIAL"
@@ -24522,10 +24215,7 @@
     {
       "id": 146,
       "name": "春秋大奖赛",
-      "raceInstanceId": [
-        102501,
-        102301
-      ],
+      "raceInstanceId": [102501, 102301],
       "priority": 9,
       "groupId": 8,
       "type": "SPECIAL"
@@ -24533,9 +24223,7 @@
     {
       "id": 147,
       "name": "宝冢纪念",
-      "raceInstanceId": [
-        102501
-      ],
+      "raceInstanceId": [102501],
       "priority": 18,
       "groupId": 24,
       "type": "G1"
@@ -24543,9 +24231,7 @@
     {
       "id": 148,
       "name": "菊花奖",
-      "raceInstanceId": [
-        102601
-      ],
+      "raceInstanceId": [102601],
       "priority": 21,
       "groupId": 28,
       "type": "G1"
@@ -24553,9 +24239,7 @@
     {
       "id": 149,
       "name": "春季锦标赛",
-      "raceInstanceId": [
-        203501
-      ],
+      "raceInstanceId": [203501],
       "priority": 55,
       "groupId": 54,
       "type": "G2"
@@ -24563,9 +24247,7 @@
     {
       "id": 150,
       "name": "葵锦标赛",
-      "raceInstanceId": [
-        405001
-      ],
+      "raceInstanceId": [405001],
       "priority": 109,
       "groupId": 109,
       "type": "G3"
@@ -24573,11 +24255,7 @@
     {
       "id": 151,
       "name": "春季高级三冠",
-      "raceInstanceId": [
-        100301,
-        102701,
-        101201
-      ],
+      "raceInstanceId": [100301, 102701, 101201],
       "priority": 6,
       "groupId": 5,
       "type": "SPECIAL"
@@ -24585,10 +24263,7 @@
     {
       "id": 152,
       "name": "天王奖春秋连霸",
-      "raceInstanceId": [
-        102701,
-        101601
-      ],
+      "raceInstanceId": [102701, 101601],
       "priority": 7,
       "groupId": 7,
       "type": "SPECIAL"
@@ -24596,9 +24271,7 @@
     {
       "id": 153,
       "name": "天王奖（春）",
-      "raceInstanceId": [
-        102701
-      ],
+      "raceInstanceId": [102701],
       "priority": 16,
       "groupId": 18,
       "type": "G1"
@@ -24606,11 +24279,7 @@
     {
       "id": 154,
       "name": "经典三冠",
-      "raceInstanceId": [
-        102801,
-        101001,
-        101501
-      ],
+      "raceInstanceId": [102801, 101001, 101501],
       "priority": 2,
       "groupId": 1,
       "type": "SPECIAL"
@@ -24618,9 +24287,7 @@
     {
       "id": 155,
       "name": "皋月奖",
-      "raceInstanceId": [
-        102801
-      ],
+      "raceInstanceId": [102801],
       "priority": 23,
       "groupId": 17,
       "type": "G1"
@@ -24631,31 +24298,19 @@
       "raceInstanceId": 102501,
       "programGroup": 101,
       "racePermission": "SENIOR_AFTER",
-      "charaId": [
-        1013,
-        1027,
-        1030,
-        1031
-      ]
+      "charaId": [1013, 1027, 1030, 1031]
     },
     {
       "raceInstanceId": 102701,
       "programGroup": 401,
       "racePermission": "SENIOR_AFTER",
-      "charaId": [
-        1050,
-        1023
-      ]
+      "charaId": [1050, 1023]
     },
     {
       "raceInstanceId": 102801,
       "programGroup": 901,
       "racePermission": "CLASSIC_ONLY",
-      "charaId": [
-        1069,
-        1071,
-        1072
-      ]
+      "charaId": [1069, 1071, 1072]
     }
   ],
   "skill": [
@@ -24663,5337 +24318,3631 @@
       "id": 10071,
       "name": "小心波澜炮！",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10081,
       "name": "加速装置X",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10091,
       "name": "赤色王牌",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 10111,
       "name": "精诚所至",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10141,
       "name": "热血☆挚友",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 10181,
       "name": "女帝的骄傲",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10241,
       "name": "胜利之吻☆",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 10271,
       "name": "燃烧吧肌肉！",
       "gradeValue": 240,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 10321,
       "name": "introduction：My body",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 10351,
       "name": "全力的胜利手势！",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10411,
       "name": "班长+速度=前进",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10451,
       "name": "纯净之心",
       "gradeValue": 240,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 10521,
       "name": "满怀期待地起跑吧",
       "gradeValue": 240,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 10561,
       "name": "快点来啊快点来啊！",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 10601,
       "name": "人家偶尔也是可以的，对吧？",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10611,
       "name": "Call me KING",
       "gradeValue": 240,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 10621,
       "name": "预备，咚！",
       "gradeValue": 240,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 100011,
       "name": "璀璨流星",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100021,
       "name": "决不让出领头的景色……！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100031,
       "name": "究极帝王舞步",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100041,
       "name": "红焰档/LP1211-M",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100051,
       "name": "群星闪耀之演剧",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100061,
       "name": "胜利的鼓动",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100071,
       "name": "不沉之舰，拔锚起航！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100081,
       "name": "凌厉×DRIVE！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100091,
       "name": "闪耀的赤色王牌",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100101,
       "name": "胜利射击！",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100111,
       "name": "精诚所至，金石为开",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100121,
       "name": "单挑！并驾齐驱！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100131,
       "name": "为了完成高贵的使命",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100141,
       "name": "胜利者☆飞扑",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100151,
       "name": "献给维多利亚的舞蹈",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100161,
       "name": "Shadow Break",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100171,
       "name": "汝等，瞻仰皇帝的神威吧",
       "gradeValue": 340,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 100181,
       "name": "骄傲之焰",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100191,
       "name": "神圣☆最后冲—(ﾟ∀ﾟ)—刺！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100201,
       "name": "愿者上钩",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100211,
       "name": "让你们见识一下白色闪电！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100221,
       "name": "Fairy tale",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100231,
       "name": "∴win Q.E.D.",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100241,
       "name": "闪光☆着陆",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100251,
       "name": "追寻你的背影",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100261,
       "name": "G00 1st.F∞；",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100271,
       "name": "成长吧肌肉！",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100281,
       "name": "I'M☆FULL☆SPEED！！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100301,
       "name": "蓝玫瑰猎人",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100311,
       "name": "充能完毕！全速前进！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100321,
       "name": "U=ma²",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 100331,
       "name": "双生流星",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100341,
       "name": "要飞奔吗，要飞奔吧！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100351,
       "name": "为你奉上，胜利之券！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100361,
       "name": "trigger：BEAT",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100371,
       "name": "Schwarzes Schwert",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100381,
       "name": "#LookatCurren",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100391,
       "name": "身为公主，亲手拿下胜利",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100401,
       "name": "KEEP IT REAL.",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100411,
       "name": "优等生×前进＝大胜利",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100441,
       "name": "拿下胜利☆Strelitzia！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100451,
       "name": "纯粹之心",
       "gradeValue": 340,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 100461,
       "name": "闪耀☆STARDOM",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100481,
       "name": "YEAH☆VIVID TIME！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100501,
       "name": "Nemesis",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100511,
       "name": "蓓蕾绽放之时",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100521,
       "name": "满怀期待地迎来最高潮",
       "gradeValue": 340,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 100561,
       "name": "快来了要来了让它来吧！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100581,
       "name": "I Never Goof Up！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100591,
       "name": "向着，更远的地方……",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 100601,
       "name": "一定能更进一步……！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100611,
       "name": "Pride of KING",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100621,
       "name": "咚！啪！加油！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 100641,
       "name": "绝尘之路",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 100671,
       "name": "照亮阴霾的永世辉耀",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100681,
       "name": "胜利凯歌，嘿呦！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 100691,
       "name": "超越樱花的憧憬！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100711,
       "name": "毕生之梦，刹那翱翔",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100721,
       "name": "烈火缭乱，无敌之舞",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 100741,
       "name": "美丽优雅的花信风",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110011,
       "name": "激萌♪海中潜游",
       "gradeValue": 340,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 110031,
       "name": "绝对是我赢",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110041,
       "name": "心头一击♪啾",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110051,
       "name": "Ravissant",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110061,
       "name": "圣诞夜的奇迹飞驰！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "402",
-        "403"
-      ]
+      "tagId": ["401", "402", "403"]
     },
     {
       "id": 110101,
       "name": "Joyful Voyage！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110111,
       "name": "强效治愈术·高级",
       "gradeValue": 340,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 110131,
       "name": "赌上最强之名",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110141,
       "name": "神鹰猛击波",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 110151,
       "name": "赐福船歌",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110171,
       "name": "拨云见月鸣镝箭",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110181,
       "name": "熏风，予以永恒的瞬间",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110201,
       "name": "Do Ya Breakin！",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110221,
       "name": "Best day ever",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110231,
       "name": "Presents from X",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110241,
       "name": "绚丽☆演习",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110261,
       "name": "行动·Cacao",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 110301,
       "name": "Drain for rose",
       "gradeValue": 340,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 110371,
       "name": "Guten Appetit♪",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110381,
       "name": "One True Color",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110401,
       "name": "GET DOWN",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110451,
       "name": "绕圈圈木乃伊戏法♡",
       "gradeValue": 340,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 110521,
       "name": "113跌114起",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110561,
       "name": "禾乃登",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110591,
       "name": "奔向那令人心动的前方",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110601,
       "name": "Go☆Go☆for it！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 110611,
       "name": "震天高呼！特雷森后援团！！",
       "gradeValue": 340,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 120011,
       "name": "威风堂堂，锦绣逐梦！",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200011,
       "name": "顺时针◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200012,
       "name": "顺时针○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200013,
       "name": "顺时针×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200014,
       "name": "顺时针恶煞",
       "gradeValue": 461,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 200021,
       "name": "逆时针◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200022,
       "name": "逆时针○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200023,
       "name": "逆时针×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200031,
       "name": "东京赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200032,
       "name": "东京赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200033,
       "name": "东京赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200041,
       "name": "中山赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200042,
       "name": "中山赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200043,
       "name": "中山赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200051,
       "name": "阪神赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200052,
       "name": "阪神赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200053,
       "name": "阪神赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200061,
       "name": "京都赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200062,
       "name": "京都赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200063,
       "name": "京都赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200064,
       "name": "淀之奇才",
       "gradeValue": 461,
-      "tagId": [
-        "402",
-        "405"
-      ]
+      "tagId": ["402", "405"]
     },
     {
       "id": 200071,
       "name": "中京赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200072,
       "name": "中京赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200073,
       "name": "中京赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200081,
       "name": "札幌赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200082,
       "name": "札幌赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200083,
       "name": "札幌赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200091,
       "name": "函馆赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200092,
       "name": "函馆赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200093,
       "name": "函馆赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200101,
       "name": "松浪赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200102,
       "name": "松浪赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200103,
       "name": "松浪赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200111,
       "name": "新潟赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200112,
       "name": "新潟赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200113,
       "name": "新潟赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200121,
       "name": "小仓赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200122,
       "name": "小仓赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200123,
       "name": "小仓赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200131,
       "name": "标准距离◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200132,
       "name": "标准距离○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200133,
       "name": "标准距离×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200141,
       "name": "非标准距离◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200142,
       "name": "非标准距离○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200143,
       "name": "非标准距离×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200151,
       "name": "良场地◎",
       "gradeValue": 174,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200152,
       "name": "良场地○",
       "gradeValue": 129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200153,
       "name": "良场地×",
       "gradeValue": -129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200154,
       "name": "良场地恶煞",
       "gradeValue": 461,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 200161,
       "name": "路况不佳◎",
       "gradeValue": 174,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200162,
       "name": "路况不佳○",
       "gradeValue": 129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200163,
       "name": "路况不佳×",
       "gradeValue": -129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200171,
       "name": "春季优俊少女◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200172,
       "name": "春季优俊少女○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200173,
       "name": "春季优俊少女×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200174,
       "name": "春初暖风",
       "gradeValue": 461,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 200181,
       "name": "夏季优俊少女◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200182,
       "name": "夏季优俊少女○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200183,
       "name": "夏季优俊少女×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200191,
       "name": "秋季优俊少女◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200192,
       "name": "秋季优俊少女○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200193,
       "name": "秋季优俊少女×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200194,
       "name": "秋初强风",
       "gradeValue": 461,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 200201,
       "name": "冬季优俊少女◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200202,
       "name": "冬季优俊少女○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200203,
       "name": "冬季优俊少女×",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200211,
       "name": "晴天◎",
       "gradeValue": 174,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200212,
       "name": "晴天○",
       "gradeValue": 129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200221,
       "name": "阴天◎",
       "gradeValue": 174,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200222,
       "name": "阴天○",
       "gradeValue": 129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200231,
       "name": "雨天◎",
       "gradeValue": 174,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200232,
       "name": "雨天○",
       "gradeValue": 129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200233,
       "name": "雨天×",
       "gradeValue": -129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200241,
       "name": "雪天◎",
       "gradeValue": 174,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200242,
       "name": "雪天○",
       "gradeValue": 129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200251,
       "name": "擅长内道◎",
       "gradeValue": 174,
-      "tagId": [
-        "405"
-      ]
+      "tagId": ["405"]
     },
     {
       "id": 200252,
       "name": "擅长内道○",
       "gradeValue": 129,
-      "tagId": [
-        "405"
-      ]
+      "tagId": ["405"]
     },
     {
       "id": 200253,
       "name": "不擅长内道",
       "gradeValue": -129,
-      "tagId": [
-        "405"
-      ]
+      "tagId": ["405"]
     },
     {
       "id": 200261,
       "name": "擅长外道◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200262,
       "name": "擅长外道○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200263,
       "name": "不擅长外道",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200271,
       "name": "独行侠◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200272,
       "name": "独行侠○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200281,
       "name": "对抗意识◎",
       "gradeValue": 174,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200282,
       "name": "对抗意识○",
       "gradeValue": 129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200283,
       "name": "畏缩不前",
       "gradeValue": -129,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200291,
       "name": "彻底盯紧◎",
       "gradeValue": 174,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200292,
       "name": "彻底盯紧○",
       "gradeValue": 129,
-      "tagId": [
-        "404"
-      ]
+      "tagId": ["404"]
     },
     {
       "id": 200301,
       "name": "伏兵◎",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200302,
       "name": "伏兵○",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200311,
       "name": "不擅长一级赛事",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200321,
       "name": "胆小鬼",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200331,
       "name": "弧线大师",
       "gradeValue": 508,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200332,
       "name": "弯道能手○",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200333,
       "name": "弯道能手×",
       "gradeValue": -262,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200341,
       "name": "曲线行家",
       "gradeValue": 508,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200342,
       "name": "弯道加速○",
       "gradeValue": 217,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200343,
       "name": "弯道加速×",
       "gradeValue": -262,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200351,
       "name": "圆弧艺术家",
       "gradeValue": 508,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200352,
       "name": "弯道恢复○",
       "gradeValue": 217,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200353,
       "name": "弯道恢复×",
       "gradeValue": -262,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200361,
       "name": "迅疾如风",
       "gradeValue": 508,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200362,
       "name": "直线能手",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200371,
       "name": "一阵狂风",
       "gradeValue": 508,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200372,
       "name": "直线加速",
       "gradeValue": 217,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 200381,
       "name": "喘口气",
       "gradeValue": 508,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200382,
       "name": "直线恢复",
       "gradeValue": 217,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200391,
       "name": "不擅长坡道",
       "gradeValue": -262,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200401,
       "name": "厌恶队伍",
       "gradeValue": -262,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200411,
       "name": "容易放弃",
       "gradeValue": -262,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200421,
       "name": "容易大意",
       "gradeValue": -262,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 200431,
       "name": "专心一意",
       "gradeValue": 394,
-      "tagId": [
-        "301",
-        "407"
-      ]
+      "tagId": ["301", "407"]
     },
     {
       "id": 200432,
       "name": "专注力",
       "gradeValue": 129,
-      "tagId": [
-        "301",
-        "407"
-      ]
+      "tagId": ["301", "407"]
     },
     {
       "id": 200433,
       "name": "起跑困难",
       "gradeValue": -174,
-      "tagId": [
-        "301",
-        "407"
-      ]
+      "tagId": ["301", "407"]
     },
     {
       "id": 200441,
       "name": "钢铁意志",
       "gradeValue": 508,
-      "tagId": [
-        "301",
-        "302",
-        "402"
-      ]
+      "tagId": ["301", "302", "402"]
     },
     {
       "id": 200442,
       "name": "隐身衣",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "302",
-        "402"
-      ]
+      "tagId": ["301", "302", "402"]
     },
     {
       "id": 200451,
       "name": "人气舞娘",
       "gradeValue": 334,
-      "tagId": [
-        "301",
-        "403"
-      ]
+      "tagId": ["301", "403"]
     },
     {
       "id": 200452,
       "name": "位置感",
       "gradeValue": 129,
-      "tagId": [
-        "301",
-        "403"
-      ]
+      "tagId": ["301", "403"]
     },
     {
       "id": 200461,
       "name": "兴奋起来了！",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "401"
-      ]
+      "tagId": ["302", "401"]
     },
     {
       "id": 200462,
       "name": "加快步伐",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "401"
-      ]
+      "tagId": ["302", "401"]
     },
     {
       "id": 200471,
       "name": "不屈之心",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "402"
-      ]
+      "tagId": ["302", "402"]
     },
     {
       "id": 200472,
       "name": "保持步伐",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "402"
-      ]
+      "tagId": ["302", "402"]
     },
     {
       "id": 200481,
       "name": "耳边风",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "402"
-      ]
+      "tagId": ["302", "402"]
     },
     {
       "id": 200482,
       "name": "临危不乱",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "402"
-      ]
+      "tagId": ["302", "402"]
     },
     {
       "id": 200491,
       "name": "不停步的女孩",
       "gradeValue": 394,
-      "tagId": [
-        "303",
-        "403"
-      ]
+      "tagId": ["303", "403"]
     },
     {
       "id": 200492,
       "name": "回避失速优俊少女",
       "gradeValue": 174,
-      "tagId": [
-        "303",
-        "403"
-      ]
+      "tagId": ["303", "403"]
     },
     {
       "id": 200501,
       "name": "赛道的魔术师",
       "gradeValue": 334,
-      "tagId": [
-        "303",
-        "403"
-      ]
+      "tagId": ["303", "403"]
     },
     {
       "id": 200502,
       "name": "临机应变",
       "gradeValue": 129,
-      "tagId": [
-        "303",
-        "403"
-      ]
+      "tagId": ["303", "403"]
     },
     {
       "id": 200511,
       "name": "全神贯注",
       "gradeValue": 508,
-      "tagId": [
-        "303",
-        "401"
-      ]
+      "tagId": ["303", "401"]
     },
     {
       "id": 200512,
       "name": "最后冲刺",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "401"
-      ]
+      "tagId": ["303", "401"]
     },
     {
       "id": 200521,
       "name": "竹篮打水",
       "gradeValue": -262,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200531,
       "name": "先发制人",
       "gradeValue": 334,
-      "tagId": [
-        "101",
-        "301",
-        "403"
-      ]
+      "tagId": ["101", "301", "403"]
     },
     {
       "id": 200532,
       "name": "抢先",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "301",
-        "403"
-      ]
+      "tagId": ["101", "301", "403"]
     },
     {
       "id": 200541,
       "name": "逃脱术",
       "gradeValue": 508,
-      "tagId": [
-        "101",
-        "302",
-        "401"
-      ]
+      "tagId": ["101", "302", "401"]
     },
     {
       "id": 200542,
       "name": "疾步",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "302",
-        "401"
-      ]
+      "tagId": ["101", "302", "401"]
     },
     {
       "id": 200551,
       "name": "逃亡者",
       "gradeValue": 508,
-      "tagId": [
-        "101",
-        "303",
-        "403"
-      ]
+      "tagId": ["101", "303", "403"]
     },
     {
       "id": 200552,
       "name": "准备压制",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "303",
-        "403"
-      ]
+      "tagId": ["101", "303", "403"]
     },
     {
       "id": 200561,
       "name": "游刃有余",
       "gradeValue": 508,
-      "tagId": [
-        "102",
-        "301",
-        "402"
-      ]
+      "tagId": ["102", "301", "402"]
     },
     {
       "id": 200562,
       "name": "保留体力",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "301",
-        "402"
-      ]
+      "tagId": ["102", "301", "402"]
     },
     {
       "id": 200571,
       "name": "比赛策略家",
       "gradeValue": 508,
-      "tagId": [
-        "102",
-        "302",
-        "402"
-      ]
+      "tagId": ["102", "302", "402"]
     },
     {
       "id": 200572,
       "name": "稳步紧追",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "302",
-        "402"
-      ]
+      "tagId": ["102", "302", "402"]
     },
     {
       "id": 200581,
       "name": "速度之星",
       "gradeValue": 508,
-      "tagId": [
-        "102",
-        "303",
-        "401"
-      ]
+      "tagId": ["102", "303", "401"]
     },
     {
       "id": 200582,
       "name": "准备突围",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "303",
-        "401"
-      ]
+      "tagId": ["102", "303", "401"]
     },
     {
       "id": 200591,
       "name": "迅速果断",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "302",
-        "401"
-      ]
+      "tagId": ["103", "302", "401"]
     },
     {
       "id": 200592,
       "name": "向前抢位",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "302",
-        "401"
-      ]
+      "tagId": ["103", "302", "401"]
     },
     {
       "id": 200601,
       "name": "换乘能手",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "303",
-        "403"
-      ]
+      "tagId": ["103", "303", "403"]
     },
     {
       "id": 200602,
       "name": "超越架势",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "303",
-        "403"
-      ]
+      "tagId": ["103", "303", "403"]
     },
     {
       "id": 200611,
       "name": "登天之龙",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "303",
-        "401"
-      ]
+      "tagId": ["103", "303", "401"]
     },
     {
       "id": 200612,
       "name": "准备外道超越",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "303",
-        "401"
-      ]
+      "tagId": ["103", "303", "401"]
     },
     {
       "id": 200621,
       "name": "沉睡的狮子",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "302",
-        "402"
-      ]
+      "tagId": ["104", "302", "402"]
     },
     {
       "id": 200622,
       "name": "后方待机",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "302",
-        "402"
-      ]
+      "tagId": ["104", "302", "402"]
     },
     {
       "id": 200631,
       "name": "疾风怒涛",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "303",
-        "401"
-      ]
+      "tagId": ["104", "303", "401"]
     },
     {
       "id": 200632,
       "name": "超群冲刺",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "303",
-        "401"
-      ]
+      "tagId": ["104", "303", "401"]
     },
     {
       "id": 200641,
       "name": "迫近的暗影",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "303",
-        "403"
-      ]
+      "tagId": ["104", "303", "403"]
     },
     {
       "id": 200642,
       "name": "一鼓作气",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "303",
-        "403"
-      ]
+      "tagId": ["104", "303", "403"]
     },
     {
       "id": 200651,
       "name": "短途涡轮",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "403"
-      ]
+      "tagId": ["201", "403"]
     },
     {
       "id": 200652,
       "name": "短途齿轮",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "403"
-      ]
+      "tagId": ["201", "403"]
     },
     {
       "id": 200662,
       "name": "观望",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "302",
-        "402",
-        "403"
-      ]
+      "tagId": ["201", "302", "402", "403"]
     },
     {
       "id": 200671,
       "name": "电击光辉",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "303",
-        "401",
-        "403"
-      ]
+      "tagId": ["201", "303", "401", "403"]
     },
     {
       "id": 200672,
       "name": "逼近",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "303",
-        "401",
-        "403"
-      ]
+      "tagId": ["201", "303", "401", "403"]
     },
     {
       "id": 200681,
       "name": "英里统治者",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "301",
-        "401"
-      ]
+      "tagId": ["202", "301", "401"]
     },
     {
       "id": 200682,
       "name": "积极行动",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "301",
-        "401"
-      ]
+      "tagId": ["202", "301", "401"]
     },
     {
       "id": 200691,
       "name": "慧眼",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "301",
-        "402",
-        "406"
-      ]
+      "tagId": ["202", "301", "402", "406"]
     },
     {
       "id": 200692,
       "name": "窥视展开",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "301",
-        "402",
-        "406"
-      ]
+      "tagId": ["202", "301", "402", "406"]
     },
     {
       "id": 200701,
       "name": "奋力一搏",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "303",
-        "403"
-      ]
+      "tagId": ["202", "303", "403"]
     },
     {
       "id": 200702,
       "name": "上升气流",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "303",
-        "403"
-      ]
+      "tagId": ["202", "303", "403"]
     },
     {
       "id": 200711,
       "name": "开拓者",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "402"
-      ]
+      "tagId": ["203", "302", "402"]
     },
     {
       "id": 200712,
       "name": "前途似锦",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "402"
-      ]
+      "tagId": ["203", "302", "402"]
     },
     {
       "id": 200721,
       "name": "绝妙韵律",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "401"
-      ]
+      "tagId": ["203", "302", "401"]
     },
     {
       "id": 200722,
       "name": "加快节奏",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "401"
-      ]
+      "tagId": ["203", "302", "401"]
     },
     {
       "id": 200731,
       "name": "对胜利的执念",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "303",
-        "401",
-        "403"
-      ]
+      "tagId": ["203", "303", "401", "403"]
     },
     {
       "id": 200732,
       "name": "紧追不舍",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "303",
-        "401",
-        "403"
-      ]
+      "tagId": ["203", "303", "401", "403"]
     },
     {
       "id": 200741,
       "name": "冷却",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 200742,
       "name": "深呼吸",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 200751,
       "name": "内侧体验",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "303",
-        "401"
-      ]
+      "tagId": ["204", "303", "401"]
     },
     {
       "id": 200752,
       "name": "弯里横",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "303",
-        "401"
-      ]
+      "tagId": ["204", "303", "401"]
     },
     {
       "id": 200761,
       "name": "破釜沉舟",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 200762,
       "name": "大胃储备",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 200771,
       "name": "诡计（前）",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200772,
       "name": "吸睛诡计",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200781,
       "name": "诡计（后）",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200791,
       "name": "领跑对策",
       "gradeValue": 174,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 200801,
       "name": "跟前对策",
       "gradeValue": 174,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 200811,
       "name": "居中对策",
       "gradeValue": 174,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 200821,
       "name": "后追对策",
       "gradeValue": 174,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 200831,
       "name": "领跑牵制",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "406"
-      ]
+      "tagId": ["301", "406"]
     },
     {
       "id": 200841,
       "name": "领跑焦躁",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200851,
       "name": "领跑踌躇",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "406"
-      ]
+      "tagId": ["303", "406"]
     },
     {
       "id": 200861,
       "name": "跟前牵制",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "406"
-      ]
+      "tagId": ["301", "406"]
     },
     {
       "id": 200871,
       "name": "跟前焦躁",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200881,
       "name": "跟前踌躇",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "406"
-      ]
+      "tagId": ["303", "406"]
     },
     {
       "id": 200891,
       "name": "居中牵制",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "406"
-      ]
+      "tagId": ["301", "406"]
     },
     {
       "id": 200901,
       "name": "居中焦躁",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200911,
       "name": "居中踌躇",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "406"
-      ]
+      "tagId": ["303", "406"]
     },
     {
       "id": 200921,
       "name": "后追牵制",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "406"
-      ]
+      "tagId": ["301", "406"]
     },
     {
       "id": 200931,
       "name": "后追焦躁",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "406"
-      ]
+      "tagId": ["302", "406"]
     },
     {
       "id": 200941,
       "name": "后追踌躇",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "406"
-      ]
+      "tagId": ["303", "406"]
     },
     {
       "id": 200951,
       "name": "大井赛场◎",
       "gradeValue": 174,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200952,
       "name": "大井赛场○",
       "gradeValue": 129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200953,
       "name": "大井赛场×",
       "gradeValue": -129,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 200961,
       "name": "短距离直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "201",
-        "401"
-      ]
+      "tagId": ["201", "401"]
     },
     {
       "id": 200962,
       "name": "短距离直线○",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "401"
-      ]
+      "tagId": ["201", "401"]
     },
     {
       "id": 200971,
       "name": "短距离弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "201",
-        "401"
-      ]
+      "tagId": ["201", "401"]
     },
     {
       "id": 200972,
       "name": "短距离弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "401"
-      ]
+      "tagId": ["201", "401"]
     },
     {
       "id": 200981,
       "name": "压倒性领先",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "302",
-        "401"
-      ]
+      "tagId": ["201", "302", "401"]
     },
     {
       "id": 200982,
       "name": "遥遥领先",
       "gradeValue": 262,
-      "tagId": [
-        "201",
-        "302",
-        "401"
-      ]
+      "tagId": ["201", "302", "401"]
     },
     {
       "id": 200991,
       "name": "X计划",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "302",
-        "403"
-      ]
+      "tagId": ["201", "302", "403"]
     },
     {
       "id": 200992,
       "name": "善后措施",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "302",
-        "403"
-      ]
+      "tagId": ["201", "302", "403"]
     },
     {
       "id": 201001,
       "name": "万事俱备！",
       "gradeValue": 394,
-      "tagId": [
-        "201",
-        "302",
-        "403"
-      ]
+      "tagId": ["201", "302", "403"]
     },
     {
       "id": 201002,
       "name": "准备冲刺",
       "gradeValue": 174,
-      "tagId": [
-        "201",
-        "302",
-        "403"
-      ]
+      "tagId": ["201", "302", "403"]
     },
     {
       "id": 201011,
       "name": "迷魂术",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "301",
-        "406"
-      ]
+      "tagId": ["201", "301", "406"]
     },
     {
       "id": 201012,
       "name": "钉牢后方",
       "gradeValue": 262,
-      "tagId": [
-        "201",
-        "301",
-        "406"
-      ]
+      "tagId": ["201", "301", "406"]
     },
     {
       "id": 201021,
       "name": "逃亡禁令",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "301",
-        "406"
-      ]
+      "tagId": ["201", "301", "406"]
     },
     {
       "id": 201022,
       "name": "禁止抢先",
       "gradeValue": 262,
-      "tagId": [
-        "201",
-        "301",
-        "406"
-      ]
+      "tagId": ["201", "301", "406"]
     },
     {
       "id": 201031,
       "name": "英里直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201032,
       "name": "英里直线○",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201041,
       "name": "英里弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201042,
       "name": "英里弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201051,
       "name": "换挡",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "302",
-        "401"
-      ]
+      "tagId": ["202", "302", "401"]
     },
     {
       "id": 201052,
       "name": "变速",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "302",
-        "401"
-      ]
+      "tagId": ["202", "302", "401"]
     },
     {
       "id": 201061,
       "name": "马力全开！",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "302",
-        "403"
-      ]
+      "tagId": ["202", "302", "403"]
     },
     {
       "id": 201062,
       "name": "加快速度",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "302",
-        "403"
-      ]
+      "tagId": ["202", "302", "403"]
     },
     {
       "id": 201071,
       "name": "大姐头气质",
       "gradeValue": 334,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201072,
       "name": "要强",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "401"
-      ]
+      "tagId": ["202", "401"]
     },
     {
       "id": 201081,
       "name": "掠夺速度",
       "gradeValue": 461,
-      "tagId": [
-        "202",
-        "302",
-        "406"
-      ]
+      "tagId": ["202", "302", "406"]
     },
     {
       "id": 201082,
       "name": "吞噬速度",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "302",
-        "406"
-      ]
+      "tagId": ["202", "302", "406"]
     },
     {
       "id": 201091,
       "name": "布阵",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "301",
-        "406"
-      ]
+      "tagId": ["202", "301", "406"]
     },
     {
       "id": 201092,
       "name": "布局",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "301",
-        "406"
-      ]
+      "tagId": ["202", "301", "406"]
     },
     {
       "id": 201101,
       "name": "中距离直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201102,
       "name": "中距离直线○",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201103,
       "name": "瞬息万变",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201111,
       "name": "中距离弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201112,
       "name": "中距离弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201113,
       "name": "光芒圆刃",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "401"
-      ]
+      "tagId": ["203", "401"]
     },
     {
       "id": 201121,
       "name": "千里眼",
       "gradeValue": 334,
-      "tagId": [
-        "203",
-        "301",
-        "405"
-      ]
+      "tagId": ["203", "301", "405"]
     },
     {
       "id": 201122,
       "name": "鹰眼",
       "gradeValue": 129,
-      "tagId": [
-        "203",
-        "301",
-        "405"
-      ]
+      "tagId": ["203", "301", "405"]
     },
     {
       "id": 201131,
       "name": "闪光步伐",
       "gradeValue": 394,
-      "tagId": [
-        "203",
-        "302",
-        "403"
-      ]
+      "tagId": ["203", "302", "403"]
     },
     {
       "id": 201132,
       "name": "闪电步伐",
       "gradeValue": 174,
-      "tagId": [
-        "203",
-        "302",
-        "403"
-      ]
+      "tagId": ["203", "302", "403"]
     },
     {
       "id": 201141,
       "name": "神迹步伐",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "402"
-      ]
+      "tagId": ["203", "402"]
     },
     {
       "id": 201142,
       "name": "轻盈步伐",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "402"
-      ]
+      "tagId": ["203", "402"]
     },
     {
       "id": 201151,
       "name": "独占力",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "303",
-        "406"
-      ]
+      "tagId": ["203", "303", "406"]
     },
     {
       "id": 201152,
       "name": "束缚",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "303",
-        "406"
-      ]
+      "tagId": ["203", "303", "406"]
     },
     {
       "id": 201161,
       "name": "魅惑低语",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "406"
-      ]
+      "tagId": ["203", "302", "406"]
     },
     {
       "id": 201162,
       "name": "低语",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "406"
-      ]
+      "tagId": ["203", "302", "406"]
     },
     {
       "id": 201171,
       "name": "长距离直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "204",
-        "401"
-      ]
+      "tagId": ["204", "401"]
     },
     {
       "id": 201172,
       "name": "长距离直线○",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "401"
-      ]
+      "tagId": ["204", "401"]
     },
     {
       "id": 201173,
       "name": "烈风一闪",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "401"
-      ]
+      "tagId": ["204", "401"]
     },
     {
       "id": 201181,
       "name": "长距离弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "204",
-        "401"
-      ]
+      "tagId": ["204", "401"]
     },
     {
       "id": 201182,
       "name": "长距离弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "401"
-      ]
+      "tagId": ["204", "401"]
     },
     {
       "id": 201191,
       "name": "领头心得",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "302",
-        "401"
-      ]
+      "tagId": ["204", "302", "401"]
     },
     {
       "id": 201192,
       "name": "保持领先",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "302",
-        "401"
-      ]
+      "tagId": ["204", "302", "401"]
     },
     {
       "id": 201201,
       "name": "VIP熟客",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 201202,
       "name": "赶超能手",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "402"
-      ]
+      "tagId": ["204", "402"]
     },
     {
       "id": 201211,
       "name": "怒涛般的追击",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "303",
-        "401"
-      ]
+      "tagId": ["204", "303", "401"]
     },
     {
       "id": 201212,
       "name": "追击",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "303",
-        "401"
-      ]
+      "tagId": ["204", "303", "401"]
     },
     {
       "id": 201221,
       "name": "掠夺体力",
       "gradeValue": 461,
-      "tagId": [
-        "204",
-        "302",
-        "406"
-      ]
+      "tagId": ["204", "302", "406"]
     },
     {
       "id": 201222,
       "name": "吞噬体力",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "302",
-        "406"
-      ]
+      "tagId": ["204", "302", "406"]
     },
     {
       "id": 201231,
       "name": "奇术师",
       "gradeValue": 334,
-      "tagId": [
-        "204",
-        "303",
-        "406"
-      ]
+      "tagId": ["204", "303", "406"]
     },
     {
       "id": 201232,
       "name": "障眼法",
       "gradeValue": 129,
-      "tagId": [
-        "204",
-        "303",
-        "406"
-      ]
+      "tagId": ["204", "303", "406"]
     },
     {
       "id": 201241,
       "name": "领跑直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "101",
-        "401"
-      ]
+      "tagId": ["101", "401"]
     },
     {
       "id": 201242,
       "name": "领跑直线○",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "401"
-      ]
+      "tagId": ["101", "401"]
     },
     {
       "id": 201251,
       "name": "领跑弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "101",
-        "401"
-      ]
+      "tagId": ["101", "401"]
     },
     {
       "id": 201252,
       "name": "领跑弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "401"
-      ]
+      "tagId": ["101", "401"]
     },
     {
       "id": 201261,
       "name": "第六感",
       "gradeValue": 334,
-      "tagId": [
-        "101",
-        "301",
-        "403"
-      ]
+      "tagId": ["101", "301", "403"]
     },
     {
       "id": 201262,
       "name": "危险回避",
       "gradeValue": 129,
-      "tagId": [
-        "101",
-        "301",
-        "403"
-      ]
+      "tagId": ["101", "301", "403"]
     },
     {
       "id": 201271,
       "name": "领跑者",
       "gradeValue": 508,
-      "tagId": [
-        "101",
-        "301",
-        "302",
-        "401"
-      ]
+      "tagId": ["101", "301", "302", "401"]
     },
     {
       "id": 201272,
       "name": "领跑的骄傲",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "301",
-        "302",
-        "401"
-      ]
+      "tagId": ["101", "301", "302", "401"]
     },
     {
       "id": 201281,
       "name": "活泼优俊少女",
       "gradeValue": 508,
-      "tagId": [
-        "101",
-        "402"
-      ]
+      "tagId": ["101", "402"]
     },
     {
       "id": 201282,
       "name": "随势而动",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "402"
-      ]
+      "tagId": ["101", "402"]
     },
     {
       "id": 201291,
       "name": "再度燃烧",
       "gradeValue": 508,
-      "tagId": [
-        "101",
-        "302",
-        "403"
-      ]
+      "tagId": ["101", "302", "403"]
     },
     {
       "id": 201292,
       "name": "第二支箭",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "302",
-        "403"
-      ]
+      "tagId": ["101", "302", "403"]
     },
     {
       "id": 201302,
       "name": "重新开始",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "301",
-        "406"
-      ]
+      "tagId": ["101", "301", "406"]
     },
     {
       "id": 201311,
       "name": "跟前直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "102",
-        "401"
-      ]
+      "tagId": ["102", "401"]
     },
     {
       "id": 201312,
       "name": "跟前直线○",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "401"
-      ]
+      "tagId": ["102", "401"]
     },
     {
       "id": 201321,
       "name": "跟前弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "102",
-        "401"
-      ]
+      "tagId": ["102", "401"]
     },
     {
       "id": 201322,
       "name": "跟前弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "401"
-      ]
+      "tagId": ["102", "401"]
     },
     {
       "id": 201331,
       "name": "技巧派",
       "gradeValue": 334,
-      "tagId": [
-        "102",
-        "403"
-      ]
+      "tagId": ["102", "403"]
     },
     {
       "id": 201332,
       "name": "轻巧舞步",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "403"
-      ]
+      "tagId": ["102", "403"]
     },
     {
       "id": 201341,
       "name": "决心的直线下坡",
       "gradeValue": 334,
-      "tagId": [
-        "102",
-        "403"
-      ]
+      "tagId": ["102", "403"]
     },
     {
       "id": 201342,
       "name": "直线下坡",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "403"
-      ]
+      "tagId": ["102", "403"]
     },
     {
       "id": 201351,
       "name": "大胃王",
       "gradeValue": 508,
-      "tagId": [
-        "102",
-        "302",
-        "402"
-      ]
+      "tagId": ["102", "302", "402"]
     },
     {
       "id": 201352,
       "name": "营养补给",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "302",
-        "402"
-      ]
+      "tagId": ["102", "302", "402"]
     },
     {
       "id": 201361,
       "name": "不屈的精神",
       "gradeValue": 334,
-      "tagId": [
-        "102",
-        "302",
-        "403"
-      ]
+      "tagId": ["102", "302", "403"]
     },
     {
       "id": 201362,
       "name": "重振旗鼓",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "302",
-        "403"
-      ]
+      "tagId": ["102", "302", "403"]
     },
     {
       "id": 201371,
       "name": "迷惑干扰",
       "gradeValue": 334,
-      "tagId": [
-        "102",
-        "303",
-        "402"
-      ]
+      "tagId": ["102", "303", "402"]
     },
     {
       "id": 201372,
       "name": "干扰",
       "gradeValue": 85,
-      "tagId": [
-        "102",
-        "303",
-        "402"
-      ]
+      "tagId": ["102", "303", "402"]
     },
     {
       "id": 201381,
       "name": "居中直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201382,
       "name": "居中直线○",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201391,
       "name": "居中弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201392,
       "name": "居中弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201401,
       "name": "努力家",
       "gradeValue": 334,
-      "tagId": [
-        "103",
-        "403"
-      ]
+      "tagId": ["103", "403"]
     },
     {
       "id": 201402,
       "name": "努力者",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "403"
-      ]
+      "tagId": ["103", "403"]
     },
     {
       "id": 201411,
       "name": "百万马力",
       "gradeValue": 334,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201412,
       "name": "十万马力",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "401"
-      ]
+      "tagId": ["103", "401"]
     },
     {
       "id": 201421,
       "name": "放松",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "303",
-        "402"
-      ]
+      "tagId": ["103", "303", "402"]
     },
     {
       "id": 201422,
       "name": "稍作休息",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "303",
-        "402"
-      ]
+      "tagId": ["103", "303", "402"]
     },
     {
       "id": 201431,
       "name": "大局观",
       "gradeValue": 334,
-      "tagId": [
-        "103",
-        "302",
-        "405"
-      ]
+      "tagId": ["103", "302", "405"]
     },
     {
       "id": 201432,
       "name": "观察能力",
       "gradeValue": 85,
-      "tagId": [
-        "103",
-        "302",
-        "405"
-      ]
+      "tagId": ["103", "302", "405"]
     },
     {
       "id": 201441,
       "name": "紧盯八方",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "303",
-        "406"
-      ]
+      "tagId": ["103", "303", "406"]
     },
     {
       "id": 201442,
       "name": "锐利目光",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "303",
-        "406"
-      ]
+      "tagId": ["103", "303", "406"]
     },
     {
       "id": 201451,
       "name": "后追直线◎",
       "gradeValue": 262,
-      "tagId": [
-        "104",
-        "401"
-      ]
+      "tagId": ["104", "401"]
     },
     {
       "id": 201452,
       "name": "后追直线○",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "401"
-      ]
+      "tagId": ["104", "401"]
     },
     {
       "id": 201453,
       "name": "月影一闪",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "401"
-      ]
+      "tagId": ["104", "401"]
     },
     {
       "id": 201461,
       "name": "后追弯道◎",
       "gradeValue": 262,
-      "tagId": [
-        "104",
-        "401"
-      ]
+      "tagId": ["104", "401"]
     },
     {
       "id": 201462,
       "name": "后追弯道○",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "401"
-      ]
+      "tagId": ["104", "401"]
     },
     {
       "id": 201471,
       "name": "视野良好！没有异常！",
       "gradeValue": 334,
-      "tagId": [
-        "104",
-        "405"
-      ]
+      "tagId": ["104", "405"]
     },
     {
       "id": 201472,
       "name": "看穿",
       "gradeValue": 85,
-      "tagId": [
-        "104",
-        "405"
-      ]
+      "tagId": ["104", "405"]
     },
     {
       "id": 201481,
       "name": "放学后的专家",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "402"
-      ]
+      "tagId": ["104", "402"]
     },
     {
       "id": 201482,
       "name": "放学后的乐趣",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "402"
-      ]
+      "tagId": ["104", "402"]
     },
     {
       "id": 201491,
       "name": "沉着冷静",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "402"
-      ]
+      "tagId": ["104", "402"]
     },
     {
       "id": 201492,
       "name": "冷静",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "402"
-      ]
+      "tagId": ["104", "402"]
     },
     {
       "id": 201501,
       "name": "知天命者",
       "gradeValue": 334,
-      "tagId": [
-        "104",
-        "303",
-        "405"
-      ]
+      "tagId": ["104", "303", "405"]
     },
     {
       "id": 201502,
       "name": "策士",
       "gradeValue": 85,
-      "tagId": [
-        "104",
-        "303",
-        "405"
-      ]
+      "tagId": ["104", "303", "405"]
     },
     {
       "id": 201511,
       "name": "炙热视线",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "303",
-        "406"
-      ]
+      "tagId": ["104", "303", "406"]
     },
     {
       "id": 201512,
       "name": "视线",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "303",
-        "406"
-      ]
+      "tagId": ["104", "303", "406"]
     },
     {
       "id": 201521,
       "name": "领跑诀窍◎",
       "gradeValue": 217,
-      "tagId": [
-        "101",
-        "405"
-      ]
+      "tagId": ["101", "405"]
     },
     {
       "id": 201522,
       "name": "领跑诀窍○",
       "gradeValue": 174,
-      "tagId": [
-        "101",
-        "405"
-      ]
+      "tagId": ["101", "405"]
     },
     {
       "id": 201531,
       "name": "跟前诀窍◎",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "405"
-      ]
+      "tagId": ["102", "405"]
     },
     {
       "id": 201532,
       "name": "跟前诀窍○",
       "gradeValue": 174,
-      "tagId": [
-        "102",
-        "405"
-      ]
+      "tagId": ["102", "405"]
     },
     {
       "id": 201541,
       "name": "居中诀窍◎",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "405"
-      ]
+      "tagId": ["103", "405"]
     },
     {
       "id": 201542,
       "name": "居中诀窍○",
       "gradeValue": 174,
-      "tagId": [
-        "103",
-        "405"
-      ]
+      "tagId": ["103", "405"]
     },
     {
       "id": 201551,
       "name": "后追诀窍◎",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "405"
-      ]
+      "tagId": ["104", "405"]
     },
     {
       "id": 201552,
       "name": "后追诀窍○",
       "gradeValue": 174,
-      "tagId": [
-        "104",
-        "405"
-      ]
+      "tagId": ["104", "405"]
     },
     {
       "id": 201561,
       "name": "超级幸运7",
       "gradeValue": 334,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201562,
       "name": "幸运7",
       "gradeValue": 174,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201571,
       "name": "777",
       "gradeValue": 217,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 201581,
       "name": "登山家",
       "gradeValue": 217,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 201591,
       "name": "优俊少女爱好者",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201592,
       "name": "优俊少女狂热粉",
       "gradeValue": 508,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201601,
       "name": "打基础",
       "gradeValue": 217,
-      "tagId": [
-        "301",
-        "403"
-      ]
+      "tagId": ["301", "403"]
     },
     {
       "id": 201611,
       "name": "翘尾巴",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "401"
-      ]
+      "tagId": ["302", "401"]
     },
     {
       "id": 201612,
       "name": "尾巴跃龙门",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "401"
-      ]
+      "tagId": ["302", "401"]
     },
     {
       "id": 201621,
       "name": "竭尽全力",
       "gradeValue": 217,
-      "tagId": [
-        "303",
-        "402"
-      ]
+      "tagId": ["303", "402"]
     },
     {
       "id": 201631,
       "name": "共鸣",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201641,
       "name": "孤狼",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201651,
       "name": "尾流",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201661,
       "name": "游戏到此为止！",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201662,
       "name": "先走一步！",
       "gradeValue": 508,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201671,
       "name": "热度飙升！",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "401",
-        "502"
-      ]
+      "tagId": ["302", "401", "502"]
     },
     {
       "id": 201672,
       "name": "人气股",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "401",
-        "502"
-      ]
+      "tagId": ["302", "401", "502"]
     },
     {
       "id": 201681,
       "name": "目标最前排！",
       "gradeValue": 394,
-      "tagId": [
-        "303",
-        "403",
-        "502"
-      ]
+      "tagId": ["303", "403", "502"]
     },
     {
       "id": 201682,
       "name": "瞄准前排",
       "gradeValue": 174,
-      "tagId": [
-        "303",
-        "403",
-        "502"
-      ]
+      "tagId": ["303", "403", "502"]
     },
     {
       "id": 201691,
       "name": "潜伏状态",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "301",
-        "402"
-      ]
+      "tagId": ["103", "301", "402"]
     },
     {
       "id": 201692,
       "name": "平静的呼吸",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "301",
-        "402"
-      ]
+      "tagId": ["103", "301", "402"]
     },
     {
       "id": 201701,
       "name": "拼死决心",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "303",
-        "401"
-      ]
+      "tagId": ["203", "303", "401"]
     },
     {
       "id": 201702,
       "name": "不遗余力",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "303",
-        "401"
-      ]
+      "tagId": ["203", "303", "401"]
     },
     {
       "id": 201801,
       "name": "指甲开裂",
       "gradeValue": -129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 201901,
       "name": "短兵相接",
       "gradeValue": 508,
-      "tagId": [
-        "102",
-        "303",
-        "403"
-      ]
+      "tagId": ["102", "303", "403"]
     },
     {
       "id": 201902,
       "name": "正面较量",
       "gradeValue": 217,
-      "tagId": [
-        "102",
-        "303",
-        "403"
-      ]
+      "tagId": ["102", "303", "403"]
     },
     {
       "id": 202001,
       "name": "沙尘行家",
       "gradeValue": 508,
-      "tagId": [
-        "302",
-        "401",
-        "402",
-        "502"
-      ]
+      "tagId": ["302", "401", "402", "502"]
     },
     {
       "id": 202002,
       "name": "适应沙尘",
       "gradeValue": 217,
-      "tagId": [
-        "302",
-        "402",
-        "502"
-      ]
+      "tagId": ["302", "402", "502"]
     },
     {
       "id": 202011,
       "name": "真打",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "302",
-        "401"
-      ]
+      "tagId": ["204", "302", "401"]
     },
     {
       "id": 202012,
       "name": "影打",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "302",
-        "401"
-      ]
+      "tagId": ["204", "302", "401"]
     },
     {
       "id": 202021,
       "name": "强攻策略",
       "gradeValue": 508,
-      "tagId": [
-        "104",
-        "302",
-        "401"
-      ]
+      "tagId": ["104", "302", "401"]
     },
     {
       "id": 202022,
       "name": "率先发力",
       "gradeValue": 217,
-      "tagId": [
-        "104",
-        "302",
-        "401"
-      ]
+      "tagId": ["104", "302", "401"]
     },
     {
       "id": 202031,
       "name": "孤注一掷",
       "gradeValue": 334,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 202032,
       "name": "可疑的战术",
       "gradeValue": 129,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 202041,
       "name": "气势冲天",
       "gradeValue": 508,
-      "tagId": [
-        "201",
-        "302",
-        "401"
-      ]
+      "tagId": ["201", "302", "401"]
     },
     {
       "id": 202042,
       "name": "轻快的步伐",
       "gradeValue": 217,
-      "tagId": [
-        "201",
-        "302",
-        "401"
-      ]
+      "tagId": ["201", "302", "401"]
     },
     {
       "id": 202051,
       "name": "大差距领跑",
       "gradeValue": 370,
-      "tagId": [
-        "101"
-      ]
+      "tagId": ["101"]
     },
     {
       "id": 202061,
       "name": "全国第一的优俊少女",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "303",
-        "401"
-      ]
+      "tagId": ["204", "303", "401"]
     },
     {
       "id": 202071,
       "name": "泰然自若",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "302",
-        "402"
-      ]
+      "tagId": ["204", "302", "402"]
     },
     {
       "id": 202072,
       "name": "我行我素",
       "gradeValue": 217,
-      "tagId": [
-        "204",
-        "302",
-        "402"
-      ]
+      "tagId": ["204", "302", "402"]
     },
     {
       "id": 202081,
       "name": "起死回生",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "303",
-        "403"
-      ]
+      "tagId": ["203", "303", "403"]
     },
     {
       "id": 202082,
       "name": "一线胜机",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "303",
-        "403"
-      ]
+      "tagId": ["203", "303", "403"]
     },
     {
       "id": 202091,
       "name": "气焰万丈",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "401",
-        "402"
-      ]
+      "tagId": ["203", "302", "401", "402"]
     },
     {
       "id": 202092,
       "name": "斗争心",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "401",
-        "402"
-      ]
+      "tagId": ["203", "302", "401", "402"]
     },
     {
       "id": 202101,
       "name": "情绪高涨",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "401"
-      ]
+      "tagId": ["203", "302", "401"]
     },
     {
       "id": 202102,
       "name": "积极向前",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "401"
-      ]
+      "tagId": ["203", "302", "401"]
     },
     {
       "id": 202111,
       "name": "破竹之势",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "303",
-        "401"
-      ]
+      "tagId": ["202", "303", "401"]
     },
     {
       "id": 202112,
       "name": "气势十足",
       "gradeValue": 217,
-      "tagId": [
-        "202",
-        "303",
-        "401"
-      ]
+      "tagId": ["202", "303", "401"]
     },
     {
       "id": 202121,
       "name": "大胆无畏",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "401",
-        "403"
-      ]
+      "tagId": ["103", "401", "403"]
     },
     {
       "id": 202122,
       "name": "无畏之心",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "401",
-        "403"
-      ]
+      "tagId": ["103", "401", "403"]
     },
     {
       "id": 202131,
       "name": "狂暴旋风",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "302",
-        "401",
-        "406"
-      ]
+      "tagId": ["203", "302", "401", "406"]
     },
     {
       "id": 202132,
       "name": "倾注气魄",
       "gradeValue": 217,
-      "tagId": [
-        "203",
-        "302",
-        "401",
-        "406"
-      ]
+      "tagId": ["203", "302", "401", "406"]
     },
     {
       "id": 202141,
       "name": "不要对我指手画脚！！",
       "gradeValue": -174,
-      "tagId": [
-        "301",
-        "405",
-        "407"
-      ]
+      "tagId": ["301", "405", "407"]
     },
     {
       "id": 202151,
       "name": "勇往直前",
       "gradeValue": 508,
-      "tagId": [
-        "103",
-        "302",
-        "401"
-      ]
+      "tagId": ["103", "302", "401"]
     },
     {
       "id": 202152,
       "name": "马力全开",
       "gradeValue": 217,
-      "tagId": [
-        "103",
-        "302",
-        "401"
-      ]
+      "tagId": ["103", "302", "401"]
     },
     {
       "id": 202161,
       "name": "自制力",
       "gradeValue": 217,
-      "tagId": [
-        "405"
-      ]
+      "tagId": ["405"]
     },
     {
       "id": 202172,
       "name": "下坡能手",
       "gradeValue": 217,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 202181,
       "name": "99 Problems",
       "gradeValue": -174,
-      "tagId": [
-        "404",
-        "405"
-      ]
+      "tagId": ["404", "405"]
     },
     {
       "id": 210011,
       "name": "燃烧青春·速",
       "gradeValue": 633,
-      "tagId": [
-        "302",
-        "401",
-        "802"
-      ]
+      "tagId": ["302", "401", "802"]
     },
     {
       "id": 210012,
       "name": "点燃青春·速",
       "gradeValue": 263,
-      "tagId": [
-        "302",
-        "401",
-        "802"
-      ]
+      "tagId": ["302", "401", "802"]
     },
     {
       "id": 210021,
       "name": "燃烧青春·耐",
       "gradeValue": 633,
-      "tagId": [
-        "302",
-        "402",
-        "802"
-      ]
+      "tagId": ["302", "402", "802"]
     },
     {
       "id": 210022,
       "name": "点燃青春·耐",
       "gradeValue": 263,
-      "tagId": [
-        "302",
-        "402",
-        "802"
-      ]
+      "tagId": ["302", "402", "802"]
     },
     {
       "id": 210031,
       "name": "燃烧青春·力",
       "gradeValue": 633,
-      "tagId": [
-        "303",
-        "403",
-        "802"
-      ]
+      "tagId": ["303", "403", "802"]
     },
     {
       "id": 210032,
       "name": "点燃青春·力",
       "gradeValue": 263,
-      "tagId": [
-        "303",
-        "403",
-        "802"
-      ]
+      "tagId": ["303", "403", "802"]
     },
     {
       "id": 210041,
       "name": "燃烧青春·毅",
       "gradeValue": 633,
-      "tagId": [
-        "303",
-        "401",
-        "403",
-        "802"
-      ]
+      "tagId": ["303", "401", "403", "802"]
     },
     {
       "id": 210042,
       "name": "点燃青春·毅",
       "gradeValue": 263,
-      "tagId": [
-        "303",
-        "401",
-        "403",
-        "802"
-      ]
+      "tagId": ["303", "401", "403", "802"]
     },
     {
       "id": 210051,
       "name": "燃烧青春·智",
       "gradeValue": 633,
-      "tagId": [
-        "301",
-        "403",
-        "405",
-        "802"
-      ]
+      "tagId": ["301", "403", "405", "802"]
     },
     {
       "id": 210052,
       "name": "点燃青春·智",
       "gradeValue": 263,
-      "tagId": [
-        "301",
-        "403",
-        "405",
-        "802"
-      ]
+      "tagId": ["301", "403", "405", "802"]
     },
     {
       "id": 210061,
       "name": "启明星",
       "gradeValue": 633,
-      "tagId": [
-        "401",
-        "402",
-        "403",
-        "804"
-      ]
+      "tagId": ["401", "402", "403", "804"]
     },
     {
       "id": 210062,
       "name": "闪耀之星",
       "gradeValue": 263,
-      "tagId": [
-        "401",
-        "402",
-        "403",
-        "804"
-      ]
+      "tagId": ["401", "402", "403", "804"]
     },
     {
       "id": 300011,
       "name": "无尽渴求",
       "gradeValue": 0,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 300021,
       "name": "不变的信念",
       "gradeValue": 0,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300031,
       "name": "追寻向往的景色",
       "gradeValue": 0,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300041,
       "name": "担忧不断蔓延",
       "gradeValue": 0,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 300051,
       "name": "忧虑愈现",
       "gradeValue": 0,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 300061,
       "name": "梦幻般的奔跑",
       "gradeValue": 0,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300071,
       "name": "展现探求未知的奔跑吧",
       "gradeValue": 0,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300081,
       "name": "天灵灵～祈祷飞奔！",
       "gradeValue": 0,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 300091,
       "name": "亦敌亦友",
       "gradeValue": 0,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 300101,
       "name": "憧憬的助威",
       "gradeValue": 0,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 300111,
       "name": "昂首挺胸的德比优俊少女",
       "gradeValue": 0,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300121,
       "name": "身为队伍的一员",
       "gradeValue": 0,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 300131,
       "name": "全国总大将",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 300141,
       "name": "不屈不挠",
       "gradeValue": 340,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900011,
       "name": "璀璨流星",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900021,
       "name": "决不让出领头的景色……！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900031,
       "name": "究极帝王舞步",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900041,
       "name": "红焰档/LP1211-M",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900051,
       "name": "群星闪耀之演剧",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900061,
       "name": "胜利的鼓动",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900071,
       "name": "不沉之舰，拔锚起航！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900081,
       "name": "凌厉×DRIVE！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900091,
       "name": "闪耀的赤色王牌",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900101,
       "name": "胜利射击！",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900111,
       "name": "精诚所至，金石为开",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900121,
       "name": "单挑！并驾齐驱！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900131,
       "name": "为了完成高贵的使命",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900141,
       "name": "胜利者☆飞扑",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900151,
       "name": "献给维多利亚的舞蹈",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900161,
       "name": "Shadow Break",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900171,
       "name": "汝等，瞻仰皇帝的神威吧",
       "gradeValue": 180,
-      "tagId": [
-        "406"
-      ]
+      "tagId": ["406"]
     },
     {
       "id": 900181,
       "name": "骄傲之焰",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900191,
       "name": "神圣☆最后冲—(ﾟ∀ﾟ)—刺！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900201,
       "name": "愿者上钩",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900211,
       "name": "让你们见识一下白色闪电！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900221,
       "name": "Fairy tale",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900231,
       "name": "∴win Q.E.D.",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900241,
       "name": "闪光☆着陆",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900251,
       "name": "追寻你的背影",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900261,
       "name": "G00 1st.F∞；",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900271,
       "name": "成长吧肌肉！",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900281,
       "name": "I'M☆FULL☆SPEED！！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900301,
       "name": "蓝玫瑰猎人",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900311,
       "name": "充能完毕！全速前进！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900321,
       "name": "U=ma²",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 900331,
       "name": "双生流星",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900341,
       "name": "要飞奔吗，要飞奔吧！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900351,
       "name": "为你奉上，胜利之券！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900361,
       "name": "trigger：BEAT",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900371,
       "name": "Schwarzes Schwert",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900381,
       "name": "#LookatCurren",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900391,
       "name": "身为公主，亲手拿下胜利",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900401,
       "name": "KEEP IT REAL.",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900411,
       "name": "优等生×前进＝大胜利",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900441,
       "name": "拿下胜利☆Strelitzia！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900451,
       "name": "纯粹之心",
       "gradeValue": 180,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 900461,
       "name": "闪耀☆STARDOM",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900481,
       "name": "YEAH☆VIVID TIME！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900501,
       "name": "Nemesis",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900511,
       "name": "蓓蕾绽放之时",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900521,
       "name": "满怀期待地迎来最高潮",
       "gradeValue": 180,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 900561,
       "name": "快来了要来了让它来吧！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900581,
       "name": "I Never Goof Up！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900591,
       "name": "向着，更远的地方……",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 900601,
       "name": "一定能更进一步……！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900611,
       "name": "Pride of KING",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900621,
       "name": "咚！啪！加油！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 900641,
       "name": "绝尘之路",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 900671,
       "name": "照亮阴霾的永世辉耀",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900681,
       "name": "胜利凯歌，嘿呦！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 900691,
       "name": "超越樱花的憧憬！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900711,
       "name": "毕生之梦，刹那翱翔",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900721,
       "name": "烈火缭乱，无敌之舞",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 900741,
       "name": "美丽优雅的花信风",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910011,
       "name": "激萌♪海中潜游",
       "gradeValue": 180,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 910031,
       "name": "绝对是我赢",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910041,
       "name": "心头一击♪啾",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910051,
       "name": "Ravissant",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910061,
       "name": "圣诞夜的奇迹飞驰！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "402",
-        "403"
-      ]
+      "tagId": ["401", "402", "403"]
     },
     {
       "id": 910101,
       "name": "Joyful Voyage！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910111,
       "name": "强效治愈术·高级",
       "gradeValue": 180,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 910131,
       "name": "赌上最强之名",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910141,
       "name": "神鹰猛击波",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 910151,
       "name": "赐福船歌",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910171,
       "name": "拨云见月鸣镝箭",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910181,
       "name": "熏风，予以永恒的瞬间",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910201,
       "name": "Do Ya Breakin！",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910221,
       "name": "Best day ever",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910231,
       "name": "Presents from X",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910241,
       "name": "绚丽☆演习",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910261,
       "name": "行动·Cacao",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "402"
-      ]
+      "tagId": ["401", "402"]
     },
     {
       "id": 910301,
       "name": "Drain for rose",
       "gradeValue": 180,
-      "tagId": [
-        "402"
-      ]
+      "tagId": ["402"]
     },
     {
       "id": 910371,
       "name": "Guten Appetit♪",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910381,
       "name": "One True Color",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910401,
       "name": "GET DOWN",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910451,
       "name": "绕圈圈木乃伊戏法♡",
       "gradeValue": 180,
-      "tagId": [
-        "401",
-        "403"
-      ]
+      "tagId": ["401", "403"]
     },
     {
       "id": 910521,
       "name": "113跌114起",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910561,
       "name": "禾乃登",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910591,
       "name": "奔向那令人心动的前方",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910601,
       "name": "Go☆Go☆for it！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 910611,
       "name": "震天高呼！特雷森后援团！！",
       "gradeValue": 180,
-      "tagId": [
-        "403"
-      ]
+      "tagId": ["403"]
     },
     {
       "id": 920011,
       "name": "威风堂堂，锦绣逐梦！",
       "gradeValue": 180,
-      "tagId": [
-        "401"
-      ]
+      "tagId": ["401"]
     },
     {
       "id": 1000011,
       "name": "嘉年华加成",
       "gradeValue": 0,
-      "tagId": [
-        "0"
-      ]
+      "tagId": ["0"]
     },
     {
       "id": 1000012,
       "name": "嘉年华加成",
       "gradeValue": 0,
-      "tagId": [
-        "0"
-      ]
+      "tagId": ["0"]
     },
     {
       "id": 1100011,
       "name": "超级贪玩",
       "gradeValue": -500,
-      "tagId": [
-        "301",
-        "403",
-        "407"
-      ]
+      "tagId": ["301", "403", "407"]
     },
     {
       "id": 1200011,
       "name": "寄托于中距离比赛的信念",
       "gradeValue": 508,
-      "tagId": [
-        "203",
-        "405",
-        "501"
-      ]
+      "tagId": ["203", "405", "501"]
     },
     {
       "id": 1200021,
       "name": "寄托于长距离比赛的信念",
       "gradeValue": 508,
-      "tagId": [
-        "204",
-        "402",
-        "501"
-      ]
+      "tagId": ["204", "402", "501"]
     },
     {
       "id": 1200031,
       "name": "寄托于英里比赛的信念",
       "gradeValue": 508,
-      "tagId": [
-        "202",
-        "403",
-        "501"
-      ]
+      "tagId": ["202", "403", "501"]
     }
   ],
   "teamStadiumScoreBonus": [
@@ -65674,1132 +63623,1358 @@
     {
       "id": 10001,
       "name": "[特雷森学园]特别周",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 103
     },
     {
       "id": 10002,
       "name": "[特雷森学园]无声铃鹿",
-      "charaId": 1002
+      "charaId": 1002,
+      "commandId": 101
     },
     {
       "id": 10003,
       "name": "[特雷森学园]东海帝王",
-      "charaId": 1003
+      "charaId": 1003,
+      "commandId": 101
     },
     {
       "id": 10004,
       "name": "[特雷森学园]丸善斯基",
-      "charaId": 1004
+      "charaId": 1004,
+      "commandId": 101
     },
     {
       "id": 10005,
       "name": "[特雷森学园]小栗帽",
-      "charaId": 1006
+      "charaId": 1006,
+      "commandId": 102
     },
     {
       "id": 10006,
       "name": "[特雷森学园]黄金船",
-      "charaId": 1007
+      "charaId": 1007,
+      "commandId": 105
     },
     {
       "id": 10007,
       "name": "[特雷森学园]伏特加",
-      "charaId": 1008
+      "charaId": 1008,
+      "commandId": 102
     },
     {
       "id": 10008,
       "name": "[特雷森学园]大树快车",
-      "charaId": 1010
+      "charaId": 1010,
+      "commandId": 101
     },
     {
       "id": 10009,
       "name": "[特雷森学园]草上飞",
-      "charaId": 1011
+      "charaId": 1011,
+      "commandId": 103
     },
     {
       "id": 10010,
       "name": "[特雷森学园]目白麦昆",
-      "charaId": 1013
+      "charaId": 1013,
+      "commandId": 105
     },
     {
       "id": 10011,
       "name": "[特雷森学园]神鹰",
-      "charaId": 1014
+      "charaId": 1014,
+      "commandId": 102
     },
     {
       "id": 10012,
       "name": "[特雷森学园]好歌剧",
-      "charaId": 1015
+      "charaId": 1015,
+      "commandId": 105
     },
     {
       "id": 10013,
       "name": "[特雷森学园]鲁道夫象征",
-      "charaId": 1017
+      "charaId": 1017,
+      "commandId": 106
     },
     {
       "id": 10014,
       "name": "[特雷森学园]青云天空",
-      "charaId": 1020
+      "charaId": 1020,
+      "commandId": 105
     },
     {
       "id": 10015,
       "name": "[特雷森学园]米浴",
-      "charaId": 1030
+      "charaId": 1030,
+      "commandId": 105
     },
     {
       "id": 10016,
       "name": "[特雷森学园]胜利奖券",
-      "charaId": 1035
+      "charaId": 1035,
+      "commandId": 103
     },
     {
       "id": 10017,
       "name": "[特雷森学园]黄金城",
-      "charaId": 1040
+      "charaId": 1040,
+      "commandId": 101
     },
     {
       "id": 10018,
       "name": "[特雷森学园]樱花进王",
-      "charaId": 1041
+      "charaId": 1041,
+      "commandId": 101
     },
     {
       "id": 10019,
       "name": "[特雷森学园]超级溪流",
-      "charaId": 1045
+      "charaId": 1045,
+      "commandId": 105
     },
     {
       "id": 10020,
       "name": "[特雷森学园]春乌菈菈",
-      "charaId": 1052
+      "charaId": 1052,
+      "commandId": 103
     },
     {
       "id": 10021,
       "name": "[特雷森学园]骏川手纲",
-      "charaId": 9001
+      "charaId": 9001,
+      "commandId": 0
     },
     {
       "id": 10022,
       "name": "[特雷森学园]桐生院葵",
-      "charaId": 9004
+      "charaId": 9004,
+      "commandId": 0
     },
     {
       "id": 10023,
       "name": "[特雷森学园]大和赤骥",
-      "charaId": 1009
+      "charaId": 1009,
+      "commandId": 106
     },
     {
       "id": 10024,
       "name": "[特雷森学园]菱亚马逊",
-      "charaId": 1012
+      "charaId": 1012,
+      "commandId": 102
     },
     {
       "id": 10025,
       "name": "[特雷森学园]气槽",
-      "charaId": 1018
+      "charaId": 1018,
+      "commandId": 103
     },
     {
       "id": 10026,
       "name": "[特雷森学园]爱丽数码",
-      "charaId": 1019
+      "charaId": 1019,
+      "commandId": 102
     },
     {
       "id": 10027,
       "name": "[特雷森学园]玉藻十字",
-      "charaId": 1021
+      "charaId": 1021,
+      "commandId": 105
     },
     {
       "id": 10028,
       "name": "[特雷森学园]美妙姿势",
-      "charaId": 1022
+      "charaId": 1022,
+      "commandId": 106
     },
     {
       "id": 10029,
       "name": "[特雷森学园]琵琶晨光",
-      "charaId": 1023
+      "charaId": 1023,
+      "commandId": 102
     },
     {
       "id": 10030,
       "name": "[特雷森学园]重炮",
-      "charaId": 1024
+      "charaId": 1024,
+      "commandId": 105
     },
     {
       "id": 10031,
       "name": "[特雷森学园]曼城茶座",
-      "charaId": 1025
+      "charaId": 1025,
+      "commandId": 105
     },
     {
       "id": 10032,
       "name": "[特雷森学园]美浦波旁",
-      "charaId": 1026
+      "charaId": 1026,
+      "commandId": 102
     },
     {
       "id": 10033,
       "name": "[特雷森学园]目白莱恩",
-      "charaId": 1027
+      "charaId": 1027,
+      "commandId": 102
     },
     {
       "id": 10034,
       "name": "[特雷森学园]雪之美人",
-      "charaId": 1029
+      "charaId": 1029,
+      "commandId": 103
     },
     {
       "id": 10035,
       "name": "[特雷森学园]艾尼风神",
-      "charaId": 1031
+      "charaId": 1031,
+      "commandId": 103
     },
     {
       "id": 10036,
       "name": "[特雷森学园]爱丽速子",
-      "charaId": 1032
+      "charaId": 1032,
+      "commandId": 106
     },
     {
       "id": 10037,
       "name": "[特雷森学园]空中神宫",
-      "charaId": 1036
+      "charaId": 1036,
+      "commandId": 106
     },
     {
       "id": 10038,
       "name": "[特雷森学园]荣进闪耀",
-      "charaId": 1037
+      "charaId": 1037,
+      "commandId": 101
     },
     {
       "id": 10039,
       "name": "[特雷森学园]醒目飞鹰",
-      "charaId": 1046
+      "charaId": 1046,
+      "commandId": 102
     },
     {
       "id": 10040,
       "name": "[特雷森学园]成田大进",
-      "charaId": 1050
+      "charaId": 1050,
+      "commandId": 101
     },
     {
       "id": 10041,
       "name": "[特雷森学园]西野花",
-      "charaId": 1051
+      "charaId": 1051,
+      "commandId": 101
     },
     {
       "id": 10042,
       "name": "[特雷森学园]微光飞驹",
-      "charaId": 1054
+      "charaId": 1054,
+      "commandId": 101
     },
     {
       "id": 10043,
       "name": "[特雷森学园]美丽周日",
-      "charaId": 1055
+      "charaId": 1055,
+      "commandId": 106
     },
     {
       "id": 10044,
       "name": "[特雷森学园]待兼福来",
-      "charaId": 1056
+      "charaId": 1056,
+      "commandId": 106
     },
     {
       "id": 10045,
       "name": "[特雷森学园]名将怒涛",
-      "charaId": 1058
+      "charaId": 1058,
+      "commandId": 103
     },
     {
       "id": 10046,
       "name": "[特雷森学园]目白多伯",
-      "charaId": 1059
+      "charaId": 1059,
+      "commandId": 106
     },
     {
       "id": 10047,
       "name": "[特雷森学园]优秀素质",
-      "charaId": 1060
+      "charaId": 1060,
+      "commandId": 103
     },
     {
       "id": 10048,
       "name": "[特雷森学园]帝王光辉",
-      "charaId": 1061
+      "charaId": 1061,
+      "commandId": 101
     },
     {
       "id": 10049,
       "name": "[特雷森学园]富士奇石",
-      "charaId": 1005
+      "charaId": 1005,
+      "commandId": 106
     },
     {
       "id": 10050,
       "name": "[特雷森学园]东商变革",
-      "charaId": 1044
+      "charaId": 1044,
+      "commandId": 101
     },
     {
       "id": 10051,
       "name": "[特雷森学园]双涡轮",
-      "charaId": 1066
+      "charaId": 1066,
+      "commandId": 101
     },
     {
       "id": 10052,
       "name": "[特雷森学园]大拓太阳神",
-      "charaId": 1065
+      "charaId": 1065,
+      "commandId": 102
     },
     {
       "id": 10053,
       "name": "[特雷森学园]生野狄杜斯",
-      "charaId": 1063
+      "charaId": 1063,
+      "commandId": 106
     },
     {
       "id": 10054,
       "name": "[特雷森学园]目白善信",
-      "charaId": 1064
+      "charaId": 1064,
+      "commandId": 103
     },
     {
       "id": 10055,
       "name": "[特雷森学园]北部玄驹",
-      "charaId": 1068
+      "charaId": 1068,
+      "commandId": 101
     },
     {
       "id": 10056,
       "name": "[特雷森学园]里见光钻",
-      "charaId": 1067
+      "charaId": 1067,
+      "commandId": 105
     },
     {
       "id": 10057,
       "name": "[特雷森学园]待兼唐怀瑟",
-      "charaId": 1062
+      "charaId": 1062,
+      "commandId": 103
     },
     {
       "id": 10058,
       "name": "[特雷森学园]八重无敌",
-      "charaId": 1072
+      "charaId": 1072,
+      "commandId": 102
     },
     {
       "id": 10059,
       "name": "[特雷森学园]荒漠英雄",
-      "charaId": 1047
+      "charaId": 1047,
+      "commandId": 105
     },
     {
       "id": 10060,
       "name": "[特雷森学园]㭴本理子",
-      "charaId": 9006
+      "charaId": 9006,
+      "commandId": 0
     },
     {
       "id": 10061,
       "name": "[特雷森学园]采珠",
-      "charaId": 1042
+      "charaId": 1042,
+      "commandId": 103
     },
     {
       "id": 10062,
       "name": "[特雷森学园]樱花千代王",
-      "charaId": 1069
+      "charaId": 1069,
+      "commandId": 105
     },
     {
       "id": 10063,
       "name": "[特雷森学园]川上公主",
-      "charaId": 1039
+      "charaId": 1039,
+      "commandId": 101
     },
     {
       "id": 10064,
       "name": "[特雷森学园]菱曙",
-      "charaId": 1028
+      "charaId": 1028,
+      "commandId": 103
     },
     {
       "id": 10065,
       "name": "[特雷森学园]青竹回忆",
-      "charaId": 1053
+      "charaId": 1053,
+      "commandId": 102
     },
     {
       "id": 10066,
       "name": "[特雷森学园]新光风",
-      "charaId": 1043
+      "charaId": 1043,
+      "commandId": 101
     },
     {
       "id": 10067,
       "name": "[特雷森学园]中山庆典",
-      "charaId": 1049
+      "charaId": 1049,
+      "commandId": 105
     },
     {
       "id": 10068,
       "name": "[特雷森学园]稻荷一",
-      "charaId": 1034
+      "charaId": 1034,
+      "commandId": 102
     },
     {
       "id": 10069,
       "name": "[特雷森学园]目白雅丹",
-      "charaId": 1071
+      "charaId": 1071,
+      "commandId": 106
     },
     {
       "id": 10070,
       "name": "[特雷森学园]岛川乔丹",
-      "charaId": 1048
+      "charaId": 1048,
+      "commandId": 105
     },
     {
       "id": 10071,
       "name": "[特雷森学园]天狼星象征",
-      "charaId": 1070
+      "charaId": 1070,
+      "commandId": 103
     },
     {
       "id": 10072,
       "name": "[特雷森学园]成田白仁",
-      "charaId": 1016
+      "charaId": 1016,
+      "commandId": 101
     },
     {
       "id": 10073,
       "name": "[特雷森学园]真机伶",
-      "charaId": 1038
+      "charaId": 1038,
+      "commandId": 106
     },
     {
       "id": 10074,
       "name": "[针灸师]安心泽刺刺美",
-      "charaId": 9005
+      "charaId": 9005,
+      "commandId": 0
     },
     {
       "id": 10075,
       "name": "[特雷森学园]爱慕织姬",
-      "charaId": 1033
+      "charaId": 1033,
+      "commandId": 102
     },
     {
       "id": 10076,
       "name": "[特雷森学园]目白光明",
-      "charaId": 1074
+      "charaId": 1074,
+      "commandId": 105
     },
     {
       "id": 10077,
       "name": "[特雷森学园]成田路",
-      "charaId": 1077
+      "charaId": 1077,
+      "commandId": 101
     },
     {
       "id": 10078,
       "name": "[特雷森学园]千明代表",
-      "charaId": 1057
+      "charaId": 1057,
+      "commandId": 106
     },
     {
       "id": 10081,
       "name": "[特雷森学园]鹤丸强志",
-      "charaId": 1073
+      "charaId": 1073,
+      "commandId": 103
     },
     {
       "id": 20001,
       "name": "[哎呀呀，欢迎回来]富士奇石",
-      "charaId": 1005
+      "charaId": 1005,
+      "commandId": 106
     },
     {
       "id": 20002,
       "name": "[努力不会背叛自己！]大和赤骥",
-      "charaId": 1009
+      "charaId": 1009,
+      "commandId": 106
     },
     {
       "id": 20003,
       "name": "[立于顶峰！]菱亚马逊",
-      "charaId": 1012
+      "charaId": 1012,
+      "commandId": 102
     },
     {
       "id": 20004,
       "name": "[运筹帷幄副会长]气槽",
-      "charaId": 1018
+      "charaId": 1018,
+      "commandId": 103
     },
     {
       "id": 20005,
       "name": "[数码充电中+]爱丽数码",
-      "charaId": 1019
+      "charaId": 1019,
+      "commandId": 102
     },
     {
       "id": 20006,
       "name": "[验证，开始]琵琶晨光",
-      "charaId": 1023
+      "charaId": 1023,
+      "commandId": 102
     },
     {
       "id": 20007,
       "name": "[可爱＋可爱等于？]重炮",
-      "charaId": 1024
+      "charaId": 1024,
+      "commandId": 105
     },
     {
       "id": 20008,
       "name": "[雨中独奏，我的独创]曼城茶座",
-      "charaId": 1025
+      "charaId": 1025,
+      "commandId": 105
     },
     {
       "id": 20009,
       "name": "[充分锻炼的下肢]美浦波旁",
-      "charaId": 1026
+      "charaId": 1026,
+      "commandId": 102
     },
     {
       "id": 20010,
       "name": "[努力训练，积极回应！]目白莱恩",
-      "charaId": 1027
+      "charaId": 1027,
+      "commandId": 102
     },
     {
       "id": 20011,
       "name": "[城市少女入门♯]雪之美人",
-      "charaId": 1029
+      "charaId": 1029,
+      "commandId": 103
     },
     {
       "id": 20012,
       "name": "[有关生物体A的实验研究]爱丽速子",
-      "charaId": 1032
+      "charaId": 1032,
+      "commandId": 106
     },
     {
       "id": 20013,
       "name": "[0500，准时准点]荣进闪耀",
-      "charaId": 1037
+      "charaId": 1037,
+      "commandId": 101
     },
     {
       "id": 20014,
       "name": "[心情起伏]成田大进",
-      "charaId": 1050
+      "charaId": 1050,
+      "commandId": 101
     },
     {
       "id": 20015,
       "name": "[Marvelous☆大作战]美丽周日",
-      "charaId": 1055
+      "charaId": 1055,
+      "commandId": 106
     },
     {
       "id": 20016,
       "name": "[运气的走向]待兼福来",
-      "charaId": 1056
+      "charaId": 1056,
+      "commandId": 106
     },
     {
       "id": 20017,
       "name": "[与幸福背靠背]名将怒涛",
-      "charaId": 1058
+      "charaId": 1058,
+      "commandId": 103
     },
     {
       "id": 20018,
       "name": "[不要在意视线]目白多伯",
-      "charaId": 1059
+      "charaId": 1059,
+      "commandId": 106
     },
     {
       "id": 20019,
       "name": "[这只是水滴啦……]优秀素质",
-      "charaId": 1060
+      "charaId": 1060,
+      "commandId": 103
     },
     {
       "id": 20020,
       "name": "[一流计划]帝王光辉",
-      "charaId": 1061
+      "charaId": 1061,
+      "commandId": 101
     },
     {
       "id": 20021,
       "name": "[并肩同行！]桐生院葵",
-      "charaId": 9004
+      "charaId": 9004,
+      "commandId": 0
     },
     {
       "id": 20022,
       "name": "[这就是咱们的烤鱿鱼！]玉藻十字",
-      "charaId": 1021
+      "charaId": 1021,
+      "commandId": 103
     },
     {
       "id": 20023,
       "name": "[见习魔女与漫漫长夜]东商变革",
-      "charaId": 1044
+      "charaId": 1044,
+      "commandId": 101
     },
     {
       "id": 20024,
       "name": "[派对人派对夜！]大拓太阳神",
-      "charaId": 1065
+      "charaId": 1065,
+      "commandId": 102
     },
     {
       "id": 20025,
       "name": "[热身运动决不可懈怠]生野狄杜斯",
-      "charaId": 1063
+      "charaId": 1063,
+      "commandId": 106
     },
     {
       "id": 20026,
       "name": "[天真无邪]优秀素质",
-      "charaId": 1060
+      "charaId": 1060,
+      "commandId": 106
     },
     {
       "id": 20027,
       "name": "[这是送给你的]西野花",
-      "charaId": 1051
+      "charaId": 1051,
+      "commandId": 102
     },
     {
       "id": 20028,
       "name": "[推荐你读这本书！]荒漠英雄",
-      "charaId": 1047
+      "charaId": 1047,
+      "commandId": 105
     },
     {
       "id": 20029,
       "name": "[世界的珍珠，其名为]采珠",
-      "charaId": 1042
+      "charaId": 1042,
+      "commandId": 103
     },
     {
       "id": 20030,
       "name": "[给努力的你！]艾尼风神",
-      "charaId": 1031
+      "charaId": 1031,
+      "commandId": 106
     },
     {
       "id": 20031,
       "name": "[///WARNING GATE///]新光风",
-      "charaId": 1043
+      "charaId": 1043,
+      "commandId": 101
     },
     {
       "id": 20032,
       "name": "[泥泞中微笑前行]稻荷一",
-      "charaId": 1034
+      "charaId": 1034,
+      "commandId": 102
     },
     {
       "id": 20033,
       "name": "[满身泥泞的伙伴]神鹰",
-      "charaId": 1014
+      "charaId": 1014,
+      "commandId": 101
     },
     {
       "id": 20034,
       "name": "[强风拂心]目白雅丹",
-      "charaId": 1071
+      "charaId": 1071,
+      "commandId": 106
     },
     {
       "id": 20035,
       "name": "[nail on Turf]岛川乔丹",
-      "charaId": 1048
+      "charaId": 1048,
+      "commandId": 105
     },
     {
       "id": 20037,
       "name": "[GRMA拉面♪]美妙姿势",
-      "charaId": 1022
+      "charaId": 1022,
+      "commandId": 102
     },
     {
       "id": 20038,
       "name": "[毫不动摇的一等星]天狼星象征",
-      "charaId": 1070
+      "charaId": 1070,
+      "commandId": 103
     },
     {
       "id": 20039,
       "name": "[啰嗦的监督员]伏特加",
-      "charaId": 1008
+      "charaId": 1008,
+      "commandId": 101
     },
     {
       "id": 20040,
       "name": "[心跳加速的放松运动]目白莱恩",
-      "charaId": 1027
+      "charaId": 1027,
+      "commandId": 105
     },
     {
       "id": 20041,
       "name": "[目标是一等星]爱慕织姬",
-      "charaId": 1033
+      "charaId": 1033,
+      "commandId": 103
     },
     {
       "id": 20042,
       "name": "[响彻吧！模范式问候！]樱花进王",
-      "charaId": 1041
+      "charaId": 1041,
+      "commandId": 102
     },
     {
       "id": 20043,
       "name": "[一天结束之时]特别周",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 102
     },
     {
       "id": 20044,
       "name": "[温馨♪可爱的回忆]真机伶",
-      "charaId": 1038
+      "charaId": 1038,
+      "commandId": 101
     },
     {
       "id": 20045,
       "name": "[极限？！优俊♡偶像]醒目飞鹰",
-      "charaId": 1046
+      "charaId": 1046,
+      "commandId": 103
     },
     {
       "id": 20046,
       "name": "[淘气魔女修行中]东商变革",
-      "charaId": 1044
+      "charaId": 1044,
+      "commandId": 106
     },
     {
       "id": 20047,
       "name": "[Step！Smile！Wink！]东海帝王",
-      "charaId": 1003
+      "charaId": 1003,
+      "commandId": 105
     },
     {
       "id": 20048,
       "name": "[我真的很喜欢吃饭]小栗帽",
-      "charaId": 1006
+      "charaId": 1006,
+      "commandId": 103
     },
     {
       "id": 20049,
       "name": "[金色志向]黄金城",
-      "charaId": 1040
+      "charaId": 1040,
+      "commandId": 106
     },
     {
       "id": 30001,
       "name": "[献上全国第一的演出]特别周",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 103
     },
     {
       "id": 30002,
       "name": "[在耀眼景色的前方]无声铃鹿",
-      "charaId": 1002
+      "charaId": 1002,
+      "commandId": 101
     },
     {
       "id": 30003,
       "name": "[有梦想就要大声说出来！]东海帝王",
-      "charaId": 1003
+      "charaId": 1003,
+      "commandId": 101
     },
     {
       "id": 30004,
       "name": "[不沉舰的进击]黄金船",
-      "charaId": 1007
+      "charaId": 1007,
+      "commandId": 105
     },
     {
       "id": 30005,
       "name": "[伏特加之路]伏特加",
-      "charaId": 1008
+      "charaId": 1008,
+      "commandId": 102
     },
     {
       "id": 30006,
       "name": "[万紫千红中一枝独秀]草上飞",
-      "charaId": 1011
+      "charaId": 1011,
+      "commandId": 103
     },
     {
       "id": 30007,
       "name": "[热情的冠军！]神鹰",
-      "charaId": 1014
+      "charaId": 1014,
+      "commandId": 102
     },
     {
       "id": 30008,
       "name": "[期待已久的计谋]青云天空",
-      "charaId": 1020
+      "charaId": 1020,
+      "commandId": 105
     },
     {
       "id": 30009,
       "name": "[划破天空的闪电少女！]玉藻十字",
-      "charaId": 1021
+      "charaId": 1021,
+      "commandId": 105
     },
     {
       "id": 30010,
       "name": "[全身心的感谢]美妙姿势",
-      "charaId": 1022
+      "charaId": 1022,
+      "commandId": 106
     },
     {
       "id": 30011,
       "name": "[飞奔吧，闪耀吧]艾尼风神",
-      "charaId": 1031
+      "charaId": 1031,
+      "commandId": 103
     },
     {
       "id": 30012,
       "name": "[B·N·Winner！]胜利奖券",
-      "charaId": 1035
+      "charaId": 1035,
+      "commandId": 103
     },
     {
       "id": 30013,
       "name": "[冲向前方7厘米之外]空中神宫",
-      "charaId": 1036
+      "charaId": 1036,
+      "commandId": 106
     },
     {
       "id": 30014,
       "name": "[Run（my）way]黄金城",
-      "charaId": 1040
+      "charaId": 1040,
+      "commandId": 101
     },
     {
       "id": 30015,
       "name": "[好快！好吃！好快！]樱花进王",
-      "charaId": 1041
+      "charaId": 1041,
+      "commandId": 101
     },
     {
       "id": 30016,
       "name": "[一颗安心糖]超级溪流",
-      "charaId": 1045
+      "charaId": 1045,
+      "commandId": 105
     },
     {
       "id": 30017,
       "name": "[这就是我的优俊偶像之道☆]醒目飞鹰",
-      "charaId": 1046
+      "charaId": 1046,
+      "commandId": 102
     },
     {
       "id": 30018,
       "name": "[哪怕还不能独当一面]西野花",
-      "charaId": 1051
+      "charaId": 1051,
+      "commandId": 101
     },
     {
       "id": 30019,
       "name": "[乌菈菈～的休息日]春乌菈菈",
-      "charaId": 1052
+      "charaId": 1052,
+      "commandId": 103
     },
     {
       "id": 30020,
       "name": "[必杀技！双胡萝卜拳！]微光飞驹",
-      "charaId": 1054
+      "charaId": 1054,
+      "commandId": 101
     },
     {
       "id": 30021,
       "name": "[欢迎来到特雷森学园！]骏川手纲",
-      "charaId": 9001
+      "charaId": 9001,
+      "commandId": 0
     },
     {
       "id": 30022,
       "name": "[身为“王牌”]目白麦昆",
-      "charaId": 1013
+      "charaId": 1013,
+      "commandId": 105
     },
     {
       "id": 30023,
       "name": "[“幸福”漫天飞舞的时刻]米浴",
-      "charaId": 1030
+      "charaId": 1030,
+      "commandId": 105
     },
     {
       "id": 30024,
       "name": "[“要受人喜爱啊”]小栗帽",
-      "charaId": 1006
+      "charaId": 1006,
+      "commandId": 102
     },
     {
       "id": 30025,
       "name": "[夕阳是憧憬之色]特别周",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 101
     },
     {
       "id": 30026,
       "name": "[涡轮引擎马力全开！]双涡轮",
-      "charaId": 1066
+      "charaId": 1066,
+      "commandId": 101
     },
     {
       "id": 30027,
       "name": "[尽管笑我傻吧]目白善信",
-      "charaId": 1064
+      "charaId": 1064,
+      "commandId": 103
     },
     {
       "id": 30028,
       "name": "[身后迫近的热浪是动力]北部玄驹",
-      "charaId": 1068
+      "charaId": 1068,
+      "commandId": 101
     },
     {
       "id": 30029,
       "name": "[超越那前方的背影]里见光钻",
-      "charaId": 1067
+      "charaId": 1067,
+      "commandId": 105
     },
     {
       "id": 30030,
       "name": "[Just keep going.]待兼唐怀瑟",
-      "charaId": 1062
+      "charaId": 1062,
+      "commandId": 103
     },
     {
       "id": 30031,
       "name": "[由故乡直达的助威！]雪之美人",
-      "charaId": 1029
+      "charaId": 1029,
+      "commandId": 106
     },
     {
       "id": 30032,
       "name": "[心中的烈火无法抑制]八重无敌",
-      "charaId": 1072
+      "charaId": 1072,
+      "commandId": 102
     },
     {
       "id": 30033,
       "name": "[梦想真的可以实现！]胜利奖券",
-      "charaId": 1035
+      "charaId": 1035,
+      "commandId": 102
     },
     {
       "id": 30034,
       "name": "[幸福就在转角后]米浴",
-      "charaId": 1030
+      "charaId": 1030,
+      "commandId": 102
     },
     {
       "id": 30036,
       "name": "[彻底管理主义]㭴本理子",
-      "charaId": 9006
+      "charaId": 9006,
+      "commandId": 0
     },
     {
       "id": 30038,
       "name": "[樱花盛开之时]樱花千代王",
-      "charaId": 1069
+      "charaId": 1069,
+      "commandId": 105
     },
     {
       "id": 30039,
       "name": "[身为新娘！]川上公主",
-      "charaId": 1039
+      "charaId": 1039,
+      "commandId": 101
     },
     {
       "id": 30040,
       "name": "[请品尝第一口！]菱曙",
-      "charaId": 1028
+      "charaId": 1028,
+      "commandId": 103
     },
     {
       "id": 30041,
       "name": "[心与心愿]目白多伯",
-      "charaId": 1059
+      "charaId": 1059,
+      "commandId": 106
     },
     {
       "id": 30042,
       "name": "[Head-on fight！]青竹回忆",
-      "charaId": 1053
+      "charaId": 1053,
+      "commandId": 102
     },
     {
       "id": 30043,
       "name": "[43、8、1]中山庆典",
-      "charaId": 1049
+      "charaId": 1049,
+      "commandId": 105
     },
     {
       "id": 30044,
       "name": "[Two Pieces]成田白仁",
-      "charaId": 1016
+      "charaId": 1016,
+      "commandId": 101
     },
     {
       "id": 30045,
       "name": "[独享冰凉？]东商变革",
-      "charaId": 1044
+      "charaId": 1044,
+      "commandId": 101
     },
     {
       "id": 30046,
       "name": "[全力嬉闹！]胜利奖券",
-      "charaId": 1035
+      "charaId": 1035,
+      "commandId": 105
     },
     {
       "id": 30047,
       "name": "[Trifle☆Vacation]大和赤骥",
-      "charaId": 1009
+      "charaId": 1009,
+      "commandId": 102
     },
     {
       "id": 30048,
       "name": "[爽快！决胜一击！]目白莱恩",
-      "charaId": 1027
+      "charaId": 1027,
+      "commandId": 103
     },
     {
       "id": 30053,
       "name": "[坏蛋，举起手来！]大树快车",
-      "charaId": 1010
+      "charaId": 1010,
+      "commandId": 101
     },
     {
       "id": 30054,
       "name": "[即使满身泥土，也要追逐梦想]优秀素质",
-      "charaId": 1060
+      "charaId": 1060,
+      "commandId": 106
     },
     {
       "id": 30055,
       "name": "[明天全国都会染红吧♪]青云天空",
-      "charaId": 1020
+      "charaId": 1020,
+      "commandId": 106
     },
     {
       "id": 30056,
       "name": "[起舞今宵]帝王光辉",
-      "charaId": 1061
+      "charaId": 1061,
+      "commandId": 102
     },
     {
       "id": 30057,
       "name": "[优俊王传说·登上最强宝座]黄金船",
-      "charaId": 1007
+      "charaId": 1007,
+      "commandId": 101
     },
     {
       "id": 30058,
       "name": "[两束高贵之光]东海帝王",
-      "charaId": 1003
+      "charaId": 1003,
+      "commandId": 102
     },
     {
       "id": 30059,
       "name": "[祝福宛如赋格]美浦波旁",
-      "charaId": 1026
+      "charaId": 1026,
+      "commandId": 105
     },
     {
       "id": 30060,
       "name": "[新星齐聚]双涡轮",
-      "charaId": 1066
+      "charaId": 1066,
+      "commandId": 103
     },
     {
       "id": 30061,
       "name": "[共鸣的旋律]琵琶晨光",
-      "charaId": 1023
+      "charaId": 1023,
+      "commandId": 106
     },
     {
       "id": 30062,
       "name": "[WINNING DREAM]无声铃鹿",
-      "charaId": 1002
+      "charaId": 1002,
+      "commandId": 105
     },
     {
       "id": 30063,
       "name": "[内心双脚皆温暖]生野狄杜斯",
-      "charaId": 1063
+      "charaId": 1063,
+      "commandId": 103
     },
     {
       "id": 30064,
       "name": "[大闹万圣夜！]玉藻十字",
-      "charaId": 1021
+      "charaId": 1021,
+      "commandId": 102
     },
     {
       "id": 30065,
       "name": "[被授予魔力的英雄]荒漠英雄",
-      "charaId": 1047
+      "charaId": 1047,
+      "commandId": 101
     },
     {
       "id": 30066,
       "name": "[幽灵小姐与万圣节的魔法]美浦波旁",
-      "charaId": 1026
+      "charaId": 1026,
+      "commandId": 106
     },
     {
       "id": 30067,
       "name": "[尊尚敬爱]聚于王座之人",
-      "charaId": 1017
+      "charaId": 1017,
+      "commandId": 0
     },
     {
       "id": 30068,
       "name": "[可爱的你，美丽的你]真机伶",
-      "charaId": 1038
+      "charaId": 1038,
+      "commandId": 106
     },
     {
       "id": 30069,
       "name": "[鸣箭嗤天]成田白仁",
-      "charaId": 1016
+      "charaId": 1016,
+      "commandId": 105
     },
     {
       "id": 30070,
       "name": "[点亮初宵的奉纳舞]雪之美人",
-      "charaId": 1029
+      "charaId": 1029,
+      "commandId": 103
     },
     {
       "id": 30071,
       "name": "[舞动吧·躁动吧·狂欢吧！]大拓太阳神",
-      "charaId": 1065
+      "charaId": 1065,
+      "commandId": 102
     },
     {
       "id": 30072,
       "name": "[队形：PARTY]重炮",
-      "charaId": 1024
+      "charaId": 1024,
+      "commandId": 101
     },
     {
       "id": 30073,
       "name": "[倔强的集市]成田大进",
-      "charaId": 1050
+      "charaId": 1050,
+      "commandId": 106
     },
     {
       "id": 30074,
       "name": "[冰晶之日]美丽周日",
-      "charaId": 1055
+      "charaId": 1055,
+      "commandId": 102
     },
     {
       "id": 30075,
       "name": "[独奏·螺旋卡农]曼城茶座",
-      "charaId": 1025
+      "charaId": 1025,
+      "commandId": 105
     },
     {
       "id": 30076,
       "name": "[追寻未曾见过的景色]无声铃鹿",
-      "charaId": 1002
+      "charaId": 1002,
+      "commandId": 101
     },
     {
       "id": 30077,
       "name": "[夜有黎明，天有祥星]爱慕织姬",
-      "charaId": 1033
+      "charaId": 1033,
+      "commandId": 102
     },
     {
       "id": 30078,
       "name": "[萍水相逢即是福♪]待兼福来",
-      "charaId": 1056
+      "charaId": 1056,
+      "commandId": 101
     },
     {
       "id": 30079,
       "name": "[想要飞奔而出的心情]名将怒涛",
-      "charaId": 1058
+      "charaId": 1058,
+      "commandId": 105
     },
     {
       "id": 30080,
       "name": "[要不赶紧扎一针？]安心泽刺刺美",
-      "charaId": 9005
+      "charaId": 9005,
+      "commandId": 0
     },
     {
       "id": 30081,
       "name": "[共谱明日的回忆]＜天狼星＞队",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 0
     },
     {
       "id": 30082,
       "name": "[饱含心意的纸杯蛋糕]西野花",
-      "charaId": 1051
+      "charaId": 1051,
+      "commandId": 106
     },
     {
       "id": 30083,
       "name": "[极快！最快！花之风暴！]樱花进王",
-      "charaId": 1041
+      "charaId": 1041,
+      "commandId": 103
     },
     {
       "id": 30084,
       "name": "[In my way]岛川乔丹",
-      "charaId": 1048
+      "charaId": 1048,
+      "commandId": 101
     },
     {
       "id": 30085,
       "name": "[“存在”于此的幸福]爱丽数码",
-      "charaId": 1019
+      "charaId": 1019,
+      "commandId": 102
     },
     {
       "id": 30086,
       "name": "[粉色背影]成田路",
-      "charaId": 1077
+      "charaId": 1077,
+      "commandId": 101
     },
     {
       "id": 30087,
       "name": "[一小步·又·一小步]目白光明",
-      "charaId": 1074
+      "charaId": 1074,
+      "commandId": 105
     },
     {
       "id": 30088,
       "name": "[SPECIAL DREAMERS！！]里见光钻",
-      "charaId": 1067
+      "charaId": 1067,
+      "commandId": 106
     },
     {
       "id": 30089,
       "name": "[让世界更加☆marvelous]美丽周日",
-      "charaId": 1055
+      "charaId": 1055,
+      "commandId": 103
     },
     {
       "id": 30090,
       "name": "[Enchaînement]鲁道夫象征",
-      "charaId": 1017
+      "charaId": 1017,
+      "commandId": 105
     },
     {
       "id": 30091,
       "name": "[Escorte étoile]天狼星象征",
-      "charaId": 1070
+      "charaId": 1070,
+      "commandId": 106
     },
     {
       "id": 30092,
       "name": "[mag！c number]空中神宫",
-      "charaId": 1036
+      "charaId": 1036,
+      "commandId": 101
     },
     {
       "id": 30093,
       "name": "[Outfit as No.1]大和赤骥",
-      "charaId": 1009
+      "charaId": 1009,
+      "commandId": 102
     },
     {
       "id": 30094,
       "name": "[收下这份鼓励吧！]青竹回忆",
-      "charaId": 1053
+      "charaId": 1053,
+      "commandId": 103
     },
     {
       "id": 30095,
       "name": "[那声加油改变了世界]采珠",
-      "charaId": 1042
+      "charaId": 1042,
+      "commandId": 101
     },
     {
       "id": 30096,
       "name": "[加油加油☆公主！]川上公主",
-      "charaId": 1039
+      "charaId": 1039,
+      "commandId": 102
     },
     {
       "id": 30097,
       "name": "[Dear Mr. C.B.]千明代表",
-      "charaId": 1057
+      "charaId": 1057,
+      "commandId": 106
     },
     {
       "id": 30098,
       "name": "[乌菈菈的热情之歌♪]春乌菈菈",
-      "charaId": 1052
+      "charaId": 1052,
+      "commandId": 102
     },
     {
       "id": 30099,
       "name": "[可爱的金兰之交们]生野狄杜斯",
-      "charaId": 1063
+      "charaId": 1063,
+      "commandId": 105
     },
     {
       "id": 30100,
       "name": "[憧憬的景色]米浴",
-      "charaId": 1030
+      "charaId": 1030,
+      "commandId": 106
     },
     {
       "id": 30102,
       "name": "[光芒四射地奔跑吧∞]神鹰",
-      "charaId": 1014
+      "charaId": 1014,
+      "commandId": 103
     },
     {
       "id": 30103,
       "name": "[待兼唐☆大冒险]待兼唐怀瑟",
-      "charaId": 1062
+      "charaId": 1062,
+      "commandId": 106
     },
     {
       "id": 30104,
       "name": "[《蔷薇辉石与梦之石》]荒漠英雄",
-      "charaId": 1047
+      "charaId": 1047,
+      "commandId": 105
     },
     {
       "id": 30105,
       "name": "[和我们一起，实现梦想吧！]特别周",
-      "charaId": 1001
+      "charaId": 1001,
+      "commandId": 103
     },
     {
       "id": 30106,
       "name": "[奔向理想的熏风]气槽",
-      "charaId": 1018
+      "charaId": 1018,
+      "commandId": 102
     }
   ]
 }

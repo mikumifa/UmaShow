@@ -22,23 +22,26 @@ import type { MarkLine1DDataItemOption } from 'echarts/types/src/component/marke
 import _ from 'lodash';
 import memoize from 'memoize-one';
 import React from 'react';
-import { Chara } from '../data/data_pb';
+import { Chara } from '../../umdb/data_pb';
 import {
   RaceSimulateData,
   RaceSimulateEventData_SimulateEventType,
   RaceSimulateHorseFrameData_TemptationMode,
   RaceSimulateHorseResultData,
-} from '../data/race_data_pb';
+} from '../../umdb/race_data_pb';
 import {
   filterCharaSkills,
   filterCharaTargetedSkills,
   filterRaceEvents,
   getCharaActivatedSkillIds,
-} from '../data/RaceDataUtils';
-import { fromRaceHorseData, TrainedCharaData } from '../data/TrainedCharaData';
-import * as UMDatabaseUtils from '../data/UMDatabaseUtils';
+} from '../../umdb/RaceDataUtils';
+import {
+  fromRaceHorseData,
+  TrainedCharaData,
+} from '../../umdb/TrainedCharaData';
+import * as UMDatabaseUtils from '../../umdb/UMDatabaseUtils';
 // import FoldCard from './FoldCard'; // Removed FoldCard
-import { UMDB } from '../renderer/umdb';
+import { UMDB } from '../utils/umdb';
 
 const unknownCharaTag = 'Unknown Chara / Mob';
 const supportedRaceDataVersion = 100000002;
@@ -158,18 +161,19 @@ class RaceDataPresenter extends React.PureComponent<
     const nameFromRaceHorseInfo: Record<number, string> = {};
     if (raceHorseInfo && raceHorseInfo.length === raceData.horseResult.length) {
       raceHorseInfo.forEach((d: any) => {
+        const trainedCharaData = fromRaceHorseData(d, UMDB.skills);
         const frameOrder = d['frame_order'] - 1; // 0-indexed
         const charaId = d['chara_id'];
         const charaDisplayName =
           charaId in this.props.umdb.charas
-            ? UMDatabaseUtils.charaNameWithCast(this.props.umdb.charas[charaId])
+            ? this.props.umdb.charas[charaId].name
             : unknownCharaTag;
 
         const trainerNameSuffix = d['trainer_name']
-          ? ` [Trainer: ${d['trainer_name']}]`
+          ? ` by ${d['trainer_name']}`
           : '';
         nameFromRaceHorseInfo[frameOrder] =
-          ` ${charaDisplayName}${trainerNameSuffix}`;
+          ` ${charaDisplayName}-${trainedCharaData.rankScore}${trainerNameSuffix}`;
       });
     }
 
@@ -422,7 +426,6 @@ class RaceDataPresenter extends React.PureComponent<
             frame.horseFrame[frameOrder!].speed,
           ]),
           type: 'line',
-          smooth: true,
           markLine: {
             symbol: 'none',
             label: { position: 'end', formatter: '{b}' },
@@ -567,25 +570,28 @@ class RaceDataPresenter extends React.PureComponent<
       return undefined;
     }
 
-    const rows: CharaTableData[] = this.props.raceHorseInfo.map((data) => {
-      const frameOrder = data['frame_order'] - 1;
-      const horseResult = this.props.raceData.horseResult[frameOrder];
-      const trainedCharaData = fromRaceHorseData(data);
-      return {
-        trainedChara: trainedCharaData,
-        chara: this.props.umdb.charas[trainedCharaData.charaId],
-        frameOrder: frameOrder + 1,
-        finishOrder: horseResult.finishOrder! + 1,
-        horseResultData: horseResult,
-        popularity: data['popularity'],
-        popularityMarks: data['popularity_mark_rank_array'],
-        motivation: data['motivation'],
-        activatedSkills: getCharaActivatedSkillIds(
-          this.props.raceData,
-          frameOrder,
-        ),
-      };
-    });
+    const rows: CharaTableData[] = this.props.raceHorseInfo
+      .map((data) => {
+        const frameOrder = data['frame_order'] - 1;
+        const horseResult = this.props.raceData.horseResult[frameOrder];
+        const trainedCharaData = fromRaceHorseData(data, UMDB.skills);
+
+        return {
+          trainedChara: trainedCharaData,
+          chara: this.props.umdb.charas[trainedCharaData.charaId],
+          frameOrder: frameOrder + 1,
+          finishOrder: horseResult.finishOrder! + 1,
+          horseResultData: horseResult,
+          popularity: data['popularity'],
+          popularityMarks: data['popularity_mark_rank_array'],
+          motivation: data['motivation'],
+          activatedSkills: getCharaActivatedSkillIds(
+            this.props.raceData,
+            frameOrder,
+          ),
+        };
+      })
+      .sort((a, b) => a.finishOrder - b.finishOrder);
 
     // Remove FoldCard, just return the table wrapper
     return (

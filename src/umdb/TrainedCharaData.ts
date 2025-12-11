@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { UMDB } from '../renderer/umdb';
+import { Skill } from './data_pb';
 
 export type CharaSkill = {
   skillId: number;
@@ -44,6 +44,7 @@ function calcRankScore(
   raceHorseData: any,
   statusPoints: StatusPoints,
   charaSkills: CharaSkill[],
+  skills: Record<number, Skill>,
   properRunningStyles: Record<number, number>,
   properDistances: Record<number, number>,
   properGrounds: Record<number, number>,
@@ -64,7 +65,7 @@ function calcRankScore(
   );
   for (let charaSkill of charaSkills) {
     const skillId = charaSkill.skillId;
-    const skill = UMDB.skills[skillId];
+    const skill = skills[skillId];
     if (skill === undefined) {
       continue;
     }
@@ -116,7 +117,10 @@ function calcRankScore(
   return rankScore;
 }
 
-export function fromRaceHorseData(raceHorseData: any): TrainedCharaData {
+export function fromRaceHorseData(
+  raceHorseData: any,
+  skills: Record<number, Skill>,
+): TrainedCharaData {
   const charaSkills: CharaSkill[] = raceHorseData['skill_array'].map(
     (skill: any) =>
       ({
@@ -170,6 +174,7 @@ export function fromRaceHorseData(raceHorseData: any): TrainedCharaData {
       raceHorseData,
       statusPoints,
       charaSkills,
+      skills,
       properRunningStyles,
       properDistances,
       { 1: turf, 2: dirt },

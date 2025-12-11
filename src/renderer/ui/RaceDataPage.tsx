@@ -1,10 +1,10 @@
 import React from 'react';
 import { Button } from 'react-bootstrap'; // 保留 Button 用于做一个“返回”按钮
 import { useLocation, useNavigate } from 'react-router-dom';
-import RaceDataPresenter from '../components/RaceDataPresenter';
-import { RaceSimulateData } from '../data/race_data_pb';
-import { deserializeFromBase64 } from '../data/RaceDataParser';
-import { loadUMDB, UMDB } from './umdb';
+import RaceDataPresenter from 'renderer/components/RaceDataPresenter';
+import { RaceSimulateData } from 'umdb/race_data_pb';
+import { deserializeFromBase64 } from 'umdb/RaceDataParser';
+import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 
 // 1. Props 定义：只接收路由跳转过来的参数
 type RaceDataPageProps = {

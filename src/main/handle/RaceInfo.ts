@@ -1,12 +1,11 @@
 import { BrowserWindow } from 'electron';
-import { UMDB } from './Data';
-import { RACE_DIR } from '../paths';
 import fs from 'fs';
 
 import path from 'path';
 import log from 'electron-log';
-import { jsonReplacer } from '../util';
-import { RaceMetaInfo, RaceRecord } from '../../types/gameTypes';
+import { RaceMetaInfo, RaceRecord } from 'types/gameTypes';
+import { jsonReplacer } from 'main/util';
+import { RACE_DIR } from 'main/paths';
 
 /**
  * ⭐ 处理赛马数据：race_scenario + race_horse_data_array

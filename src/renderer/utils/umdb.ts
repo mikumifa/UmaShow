@@ -1,4 +1,4 @@
-import { RaceInstance } from '../data/data_pb';
+import { RaceInstance, Skill, SupportCard } from 'umdb/data_pb';
 
 let umdbInstance: any = null;
 let loadPromise: Promise<any> | null = null;
@@ -24,10 +24,13 @@ export const UMDB = {
   get raceInstances(): Record<number, RaceInstance> {
     return umdbInstance?.raceInstances ?? {};
   },
+  get supportCards(): Record<number, SupportCard> {
+    return umdbInstance?.supportCards ?? {};
+  },
   get cards() {
     return umdbInstance?.cards ?? {};
   },
-  get skills() {
+  get skills(): Record<number, Skill> {
     return umdbInstance?.skills ?? {};
   },
 

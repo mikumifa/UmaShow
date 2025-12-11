@@ -4,7 +4,6 @@ module.exports = {
   // eslint-disable-next-line prettier/prettier
   content: [
     './src/renderer/**/*.{js,jsx,ts,tsx,ejs}',
-    './src/components/**/*.{js,jsx,ts,tsx,ejs}',
     './src/main/**/*.{js,jsx,ts,tsx,ejs}',
   ],
   safelist: [
@@ -18,6 +17,7 @@ module.exports = {
       colors: {
         sky: colors.sky,
         cyan: colors.cyan,
+        surface: '#5DC714',
         ground: {
           1: '#EF8334',
           2: '#9A8BA6',

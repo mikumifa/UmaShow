@@ -1,5 +1,5 @@
 import { HelpCircle } from 'lucide-react';
-import { GameEvent } from '../types/gameTypes';
+import { GameEvent } from '../../types/gameTypes';
 
 export const EVENT_OPTION_STYLE = {
   correct: {

@@ -13,8 +13,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import log from 'electron-log';
-import { loadUMDB, UMDB } from '../renderer/umdb';
-import { RaceInstance_GroundType } from '../data/data_pb';
+import { RaceInstance_GroundType } from 'umdb/data_pb';
+import { loadUMDB, UMDB } from '../utils/umdb';
 
 // =====================================================================================
 // [PREVIEW MODE] MOCK DATA & IMPORTS

@@ -1,27 +1,35 @@
 import log from 'electron-log';
-import { resolveEventRule } from '../../constant/events';
+import { resolveEventRule } from 'constant/events';
 import { BrowserWindow } from 'electron';
-import { CharStats, GameStats } from '../../types/gameTypes';
+import { CharStats, GameStats } from 'types/gameTypes';
+import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
 import { UMDB } from './Data';
 
-export function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
-  const chara = decodedData.data?.chara_info;
+export function extractCoreInfo(
+  decodedData: unknown,
+  _mainWindow: BrowserWindow,
+) {
+  if (!isUMASingleModelResponse(decodedData)) {
+    return;
+  }
+  const decoded = decodedData;
+  const chara = decoded.data.chara_info;
   if (!chara) return;
-  const home = decodedData.data?.home_info;
+  const home = decoded.data.home_info;
   const stats: CharStats = {
-    speed: { value: chara?.speed, max: chara?.max_speed },
-    stamina: { value: chara?.stamina, max: chara?.max_stamina },
-    power: { value: chara?.power, max: chara?.max_power },
-    wiz: { value: chara?.wiz, max: chara?.max_wiz },
-    guts: { value: chara?.guts, max: chara?.max_guts },
-    vital: { value: chara?.vital, max: chara?.max_vital },
-    skillPoint: chara?.skill_point,
+    speed: { value: chara.speed, max: chara.max_speed },
+    stamina: { value: chara.stamina, max: chara.max_stamina },
+    power: { value: chara.power, max: chara.max_power },
+    wiz: { value: chara.wiz, max: chara.max_wiz },
+    guts: { value: chara.guts, max: chara.max_guts },
+    vital: { value: chara.vital, max: chara.max_vital },
+    skillPoint: chara.skill_point,
   };
   const gameStats: GameStats = {
-    turn: chara?.turn,
+    turn: chara.turn,
   };
 
-  const commands = (home?.command_info_array || []).map((cmd: any) => ({
+  const commands = (home?.command_info_array ?? []).map((cmd) => ({
     commandId: cmd.command_id,
     commandType: cmd.command_type,
     isEnable: cmd.is_enable,
@@ -29,15 +37,15 @@ export function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
     level: cmd.level,
     trainingPartners: cmd.training_partner_array || [],
     tipsPartners: cmd.tips_event_partner_array || [],
-    params: (cmd.params_inc_dec_info_array || []).map((p: any) => ({
+    params: (cmd.params_inc_dec_info_array || []).map((p) => ({
       targetType: p.target_type,
       value: p.value,
     })),
   }));
 
   // ---------- partner Stats ----------
-  const supportCards: any[] = chara?.support_card_array || [];
-  const evaluations: any[] = chara?.evaluation_info_array || [];
+  const supportCards = chara.support_card_array || [];
+  const evaluations = chara.evaluation_info_array || [];
 
   const partnerStats = evaluations.map((evalEntry) => {
     const position = evalEntry.training_partner_id;
@@ -45,7 +53,7 @@ export function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
     const result = {
       position,
       evaluation: evalEntry.evaluation ?? 0,
-      supportCardId: null,
+      supportCardId: 0,
       charaPath: '',
       limitBreak: 0,
       exp: 0,
@@ -62,7 +70,7 @@ export function extractCoreInfo(decodedData: any, _mainWindow: BrowserWindow) {
     return result;
   });
 
-  const rawEvents = decodedData.data?.unchecked_event_array || [];
+  const rawEvents = decoded.data?.unchecked_event_array || [];
   const gameEvents = rawEvents.flatMap((ev: any) => {
     const storyId = ev.story_id;
     const choiceArray = ev.event_contents_info?.choice_array || [];

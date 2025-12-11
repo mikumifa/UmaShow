@@ -220,6 +220,11 @@ export class SupportCard extends Message<SupportCard> {
    */
   charaId?: number;
 
+  /**
+   * @generated from field: optional int32 command_id = 4;
+   */
+  commandId?: number;
+
   constructor(data?: PartialMessage<SupportCard>) {
     super();
     proto2.util.initPartial(data, this);
@@ -231,6 +236,7 @@ export class SupportCard extends Message<SupportCard> {
     { no: 1, name: "id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 3, name: "chara_id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 4, name: "command_id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SupportCard {

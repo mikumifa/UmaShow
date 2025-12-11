@@ -14,7 +14,9 @@ import {
   COMMAND_NAME_MAP,
   PartnerStats,
   COMMAND_TARGET_TYPE_MAP,
-} from '../types/gameTypes';
+} from '../../types/gameTypes';
+import { UMDB } from '../utils/umdb';
+import FailureRateBadge from './FailureRateBadge';
 
 export interface TargetConfig {
   label: string;
@@ -129,6 +131,7 @@ export default function TrainingCard({
     (p) => p.targetType === 10 && p.value > 0,
   );
   const mainConfig = getStatConfig(COMMAND_TARGET_TYPE_MAP[command.commandId]);
+
   return (
     <button
       disabled={isDisabled}
@@ -152,9 +155,7 @@ export default function TrainingCard({
 
       {/* Failure Rate */}
       {command.failureRate > 0 && (
-        <div className="absolute -top-3 -right-2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded-full border border-white shadow z-10">
-          {command.failureRate}%
-        </div>
+        <FailureRateBadge failureRate={command.failureRate} />
       )}
 
       {/* Header Image Area (Abstract representation) */}
@@ -225,28 +226,37 @@ export default function TrainingCard({
       {command.trainingPartners.length > 0 && (
         <div className="bg-gray-50 p-2 rounded-b-lg border-t border-gray-100 flex flex-wrap gap-1.5 justify-start min-h-[46px]">
           {command.trainingPartners.slice(0, 7).map((p) => {
-            // Mocking progress value for visual flair
             const partner = partnerStats.find((c) => c.position === p);
             const progress = Math.min(
               100,
               Math.max(0, partner?.evaluation ?? 0),
             );
+            const isMotivated =
+              progress >= 80 &&
+              UMDB.supportCards[partner!.supportCardId!]?.commandId ===
+                command.commandId;
             const isTip = command.tipsPartners?.includes(p);
             const progressColor =
               // eslint-disable-next-line no-nested-ternary
-              progress > 80
-                ? 'bg-orange-400'
-                : progress > 40
-                  ? 'bg-yellow-400'
-                  : 'bg-gray-300';
+              progress >= 80
+                ? 'bg-[#FFAD1E]'
+                : progress >= 60
+                  ? 'bg-[#A2E61E]'
+                  : 'bg-[#2AC0FF]';
             return (
               <div
                 key={p}
                 className="relative group/partner flex flex-col items-center"
               >
-                {/* Circle Container - Thinner border */}
+                {/* 只有在 isMotivated 为 true 时显示 */}
+                {isMotivated && (
+                  <div className="absolute -top-[3px] w-[38px] h-[38px] rounded-full z-0 animate-spin-slow">
+                    <div className="w-full h-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] blur-[1px] opacity-90" />
+                  </div>
+                )}
+
+                {/* --- (Circle Container) --- */}
                 <div className="w-8 h-8 rounded-full bg-orange-100 border-[1.5px] border-white flex items-center justify-center text-[10px] overflow-hidden shadow-sm relative z-10 transition-transform hover:scale-110">
-                  {/* Placeholder Icon */}
                   {partner && partner.charaPath ? (
                     <img
                       src={partner.charaPath}
@@ -261,11 +271,18 @@ export default function TrainingCard({
                 </div>
 
                 {/* Progress Bar (Below Circle) */}
-                <div className="w-7 h-1 bg-gray-200 rounded-full mt-0.5 overflow-hidden">
+                <div className="w-7 h-1.5 bg-gray-700 rounded-[3px] border border-gray-600 -mt-1 relative overflow-hidden z-20 box-border">
                   <div
-                    className={`h-full ${progressColor}`}
+                    className={`h-full ${progressColor} transition-all duration-300 ease-out`}
                     style={{ width: `${progress}%` }}
                   />
+
+                  <div className="absolute inset-0 w-full h-full grid grid-cols-4 pointer-events-none">
+                    <div className="border-r border-black/20 h-full" />
+                    <div className="border-r border-black/20 h-full" />
+                    <div className="border-r border-black/20 h-full" />
+                    <div />
+                  </div>
                 </div>
                 {/* Exclamation Mark Alert (Example: Show on partner 4) */}
                 {isTip && (

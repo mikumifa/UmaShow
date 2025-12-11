@@ -31,7 +31,7 @@ const electronHandler = {
       return ipcRenderer.invoke('umdb-get');
     },
     navigation: {
-      onNavigate: (callback: (data: { path: string }) => void) => {
+      onNavigate: (callback: (data: { path: string; state: any }) => void) => {
         ipcRenderer.on('navigate-to', (_, data) => callback(data));
       },
     },

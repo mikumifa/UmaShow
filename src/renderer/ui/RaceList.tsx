@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Square, CheckSquare, Trophy, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { RaceRecord } from '../types/gameTypes';
-import RaceMetaTag from '../components/RaceMetaTag';
+import { RaceRecord } from 'types/gameTypes';
+import RaceMetaTag from 'renderer/components/RaceMetaTag';
 
 export default function RaceList() {
   const navigate = useNavigate();
@@ -70,14 +70,8 @@ export default function RaceList() {
         {/* 标题栏 */}
         <div className="mb-6 pb-4 border-b border-gray-200 flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-3 text-gray-800">
-              <div className="p-2 bg-blue-600 text-white rounded-lg shadow-sm">
-                <Trophy size={24} />
-              </div>
-              比赛记录
-            </h1>
             <p className="text-gray-500 text-sm mt-1 ml-1">
-              管理并回放已保存的比赛数据
+              练习，自定义比赛，保存的比赛
             </p>
           </div>
 

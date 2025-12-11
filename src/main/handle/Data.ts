@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import log from 'electron-log';
 import _ from 'lodash';
-import { ASSETS_PATH } from '../paths';
+import { ASSETS_PATH } from 'main/paths';
 import pako from 'pako';
 import {
   Card,
@@ -11,8 +11,8 @@ import {
   Skill,
   SupportCard,
   UMDatabase,
-} from '../../data/data_pb';
-import { Story } from '../../data/UMDatabaseUtils';
+} from 'umdb/data_pb';
+import { Story } from 'umdb/UMDatabaseUtils';
 
 export const UMDB = {
   charas: {} as Record<number, Chara>,
