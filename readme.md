@@ -1,5 +1,3 @@
-# UmaShow
-
 <p align="center">
   <img src="assets/icon.png" alt="UmaShow Icon" width="160">
 </p>
@@ -19,7 +17,7 @@
 
 ## 快速上手
 
-1. 安装https://github.com/mikumifa/umamusume-localify-android-zh，配置端口为4639
+1. 安装https://github.com/mikumifa/umamusume-localify-android-zh  配置端口为4639
 2. `release` 目录获取对应安装包。
 3. 开始游戏
 
