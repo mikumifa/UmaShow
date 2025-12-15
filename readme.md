@@ -14,7 +14,7 @@
 
 - [快速上手](#快速上手)
 - [使用场景](#使用场景)
-- [开发](#开发)
+- [Development](#Development)
 - [LICENSE](#LICENSE)
 
 ## 快速上手
@@ -28,22 +28,34 @@
 - **育成信息展示**：在训练界面随时查看体力与事件提示。
 - **复盘**： 分析比赛结果。
 
-## 开发
+## Development
 
-> 想要二次开发或自行构建？以下流程可作为快速参考。
+> This section provides guidelines for developers who intend to build UmaShow from source or extend its functionality.
 
-- **环境要求**：Node.js 14+、npm 7+；如需重新生成 protobuf 类型，请提前安装 `protoc`。
-- **安装依赖并启动开发模式**：
+- **Prerequisites**
+
+  - Node.js 14 or later
+  - npm 7 or later
+  - `protoc` (required only when regenerating protobuf definitions)
+
+- **Install dependencies and start the development environment**
   ```bash
   npm install
   npm start
   ```
-- **构建与打包**：
+
+* **Build and package the application**
+
   ```bash
   npm run build
   npm run package
   ```
-- **更新 protobuf 类型**：`npm run proto:gen`
+
+* **Regenerate protobuf definitions**
+
+  ```bash
+  npm run proto:gen
+  ```
 
 ## LICENSE
 
