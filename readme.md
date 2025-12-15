@@ -1,5 +1,3 @@
-# UmaShow
-
 <p align="center">
   <img src="assets/icon.png" alt="UmaShow Icon" width="160">
 </p>
