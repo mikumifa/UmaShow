@@ -156,6 +156,7 @@ export const COMMAND_TARGET_TYPE_MAP: Record<number, TARGET_TYPE> = {
   602: TARGET_TYPE.STAMINA,
   603: TARGET_TYPE.POWER,
   605: TARGET_TYPE.WIZ,
+  0: TARGET_TYPE.UNKNOWN,
   // 301: "休息",
   // 390: "外出",
   // 401: "保健室",

@@ -144,7 +144,7 @@ export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
     },
   },
   {
-    pattern: /^50\d{4}801$/,
+    pattern: /^50(1006)801$/,
     rule: {
       name: '惹人喜爱事件',
       options: [

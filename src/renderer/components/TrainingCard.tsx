@@ -233,8 +233,9 @@ export default function TrainingCard({
             );
             const isMotivated =
               progress >= 80 &&
-              UMDB.supportCards[partner!.supportCardId!]?.commandId ===
-                command.commandId;
+              COMMAND_TARGET_TYPE_MAP[
+                UMDB.supportCards[partner!.supportCardId!]?.commandId ?? 0
+              ] === COMMAND_TARGET_TYPE_MAP[command.commandId];
             const isTip = command.tipsPartners?.includes(p);
             const progressColor =
               // eslint-disable-next-line no-nested-ternary
