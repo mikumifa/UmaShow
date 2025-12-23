@@ -34,6 +34,31 @@ export const EXACT_EVENT_RULES: Record<string, EventRule> = {
       },
     ],
   },
+  '501006801': {
+    name: '小栗帽惹人喜爱事件',
+    options: [
+      {
+        1: { desp: '营养补给', detail: '营养补给', type: 'wrong' },
+        2: {
+          desp: '惹人喜爱',
+          detail: '惹人喜爱，营养补给',
+          type: 'correct',
+        },
+      },
+      {
+        1: {
+          desp: '毅力+10，力量+5',
+          detail: '毅力+10，力量+5',
+          type: 'wrong',
+        },
+        2: {
+          desp: '惹人喜爱',
+          detail: '惹人喜爱，毅力+10，力量+5',
+          type: 'correct',
+        },
+      },
+    ],
+  },
 };
 
 export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
@@ -144,43 +169,17 @@ export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
     },
   },
   {
-    pattern: /^50(1006)801$/,
-    rule: {
-      name: '惹人喜爱事件',
-      options: [
-        {
-          1: { desp: '营养补给', detail: '营养补给', type: 'wrong' },
-          2: {
-            desp: '惹人喜爱',
-            detail: '惹人喜爱，营养补给',
-            type: 'correct',
-          },
-        },
-        {
-          1: {
-            desp: '毅力+10，力量+5',
-            detail: '毅力+10，力量+5',
-            type: 'wrong',
-          },
-          2: {
-            desp: '惹人喜爱',
-            detail: '惹人喜爱，毅力+10，力量+5',
-            type: 'correct',
-          },
-        },
-      ],
-    },
-  },
-  {
     pattern: /^50\d{4}720$/,
     rule: {
       name: '打针',
       options: [
         {
           1: { desp: '全属性+20', detail: '全属性+20', type: 'correct' },
+          2: { desp: '失败', detail: '失败', type: 'wrong' },
         },
         {
           3: { desp: '获得技能', detail: '弯道回复 直线回复', type: 'correct' },
+          4: { desp: '失败', detail: '失败', type: 'wrong' },
         },
         {
           5: {
@@ -188,6 +187,7 @@ export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
             detail: '体力+40,体力上限+12',
             type: 'correct',
           },
+          6: { desp: '失败', detail: '失败', type: 'wrong' },
         },
         {
           7: {
@@ -195,6 +195,7 @@ export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
             detail: '惹人喜爱，体力+20',
             type: 'correct',
           },
+          8: { desp: '失败', detail: '失败', type: 'wrong' },
         },
       ],
     },
