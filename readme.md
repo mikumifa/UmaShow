@@ -25,13 +25,6 @@
   专为《闪耀 优俊少女》打造的游戏助手，集实时监控、比赛复盘于一体。
 </p>
 
-## 目录
-
-- [快速上手](#快速上手)
-- [使用场景](#使用场景)
-- [Development](#Development)
-- [LICENSE](#LICENSE)
-
 ## 快速上手
 
 1. 安装https://github.com/mikumifa/umamusume-localify-android-zh  配置端口为4639
