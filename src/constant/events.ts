@@ -59,6 +59,27 @@ export const EXACT_EVENT_RULES: Record<string, EventRule> = {
       },
     ],
   },
+  '501018802': {
+    name: '气槽惹人喜爱事件',
+    options: [
+      {
+        1: { desp: '无', detail: '无', type: 'wrong' },
+        2: {
+          desp: '惹人喜爱',
+          detail: '惹人喜爱',
+          type: 'correct',
+        },
+      },
+      {
+        1: { desp: '无', detail: '无', type: 'wrong' },
+        2: {
+          desp: '惹人喜爱',
+          detail: '惹人喜爱',
+          type: 'correct',
+        },
+      },
+    ],
+  },
 };
 
 export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [
