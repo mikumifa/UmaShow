@@ -19,6 +19,8 @@ message UMDatabase {
     repeated TeamStadiumScoreBonus team_stadium_score_bonus = 8;
 
     repeated Story story = 10;
+
+    repeated LiveSong live_song = 12;
 }
 
 message Chara {
@@ -144,4 +146,15 @@ message TeamStadiumScoreBonus {
 message Story {
     optional int32 id = 1;
     optional string name = 2;
+}
+
+message LiveSong {
+    optional int32 id = 1;
+    optional string square_title = 2;
+    optional string square_content = 3;
+    optional int32 master_bonus_id = 4;
+    optional int32 square_type = 5;
+    repeated int32 perf_type = 6;
+    repeated int32 perf_value = 7;
+    optional string live_show_context = 8;
 }

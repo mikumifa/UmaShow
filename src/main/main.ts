@@ -26,11 +26,43 @@ export default class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+const isDebug =
+  process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
+
+if (isDebug) {
+  require('electron-debug').default();
+  let port = '9223';
+  if (process.env.MAIN_ARGS) {
+    port = (
+      [...process.env.MAIN_ARGS.matchAll(/"[^"]+"|[^\s"]+/g)]
+        .flat()
+        .filter((str) => str.includes('debugging-port'))[0] || '=9223'
+    ).split('=')[1];
+  }
+  app.commandLine.appendSwitch('remote-debugging-port', port);
+}
+
+const installExtensions = async () => {
+  const installer = require('electron-devtools-installer');
+  const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
+  const extensions = ['REACT_DEVELOPER_TOOLS'];
+
+  return installer
+    .default(
+      extensions.map((name) => installer[name]),
+      forceDownload,
+    )
+    .catch(console.log);
+};
+
 /**
  * ⭐ 创建窗口（集成 Express）
  */
-
 const createWindow = async () => {
+  if (isDebug) {
+    await installExtensions();
+  }
   const RESOURCES_PATH = app.isPackaged
     ? path.join(process.resourcesPath, 'assets')
     : path.join(__dirname, '../../assets');

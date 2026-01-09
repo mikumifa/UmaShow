@@ -7,6 +7,7 @@ import pako from 'pako';
 import {
   Card,
   Chara,
+  LiveSong,
   RaceInstance,
   Skill,
   SupportCard,
@@ -18,6 +19,7 @@ export const UMDB = {
   charas: {} as Record<number, Chara>,
   cards: {} as Record<number, Card>,
   supportCards: {} as Record<number, SupportCard>,
+  liveSongs: {} as Record<number, LiveSong>,
   successionRelationMemberCharaIds: {} as Record<number, Set<number>>,
   raceInstances: {} as Record<number, RaceInstance>,
   skills: {} as Record<number, Skill>,
@@ -69,6 +71,12 @@ export function UMDBload() {
         o.supportCard = UMDB.supportCards[Math.floor(id / 1000) % 100000];
       }
       return o;
+    });
+    // ---- live songs
+    umdb.liveSong.forEach((song) => {
+      if (song.id != null) {
+        UMDB.liveSongs[song.id] = song;
+      }
     });
   } catch (err) {
     console.error('[UMDB] ❌ Load error:', err);

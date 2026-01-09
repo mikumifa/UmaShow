@@ -15,6 +15,14 @@ export interface CharStats {
   skillPoint: number;
 }
 
+export interface NoteStat {
+  da: CharStat;
+  pa: CharStat;
+  vo: CharStat;
+  vi: CharStat;
+  me: CharStat;
+}
+
 export interface GameStats {
   turn: number;
 }
@@ -46,6 +54,7 @@ export interface PartnerStat {
   limitBreak: number;
   exp: number;
 }
+
 export interface EventOption {
   desp: string;
   detail: string;
@@ -61,6 +70,24 @@ export interface GameEvent {
 export interface PartnerStats extends Array<PartnerStat> {}
 export interface GameEvents extends Array<GameEvent> {}
 export interface TrainingCommands extends Array<TrainingCommand> {}
+export interface SongStatAttribute {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'neutral' | 'warning';
+  icon?: string;
+  color?: string;
+}
+
+export interface SongStat {
+  id: number;
+  title: string;
+  tag: string;
+  coverUrl?: string;
+  attributes: SongStatAttribute[];
+  notes: Record<'da' | 'pa' | 'vo' | 'vi' | 'me', number>;
+}
+
+export interface SongStats extends Array<SongStat> {}
 
 // =============================
 // Wrapper for Character Info
@@ -71,6 +98,8 @@ export interface CharInfo {
   gameStats: GameStats;
   stats: CharStats;
   commands: TrainingCommands;
+  songStats?: SongStats;
+  noteStat?: NoteStat;
 }
 
 export interface RaceHorseInfo {
@@ -115,6 +144,12 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     commands: isEmptyField(incoming.commands)
       ? prev.commands
       : incoming.commands,
+    songStats: isEmptyField(incoming.songStats)
+      ? prev.songStats
+      : incoming.songStats,
+    noteStat: isEmptyField(incoming.noteStat)
+      ? prev.noteStat
+      : incoming.noteStat,
   };
 }
 

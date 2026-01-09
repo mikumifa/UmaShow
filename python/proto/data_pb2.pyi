@@ -8,7 +8,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class UMDatabase(_message.Message):
-    __slots__ = ("version", "chara", "card", "support_card", "succession_relation", "race_instance", "wins_saddle", "special_case_race", "skill", "team_stadium_score_bonus", "story")
+    __slots__ = ("version", "chara", "card", "support_card", "succession_relation", "race_instance", "wins_saddle", "special_case_race", "skill", "team_stadium_score_bonus", "story", "live_song")
     VERSION_FIELD_NUMBER: _ClassVar[int]
     CHARA_FIELD_NUMBER: _ClassVar[int]
     CARD_FIELD_NUMBER: _ClassVar[int]
@@ -20,6 +20,7 @@ class UMDatabase(_message.Message):
     SKILL_FIELD_NUMBER: _ClassVar[int]
     TEAM_STADIUM_SCORE_BONUS_FIELD_NUMBER: _ClassVar[int]
     STORY_FIELD_NUMBER: _ClassVar[int]
+    LIVE_SONG_FIELD_NUMBER: _ClassVar[int]
     version: str
     chara: _containers.RepeatedCompositeFieldContainer[Chara]
     card: _containers.RepeatedCompositeFieldContainer[Card]
@@ -31,7 +32,8 @@ class UMDatabase(_message.Message):
     skill: _containers.RepeatedCompositeFieldContainer[Skill]
     team_stadium_score_bonus: _containers.RepeatedCompositeFieldContainer[TeamStadiumScoreBonus]
     story: _containers.RepeatedCompositeFieldContainer[Story]
-    def __init__(self, version: _Optional[str] = ..., chara: _Optional[_Iterable[_Union[Chara, _Mapping]]] = ..., card: _Optional[_Iterable[_Union[Card, _Mapping]]] = ..., support_card: _Optional[_Iterable[_Union[SupportCard, _Mapping]]] = ..., succession_relation: _Optional[_Iterable[_Union[SuccessionRelation, _Mapping]]] = ..., race_instance: _Optional[_Iterable[_Union[RaceInstance, _Mapping]]] = ..., wins_saddle: _Optional[_Iterable[_Union[WinsSaddle, _Mapping]]] = ..., special_case_race: _Optional[_Iterable[_Union[SpecialCaseRace, _Mapping]]] = ..., skill: _Optional[_Iterable[_Union[Skill, _Mapping]]] = ..., team_stadium_score_bonus: _Optional[_Iterable[_Union[TeamStadiumScoreBonus, _Mapping]]] = ..., story: _Optional[_Iterable[_Union[Story, _Mapping]]] = ...) -> None: ...
+    live_song: _containers.RepeatedCompositeFieldContainer[LiveSong]
+    def __init__(self, version: _Optional[str] = ..., chara: _Optional[_Iterable[_Union[Chara, _Mapping]]] = ..., card: _Optional[_Iterable[_Union[Card, _Mapping]]] = ..., support_card: _Optional[_Iterable[_Union[SupportCard, _Mapping]]] = ..., succession_relation: _Optional[_Iterable[_Union[SuccessionRelation, _Mapping]]] = ..., race_instance: _Optional[_Iterable[_Union[RaceInstance, _Mapping]]] = ..., wins_saddle: _Optional[_Iterable[_Union[WinsSaddle, _Mapping]]] = ..., special_case_race: _Optional[_Iterable[_Union[SpecialCaseRace, _Mapping]]] = ..., skill: _Optional[_Iterable[_Union[Skill, _Mapping]]] = ..., team_stadium_score_bonus: _Optional[_Iterable[_Union[TeamStadiumScoreBonus, _Mapping]]] = ..., story: _Optional[_Iterable[_Union[Story, _Mapping]]] = ..., live_song: _Optional[_Iterable[_Union[LiveSong, _Mapping]]] = ...) -> None: ...
 
 class Chara(_message.Message):
     __slots__ = ("id", "name", "cast_name", "icon_url")
@@ -187,3 +189,23 @@ class Story(_message.Message):
     id: int
     name: str
     def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ...) -> None: ...
+
+class LiveSong(_message.Message):
+    __slots__ = ("id", "square_title", "square_content", "master_bonus_id", "square_type", "perf_type", "perf_value", "live_show_context")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SQUARE_TITLE_FIELD_NUMBER: _ClassVar[int]
+    SQUARE_CONTENT_FIELD_NUMBER: _ClassVar[int]
+    MASTER_BONUS_ID_FIELD_NUMBER: _ClassVar[int]
+    SQUARE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    PERF_TYPE_FIELD_NUMBER: _ClassVar[int]
+    PERF_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LIVE_SHOW_CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    square_title: str
+    square_content: str
+    master_bonus_id: int
+    square_type: int
+    perf_type: _containers.RepeatedScalarFieldContainer[int]
+    perf_value: _containers.RepeatedScalarFieldContainer[int]
+    live_show_context: str
+    def __init__(self, id: _Optional[int] = ..., square_title: _Optional[str] = ..., square_content: _Optional[str] = ..., master_bonus_id: _Optional[int] = ..., square_type: _Optional[int] = ..., perf_type: _Optional[_Iterable[int]] = ..., perf_value: _Optional[_Iterable[int]] = ..., live_show_context: _Optional[str] = ...) -> None: ...

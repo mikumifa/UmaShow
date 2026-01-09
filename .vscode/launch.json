@@ -2,29 +2,38 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Electron: Main",
+      "name": "Debug Main (Electron)",
       "type": "node",
       "request": "launch",
-      "protocol": "inspector",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start"],
-      "env": {
-        "MAIN_ARGS": "--inspect=5858 --remote-debugging-port=9223"
-      }
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": ["."],
+      "preLaunchTask": "npm: prestart",
+      "outFiles": ["${workspaceFolder}/.erb/dll/*.js"],
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Electron: Renderer",
-      "type": "chrome",
-      "request": "attach",
-      "port": 9223,
-      "webRoot": "${workspaceFolder}",
-      "timeout": 15000
+      "name": "Start Renderer (dev server)",
+      "request": "launch",
+      "type": "node",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:renderer"],
+      "console": "integratedTerminal"
     }
   ],
   "compounds": [
     {
-      "name": "Electron: All",
-      "configurations": ["Electron: Main", "Electron: Renderer"]
+      "name": "Debug Main + Renderer",
+      "configurations": ["Start Renderer (dev server)", "Debug Main (Electron)"]
     }
   ]
 }

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ndata.proto\x12\x08hakuraku\"\xd6\x03\n\nUMDatabase\x12\x0f\n\x07version\x18\x01 \x01(\t\x12\x1e\n\x05\x63hara\x18\x02 \x03(\x0b\x32\x0f.hakuraku.Chara\x12\x1c\n\x04\x63\x61rd\x18\t \x03(\x0b\x32\x0e.hakuraku.Card\x12+\n\x0csupport_card\x18\x0b \x03(\x0b\x32\x15.hakuraku.SupportCard\x12\x39\n\x13succession_relation\x18\x03 \x03(\x0b\x32\x1c.hakuraku.SuccessionRelation\x12-\n\rrace_instance\x18\x04 \x03(\x0b\x32\x16.hakuraku.RaceInstance\x12)\n\x0bwins_saddle\x18\x05 \x03(\x0b\x32\x14.hakuraku.WinsSaddle\x12\x34\n\x11special_case_race\x18\x06 \x03(\x0b\x32\x19.hakuraku.SpecialCaseRace\x12\x1e\n\x05skill\x18\x07 \x03(\x0b\x32\x0f.hakuraku.Skill\x12\x41\n\x18team_stadium_score_bonus\x18\x08 \x03(\x0b\x32\x1f.hakuraku.TeamStadiumScoreBonus\x12\x1e\n\x05story\x18\n \x03(\x0b\x32\x0f.hakuraku.Story\"F\n\x05\x43hara\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\tcast_name\x18\x03 \x01(\t\x12\x10\n\x08icon_url\x18\x04 \x01(\t\" \n\x04\x43\x61rd\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\"M\n\x0bSupportCard\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x63hara_id\x18\x03 \x01(\x05\x12\x12\n\ncommand_id\x18\x04 \x01(\x05\"\xa0\x01\n\x12SuccessionRelation\x12\x15\n\rrelation_type\x18\x01 \x01(\x05\x12\x16\n\x0erelation_point\x18\x02 \x01(\x05\x12\x33\n\x06member\x18\x03 \x03(\x0b\x32#.hakuraku.SuccessionRelation.Member\x1a&\n\x06Member\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x10\n\x08\x63hara_id\x18\x02 \x01(\x05\"\xad\x01\n\x0cRaceInstance\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x64istance\x18\x03 \x01(\x05\x12\x36\n\x0bground_type\x18\x04 \x01(\x0e\x32!.hakuraku.RaceInstance.GroundType\"9\n\nGroundType\x12\x17\n\x13UNKNOWN_GROUND_TYPE\x10\x00\x12\x08\n\x04TURF\x10\x01\x12\x08\n\x04\x44IRT\x10\x02\"\xcc\x01\n\nWinsSaddle\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10race_instance_id\x18\x03 \x03(\x05\x12\x10\n\x08priority\x18\x04 \x01(\x05\x12\x10\n\x08group_id\x18\x05 \x01(\x05\x12\x30\n\x04type\x18\x06 \x01(\x0e\x32\".hakuraku.WinsSaddle.WinSaddleType\"4\n\rWinSaddleType\x12\x0b\n\x07SPECIAL\x10\x00\x12\x06\n\x02G3\x10\x01\x12\x06\n\x02G2\x10\x02\x12\x06\n\x02G1\x10\x03\"\xe8\x02\n\x0fSpecialCaseRace\x12\x18\n\x10race_instance_id\x18\x01 \x01(\x05\x12\x15\n\rprogram_group\x18\x02 \x01(\x05\x12\x41\n\x0frace_permission\x18\x03 \x01(\x0e\x32(.hakuraku.SpecialCaseRace.RacePermission\x12\x10\n\x08\x63hara_id\x18\x04 \x03(\x05\"\xce\x01\n\x0eRacePermission\x12\x1b\n\x17UNKNOWN_RACE_PERMISSION\x10\x00\x12\x0f\n\x0bJUNIOR_ONLY\x10\x01\x12\x10\n\x0c\x43LASSIC_ONLY\x10\x02\x12\x11\n\rCLASSIC_AFTER\x10\x03\x12\x10\n\x0cSENIOR_AFTER\x10\x04\x12\x0c\n\x08ORIGINAL\x10\x05\x12\x16\n\x12HIDE_CLASSIC_AFTER\x10\x06\x12\x17\n\x13\x43LASSIC_ONLY_SENIOR\x10\x07\x12\x18\n\x14SENIOR_AFTER_CLASSIC\x10\x08\"F\n\x05Skill\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bgrade_value\x18\x03 \x01(\x11\x12\x0e\n\x06tag_id\x18\x04 \x03(\t\"1\n\x15TeamStadiumScoreBonus\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\"!\n\x05Story\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ndata.proto\x12\x08hakuraku\"\xfd\x03\n\nUMDatabase\x12\x0f\n\x07version\x18\x01 \x01(\t\x12\x1e\n\x05\x63hara\x18\x02 \x03(\x0b\x32\x0f.hakuraku.Chara\x12\x1c\n\x04\x63\x61rd\x18\t \x03(\x0b\x32\x0e.hakuraku.Card\x12+\n\x0csupport_card\x18\x0b \x03(\x0b\x32\x15.hakuraku.SupportCard\x12\x39\n\x13succession_relation\x18\x03 \x03(\x0b\x32\x1c.hakuraku.SuccessionRelation\x12-\n\rrace_instance\x18\x04 \x03(\x0b\x32\x16.hakuraku.RaceInstance\x12)\n\x0bwins_saddle\x18\x05 \x03(\x0b\x32\x14.hakuraku.WinsSaddle\x12\x34\n\x11special_case_race\x18\x06 \x03(\x0b\x32\x19.hakuraku.SpecialCaseRace\x12\x1e\n\x05skill\x18\x07 \x03(\x0b\x32\x0f.hakuraku.Skill\x12\x41\n\x18team_stadium_score_bonus\x18\x08 \x03(\x0b\x32\x1f.hakuraku.TeamStadiumScoreBonus\x12\x1e\n\x05story\x18\n \x03(\x0b\x32\x0f.hakuraku.Story\x12%\n\tlive_song\x18\x0c \x03(\x0b\x32\x12.hakuraku.LiveSong\"F\n\x05\x43hara\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\tcast_name\x18\x03 \x01(\t\x12\x10\n\x08icon_url\x18\x04 \x01(\t\" \n\x04\x43\x61rd\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\"M\n\x0bSupportCard\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x63hara_id\x18\x03 \x01(\x05\x12\x12\n\ncommand_id\x18\x04 \x01(\x05\"\xa0\x01\n\x12SuccessionRelation\x12\x15\n\rrelation_type\x18\x01 \x01(\x05\x12\x16\n\x0erelation_point\x18\x02 \x01(\x05\x12\x33\n\x06member\x18\x03 \x03(\x0b\x32#.hakuraku.SuccessionRelation.Member\x1a&\n\x06Member\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x10\n\x08\x63hara_id\x18\x02 \x01(\x05\"\xad\x01\n\x0cRaceInstance\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x64istance\x18\x03 \x01(\x05\x12\x36\n\x0bground_type\x18\x04 \x01(\x0e\x32!.hakuraku.RaceInstance.GroundType\"9\n\nGroundType\x12\x17\n\x13UNKNOWN_GROUND_TYPE\x10\x00\x12\x08\n\x04TURF\x10\x01\x12\x08\n\x04\x44IRT\x10\x02\"\xcc\x01\n\nWinsSaddle\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10race_instance_id\x18\x03 \x03(\x05\x12\x10\n\x08priority\x18\x04 \x01(\x05\x12\x10\n\x08group_id\x18\x05 \x01(\x05\x12\x30\n\x04type\x18\x06 \x01(\x0e\x32\".hakuraku.WinsSaddle.WinSaddleType\"4\n\rWinSaddleType\x12\x0b\n\x07SPECIAL\x10\x00\x12\x06\n\x02G3\x10\x01\x12\x06\n\x02G2\x10\x02\x12\x06\n\x02G1\x10\x03\"\xe8\x02\n\x0fSpecialCaseRace\x12\x18\n\x10race_instance_id\x18\x01 \x01(\x05\x12\x15\n\rprogram_group\x18\x02 \x01(\x05\x12\x41\n\x0frace_permission\x18\x03 \x01(\x0e\x32(.hakuraku.SpecialCaseRace.RacePermission\x12\x10\n\x08\x63hara_id\x18\x04 \x03(\x05\"\xce\x01\n\x0eRacePermission\x12\x1b\n\x17UNKNOWN_RACE_PERMISSION\x10\x00\x12\x0f\n\x0bJUNIOR_ONLY\x10\x01\x12\x10\n\x0c\x43LASSIC_ONLY\x10\x02\x12\x11\n\rCLASSIC_AFTER\x10\x03\x12\x10\n\x0cSENIOR_AFTER\x10\x04\x12\x0c\n\x08ORIGINAL\x10\x05\x12\x16\n\x12HIDE_CLASSIC_AFTER\x10\x06\x12\x17\n\x13\x43LASSIC_ONLY_SENIOR\x10\x07\x12\x18\n\x14SENIOR_AFTER_CLASSIC\x10\x08\"F\n\x05Skill\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0bgrade_value\x18\x03 \x01(\x11\x12\x0e\n\x06tag_id\x18\x04 \x03(\t\"1\n\x15TeamStadiumScoreBonus\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\"!\n\x05Story\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xb4\x01\n\x08LiveSong\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x14\n\x0csquare_title\x18\x02 \x01(\t\x12\x16\n\x0esquare_content\x18\x03 \x01(\t\x12\x17\n\x0fmaster_bonus_id\x18\x04 \x01(\x05\x12\x13\n\x0bsquare_type\x18\x05 \x01(\x05\x12\x11\n\tperf_type\x18\x06 \x03(\x05\x12\x12\n\nperf_value\x18\x07 \x03(\x05\x12\x19\n\x11live_show_context\x18\x08 \x01(\t')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,33 +32,35 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'data_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_UMDATABASE']._serialized_start=25
-  _globals['_UMDATABASE']._serialized_end=495
-  _globals['_CHARA']._serialized_start=497
-  _globals['_CHARA']._serialized_end=567
-  _globals['_CARD']._serialized_start=569
-  _globals['_CARD']._serialized_end=601
-  _globals['_SUPPORTCARD']._serialized_start=603
-  _globals['_SUPPORTCARD']._serialized_end=680
-  _globals['_SUCCESSIONRELATION']._serialized_start=683
-  _globals['_SUCCESSIONRELATION']._serialized_end=843
-  _globals['_SUCCESSIONRELATION_MEMBER']._serialized_start=805
-  _globals['_SUCCESSIONRELATION_MEMBER']._serialized_end=843
-  _globals['_RACEINSTANCE']._serialized_start=846
-  _globals['_RACEINSTANCE']._serialized_end=1019
-  _globals['_RACEINSTANCE_GROUNDTYPE']._serialized_start=962
-  _globals['_RACEINSTANCE_GROUNDTYPE']._serialized_end=1019
-  _globals['_WINSSADDLE']._serialized_start=1022
-  _globals['_WINSSADDLE']._serialized_end=1226
-  _globals['_WINSSADDLE_WINSADDLETYPE']._serialized_start=1174
-  _globals['_WINSSADDLE_WINSADDLETYPE']._serialized_end=1226
-  _globals['_SPECIALCASERACE']._serialized_start=1229
-  _globals['_SPECIALCASERACE']._serialized_end=1589
-  _globals['_SPECIALCASERACE_RACEPERMISSION']._serialized_start=1383
-  _globals['_SPECIALCASERACE_RACEPERMISSION']._serialized_end=1589
-  _globals['_SKILL']._serialized_start=1591
-  _globals['_SKILL']._serialized_end=1661
-  _globals['_TEAMSTADIUMSCOREBONUS']._serialized_start=1663
-  _globals['_TEAMSTADIUMSCOREBONUS']._serialized_end=1712
-  _globals['_STORY']._serialized_start=1714
-  _globals['_STORY']._serialized_end=1747
+  _globals['_UMDATABASE']._serialized_end=534
+  _globals['_CHARA']._serialized_start=536
+  _globals['_CHARA']._serialized_end=606
+  _globals['_CARD']._serialized_start=608
+  _globals['_CARD']._serialized_end=640
+  _globals['_SUPPORTCARD']._serialized_start=642
+  _globals['_SUPPORTCARD']._serialized_end=719
+  _globals['_SUCCESSIONRELATION']._serialized_start=722
+  _globals['_SUCCESSIONRELATION']._serialized_end=882
+  _globals['_SUCCESSIONRELATION_MEMBER']._serialized_start=844
+  _globals['_SUCCESSIONRELATION_MEMBER']._serialized_end=882
+  _globals['_RACEINSTANCE']._serialized_start=885
+  _globals['_RACEINSTANCE']._serialized_end=1058
+  _globals['_RACEINSTANCE_GROUNDTYPE']._serialized_start=1001
+  _globals['_RACEINSTANCE_GROUNDTYPE']._serialized_end=1058
+  _globals['_WINSSADDLE']._serialized_start=1061
+  _globals['_WINSSADDLE']._serialized_end=1265
+  _globals['_WINSSADDLE_WINSADDLETYPE']._serialized_start=1213
+  _globals['_WINSSADDLE_WINSADDLETYPE']._serialized_end=1265
+  _globals['_SPECIALCASERACE']._serialized_start=1268
+  _globals['_SPECIALCASERACE']._serialized_end=1628
+  _globals['_SPECIALCASERACE_RACEPERMISSION']._serialized_start=1422
+  _globals['_SPECIALCASERACE_RACEPERMISSION']._serialized_end=1628
+  _globals['_SKILL']._serialized_start=1630
+  _globals['_SKILL']._serialized_end=1700
+  _globals['_TEAMSTADIUMSCOREBONUS']._serialized_start=1702
+  _globals['_TEAMSTADIUMSCOREBONUS']._serialized_end=1751
+  _globals['_STORY']._serialized_start=1753
+  _globals['_STORY']._serialized_end=1786
+  _globals['_LIVESONG']._serialized_start=1789
+  _globals['_LIVESONG']._serialized_end=1969
 # @@protoc_insertion_point(module_scope)

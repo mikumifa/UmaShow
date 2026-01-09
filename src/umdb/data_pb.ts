@@ -65,6 +65,11 @@ export class UMDatabase extends Message<UMDatabase> {
    */
   story: Story[] = [];
 
+  /**
+   * @generated from field: repeated hakuraku.LiveSong live_song = 12;
+   */
+  liveSong: LiveSong[] = [];
+
   constructor(data?: PartialMessage<UMDatabase>) {
     super();
     proto2.util.initPartial(data, this);
@@ -84,6 +89,7 @@ export class UMDatabase extends Message<UMDatabase> {
     { no: 7, name: "skill", kind: "message", T: Skill, repeated: true },
     { no: 8, name: "team_stadium_score_bonus", kind: "message", T: TeamStadiumScoreBonus, repeated: true },
     { no: 10, name: "story", kind: "message", T: Story, repeated: true },
+    { no: 12, name: "live_song", kind: "message", T: LiveSong, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UMDatabase {
@@ -816,6 +822,85 @@ export class Story extends Message<Story> {
 
   static equals(a: Story | PlainMessage<Story> | undefined, b: Story | PlainMessage<Story> | undefined): boolean {
     return proto2.util.equals(Story, a, b);
+  }
+}
+
+/**
+ * @generated from message hakuraku.LiveSong
+ */
+export class LiveSong extends Message<LiveSong> {
+  /**
+   * @generated from field: optional int32 id = 1;
+   */
+  id?: number;
+
+  /**
+   * @generated from field: optional string square_title = 2;
+   */
+  squareTitle?: string;
+
+  /**
+   * @generated from field: optional string square_content = 3;
+   */
+  squareContent?: string;
+
+  /**
+   * @generated from field: optional int32 master_bonus_id = 4;
+   */
+  masterBonusId?: number;
+
+  /**
+   * @generated from field: optional int32 square_type = 5;
+   */
+  squareType?: number;
+
+  /**
+   * @generated from field: repeated int32 perf_type = 6;
+   */
+  perfType: number[] = [];
+
+  /**
+   * @generated from field: repeated int32 perf_value = 7;
+   */
+  perfValue: number[] = [];
+
+  /**
+   * @generated from field: optional string live_show_context = 8;
+   */
+  liveShowContext?: string;
+
+  constructor(data?: PartialMessage<LiveSong>) {
+    super();
+    proto2.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto2 = proto2;
+  static readonly typeName = "hakuraku.LiveSong";
+  static readonly fields: FieldList = proto2.util.newFieldList(() => [
+    { no: 1, name: "id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 2, name: "square_title", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 3, name: "square_content", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 4, name: "master_bonus_id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 5, name: "square_type", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 6, name: "perf_type", kind: "scalar", T: 5 /* ScalarType.INT32 */, repeated: true },
+    { no: 7, name: "perf_value", kind: "scalar", T: 5 /* ScalarType.INT32 */, repeated: true },
+    { no: 8, name: "live_show_context", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): LiveSong {
+    return new LiveSong().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): LiveSong {
+    return new LiveSong().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): LiveSong {
+    return new LiveSong().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: LiveSong | PlainMessage<LiveSong> | undefined, b: LiveSong | PlainMessage<LiveSong> | undefined): boolean {
+    return proto2.util.equals(LiveSong, a, b);
   }
 }
 

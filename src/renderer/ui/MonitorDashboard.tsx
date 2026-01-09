@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
 import { CharInfo, mergeCharInfo } from 'types/gameTypes';
-import StatBox from 'renderer/components/StatBox';
+// import StatBox from 'renderer/components/StatBox';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
 import GameStartScreen from 'renderer/components/GameStartScreen';
+import SongStatusCard from 'renderer/components/SongStatusCard';
 import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function MonitorDashboard() {
@@ -17,7 +18,8 @@ export default function MonitorDashboard() {
       (incoming: CharInfo) =>
         setCharInfo((prev) => {
           if (!prev) return incoming;
-          return mergeCharInfo(prev, incoming);
+          const ret = mergeCharInfo(prev, incoming);
+          return ret;
         }),
     );
     loadUMDB()
@@ -41,13 +43,11 @@ export default function MonitorDashboard() {
           </span>
         </div>
         <section className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-          {/* 图标和标题 */}
           <div className="flex items-center gap-2 text-green-600 font-bold shrink-0">
             <Battery size={24} />
             <span>体力</span>
           </div>
 
-          {/* 进度条容器 */}
           <div className="flex-1 relative h-6 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
             <div
               className={`absolute top-0 left-0 h-full transition-all duration-300 ${
@@ -67,7 +67,6 @@ export default function MonitorDashboard() {
             />
           </div>
 
-          {/* 数值显示 */}
           <div className="text-xl font-black text-gray-700 shrink-0 min-w-[80px] text-right">
             {charInfo.stats.vital.value}
             <span className="text-xs text-gray-400 font-normal">
@@ -77,7 +76,7 @@ export default function MonitorDashboard() {
         </section>
       </div>
 
-      <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 p-4 bg-gray-200 rounded-xl shadow-inner border border-gray-300">
+      {/* <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 p-4 bg-gray-200 rounded-xl shadow-inner border border-gray-300">
         <StatBox
           keyName="speed"
           value={charInfo.stats.speed.value}
@@ -108,6 +107,15 @@ export default function MonitorDashboard() {
           value={charInfo.stats.skillPoint}
           max={9999}
         />
+      </section> */}
+      {/* =================== SONG STATUS =================== */}
+      <section className="mt-2">
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
+          {(charInfo.songStats ?? []).map((song) => (
+            // eslint-disable-next-line react/jsx-props-no-spreading
+            <SongStatusCard key={song.id} {...song} />
+          ))}
+        </div>
       </section>
       {/* =================== TRAINING COMMANDS =================== */}
       <section className="mt-4">

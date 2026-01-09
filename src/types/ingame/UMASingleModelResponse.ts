@@ -14,6 +14,7 @@ export interface Data {
   race_condition_array: RaceConditionArray[];
   race_start_info: null;
   free_data_set: FreeDataSet;
+  live_data_set: LiveDataSet;
 }
 export interface UnchekedEventArray {
   event_id: number;
@@ -149,6 +150,60 @@ export interface FreeDataSet {
   command_info_array: FreeDataSetCommandInfoArray[];
   rival_race_info_array: RivalRaceInfoArray[];
   unchecked_event_achievement_id: null;
+}
+
+export interface LiveDataSet {
+  live_performance_info: LivePerformanceInfo;
+  command_info_array: LiveCommandInfoArray[];
+  evaluation_info_array: LiveEvaluationInfoArray[];
+  next_square_info_array: LiveNextSquareInfoArray[];
+  master_live_id_array: number[];
+  next_live_id_array: number[];
+  effected_live_id_array: number[];
+  not_up_parameter_info: LiveNotUpParameterInfo;
+  live_result_array: any[];
+  reserve_square_id: number;
+  training_bonus_array: any[];
+}
+
+export interface LivePerformanceInfo {
+  dance: number;
+  passion: number;
+  vocal: number;
+  visual: number;
+  mental: number;
+  max_dance: number;
+  max_passion: number;
+  max_vocal: number;
+  max_visual: number;
+  max_mental: number;
+}
+
+export interface LiveCommandInfoArray {
+  command_type: number;
+  command_id: number;
+  performance_inc_dec_info_array: LivePerformanceIncDecInfoArray[];
+  params_inc_dec_info_array: any[];
+}
+
+export interface LivePerformanceIncDecInfoArray {
+  performance_type: number;
+  value: number;
+}
+
+export interface LiveEvaluationInfoArray {
+  target_id: number;
+  chara_id: number;
+  member_state: number;
+}
+
+export interface LiveNextSquareInfoArray {
+  square_id: number;
+  square_num: number;
+}
+
+export interface LiveNotUpParameterInfo {
+  performance_type_array: number[];
 }
 
 export interface FreeDataSetCommandInfoArray {

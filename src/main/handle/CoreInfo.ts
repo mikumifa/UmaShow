@@ -1,9 +1,31 @@
 import log from 'electron-log';
 import { resolveEventRule } from 'constant/events';
 import { BrowserWindow } from 'electron';
-import { CharStats, GameStats } from 'types/gameTypes';
+import { CharStats, GameStats, NoteStat, SongStat } from 'types/gameTypes';
 import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
 import { UMDB } from './Data';
+
+const PERF_TYPE_TO_NOTE_KEY: Record<number, keyof NoteStat> = {
+  1: 'da',
+  2: 'pa',
+  3: 'vo',
+  4: 'vi',
+  5: 'me',
+};
+
+const PERF_TYPE_LABEL: Record<number, string> = {
+  1: 'Da',
+  2: 'Pa',
+  3: 'Vo',
+  4: 'Vi',
+  5: 'Me',
+};
+
+const formatColorHtml = (input: string) => {
+  return input
+    .replace(/<color=([^>]+)>/g, '<span style="color:$1">')
+    .replace(/<\/color>/g, '</span>');
+};
 
 export function extractCoreInfo(
   decodedData: unknown,
@@ -28,6 +50,73 @@ export function extractCoreInfo(
   const gameStats: GameStats = {
     turn: chara.turn,
   };
+  const liveData = decoded.data.live_data_set;
+  const livePerf = liveData?.live_performance_info;
+  const noteStat: NoteStat | undefined = livePerf
+    ? {
+        da: { value: livePerf.dance, max: livePerf.max_dance },
+        pa: { value: livePerf.passion, max: livePerf.max_passion },
+        vo: { value: livePerf.vocal, max: livePerf.max_vocal },
+        vi: { value: livePerf.visual, max: livePerf.max_visual },
+        me: { value: livePerf.mental, max: livePerf.max_mental },
+      }
+    : undefined;
+
+  const songStats: SongStat[] | undefined = liveData?.next_square_info_array
+    ?.map((square) => {
+      const song = UMDB.liveSongs[square.square_id];
+      if (!song) {
+        return undefined;
+      }
+      const notes = { da: 0, pa: 0, vo: 0, vi: 0, me: 0 };
+      song.perfType.forEach((type, idx) => {
+        const rawValue = song.perfValue[idx] ?? 0;
+        const key = PERF_TYPE_TO_NOTE_KEY[type];
+        if (key) {
+          notes[key] = rawValue;
+        }
+      });
+      const rawContent = song.squareContent ?? '无';
+      const colorMatch = rawContent.match(/<color=([^>]+)>/);
+      const color = colorMatch ? colorMatch[1] : undefined;
+      const cleanedContent = rawContent
+        .replace(/<color=[^>]+>/g, '')
+        .replace(/<\/color>/g, '');
+      const contentParts = cleanedContent
+        .split(/\r?\n/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+      const contentLabel = '';
+      const contentValue =
+        contentParts.length > 0 ? contentParts.join(' ') : '';
+      const attributes = [
+        {
+          label: contentLabel,
+          value:
+            contentParts.length > 0
+              ? formatColorHtml(contentParts.join('\n')).replace(
+                  /\n/g,
+                  '<br />',
+                )
+              : '',
+          tone: 'neutral' as const,
+          color,
+        },
+        {
+          label: '',
+          value: '无',
+          tone: 'neutral' as const,
+        },
+      ];
+      return {
+        id: song.id ?? square.square_id,
+        title: song.squareTitle ?? `Song ${square.square_id}`,
+        tag: '歌曲',
+        attributes,
+        notes,
+      };
+    })
+    .filter(Boolean) as SongStat[] | undefined;
 
   const commands = (home?.command_info_array ?? []).map((cmd) => ({
     commandId: cmd.command_id,
@@ -112,5 +201,7 @@ export function extractCoreInfo(
     commands,
     partnerStats,
     gameEvents,
+    noteStat,
+    songStats,
   });
 }

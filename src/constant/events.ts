@@ -30,7 +30,8 @@ export const EXACT_EVENT_RULES: Record<string, EventRule> = {
     name: '理事长事件1',
     options: [
       {
-        2: { desp: '独行侠', detail: '独行侠，断事件', type: 'correct' },
+        1: { desp: '成功', detail: '成功', type: 'correct' },
+        2: { desp: '独行侠', detail: '独行侠，断事件', type: 'wrong' },
       },
     ],
   },

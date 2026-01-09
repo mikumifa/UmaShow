@@ -11,9 +11,11 @@ import proto.data_pb2 as data_pb2
 # 直接指向解包后的资源目录
 SOURCE_ICON_DIR = r"D:\Apps\umas\export\Texture2D"
 
+
 def open_db(path: str) -> sqlite3.Cursor:
     connection = sqlite3.connect(path)
     return connection.cursor()
+
 
 def populate_charas(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("""SELECT t1."index", t1.text, t2.text FROM text_data AS t1
@@ -34,7 +36,7 @@ def populate_charas(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
                 with open(icon_path, "rb") as img_file:
                     img_data = img_file.read()
                     base64_bytes = base64.b64encode(img_data)
-                    base64_string = base64_bytes.decode('utf-8')
+                    base64_string = base64_bytes.decode("utf-8")
                     # 设置 Base64 Data URI
                     c.icon_url = f"data:image/png;base64,{base64_string}"
             except Exception as e:
@@ -44,6 +46,7 @@ def populate_charas(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
 
         pb.chara.append(c)
 
+
 def populate_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("SELECT `index`, text FROM text_data WHERE category=5;")
     rows = cursor.fetchall()
@@ -52,6 +55,7 @@ def populate_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         c.id = row[0]
         c.name = row[1]
         pb.card.append(c)
+
 
 def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("""SELECT s.id, t.text, s.chara_id, s.command_id
@@ -65,6 +69,7 @@ def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         c.chara_id = row[2]
         c.command_id = row[3]
         pb.support_card.append(c)
+
 
 def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     relations = {}
@@ -89,6 +94,7 @@ def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor
 
     pb.succession_relation.extend(relations.values())
 
+
 def populate_race_instance(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("""SELECT ri.id, rcs.distance, rcs.ground, t.text
                       FROM race_instance AS ri
@@ -103,6 +109,7 @@ def populate_race_instance(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         r.ground_type = row[2]
         r.name = row[3] or "Unknown"
         pb.race_instance.append(r)
+
 
 def populate_wins_saddle(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     instance_id_columns = ", ".join(["s.race_instance_id_%d" % i for i in range(1, 9)])
@@ -123,6 +130,7 @@ def populate_wins_saddle(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         w.type = row[4]
         w.race_instance_id.extend([i for i in row[5:] if i > 0])
         pb.wins_saddle.append(w)
+
 
 def populate_special_case_race(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("""SELECT p1.race_instance_id, p1.program_group, p1.race_permission
@@ -157,6 +165,7 @@ def populate_special_case_race(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
             race.chara_id.extend(groups[race.program_group])
             pb.special_case_race.append(race)
 
+
 def populate_skills(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("""SELECT s.id, t.text, s.grade_value, s.tag_id
                       FROM skill_data AS s
@@ -170,6 +179,7 @@ def populate_skills(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         r.tag_id.extend(row[3].split("/"))
         pb.skill.append(r)
 
+
 def populate_team_stadium_score_bonus(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("SELECT `index`, text FROM text_data WHERE category=148;")
     rows = cursor.fetchall()
@@ -179,6 +189,7 @@ def populate_team_stadium_score_bonus(pb: data_pb2.UMDatabase, cursor: sqlite3.C
         r.name = row[1]
         pb.team_stadium_score_bonus.append(r)
 
+
 def populate_stories(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("SELECT `index`, text FROM text_data WHERE category=181;")
     rows = cursor.fetchall()
@@ -187,6 +198,44 @@ def populate_stories(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         r.id = row[0]
         r.name = row[1]
         pb.story.append(r)
+
+
+def populate_live_songs(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
+    cursor.execute(
+        """SELECT s.id,
+                  s.square_title_text_id,
+                  tt.text,
+                  s.square_content_text_id,
+                  tc.text,
+                  s.master_bonus_id,
+                  s.square_type,
+                  s.perf_type_1, s.perf_value_1,
+                  s.perf_type_2, s.perf_value_2,
+                  s.perf_type_3, s.perf_value_3,
+                  s.perf_type_4, s.perf_value_4,
+                  s.perf_type_5, s.perf_value_5
+           FROM single_mode_live_square AS s
+           LEFT JOIN text_data AS tt
+             ON tt.category=209 AND tt."index"=s.square_title_text_id
+           LEFT JOIN text_data AS tc
+             ON tc.category=207 AND tc."index"=s.square_content_text_id;"""
+    )
+    rows = cursor.fetchall()
+    for row in rows:
+        r = data_pb2.LiveSong()
+        r.id = row[0]
+        r.square_title = row[2]
+        r.square_content = row[4]
+        r.master_bonus_id = row[5]
+        r.square_type = row[6]
+        perf_pairs = [(row[i], row[i + 1]) for i in range(7, 17, 2)]
+        for perf_type, perf_value in perf_pairs:
+            if perf_type <= 0:
+                break
+            r.perf_type.append(perf_type)
+            r.perf_value.append(perf_value)
+        pb.live_song.append(r)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -210,6 +259,7 @@ def main():
         populate_skills,
         populate_team_stadium_score_bonus,
         populate_stories,
+        populate_live_songs,
     ):
         p(pb, cursor)
     os.makedirs("assets/data", exist_ok=True)
@@ -217,6 +267,7 @@ def main():
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))
     with open("assets/data/umdb.json", "w", encoding="utf-8") as f:
         json.dump(json_format.MessageToDict(pb), f, ensure_ascii=False, indent=2)
+
 
 if __name__ == "__main__":
     main()
