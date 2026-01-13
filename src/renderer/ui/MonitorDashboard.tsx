@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
 import { type NoteStat, CharInfo, mergeCharInfo } from 'types/gameTypes';
-// import StatBox from 'renderer/components/StatBox';
+import StatBox from 'renderer/components/StatBox';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
 import GameStartScreen from 'renderer/components/GameStartScreen';
-import SongStatusCard from 'renderer/components/SongStatusCard';
+import SongStatusCard, {
+  type NoteType,
+} from 'renderer/components/SongStatusCard';
 import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function MonitorDashboard() {
@@ -110,42 +112,90 @@ export default function MonitorDashboard() {
     <div className="p-4 flex flex-col gap-4 bg-gray-100 min-h-screen">
       {/* =================== VITAL =================== */}
       <div className="flex items-center gap-3 w-full">
-        <div className="shrink-0 bg-white px-4 py-3 rounded-xl shadow-sm border border-gray-200 flex items-center justify-center min-w-[100px]">
-          <span className="text-gray-500 mr-2 text-sm font-medium">Turn</span>
-          <span className="font-bold text-blue-600 text-2xl">
-            {charInfo.gameStats.turn}
-          </span>
-        </div>
-        <section className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-          <div className="flex items-center gap-2 text-green-600 font-bold shrink-0">
-            <Battery size={24} />
-            <span>体力</span>
+        <section className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-green-600 font-bold shrink-0">
+              <Battery size={22} />
+              <span>体力</span>
+            </div>
+
+            <div className="flex-1 relative h-5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+              <div
+                className={`absolute top-0 left-0 h-full transition-all duration-300 ${
+                  // eslint-disable-next-line no-nested-ternary
+                  (charInfo.stats.vital.value / charInfo.stats.vital.max) *
+                    100 >
+                  50
+                    ? 'bg-gradient-to-r from-green-500 to-green-400'
+                    : (charInfo.stats.vital.value / charInfo.stats.vital.max) *
+                          100 >
+                        30
+                      ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
+                      : 'bg-gradient-to-r from-red-500 to-red-400'
+                }`}
+                style={{
+                  width: `${(charInfo.stats.vital.value / charInfo.stats.vital.max) * 100}%`,
+                }}
+              />
+            </div>
+
+            <div className="text-base font-black text-gray-700 shrink-0 min-w-[70px] text-right">
+              {charInfo.stats.vital.value}
+              <span className="text-[10px] text-gray-400 font-normal">
+                /{charInfo.stats.vital.max}
+              </span>
+            </div>
           </div>
 
-          <div className="flex-1 relative h-6 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-            <div
-              className={`absolute top-0 left-0 h-full transition-all duration-300 ${
-                // eslint-disable-next-line no-nested-ternary
-                (charInfo.stats.vital.value / charInfo.stats.vital.max) * 100 >
-                50
-                  ? 'bg-gradient-to-r from-green-500 to-green-400'
-                  : (charInfo.stats.vital.value / charInfo.stats.vital.max) *
-                        100 >
-                      30
-                    ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
-                    : 'bg-gradient-to-r from-red-500 to-red-400'
-              }`}
-              style={{
-                width: `${(charInfo.stats.vital.value / charInfo.stats.vital.max) * 100}%`,
-              }}
-            />
-          </div>
-
-          <div className="text-xl font-black text-gray-700 shrink-0 min-w-[80px] text-right">
-            {charInfo.stats.vital.value}
-            <span className="text-xs text-gray-400 font-normal">
-              /{charInfo.stats.vital.max}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              {
+                keyName: 'speed',
+                value: charInfo.stats.speed.value,
+                max: charInfo.stats.speed.max,
+              },
+              {
+                keyName: 'stamina',
+                value: charInfo.stats.stamina.value,
+                max: charInfo.stats.stamina.max,
+              },
+              {
+                keyName: 'power',
+                value: charInfo.stats.power.value,
+                max: charInfo.stats.power.max,
+              },
+              {
+                keyName: 'guts',
+                value: charInfo.stats.guts.value,
+                max: charInfo.stats.guts.max,
+              },
+              {
+                keyName: 'wiz',
+                value: charInfo.stats.wiz.value,
+                max: charInfo.stats.wiz.max,
+              },
+              {
+                keyName: 'skillPoint',
+                value: charInfo.stats.skillPoint,
+                max: Math.max(charInfo.stats.skillPoint, 1),
+              },
+            ].map((stat) => (
+              <StatBox
+                key={stat.keyName}
+                keyName={stat.keyName}
+                value={stat.value}
+                max={stat.max}
+              />
+            ))}
+            {(
+              Object.keys(charInfo.noteStat ?? {}) as Array<keyof NoteStat>
+            ).map((key) => (
+              <StatBox
+                key={`note-${key}`}
+                keyName={key}
+                value={charInfo.noteStat?.[key]?.value ?? 0}
+              />
+            ))}
           </div>
         </section>
       </div>
@@ -170,6 +220,17 @@ export default function MonitorDashboard() {
                     Array.from(trainingCommandsByNote.get(key) ?? []),
                   );
                 return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
+              })()}
+              trainingCommandsByNote={(() => {
+                const noteKeys = Object.keys(song.notes) as Array<NoteType>;
+                const perNote: Partial<Record<NoteType, number[]>> = {};
+                noteKeys.forEach((key) => {
+                  const ids = Array.from(trainingCommandsByNote.get(key) ?? []);
+                  if (ids.length > 0) {
+                    perNote[key] = ids;
+                  }
+                });
+                return Object.keys(perNote).length > 0 ? perNote : undefined;
               })()}
             />
           ))}

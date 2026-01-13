@@ -35,6 +35,7 @@ export interface SongStatus {
   noteStat?: NoteStat;
   previewNoteStat?: NoteStat;
   trainingCommandIds?: number[];
+  trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
 }
 
 export const NOTE_STYLES: Record<
@@ -106,17 +107,29 @@ export default function SongStatusCard({
   noteStat,
   previewNoteStat,
   trainingCommandIds,
+  trainingCommandsByNote,
 }: SongStatus) {
   const trainingLabelMap: Record<number, string> = {
-    [TARGET_TYPE.SPEED]: '速',
-    [TARGET_TYPE.POWER]: '力',
-    [TARGET_TYPE.WIZ]: '智',
-    [TARGET_TYPE.GUTS]: '毅',
-    [TARGET_TYPE.STAMINA]: '耐',
+    [TARGET_TYPE.SPEED]: '\u901f',
+    [TARGET_TYPE.POWER]: '\u529b',
+    [TARGET_TYPE.WIZ]: '\u667a',
+    [TARGET_TYPE.GUTS]: '\u6bc5',
+    [TARGET_TYPE.STAMINA]: '\u8010',
   };
   const trainingLabels = (trainingCommandIds ?? [])
     .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
     .filter(Boolean);
+  const trainingLabelsByNote = (Object.keys(NOTE_STYLES) as NoteType[]).reduce(
+    (acc, key) => {
+      const ids = trainingCommandsByNote?.[key] ?? [];
+      const labels = ids
+        .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
+        .filter(Boolean);
+      acc[key] = Array.from(new Set(labels));
+      return acc;
+    },
+    {} as Record<NoteType, string[]>,
+  );
   return (
     <div className="bg-white rounded-lg border border-purple-200 shadow-sm overflow-hidden">
       <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
@@ -221,6 +234,11 @@ export default function SongStatusCard({
                       hasPreview ? 'pt-1' : 'pt-2'
                     }`}
                   >
+                    {trainingLabelsByNote[key]?.length ? (
+                      <span className="mb-0.5 text-[9px] font-black text-slate-500">
+                        {trainingLabelsByNote[key].join('')}
+                      </span>
+                    ) : null}
                     <span
                       className={`flex-shrink-0 rounded-full bg-white border ${style.border} ${style.text} flex items-center justify-center font-black ring-2 ${style.ring} ${
                         hasPreview

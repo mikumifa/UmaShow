@@ -162,27 +162,22 @@ export function extractCoreInfo(
       log.info('  -', choice);
     });
     const rule = resolveEventRule(storyId);
-    if (!rule) {
-      return [];
-    }
     const options = choiceArray.map((choice: any, position: number) => {
       const idx = choice.select_index;
-      const group = rule.options?.[position];
-      const matched = group?.[idx];
-
-      return (
-        matched ?? {
-          desp: 'unknown',
-          detail: '',
-          type: 'unknown',
-        }
-      );
+      const matched = rule?.options?.[position]?.[idx];
+      return matched
+        ? matched
+        : {
+            desp: `选项结果id: ${choice.select_index}`,
+            detail: '相同选项id的具体效果相同，可以通过多次触发事件进行确认。',
+            type: 'unknown',
+          };
     });
 
     return [
       {
         eventId: storyId,
-        eventName: rule.name,
+        eventName: rule ? rule.name : `事件 ${storyId}`,
         options,
       },
     ];

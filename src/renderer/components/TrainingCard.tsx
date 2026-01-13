@@ -79,7 +79,7 @@ const getStatConfig = (typeId: number) => {
     case TARGET_TYPE.SKILL_PTS:
       return {
         label: '技能Pt',
-        icon: 'vital.png',
+        icon: createImageIcon('./icons/status/vital.png'),
         color: 'amber',
         bg: 'bg-amber-400',
         text: 'text-amber-700',
@@ -300,7 +300,7 @@ export default function TrainingCard({
             const partner = partnerStats.find((c) => c.position === p);
             const progress =
               partner?.supportCardId === 0 && partner?.position >= 1000
-                ? null // not a support card -> no progress bar
+                ? null // not a support card but a person -> no progress bar
                 : Math.min(100, Math.max(0, partner?.evaluation ?? 0));
 
             const isMotivated =
@@ -346,7 +346,7 @@ export default function TrainingCard({
                 </div>
 
                 {/* Progress Bar (Below Circle) */}
-                {progress && (
+                {progress !== null && (
                   <div className="w-7 h-1.5 bg-gray-700 rounded-[3px] border border-gray-600 -mt-1 relative overflow-hidden z-20 box-border">
                     <div
                       className={`h-full ${progressColor} transition-all duration-300 ease-out`}
