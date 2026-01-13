@@ -14,7 +14,20 @@ import baseConfig from './webpack.config.base';
 import webpackPaths from './webpack.paths';
 import checkNodeEnv from '../scripts/check-node-env';
 import deleteSourceMaps from '../scripts/delete-source-maps';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
 
+const rendererCopyPattern = [
+  {
+    from: path.resolve(webpackPaths.rootPath, 'web-assets'),
+    to: webpackPaths.distRendererPath,
+  },
+];
+
+const rendererCopyPlugins = [
+  new CopyWebpackPlugin({
+    patterns: rendererCopyPattern,
+  }),
+];
 checkNodeEnv('production');
 deleteSourceMaps();
 
@@ -109,6 +122,7 @@ const configuration: webpack.Configuration = {
   },
 
   plugins: [
+    ...rendererCopyPlugins,
     /**
      * Create global constants which can be configured at compile time.
      *

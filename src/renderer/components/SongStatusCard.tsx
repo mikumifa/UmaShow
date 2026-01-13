@@ -1,4 +1,20 @@
+/* eslint-disable no-nested-ternary */
 import { type ComponentType } from 'react';
+import {
+  BicepsFlexed,
+  CheckCircle2,
+  Dumbbell,
+  Flame,
+  GraduationCap,
+  Sparkles,
+  Target,
+  XCircle,
+} from 'lucide-react';
+import {
+  COMMAND_TARGET_TYPE_MAP,
+  TARGET_TYPE,
+  type NoteStat,
+} from 'types/gameTypes';
 
 export type NoteType = 'da' | 'pa' | 'vo' | 'vi' | 'me';
 
@@ -14,22 +30,31 @@ export interface SongStatus {
   // eslint-disable-next-line react/no-unused-prop-types
   id: number;
   title: string;
-  tag: string;
-  coverUrl?: string;
   attributes: SongAttribute[];
   notes: Record<NoteType, number>;
+  noteStat?: NoteStat;
+  previewNoteStat?: NoteStat;
+  trainingCommandIds?: number[];
 }
 
-const NOTE_STYLES: Record<
+export const NOTE_STYLES: Record<
   NoteType,
-  { label: string; bg: string; text: string; border: string; ring: string }
+  {
+    label: string;
+    bg: string;
+    text: string;
+    border: string;
+    ring: string;
+    accent: string;
+  }
 > = {
   da: {
     label: 'Da',
-    bg: 'bg-sky-50',
+    bg: 'bg-rose-50',
     text: 'text-sky-700',
     border: 'border-sky-200',
     ring: 'ring-sky-200',
+    accent: 'bg-rose-200/50',
   },
   pa: {
     label: 'Pa',
@@ -37,27 +62,31 @@ const NOTE_STYLES: Record<
     text: 'text-rose-700',
     border: 'border-rose-200',
     ring: 'ring-rose-200',
+    accent: 'bg-rose-200/50',
   },
   vo: {
     label: 'Vo',
-    bg: 'bg-fuchsia-50',
+    bg: 'bg-rose-50',
     text: 'text-fuchsia-700',
     border: 'border-fuchsia-200',
     ring: 'ring-fuchsia-200',
+    accent: 'bg-rose-200/50',
   },
   vi: {
     label: 'Vi',
-    bg: 'bg-amber-50',
+    bg: 'bg-rose-50',
     text: 'text-amber-800',
     border: 'border-amber-200',
     ring: 'ring-amber-200',
+    accent: 'bg-rose-200/50',
   },
   me: {
     label: 'Me',
-    bg: 'bg-indigo-50',
+    bg: 'bg-rose-50',
     text: 'text-indigo-700',
     border: 'border-indigo-200',
     ring: 'ring-indigo-200',
+    accent: 'bg-rose-200/50',
   },
 };
 
@@ -72,17 +101,55 @@ const TONE_STYLES: Record<
 
 export default function SongStatusCard({
   title,
-  tag,
   attributes,
   notes,
+  noteStat,
+  previewNoteStat,
+  trainingCommandIds,
 }: SongStatus) {
+  const trainingLabelMap: Record<number, string> = {
+    [TARGET_TYPE.SPEED]: '速',
+    [TARGET_TYPE.POWER]: '力',
+    [TARGET_TYPE.WIZ]: '智',
+    [TARGET_TYPE.GUTS]: '毅',
+    [TARGET_TYPE.STAMINA]: '耐',
+  };
+  const trainingLabels = (trainingCommandIds ?? [])
+    .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
+    .filter(Boolean);
   return (
     <div className="bg-white rounded-lg border border-purple-200 shadow-sm overflow-hidden">
-      <header className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
-        <h3 className="font-black text-xs tracking-wide truncate">{title}</h3>
-        <span className="shrink-0 bg-white/80 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-          {tag}
-        </span>
+      <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
+        <div className="min-w-0 flex items-center gap-2">
+          <h3 className="min-w-0 font-black text-xs tracking-wide truncate">
+            {title}
+          </h3>
+          <div className="flex items-center gap-1">
+            <Target size={12} className="text-white/80" />
+            {(Object.keys(NOTE_STYLES) as NoteType[])
+              .filter((key) => (notes[key] ?? 0) > 0)
+              .map((key) => {
+                const style = NOTE_STYLES[key];
+                return (
+                  <span
+                    key={`req-${key}`}
+                    className={`inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/90 border text-[8px] font-black ${style.border} ${style.text}`}
+                    title={`Need ${style.label}`}
+                  >
+                    {style.label}
+                  </span>
+                );
+              })}
+          </div>
+        </div>
+        {trainingLabels.length > 0 ? (
+          <div
+            className="ml-auto text-[11px] font-black tracking-wide text-white/90"
+            title={`Training ${trainingLabels.join('')}`}
+          >
+            {trainingLabels.join('')}
+          </div>
+        ) : null}
       </header>
 
       <div className="p-2 flex gap-2.5">
@@ -112,21 +179,136 @@ export default function SongStatusCard({
       </div>
 
       <div className="px-2 pb-2">
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md border border-gray-200 px-2 py-1 flex items-center gap-2 shadow-inner">
-          <div className="flex-1 flex flex-wrap items-center justify-start gap-1">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-2 shadow-inner">
+          <div className="grid grid-cols-5 gap-1.5">
             {(Object.keys(NOTE_STYLES) as NoteType[]).map((key) => {
               const style = NOTE_STYLES[key];
+              const currentValue = noteStat?.[key]?.value ?? null;
+              const previewValue =
+                previewNoteStat?.[key]?.value ?? currentValue;
+              const targetValue = notes[key] ?? 0;
+              const diffCurrent =
+                currentValue == null ? null : targetValue - currentValue;
+              const diffPreview =
+                previewValue == null ? null : targetValue - previewValue;
+              const isMetCurrent = diffCurrent != null && diffCurrent <= 0;
+              const isMetPreview = diffPreview != null && diffPreview <= 0;
+              const hasPreview =
+                previewNoteStat != null &&
+                currentValue != null &&
+                previewValue != null &&
+                previewValue !== currentValue;
+              const displayNeed = targetValue;
+              const displayRemainingCurrent =
+                diffCurrent == null ? '--' : `${Math.max(-diffCurrent, 0)}`;
+              const displayMissingCurrent =
+                diffCurrent == null ? '--' : `${Math.max(diffCurrent, 0)}`;
+              const displayRemainingPreview =
+                diffPreview == null ? '--' : `${Math.max(-diffPreview, 0)}`;
+              const displayMissingPreview =
+                diffPreview == null ? '--' : `${Math.max(diffPreview, 0)}`;
               return (
                 <div
                   key={key}
-                  className={`min-w-[40px] px-1 py-0.5 rounded-full border ${style.bg} ${style.border} ${style.text} flex items-center justify-center gap-1 text-[11px] font-black`}
+                  className={`relative flex flex-col overflow-hidden rounded-lg border shadow-sm transition-all ${
+                    isMetPreview
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : `${style.border} ${style.bg}`
+                  }`}
                 >
-                  <span
-                    className={`w-5 h-5 rounded-full bg-white/90 border ${style.border} ${style.text} flex items-center justify-center text-[10px] font-black ring-1 ${style.ring}`}
+                  <div
+                    className={`flex flex-col items-center px-1 ${
+                      hasPreview ? 'pt-1' : 'pt-2'
+                    }`}
                   >
-                    {style.label}
-                  </span>
-                  <span className="tabular-nums">{notes[key]}</span>
+                    <span
+                      className={`flex-shrink-0 rounded-full bg-white border ${style.border} ${style.text} flex items-center justify-center font-black ring-2 ${style.ring} ${
+                        hasPreview
+                          ? 'w-5 h-5 text-[9px] mb-0.5'
+                          : 'w-6 h-6 text-[10px] mb-1'
+                      }`}
+                    >
+                      {style.label}
+                    </span>
+                    <span
+                      className={`font-bold tabular-nums ${style.text} ${
+                        hasPreview ? 'text-[12px]' : 'text-[13px]'
+                      }`}
+                    >
+                      {displayNeed}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`mt-auto py-1 flex flex-col items-center justify-center border-t border-dashed transition-all ${
+                      isMetPreview
+                        ? 'border-emerald-200 bg-emerald-100/50'
+                        : `${style.border} ${style.accent}`
+                    }`}
+                  >
+                    <div className="flex flex-col items-center leading-none">
+                      <div className="flex items-center justify-center w-[40px]">
+                        {hasPreview && isMetCurrent !== isMetPreview ? (
+                          <div className="flex items-center gap-0.5">
+                            {isMetCurrent ? (
+                              <CheckCircle2
+                                size={12}
+                                className="text-emerald-400"
+                              />
+                            ) : (
+                              <XCircle size={12} className="text-red-400" />
+                            )}
+                            <span className="text-[10px] text-gray-400">
+                              -&gt;
+                            </span>
+                            {isMetPreview ? (
+                              <CheckCircle2
+                                size={12}
+                                className="text-emerald-600"
+                              />
+                            ) : (
+                              <XCircle size={12} className="text-red-600" />
+                            )}
+                          </div>
+                        ) : isMetPreview ? (
+                          <CheckCircle2
+                            size={12}
+                            className="text-emerald-600"
+                          />
+                        ) : (
+                          <XCircle size={12} className="text-red-600" />
+                        )}
+                      </div>
+                      {hasPreview ? (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-[9px] text-gray-400 line-through tabular-nums">
+                            {isMetCurrent
+                              ? displayRemainingCurrent
+                              : displayMissingCurrent}
+                          </span>
+                          <span
+                            className={`text-[11px] font-black tabular-nums ${
+                              isMetPreview ? 'text-emerald-700' : style.text
+                            }`}
+                          >
+                            {isMetPreview
+                              ? displayRemainingPreview
+                              : displayMissingPreview}
+                          </span>
+                        </div>
+                      ) : (
+                        <span
+                          className={`text-[11px] font-black tabular-nums ${
+                            isMetPreview ? 'text-emerald-700' : style.text
+                          }`}
+                        >
+                          {isMetPreview
+                            ? displayRemainingCurrent
+                            : displayMissingCurrent}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}

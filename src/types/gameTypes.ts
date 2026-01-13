@@ -46,9 +46,26 @@ export interface TrainingCommand {
   params: CommandParam[];
 }
 
+export interface LivePerformanceDelta {
+  performanceType: number;
+  value: number;
+}
+
+export interface LiveCommandParam {
+  targetType: number;
+  value: number;
+}
+
+export interface LiveCommand {
+  commandId: number;
+  commandType: number;
+  performance: LivePerformanceDelta[];
+  params: LiveCommandParam[];
+}
+
 export interface PartnerStat {
   position: number;
-  supportCardId: number;
+  supportCardId: number; //if id == 0, this is not a support card
   charaPath: string;
   evaluation: number; // 来自 evaluation_info_array
   limitBreak: number;
@@ -70,6 +87,7 @@ export interface GameEvent {
 export interface PartnerStats extends Array<PartnerStat> {}
 export interface GameEvents extends Array<GameEvent> {}
 export interface TrainingCommands extends Array<TrainingCommand> {}
+export interface LiveCommands extends Array<LiveCommand> {}
 export interface SongStatAttribute {
   label: string;
   value: string;
@@ -100,6 +118,7 @@ export interface CharInfo {
   commands: TrainingCommands;
   songStats?: SongStats;
   noteStat?: NoteStat;
+  liveCommands?: LiveCommands;
 }
 
 export interface RaceHorseInfo {
@@ -144,6 +163,9 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     commands: isEmptyField(incoming.commands)
       ? prev.commands
       : incoming.commands,
+    liveCommands: isEmptyField(incoming.liveCommands)
+      ? prev.liveCommands
+      : incoming.liveCommands,
     songStats: isEmptyField(incoming.songStats)
       ? prev.songStats
       : incoming.songStats,

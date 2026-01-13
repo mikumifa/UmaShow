@@ -13,14 +13,6 @@ const PERF_TYPE_TO_NOTE_KEY: Record<number, keyof NoteStat> = {
   5: 'me',
 };
 
-const PERF_TYPE_LABEL: Record<number, string> = {
-  1: 'Da',
-  2: 'Pa',
-  3: 'Vo',
-  4: 'Vi',
-  5: 'Me',
-};
-
 const formatColorHtml = (input: string) => {
   return input
     .replace(/<color=([^>]+)>/g, '<span style="color:$1">')
@@ -77,34 +69,17 @@ export function extractCoreInfo(
         }
       });
       const rawContent = song.squareContent ?? '无';
-      const colorMatch = rawContent.match(/<color=([^>]+)>/);
-      const color = colorMatch ? colorMatch[1] : undefined;
-      const cleanedContent = rawContent
-        .replace(/<color=[^>]+>/g, '')
-        .replace(/<\/color>/g, '');
-      const contentParts = cleanedContent
-        .split(/\r?\n/)
-        .map((part) => part.trim())
-        .filter((part) => part.length > 0);
+      const normalized = rawContent.replace(/\\n/g, ' | '); // Windows → Unix
       const contentLabel = '';
-      const contentValue =
-        contentParts.length > 0 ? contentParts.join(' ') : '';
       const attributes = [
         {
           label: contentLabel,
-          value:
-            contentParts.length > 0
-              ? formatColorHtml(contentParts.join('\n')).replace(
-                  /\n/g,
-                  '<br />',
-                )
-              : '',
+          value: formatColorHtml(normalized),
           tone: 'neutral' as const,
-          color,
         },
         {
           label: '',
-          value: '无',
+          value: song.liveShowContext ?? '无',
           tone: 'neutral' as const,
         },
       ];
@@ -118,6 +93,7 @@ export function extractCoreInfo(
     })
     .filter(Boolean) as SongStat[] | undefined;
 
+  // ---------- command Stats ----------
   const commands = (home?.command_info_array ?? []).map((cmd) => ({
     commandId: cmd.command_id,
     commandType: cmd.command_type,
@@ -127,6 +103,19 @@ export function extractCoreInfo(
     trainingPartners: cmd.training_partner_array || [],
     tipsPartners: cmd.tips_event_partner_array || [],
     params: (cmd.params_inc_dec_info_array || []).map((p) => ({
+      targetType: p.target_type,
+      value: p.value,
+    })),
+  }));
+  // ---------- live add Stats ----------
+  const liveCommands = (liveData?.command_info_array ?? []).map((cmd) => ({
+    commandId: cmd.command_id,
+    commandType: cmd.command_type,
+    performance: (cmd.performance_inc_dec_info_array || []).map((p) => ({
+      performanceType: p.performance_type,
+      value: p.value,
+    })),
+    params: (cmd.params_inc_dec_info_array || []).map((p: any) => ({
       targetType: p.target_type,
       value: p.value,
     })),
@@ -155,6 +144,9 @@ export function extractCoreInfo(
         : '';
       result.limitBreak = matchedCard.limit_break_count;
       result.exp = matchedCard.exp;
+    }
+    if (position >= 1000) {
+      result.charaPath = UMDB.charas[position]?.iconUrl ?? '';
     }
     return result;
   });
@@ -199,6 +191,7 @@ export function extractCoreInfo(
     gameStats,
     stats,
     commands,
+    liveCommands,
     partnerStats,
     gameEvents,
     noteStat,

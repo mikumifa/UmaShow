@@ -8,9 +8,21 @@ import { merge } from 'webpack-merge';
 import { execSync, spawn } from 'child_process';
 import ReactRefreshWebpackPlugin from '@pmmmwh/react-refresh-webpack-plugin';
 import baseConfig from './webpack.config.base';
-import webpackPaths from './webpack.paths';
 import checkNodeEnv from '../scripts/check-node-env';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import webpackPaths from './webpack.paths';
 
+const rendererCopyPattern = [
+  {
+    from: path.resolve(webpackPaths.rootPath, 'web-assets'),
+    to: webpackPaths.distRendererPath,
+  },
+];
+const rendererCopyPlugins = [
+  new CopyWebpackPlugin({
+    patterns: rendererCopyPattern,
+  }),
+];
 // When an ESLint server is running, we can't set the NODE_ENV so we'll check if it's
 // at the dev webpack config is not accidentally run in a production environment
 if (process.env.NODE_ENV === 'production') {
@@ -127,6 +139,7 @@ const configuration: webpack.Configuration = {
     ],
   },
   plugins: [
+    ...rendererCopyPlugins,
     ...(skipDLLs
       ? []
       : [

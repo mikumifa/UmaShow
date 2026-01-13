@@ -32,7 +32,14 @@ const electronHandler = {
     },
     navigation: {
       onNavigate: (callback: (data: { path: string; state: any }) => void) => {
-        ipcRenderer.on('navigate-to', (_, data) => callback(data));
+        const subscription = (_event: IpcRendererEvent, data: any) =>
+          callback(data);
+
+        ipcRenderer.on('navigate-to', subscription);
+
+        return () => {
+          ipcRenderer.removeListener('navigate-to', subscription);
+        };
       },
     },
   },

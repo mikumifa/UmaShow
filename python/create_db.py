@@ -8,8 +8,29 @@ from collections import defaultdict
 from google.protobuf import json_format
 import proto.data_pb2 as data_pb2
 
-# 直接指向解包后的资源目录
 SOURCE_ICON_DIR = r"D:\Apps\umas\export\Texture2D"
+LIVE_SHOW_CONTEXT_BY_ID = {
+    40001: "友情加成 +5%",
+    40002: "友情加成 +5%",
+    40003: "友情加成 +5%",
+    40004: "支援卡事件 +1",
+    40005: "支援卡事件 +1",
+    40006: "支援卡事件 +1",
+    40007: "得意率 +5",
+    40008: "得意率 +5",
+    40009: "支援卡事件 +1",
+    40010: "支援卡事件 +1",
+    40011: "得意率 +5",
+    40012: "友情加成 +5%",
+    40013: "得意率 +5",
+    40014: "友情加成 +5%",
+    40015: "友情加成 +5%",
+    40016: "友情加成 +5%",
+    40017: "得意率 +5",
+    40018: "友情加成 +10%",
+    40019: "友情加成 +10%",
+    40020: "支援卡事件 +1",
+}
 
 
 def open_db(path: str) -> sqlite3.Cursor:
@@ -234,6 +255,8 @@ def populate_live_songs(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
                 break
             r.perf_type.append(perf_type)
             r.perf_value.append(perf_value)
+        if r.id in LIVE_SHOW_CONTEXT_BY_ID:
+            r.live_show_context = LIVE_SHOW_CONTEXT_BY_ID[r.id]
         pb.live_song.append(r)
 
 

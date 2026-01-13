@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
-import { CharInfo, mergeCharInfo } from 'types/gameTypes';
+import { type NoteStat, CharInfo, mergeCharInfo } from 'types/gameTypes';
 // import StatBox from 'renderer/components/StatBox';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
@@ -10,8 +10,70 @@ import SongStatusCard from 'renderer/components/SongStatusCard';
 import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function MonitorDashboard() {
-  const [charInfo, setCharInfo] = useState<CharInfo | null>(null);
+  const [charInfo, setCharInfo] = useState<CharInfo | null>(() => {
+    try {
+      const cached = localStorage.getItem('monitorDashboard.charInfo');
+      return cached ? (JSON.parse(cached) as CharInfo) : null;
+    } catch (err) {
+      log.warn('Failed to load cached charInfo:', err);
+      return null;
+    }
+  });
   const [ready, setReady] = useState(false);
+  const [hoveredCommandId, setHoveredCommandId] = useState<number | null>(null);
+
+  const trainingCommandsByNote = useMemo(() => {
+    const map = new Map<keyof NoteStat, Set<number>>();
+    if (!charInfo?.liveCommands) return map;
+    const performanceTypeMap: Record<number, keyof NoteStat> = {
+      1: 'da',
+      2: 'pa',
+      3: 'vo',
+      4: 'vi',
+      5: 'me',
+    };
+    charInfo.liveCommands.forEach((live) => {
+      (live.performance ?? []).forEach((p) => {
+        if (p.value === 0) return;
+        const key = performanceTypeMap[p.performanceType];
+        if (!key) return;
+        if (!map.has(key)) {
+          map.set(key, new Set());
+        }
+        map.get(key)!.add(live.commandId);
+      });
+    });
+    return map;
+  }, [charInfo?.liveCommands]);
+
+  const previewNoteStat = useMemo(() => {
+    if (!charInfo?.noteStat || !charInfo?.liveCommands) return null;
+    if (!hoveredCommandId) return null;
+    const liveCommand = charInfo.liveCommands.find(
+      (live) => live.commandId === hoveredCommandId,
+    );
+    if (!liveCommand?.performance?.length) return null;
+    const next = {
+      da: { ...charInfo.noteStat.da },
+      pa: { ...charInfo.noteStat.pa },
+      vo: { ...charInfo.noteStat.vo },
+      vi: { ...charInfo.noteStat.vi },
+      me: { ...charInfo.noteStat.me },
+    };
+    const performanceTypeMap: Record<number, keyof NoteStat> = {
+      1: 'da',
+      2: 'pa',
+      3: 'vo',
+      4: 'vi',
+      5: 'me',
+    };
+    liveCommand.performance.forEach((p) => {
+      const key = performanceTypeMap[p.performanceType];
+      if (!key) return;
+      next[key].value += p.value;
+    });
+    return next;
+  }, [charInfo?.noteStat, charInfo?.liveCommands, hoveredCommandId]);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
@@ -31,6 +93,18 @@ export default function MonitorDashboard() {
       removeCharInfoListener?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!charInfo) return;
+    try {
+      localStorage.setItem(
+        'monitorDashboard.charInfo',
+        JSON.stringify(charInfo),
+      );
+    } catch (err) {
+      log.warn('Failed to cache charInfo:', err);
+    }
+  }, [charInfo]);
 
   return ready && charInfo ? (
     <div className="p-4 flex flex-col gap-4 bg-gray-100 min-h-screen">
@@ -75,45 +149,29 @@ export default function MonitorDashboard() {
           </div>
         </section>
       </div>
-
-      {/* <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 p-4 bg-gray-200 rounded-xl shadow-inner border border-gray-300">
-        <StatBox
-          keyName="speed"
-          value={charInfo.stats.speed.value}
-          max={charInfo.stats.speed.max}
-        />
-        <StatBox
-          keyName="stamina"
-          value={charInfo.stats.stamina.value}
-          max={charInfo.stats.stamina.max}
-        />
-        <StatBox
-          keyName="power"
-          value={charInfo.stats.power.value}
-          max={charInfo.stats.power.max}
-        />
-        <StatBox
-          keyName="guts"
-          value={charInfo.stats.guts.value}
-          max={charInfo.stats.guts.max}
-        />
-        <StatBox
-          keyName="wiz"
-          value={charInfo.stats.wiz.value}
-          max={charInfo.stats.wiz.max}
-        />
-        <StatBox
-          keyName="skillPoint"
-          value={charInfo.stats.skillPoint}
-          max={9999}
-        />
-      </section> */}
       {/* =================== SONG STATUS =================== */}
       <section className="mt-2">
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
           {(charInfo.songStats ?? []).map((song) => (
             // eslint-disable-next-line react/jsx-props-no-spreading
-            <SongStatusCard key={song.id} {...song} />
+            <SongStatusCard
+              key={song.id}
+              // eslint-disable-next-line react/jsx-props-no-spreading
+              {...song}
+              noteStat={charInfo.noteStat}
+              previewNoteStat={previewNoteStat ?? undefined}
+              trainingCommandIds={(() => {
+                const noteKeys = Object.keys(song.notes) as Array<
+                  keyof NoteStat
+                >;
+                const ids = noteKeys
+                  .filter((key) => (song.notes[key] ?? 0) > 0)
+                  .flatMap((key) =>
+                    Array.from(trainingCommandsByNote.get(key) ?? []),
+                  );
+                return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
+              })()}
+            />
           ))}
         </div>
       </section>
@@ -133,6 +191,10 @@ export default function MonitorDashboard() {
                 key={cmd.commandId}
                 command={cmd}
                 partnerStats={charInfo.partnerStats}
+                liveCommands={charInfo.liveCommands}
+                onHoverChange={(command, isHovering) =>
+                  setHoveredCommandId(isHovering ? command.commandId : null)
+                }
               />
             ))}
           {charInfo.gameEvents.map((ev) => (
