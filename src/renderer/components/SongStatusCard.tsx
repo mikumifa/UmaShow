@@ -123,7 +123,9 @@ export default function SongStatusCard({
     (acc, key) => {
       const ids = trainingCommandsByNote?.[key] ?? [];
       const labels = ids
-        .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
+        .map(
+          (commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]],
+        )
         .filter(Boolean);
       acc[key] = Array.from(new Set(labels));
       return acc;

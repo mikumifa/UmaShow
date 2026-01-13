@@ -1,4 +1,13 @@
-import { AlertTriangle, TrendingUp } from 'lucide-react';
+import {
+  AlertTriangle,
+  TrendingUp,
+  Zap,
+  Heart,
+  Dumbbell,
+  Flame,
+  GraduationCap,
+  Sparkles,
+} from 'lucide-react';
 import { type ComponentType } from 'react';
 import {
   TrainingCommand,
@@ -6,6 +15,7 @@ import {
   PartnerStats,
   COMMAND_TARGET_TYPE_MAP,
   LiveCommands,
+  type CharStats,
 } from '../../types/gameTypes';
 import { UMDB } from '../utils/umdb';
 import FailureRateBadge from './FailureRateBadge';
@@ -116,16 +126,78 @@ const PERFORMANCE_TYPE_MAP: Record<number, NoteType> = {
 
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
+const getStatKeyNameByTarget = (targetType: number) => {
+  switch (targetType) {
+    case TARGET_TYPE.SPEED:
+      return 'speed';
+    case TARGET_TYPE.STAMINA:
+      return 'stamina';
+    case TARGET_TYPE.POWER:
+      return 'power';
+    case TARGET_TYPE.GUTS:
+      return 'guts';
+    case TARGET_TYPE.WIZ:
+      return 'wiz';
+    case TARGET_TYPE.SKILL_PTS:
+      return 'skillPoint';
+    default:
+      return null;
+  }
+};
+
+const getStatTileConfig = (key: string) => {
+  switch (key) {
+    case 'speed':
+      return { label: '速度', icon: Zap, bg: 'bg-blue-500' };
+    case 'stamina':
+      return { label: '耐力', icon: Heart, bg: 'bg-rose-400' };
+    case 'power':
+      return { label: '力量', icon: Dumbbell, bg: 'bg-orange-500' };
+    case 'guts':
+      return { label: '毅力', icon: Flame, bg: 'bg-pink-500' };
+    case 'wiz':
+      return { label: '智力', icon: GraduationCap, bg: 'bg-emerald-500' };
+    case 'skillPoint':
+      return { label: '技能点', icon: Sparkles, bg: 'bg-amber-400' };
+    case 'da':
+      return { label: 'Da', icon: Sparkles, bg: 'bg-violet-400' };
+    case 'pa':
+      return { label: 'Pa', icon: Sparkles, bg: 'bg-violet-400' };
+    case 'vo':
+      return { label: 'Vo', icon: Sparkles, bg: 'bg-violet-400' };
+    case 'vi':
+      return { label: 'Vi', icon: Sparkles, bg: 'bg-violet-400' };
+    case 'me':
+      return { label: 'Me', icon: Sparkles, bg: 'bg-violet-400' };
+    default:
+      return { label: key, icon: Zap, bg: 'bg-gray-500' };
+  }
+};
+
+export function StatTile({ value }: { value: number }) {
+  return (
+    <div className="flex flex-col w-auto min-w-[64px]">
+      <div className="rounded-lg px-2 py-1 h-12 flex items-center justify-end">
+        <span className="text-xl font-bold text-gray-700 leading-none">
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function TrainingCard({
   command,
   partnerStats,
   liveCommands,
   onHoverChange,
+  currentStats,
 }: {
   command: TrainingCommand;
   partnerStats: PartnerStats;
   liveCommands?: LiveCommands;
   onHoverChange?: (command: TrainingCommand, isHovering: boolean) => void;
+  currentStats?: CharStats;
 }) {
   const isDisabled = command.isEnable === 0;
   const name =
@@ -151,6 +223,18 @@ export default function TrainingCard({
     (p) => p.value !== 0,
   );
   const hasPositiveImpact = gains.length > 0 || performanceGains.length > 0;
+  const mainStatKey =
+    getStatKeyNameByTarget(COMMAND_TARGET_TYPE_MAP[command.commandId]) ??
+    getStatKeyNameByTarget(
+      command.params.find((p) => p.value > 0)?.targetType ??
+        TARGET_TYPE.UNKNOWN,
+    );
+  const mainStatValue =
+    currentStats && mainStatKey
+      ? mainStatKey === 'skillPoint'
+        ? currentStats.skillPoint
+        : currentStats[mainStatKey as keyof CharStats]?.value
+      : undefined;
 
   return (
     <button
@@ -191,6 +275,11 @@ export default function TrainingCard({
         <span className={`absolute bottom-1 font-bold ${mainConfig.text}`}>
           {name}
         </span>
+        {mainStatKey && typeof mainStatValue === 'number' ? (
+          <div className="absolute top-1 right-1">
+            <StatTile value={mainStatValue} />
+          </div>
+        ) : null}
       </div>
 
       {/* Stats Impact List */}

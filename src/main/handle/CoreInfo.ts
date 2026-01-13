@@ -1,5 +1,6 @@
 import log from 'electron-log';
 import { resolveEventRule } from 'constant/events';
+import { COMMAND_TO_MASTER_BONUS } from 'constant/live/liveSchedule';
 import { BrowserWindow } from 'electron';
 import { CharStats, GameStats, NoteStat, SongStat } from 'types/gameTypes';
 import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
@@ -39,8 +40,10 @@ export function extractCoreInfo(
     vital: { value: chara.vital, max: chara.max_vital },
     skillPoint: chara.skill_point,
   };
+  const freeData = decoded.data.free_data_set;
   const gameStats: GameStats = {
     turn: chara.turn,
+    coinNum: freeData?.coin_num ?? 0,
   };
   const liveData = decoded.data.live_data_set;
   const livePerf = liveData?.live_performance_info;
@@ -120,6 +123,13 @@ export function extractCoreInfo(
       value: p.value,
     })),
   }));
+  const livePurchasedIds = Array.from(
+    new Set(
+      (liveData?.master_live_id_array ?? [])
+        .map((id) => COMMAND_TO_MASTER_BONUS[id])
+        .filter((id): id is number => typeof id === 'number'),
+    ),
+  );
 
   // ---------- partner Stats ----------
   const supportCards = chara.support_card_array || [];
@@ -187,6 +197,7 @@ export function extractCoreInfo(
     stats,
     commands,
     liveCommands,
+    livePurchasedIds,
     partnerStats,
     gameEvents,
     noteStat,

@@ -25,6 +25,7 @@ export interface NoteStat {
 
 export interface GameStats {
   turn: number;
+  coinNum: number;
 }
 
 // =============================
@@ -119,6 +120,7 @@ export interface CharInfo {
   songStats?: SongStats;
   noteStat?: NoteStat;
   liveCommands?: LiveCommands;
+  livePurchasedIds?: number[];
 }
 
 export interface RaceHorseInfo {
@@ -172,6 +174,9 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     noteStat: isEmptyField(incoming.noteStat)
       ? prev.noteStat
       : incoming.noteStat,
+    livePurchasedIds: isEmptyField(incoming.livePurchasedIds)
+      ? prev.livePurchasedIds
+      : incoming.livePurchasedIds,
   };
 }
 

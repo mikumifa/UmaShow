@@ -2,13 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
 import { type NoteStat, CharInfo, mergeCharInfo } from 'types/gameTypes';
-import StatBox from 'renderer/components/StatBox';
+import {
+  getLivePoolIdsByTurn,
+  LIVE_SQUARE_MAP,
+} from 'constant/live/liveSchedule';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
 import GameStartScreen from 'renderer/components/GameStartScreen';
 import SongStatusCard, {
   type NoteType,
 } from 'renderer/components/SongStatusCard';
+import LivePlan from 'renderer/components/LivePlan';
 import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function MonitorDashboard() {
@@ -23,6 +27,9 @@ export default function MonitorDashboard() {
   });
   const [ready, setReady] = useState(false);
   const [hoveredCommandId, setHoveredCommandId] = useState<number | null>(null);
+  const [liveSelectedIds, setLiveSelectedIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const trainingCommandsByNote = useMemo(() => {
     const map = new Map<keyof NoteStat, Set<number>>();
@@ -76,6 +83,32 @@ export default function MonitorDashboard() {
     });
     return next;
   }, [charInfo?.noteStat, charInfo?.liveCommands, hoveredCommandId]);
+
+  const livePoolIds = useMemo(() => {
+    if (!charInfo) return [];
+    const ids = getLivePoolIdsByTurn(charInfo.gameStats.turn);
+    const purchased = new Set(charInfo.livePurchasedIds ?? []);
+    return ids.filter((id) => !purchased.has(id));
+  }, [charInfo]);
+
+  useEffect(() => {
+    if (livePoolIds.length === 0) return;
+    setLiveSelectedIds((prev) => {
+      const next = new Set<number>();
+      livePoolIds.forEach((id) => {
+        if (prev.has(id)) next.add(id);
+      });
+      if (next.size === 0) {
+        livePoolIds.forEach((id) => {
+          const song = LIVE_SQUARE_MAP[id];
+          if (song && song.weight >= 4) {
+            next.add(id);
+          }
+        });
+      }
+      return next;
+    });
+  }, [livePoolIds]);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
@@ -146,59 +179,9 @@ export default function MonitorDashboard() {
               </span>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              {
-                keyName: 'speed',
-                value: charInfo.stats.speed.value,
-                max: charInfo.stats.speed.max,
-              },
-              {
-                keyName: 'stamina',
-                value: charInfo.stats.stamina.value,
-                max: charInfo.stats.stamina.max,
-              },
-              {
-                keyName: 'power',
-                value: charInfo.stats.power.value,
-                max: charInfo.stats.power.max,
-              },
-              {
-                keyName: 'guts',
-                value: charInfo.stats.guts.value,
-                max: charInfo.stats.guts.max,
-              },
-              {
-                keyName: 'wiz',
-                value: charInfo.stats.wiz.value,
-                max: charInfo.stats.wiz.max,
-              },
-              {
-                keyName: 'skillPoint',
-                value: charInfo.stats.skillPoint,
-                max: Math.max(charInfo.stats.skillPoint, 1),
-              },
-            ].map((stat) => (
-              <StatBox
-                key={stat.keyName}
-                keyName={stat.keyName}
-                value={stat.value}
-                max={stat.max}
-              />
-            ))}
-            {(
-              Object.keys(charInfo.noteStat ?? {}) as Array<keyof NoteStat>
-            ).map((key) => (
-              <StatBox
-                key={`note-${key}`}
-                keyName={key}
-                value={charInfo.noteStat?.[key]?.value ?? 0}
-              />
-            ))}
-          </div>
         </section>
       </div>
+
       {/* =================== SONG STATUS =================== */}
       <section className="mt-2">
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
@@ -234,6 +217,27 @@ export default function MonitorDashboard() {
               })()}
             />
           ))}
+          {/* =================== LIVE PLAN =================== */}
+          <section>
+            <LivePlan
+              turn={charInfo.gameStats.turn}
+              noteStat={charInfo.noteStat}
+              previewNoteStat={previewNoteStat ?? null}
+              purchasedLiveIds={charInfo.livePurchasedIds}
+              selectedIds={liveSelectedIds}
+              onToggleSelect={(id) =>
+                setLiveSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) {
+                    next.delete(id);
+                  } else {
+                    next.add(id);
+                  }
+                  return next;
+                })
+              }
+            />
+          </section>
         </div>
       </section>
       {/* =================== TRAINING COMMANDS =================== */}
@@ -253,6 +257,7 @@ export default function MonitorDashboard() {
                 command={cmd}
                 partnerStats={charInfo.partnerStats}
                 liveCommands={charInfo.liveCommands}
+                currentStats={charInfo.stats}
                 onHoverChange={(command, isHovering) =>
                   setHoveredCommandId(isHovering ? command.commandId : null)
                 }

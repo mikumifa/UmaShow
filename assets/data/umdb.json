@@ -89250,7 +89250,8 @@
       "perfValue": [
         21,
         21
-      ]
+      ],
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40001,
@@ -89366,7 +89367,7 @@
         21,
         21
       ],
-      "liveShowContext": "得意率 +5"
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40008,
@@ -89382,7 +89383,7 @@
         21,
         42
       ],
-      "liveShowContext": "得意率 +5"
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40009,
@@ -89430,7 +89431,7 @@
         21,
         42
       ],
-      "liveShowContext": "得意率 +5"
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40012,
@@ -89462,7 +89463,7 @@
         42,
         21
       ],
-      "liveShowContext": "得意率 +5"
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40014,
@@ -89526,7 +89527,7 @@
         42,
         21
       ],
-      "liveShowContext": "得意率 +5"
+      "liveShowContext": "擅长率 +5"
     },
     {
       "id": 40018,
