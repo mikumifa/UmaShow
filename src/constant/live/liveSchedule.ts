@@ -122,7 +122,7 @@ export const LIVE_SQUARE_MAP: Record<number, LiveSquare> = {
   40003: {
     id: 40003,
     name: 'RUN×RUN！',
-    description: '技能点数 +22',
+    description: 'PT +22',
     squareType: 4,
     perfType: [1, 4, 5],
     perfValue: [14, 16, 14],

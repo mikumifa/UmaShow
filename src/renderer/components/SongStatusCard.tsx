@@ -1,20 +1,12 @@
 /* eslint-disable no-nested-ternary */
 import { type ComponentType } from 'react';
-import {
-  BicepsFlexed,
-  CheckCircle2,
-  Dumbbell,
-  Flame,
-  GraduationCap,
-  Sparkles,
-  Target,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, Target, XCircle } from 'lucide-react';
 import {
   COMMAND_TARGET_TYPE_MAP,
   TARGET_TYPE,
   type NoteStat,
 } from 'types/gameTypes';
+import PurchaseBadge from 'renderer/components/PurchaseBadge';
 
 export type NoteType = 'da' | 'pa' | 'vo' | 'vi' | 'me';
 
@@ -132,8 +124,17 @@ export default function SongStatusCard({
     },
     {} as Record<NoteType, string[]>,
   );
+  const activeNoteStat = previewNoteStat ?? noteStat;
+  const isPurchasable =
+    activeNoteStat != null &&
+    (Object.keys(notes) as NoteType[]).every((key) => {
+      const targetValue = notes[key] ?? 0;
+      const currentValue = activeNoteStat?.[key]?.value ?? 0;
+      return currentValue >= targetValue;
+    });
   return (
-    <div className="bg-white rounded-lg border border-purple-200 shadow-sm overflow-hidden">
+    <div className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible">
+      {isPurchasable ? <PurchaseBadge /> : null}
       <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
         <div className="min-w-0 flex items-center gap-2">
           <h3 className="min-w-0 font-black text-xs tracking-wide truncate">

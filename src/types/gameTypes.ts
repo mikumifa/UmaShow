@@ -174,9 +174,10 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     noteStat: isEmptyField(incoming.noteStat)
       ? prev.noteStat
       : incoming.noteStat,
-    livePurchasedIds: isEmptyField(incoming.livePurchasedIds)
-      ? prev.livePurchasedIds
-      : incoming.livePurchasedIds,
+    livePurchasedIds:
+      incoming.livePurchasedIds != null
+        ? incoming.livePurchasedIds
+        : prev.livePurchasedIds,
   };
 }
 

@@ -16,6 +16,7 @@ interface LivePlanProps {
   purchasedLiveIds?: number[];
   selectedIds: Set<number>;
   onToggleSelect: (id: number) => void;
+  trainingLabelsByNote?: Partial<Record<NoteType, string[]>>;
 }
 
 const PERF_TYPE_TO_NOTE_KEY: Record<number, NoteType> = {
@@ -26,10 +27,16 @@ const PERF_TYPE_TO_NOTE_KEY: Record<number, NoteType> = {
   5: 'me',
 };
 
-const SONG_WEIGHT_CLASS: Record<number, string> = {
-  4: 'border-amber-300 bg-amber-50',
-  3: 'border-purple-300 bg-purple-50',
-  1: 'border-slate-300 bg-slate-50',
+const SONG_WEIGHT_BORDER: Record<number, string> = {
+  4: 'border-amber-300',
+  3: 'border-purple-300',
+  1: 'border-slate-300',
+};
+
+const SONG_WEIGHT_BG: Record<number, string> = {
+  4: 'bg-amber-50',
+  3: 'bg-purple-50',
+  1: 'bg-slate-50',
 };
 
 export default function LivePlan({
@@ -39,7 +46,23 @@ export default function LivePlan({
   purchasedLiveIds,
   selectedIds,
   onToggleSelect,
+  trainingLabelsByNote,
 }: LivePlanProps) {
+  const minCurrencyKeys = useMemo(() => {
+    if (!noteStat) return null;
+    const keys = Object.keys(NOTE_STYLES) as NoteType[];
+    let minValue = Number.POSITIVE_INFINITY;
+    keys.forEach((key) => {
+      const value = noteStat[key]?.value ?? 0;
+      if (value < minValue) {
+        minValue = value;
+      }
+    });
+    const minKeys = keys.filter(
+      (key) => (noteStat[key]?.value ?? 0) === minValue,
+    );
+    return minKeys.length > 0 ? minKeys : null;
+  }, [noteStat]);
   const pool = useMemo(() => {
     const resultIds = getLivePoolIdsByTurn(turn);
     const purchasedSet = new Set(purchasedLiveIds ?? []);
@@ -95,13 +118,23 @@ export default function LivePlan({
           return (
             <div
               key={key}
-              className={`shrink-0 w-12 min-w-12 h-24 relative flex flex-col overflow-hidden rounded-lg border shadow-sm transition-all ${
+              className={`shrink-0 w-12 min-w-12 h-24 relative flex flex-col overflow-visible rounded-lg border shadow-sm transition-all ${
                 isMetPreview
                   ? 'border-emerald-200 bg-emerald-50'
                   : `${style.border} ${style.bg}`
               }`}
             >
-              <div className="flex flex-col items-center px-1 pt-2">
+              {minCurrencyKeys?.includes(key) ? (
+                <span className="absolute right-0 top-0 rounded bg-emerald-500 px-0 py-0 text-[7px] font-black text-white">
+                  min
+                </span>
+              ) : null}
+              <div className="flex flex-col items-center px-1 pt-1">
+                {trainingLabelsByNote?.[key]?.length ? (
+                  <span className="mb-0.5 text-[9px] font-black text-slate-500">
+                    {trainingLabelsByNote[key]!.join('')}
+                  </span>
+                ) : null}
                 <span
                   className={`flex-shrink-0 rounded-full bg-white border ${style.border} ${style.text} flex items-center justify-center font-black ring-2 ${style.ring} w-6 h-6 text-[10px] mb-1`}
                 >
@@ -181,22 +214,37 @@ export default function LivePlan({
               </div>
             </div>
           );
-      })}
-      {pool.map((song) => {
-        const isSelected = selectedIds.has(song.id);
-        const weightClass =
-          SONG_WEIGHT_CLASS[song.weight ?? 0] ?? 'border-slate-200 bg-white';
-        return (
-          <button
-            key={song.id}
-            type="button"
-            onClick={() => onToggleSelect(song.id)}
-            className={`shrink-0 w-20 min-w-25 h-20 text-left rounded-lg border px-2 py-1.5 transition-all ${
-              isSelected
-                ? `border-2 border-emerald-500 ${weightClass} shadow-sm`
-                : `${weightClass} hover:border-slate-300 hover:shadow-sm`
-            }`}
-          >
+        })}
+        {pool.map((song) => {
+          const isSelected = selectedIds.has(song.id);
+          const weightBorder =
+            SONG_WEIGHT_BORDER[song.weight ?? 0] ?? 'border-slate-200';
+          const weightBg = SONG_WEIGHT_BG[song.weight ?? 0] ?? 'bg-white';
+          const isPurchasable =
+            noteStat != null &&
+            song.perfType.every((type, idx) => {
+              const key = PERF_TYPE_TO_NOTE_KEY[type];
+              if (!key) return true;
+              const targetValue = song.perfValue[idx] ?? 0;
+              const currentValue = noteStat?.[key]?.value ?? 0;
+              return currentValue >= targetValue;
+            });
+          return (
+            <button
+              key={song.id}
+              type="button"
+              onClick={() => onToggleSelect(song.id)}
+              className={`relative shrink-0 w-20 min-w-25 h-20 text-left rounded-lg px-2 py-1.5 transition-all overflow-visible ${
+                isSelected
+                  ? `border-2 border-emerald-500 ${weightBg} shadow-sm`
+                  : `${weightBorder} ${weightBg} hover:border-slate-300 hover:shadow-sm`
+              }`}
+            >
+              {isPurchasable ? (
+                <span className="absolute right-0 top-0 rounded bg-emerald-500 px-1 py-0 text-[8px] font-black text-white">
+                  可购
+                </span>
+              ) : null}
               <div className="text-[11px] font-bold text-slate-800 truncate">
                 {song.name}
               </div>

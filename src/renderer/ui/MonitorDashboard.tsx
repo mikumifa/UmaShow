@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
-import { type NoteStat, CharInfo, mergeCharInfo } from 'types/gameTypes';
+import {
+  type NoteStat,
+  CharInfo,
+  COMMAND_TARGET_TYPE_MAP,
+  mergeCharInfo,
+  TARGET_TYPE,
+} from 'types/gameTypes';
 import {
   getLivePoolIdsByTurn,
   LIVE_SQUARE_MAP,
@@ -54,6 +60,28 @@ export default function MonitorDashboard() {
     });
     return map;
   }, [charInfo?.liveCommands]);
+
+  const trainingLabelsByNote = useMemo(() => {
+    const trainingLabelMap: Record<number, string> = {
+      [TARGET_TYPE.SPEED]: '\u901f',
+      [TARGET_TYPE.POWER]: '\u529b',
+      [TARGET_TYPE.WIZ]: '\u667a',
+      [TARGET_TYPE.GUTS]: '\u6bc5',
+      [TARGET_TYPE.STAMINA]: '\u8010',
+    };
+    const noteKeys: NoteType[] = ['da', 'pa', 'vo', 'vi', 'me'];
+    const result: Partial<Record<NoteType, string[]>> = {};
+    noteKeys.forEach((key) => {
+      const ids = Array.from(trainingCommandsByNote.get(key) ?? []);
+      const labels = ids
+        .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
+        .filter(Boolean);
+      if (labels.length > 0) {
+        result[key] = Array.from(new Set(labels));
+      }
+    });
+    return result;
+  }, [trainingCommandsByNote]);
 
   const previewNoteStat = useMemo(() => {
     if (!charInfo?.noteStat || !charInfo?.liveCommands) return null;
@@ -219,16 +247,17 @@ export default function MonitorDashboard() {
           ))}
           {/* =================== LIVE PLAN =================== */}
           <section>
-            <LivePlan
-              turn={charInfo.gameStats.turn}
-              noteStat={charInfo.noteStat}
-              previewNoteStat={previewNoteStat ?? null}
-              purchasedLiveIds={charInfo.livePurchasedIds}
-              selectedIds={liveSelectedIds}
-              onToggleSelect={(id) =>
-                setLiveSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(id)) {
+        <LivePlan
+          turn={charInfo.gameStats.turn}
+          noteStat={charInfo.noteStat}
+          previewNoteStat={previewNoteStat ?? null}
+          purchasedLiveIds={charInfo.livePurchasedIds}
+          selectedIds={liveSelectedIds}
+          trainingLabelsByNote={trainingLabelsByNote}
+          onToggleSelect={(id) =>
+            setLiveSelectedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) {
                     next.delete(id);
                   } else {
                     next.add(id);
