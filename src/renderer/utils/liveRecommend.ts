@@ -50,20 +50,11 @@ export const getRecommendedSongIds = ({
   const candidates: number[] = [];
 
   songStats.forEach((song) => {
-    /** ① 是否能单独购买这首歌 */
-    const canBuyAlone = keys.every((key) => {
-      const currentValue = noteStat[key]?.value ?? 0;
-      const cost = song.notes[key] ?? 0;
-      return currentValue - cost >= 0;
-    });
-
     /* 歌曲 */
     if (song.id in LIVE_SQUARE_MAP) {
       // 只推荐已选择的歌曲中能单独购买的
       if (selectedIds.has(song.id)) {
-        if (canBuyAlone) {
-          candidates.push(song.id);
-        }
+        candidates.push(song.id);
       }
       return;
     }
