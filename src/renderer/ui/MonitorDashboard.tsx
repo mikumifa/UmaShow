@@ -16,6 +16,7 @@ import {
   getLivePoolIdsByTurn,
   LIVE_SQUARE_MAP,
 } from 'constant/live/liveSchedule';
+import { getGameTimeByTurn } from 'constant/gameStat';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
 import EventDetailRow, {
@@ -54,6 +55,8 @@ export default function MonitorDashboard() {
   const [autoPhonePanel, setAutoPhonePanel] = useState(false);
   const [phonePanelWidth, setPhonePanelWidth] = useState(360);
   const resizingRef = useRef(false);
+  const autoSelectPoolKeyRef = useRef<string | null>(null);
+  const lastTurnRef = useRef<number | null>(null);
   const [windowList, setWindowList] = useState<
     Array<{ id: number; title: string; pid: number }>
   >([]);
@@ -156,12 +159,35 @@ export default function MonitorDashboard() {
   }, [charInfo]);
 
   useEffect(() => {
-    if (livePoolIds.length === 0) return;
+    if (!charInfo) return;
     setLiveSelectedIds((prev) => {
       const next = new Set<number>(prev);
-      const purchasedSet = new Set(charInfo?.livePurchasedIds ?? []);
+      const purchasedSet = new Set(charInfo.livePurchasedIds ?? []);
       purchasedSet.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, [charInfo?.livePurchasedIds]);
 
+  useEffect(() => {
+    if (!charInfo || livePoolIds.length === 0) return;
+    const turn = charInfo.gameStats.turn;
+    if (lastTurnRef.current != null && turn < lastTurnRef.current) {
+      autoSelectPoolKeyRef.current = null;
+    }
+    lastTurnRef.current = turn;
+    const { year, month } = getGameTimeByTurn(turn);
+    const poolKey =
+      year <= 1
+        ? 'year1'
+        : year === 2 && month <= 6
+          ? 'year2_h1'
+          : year === 2
+            ? 'year2_h2'
+            : 'year3';
+    if (autoSelectPoolKeyRef.current === poolKey) return;
+    autoSelectPoolKeyRef.current = poolKey;
+    setLiveSelectedIds((prev) => {
+      const next = new Set<number>(prev);
       let maxWeight = 0;
       livePoolIds.forEach((id) => {
         const song = LIVE_SQUARE_MAP[id];
@@ -176,7 +202,7 @@ export default function MonitorDashboard() {
       });
       return next;
     });
-  }, [livePoolIds, charInfo?.livePurchasedIds]);
+  }, [charInfo, livePoolIds]);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
