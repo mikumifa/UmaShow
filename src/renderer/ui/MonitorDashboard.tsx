@@ -14,6 +14,9 @@ import {
 } from 'constant/live/liveSchedule';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
+import EventDetailRow, {
+  type EventDetailOption,
+} from 'renderer/components/EventDetailRow';
 import GameStartScreen from 'renderer/components/GameStartScreen';
 import SongStatusCard, {
   type NoteType,
@@ -135,21 +138,25 @@ export default function MonitorDashboard() {
   useEffect(() => {
     if (livePoolIds.length === 0) return;
     setLiveSelectedIds((prev) => {
-      const next = new Set<number>();
+      const next = new Set<number>(prev);
+      const purchasedSet = new Set(charInfo?.livePurchasedIds ?? []);
+      purchasedSet.forEach((id) => next.delete(id));
+
+      let maxWeight = 0;
       livePoolIds.forEach((id) => {
-        if (prev.has(id)) next.add(id);
+        const song = LIVE_SQUARE_MAP[id];
+        const weight = song?.weight ?? 0;
+        if (weight > maxWeight) maxWeight = weight;
       });
-      if (next.size === 0) {
-        livePoolIds.forEach((id) => {
-          const song = LIVE_SQUARE_MAP[id];
-          if (song && song.weight >= 4) {
-            next.add(id);
-          }
-        });
-      }
+      livePoolIds.forEach((id) => {
+        const song = LIVE_SQUARE_MAP[id];
+        if (song && song.weight === maxWeight) {
+          next.add(id);
+        }
+      });
       return next;
     });
-  }, [livePoolIds]);
+  }, [livePoolIds, charInfo?.livePurchasedIds]);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
@@ -181,6 +188,27 @@ export default function MonitorDashboard() {
       log.warn('Failed to cache charInfo:', err);
     }
   }, [charInfo]);
+
+  const eventDetailRows = (charInfo?.gameEvents ?? [])
+    .map((event) => {
+      const detail = charInfo?.eventDetails?.[event.eventId];
+      if (!detail) {
+        return null;
+      }
+      const options: EventDetailOption[] = detail.optionList.map((opt) => ({
+        option: opt.option,
+        gainList: opt.gainList,
+      }));
+      return {
+        eventId: event.eventId,
+        eventName: event.eventName,
+        options: options.filter((opt) => opt.gainList.length > 0),
+      };
+    })
+    .filter(
+      (row): row is { eventId: number; eventName: string; options: EventDetailOption[] } =>
+        !!row && row.options.length > 0,
+    );
 
   return ready && charInfo ? (
     <div className="p-4 flex flex-col gap-4 bg-gray-100 min-h-screen">
@@ -235,6 +263,13 @@ export default function MonitorDashboard() {
               noteStat={charInfo.noteStat}
               previewNoteStat={previewNoteStat ?? undefined}
               recommended={recommendedIds.has(song.id)}
+              recommendedReason={
+                recommendedIds.has(song.id)
+                  ? liveSelectedIds.has(song.id)
+                    ? '当前为预购歌曲'
+                    : '购买当前课程不影响预购歌曲的购买'
+                  : undefined
+              }
               trainingCommandIds={(() => {
                 const noteKeys = Object.keys(song.notes) as Array<
                   keyof NoteStat
@@ -312,6 +347,18 @@ export default function MonitorDashboard() {
           ))}
         </div>
       </section>
+
+      {eventDetailRows.length > 0 && (
+        <section className="mt-2 space-y-3">
+          {eventDetailRows.map((row) => (
+            <EventDetailRow
+              key={row.eventId}
+              eventName={row.eventName}
+              options={row.options}
+            />
+          ))}
+        </section>
+      )}
     </div>
   ) : (
     <GameStartScreen />

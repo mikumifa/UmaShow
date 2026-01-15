@@ -85,6 +85,16 @@ export interface GameEvent {
   options: EventOption[];
 }
 
+export interface StoryDetailOption {
+  option: string;
+  gainList: string[];
+}
+
+export interface StoryDetail {
+  storyId: number;
+  optionList: StoryDetailOption[];
+}
+
 export interface PartnerStats extends Array<PartnerStat> {}
 export interface GameEvents extends Array<GameEvent> {}
 export interface TrainingCommands extends Array<TrainingCommand> {}
@@ -121,6 +131,7 @@ export interface CharInfo {
   noteStat?: NoteStat;
   liveCommands?: LiveCommands;
   livePurchasedIds?: number[];
+  eventDetails?: Record<number, StoryDetail>;
 }
 
 export interface RaceHorseInfo {

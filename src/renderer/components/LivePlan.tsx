@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import {
   LIVE_SQUARE_MAP,
@@ -50,6 +50,8 @@ export default function LivePlan({
   trainingLabelsByNote,
   sellingIds,
 }: LivePlanProps) {
+  const [showFuture, setShowFuture] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
   const minCurrencyKeys = useMemo(() => {
     if (!noteStat) return null;
     const keys = Object.keys(NOTE_STYLES) as NoteType[];
@@ -65,15 +67,25 @@ export default function LivePlan({
     );
     return minKeys.length > 0 ? minKeys : null;
   }, [noteStat]);
+  const purchasedSet = useMemo(
+    () => new Set(purchasedLiveIds ?? []),
+    [purchasedLiveIds],
+  );
   const pool = useMemo(() => {
     const resultIds = getLivePoolIdsByTurn(turn);
-    const purchasedSet = new Set(purchasedLiveIds ?? []);
     const filteredIds = resultIds.filter((id) => !purchasedSet.has(id));
     const list = filteredIds
       .map((id) => LIVE_SQUARE_MAP[id])
       .filter(Boolean) as LiveSquare[];
     return list;
-  }, [turn, purchasedLiveIds]);
+  }, [turn, purchasedSet]);
+  const poolIdSet = useMemo(() => new Set(pool.map((song) => song.id)), [pool]);
+  const futureSongs = useMemo(() => {
+    const allSongs = Object.values(LIVE_SQUARE_MAP);
+    return allSongs
+      .filter((song) => !poolIdSet.has(song.id))
+      .filter((song) => !purchasedSet.has(song.id));
+  }, [poolIdSet, purchasedSet]);
 
   const totalCostByNote = useMemo(() => {
     const total = { da: 0, pa: 0, vo: 0, vi: 0, me: 0 };
@@ -89,8 +101,35 @@ export default function LivePlan({
     return total;
   }, [selectedIds]);
 
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const openFuturePanel = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setShowFuture(true);
+  };
+
+  const scheduleCloseFuturePanel = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setShowFuture(false);
+      closeTimerRef.current = null;
+    }, 220);
+  };
+
   return (
-    <section className="bg-white rounded-lg border border-purple-200 shadow-sm overflow-hidden p-2">
+    <section className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible p-2">
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(NOTE_STYLES) as NoteType[]).map((key) => {
           const style = NOTE_STYLES[key];
@@ -120,7 +159,7 @@ export default function LivePlan({
           return (
             <div
               key={key}
-              className={`shrink-0 w-12 min-w-12 h-24 relative flex flex-col overflow-visible rounded-lg border shadow-sm transition-all ${
+              className={`shrink-0 w-12 min-w-12 h-28 relative flex flex-col overflow-visible rounded-lg border shadow-sm transition-all ${
                 isMetPreview
                   ? 'border-emerald-200 bg-emerald-50'
                   : `${style.border} ${style.bg}`
@@ -136,7 +175,11 @@ export default function LivePlan({
                   <span className="mb-0.5 text-[9px] font-black text-slate-500">
                     {trainingLabelsByNote[key]!.join('')}
                   </span>
-                ) : null}
+                ) : (
+                  <span className="mb-0.5 text-[11px] font-black text-rose-500">
+                    ❌
+                  </span>
+                )}
                 <span
                   className={`flex-shrink-0 rounded-full bg-white border ${style.border} ${style.text} flex items-center justify-center font-black ring-2 ${style.ring} w-6 h-6 text-[10px] mb-1`}
                 >
@@ -237,7 +280,7 @@ export default function LivePlan({
               key={song.id}
               type="button"
               onClick={() => onToggleSelect(song.id)}
-              className={`relative shrink-0 w-20 min-w-25 h-20 text-left rounded-lg px-2 py-1.5 transition-all overflow-visible ${
+              className={`relative shrink-0 w-20 min-w-25 h-20 text-left rounded-lg px-2 py-1.5 transition-all overflow-visible bg-emerald-50 ${
                 isSelected
                   ? `border-2 border-emerald-500 ${weightBg} shadow-sm`
                   : `${weightBorder} ${weightBg} hover:border-slate-300 hover:shadow-sm`
@@ -265,7 +308,77 @@ export default function LivePlan({
             </button>
           );
         })}
+        {futureSongs.length > 0 ? (
+          <button
+            type="button"
+            onMouseEnter={openFuturePanel}
+            onMouseLeave={scheduleCloseFuturePanel}
+            className={`relative shrink-0 w-20 min-w-25 h-20 text-left rounded-lg px-2 py-1.5 transition-all overflow-visible border-dashed bg-amber-50 ${
+              showFuture
+                ? 'border-2 border-emerald-500 shadow-sm'
+                : 'border-amber-300 hover:border-amber-400 hover:shadow-sm'
+            }`}
+          >
+            <div className="text-[11px] font-bold text-slate-800 truncate">
+              未出现
+            </div>
+            <div className="mt-0.5 text-[10px] text-slate-600 truncate">
+              歌曲列表
+            </div>
+            <div className="mt-0.5 text-[10px] font-semibold text-amber-700 truncate">
+              {futureSongs.length} 首
+            </div>
+          </button>
+        ) : null}
       </div>
+
+      {showFuture && futureSongs.length > 0 ? (
+        <div
+          className="absolute right-2 top-full mt-2 z-20 w-[460px] max-w-[85vw] border-2 border-dashed border-amber-300 bg-amber-50 rounded-lg p-2 shadow-lg"
+          onMouseEnter={openFuturePanel}
+          onMouseLeave={scheduleCloseFuturePanel}
+        >
+          <div className="mb-1 text-[11px] font-bold text-amber-700">
+            {'\u672a\u51fa\u73b0\u533a\u57df'}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {futureSongs.map((song) => {
+              const isSelected = selectedIds.has(song.id);
+              const weightBorder =
+                SONG_WEIGHT_BORDER[song.weight ?? 0] ?? 'border-slate-200';
+              const weightBg = SONG_WEIGHT_BG[song.weight ?? 0] ?? 'bg-white';
+              const isSelling = sellingIds?.has(song.id) ?? false;
+              return (
+                <button
+                  key={song.id}
+                  type="button"
+                  onClick={() => onToggleSelect(song.id)}
+                  className={`relative shrink-0 w-20 min-w-25 h-20 text-left rounded-lg px-2 py-1.5 transition-all overflow-visible border-dashed bg-amber-50 ${
+                    isSelected
+                      ? `border-2 border-emerald-500 ${weightBg} shadow-sm`
+                      : `${weightBorder} ${weightBg} hover:border-slate-300 hover:shadow-sm`
+                  }`}
+                >
+                  {isSelling ? (
+                    <span className="absolute right-0 bottom-0 rounded bg-sky-500 px-0 py-0 text-[8px] font-black text-white">
+                      {'\u53ef\u552e'}
+                    </span>
+                  ) : null}
+                  <div className="text-[11px] font-bold text-slate-800 truncate">
+                    {song.name}
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-slate-600 truncate">
+                    {song.description}
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-semibold text-emerald-600 truncate">
+                    {song.liveBonus}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

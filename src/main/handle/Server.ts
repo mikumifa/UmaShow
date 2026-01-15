@@ -9,7 +9,7 @@ export function startExpressServer(_mainWindow: BrowserWindow) {
   const serverApp = express();
   serverApp.use(express.raw({ type: '*/*', limit: '50mb' }));
 
-  serverApp.post('/notify/response', (req, res) => {
+  serverApp.post('/notify/response', async (req, res) => {
     try {
       const buffer = req.body;
 
@@ -29,7 +29,7 @@ export function startExpressServer(_mainWindow: BrowserWindow) {
           type: 'Info',
           message: `收到 Response 包 (${buffer.length} bytes)`,
         });
-        extractCoreInfo(decoded, _mainWindow);
+        await extractCoreInfo(decoded, _mainWindow);
         // handleUncheckedEventInfo(decoded, mainWindow);
         handleRaceInfo(decoded, _mainWindow);
       }

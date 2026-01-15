@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import { type ComponentType } from 'react';
-import { CheckCircle2, Target, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import {
   COMMAND_TARGET_TYPE_MAP,
   TARGET_TYPE,
@@ -28,6 +28,7 @@ export interface SongStatus {
   trainingCommandIds?: number[];
   trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
   recommended?: boolean;
+  recommendedReason?: string;
 }
 
 export const NOTE_STYLES: Record<
@@ -101,6 +102,7 @@ export default function SongStatusCard({
   trainingCommandIds,
   trainingCommandsByNote,
   recommended,
+  recommendedReason,
 }: SongStatus) {
   const trainingLabelMap: Record<number, string> = {
     [TARGET_TYPE.SPEED]: '\u901f',
@@ -109,9 +111,6 @@ export default function SongStatusCard({
     [TARGET_TYPE.GUTS]: '\u6bc5',
     [TARGET_TYPE.STAMINA]: '\u8010',
   };
-  const trainingLabels = (trainingCommandIds ?? [])
-    .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
-    .filter(Boolean);
   const trainingLabelsByNote = (Object.keys(NOTE_STYLES) as NoteType[]).reduce(
     (acc, key) => {
       const ids = trainingCommandsByNote?.[key] ?? [];
@@ -128,41 +127,24 @@ export default function SongStatusCard({
   return (
     <div className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible">
       {recommended ? (
-        <span className="absolute right-2 top-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
-          推荐
-        </span>
+        <div className="absolute right-1 top-0 group">
+          <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm cursor-default">
+            推荐
+          </span>
+          {recommendedReason ? (
+            <div className="absolute right-0 top-full mt-1 hidden w-max max-w-[220px] rounded bg-gray-800 px-2 py-1 text-[10px] text-white shadow-lg group-hover:block">
+              {recommendedReason}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
         <div className="min-w-0 flex items-center gap-2">
           <h3 className="min-w-0 font-black text-xs tracking-wide truncate">
             {title}
           </h3>
-          <div className="flex items-center gap-1">
-            <Target size={12} className="text-white/80" />
-            {(Object.keys(NOTE_STYLES) as NoteType[])
-              .filter((key) => (notes[key] ?? 0) > 0)
-              .map((key) => {
-                const style = NOTE_STYLES[key];
-                return (
-                  <span
-                    key={`req-${key}`}
-                    className={`inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/90 border text-[8px] font-black ${style.border} ${style.text}`}
-                    title={`Need ${style.label}`}
-                  >
-                    {style.label}
-                  </span>
-                );
-              })}
-          </div>
         </div>
-        {trainingLabels.length > 0 ? (
-          <div
-            className="ml-auto text-[11px] font-black tracking-wide text-white/90"
-            title={`Training ${trainingLabels.join('')}`}
-          >
-            {trainingLabels.join('')}
-          </div>
-        ) : null}
+        {null}
       </header>
 
       <div className="p-2 flex gap-2.5">
@@ -238,7 +220,11 @@ export default function SongStatusCard({
                       <span className="mb-0.5 text-[9px] font-black text-slate-500">
                         {trainingLabelsByNote[key].join('')}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="mb-0.5 text-[9px] font-black text-slate-400">
+                        ❌
+                      </span>
+                    )}
                     <span
                       className={`flex-shrink-0 rounded-full bg-white border ${style.border} ${style.text} flex items-center justify-center font-black ring-2 ${style.ring} ${
                         hasPreview

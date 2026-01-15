@@ -62,14 +62,6 @@ export const getRecommendedSongIds = ({
     return new Set<number>();
   }
 
-  const sellingIds = new Set(songStats.map((s) => s.id));
-  const reservedSelling = Array.from(selectedIds).filter((id) =>
-    sellingIds.has(id),
-  );
-  if (reservedSelling.length > 0) {
-    return new Set(reservedSelling);
-  }
-
   const reservedCost = sumSelectedCost(selectedIds);
 
   const candidates: Array<{ id: number; score: number }> = [];
@@ -78,7 +70,11 @@ export const getRecommendedSongIds = ({
     const keys: NoteKey[] = ['da', 'pa', 'vo', 'vi', 'me'];
     const canAffordReserved = keys.every((key) => {
       const currentValue = noteStat[key]?.value ?? 0;
-      return currentValue - costByNote[key] >= reservedCost[key];
+      const cost = costByNote[key] ?? 0;
+      if (cost === 0) {
+        return true;
+      }
+      return currentValue - cost >= reservedCost[key];
     });
     if (!canAffordReserved) return;
     const score = keys.reduce((acc, key) => acc + costByNote[key], 0);
@@ -89,7 +85,5 @@ export const getRecommendedSongIds = ({
     return new Set<number>();
   }
 
-  const minScore = Math.min(...candidates.map((c) => c.score));
-  const minCandidates = candidates.filter((c) => c.score === minScore);
-  return new Set(minCandidates.map((c) => c.id));
+  return new Set(candidates.map((c) => c.id));
 };
