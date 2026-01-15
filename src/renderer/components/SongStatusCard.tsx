@@ -25,6 +25,7 @@ export interface SongStatus {
   notes: Record<NoteType, number>;
   noteStat?: NoteStat;
   previewNoteStat?: NoteStat;
+  // eslint-disable-next-line react/no-unused-prop-types
   trainingCommandIds?: number[];
   trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
   recommended?: boolean;
@@ -99,7 +100,6 @@ export default function SongStatusCard({
   notes,
   noteStat,
   previewNoteStat,
-  trainingCommandIds,
   trainingCommandsByNote,
   recommended,
   recommendedReason,

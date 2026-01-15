@@ -1,13 +1,5 @@
-import {
-  AlertTriangle,
-  TrendingUp,
-  Zap,
-  Heart,
-  Dumbbell,
-  Flame,
-  GraduationCap,
-  Sparkles,
-} from 'lucide-react';
+/* eslint-disable no-nested-ternary */
+import { AlertTriangle, TrendingUp } from 'lucide-react';
 import { type ComponentType } from 'react';
 import {
   TrainingCommand,
@@ -145,35 +137,6 @@ const getStatKeyNameByTarget = (targetType: number) => {
   }
 };
 
-const getStatTileConfig = (key: string) => {
-  switch (key) {
-    case 'speed':
-      return { label: '速度', icon: Zap, bg: 'bg-blue-500' };
-    case 'stamina':
-      return { label: '耐力', icon: Heart, bg: 'bg-rose-400' };
-    case 'power':
-      return { label: '力量', icon: Dumbbell, bg: 'bg-orange-500' };
-    case 'guts':
-      return { label: '毅力', icon: Flame, bg: 'bg-pink-500' };
-    case 'wiz':
-      return { label: '智力', icon: GraduationCap, bg: 'bg-emerald-500' };
-    case 'skillPoint':
-      return { label: '技能点', icon: Sparkles, bg: 'bg-amber-400' };
-    case 'da':
-      return { label: 'Da', icon: Sparkles, bg: 'bg-violet-400' };
-    case 'pa':
-      return { label: 'Pa', icon: Sparkles, bg: 'bg-violet-400' };
-    case 'vo':
-      return { label: 'Vo', icon: Sparkles, bg: 'bg-violet-400' };
-    case 'vi':
-      return { label: 'Vi', icon: Sparkles, bg: 'bg-violet-400' };
-    case 'me':
-      return { label: 'Me', icon: Sparkles, bg: 'bg-violet-400' };
-    default:
-      return { label: key, icon: Zap, bg: 'bg-gray-500' };
-  }
-};
-
 export function StatTile({ value }: { value: number }) {
   return (
     <div className="flex flex-col w-auto min-w-[64px]">
@@ -229,12 +192,15 @@ export default function TrainingCard({
       command.params.find((p) => p.value > 0)?.targetType ??
         TARGET_TYPE.UNKNOWN,
     );
-  const mainStatValue =
-    currentStats && mainStatKey
-      ? mainStatKey === 'skillPoint'
-        ? currentStats.skillPoint
-        : currentStats[mainStatKey as keyof CharStats]?.value
-      : undefined;
+  type MainStatKey = Exclude<keyof CharStats, 'skillPoint'>;
+  let mainStatValue: number | undefined;
+  if (!currentStats || !mainStatKey) {
+    mainStatValue = undefined;
+  } else if (mainStatKey === 'skillPoint') {
+    mainStatValue = currentStats.skillPoint;
+  } else {
+    mainStatValue = currentStats[mainStatKey as MainStatKey].value;
+  }
 
   return (
     <button

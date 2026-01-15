@@ -1,3 +1,7 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable promise/always-return */
+/* eslint-disable no-nested-ternary */
+/* eslint-disable promise/catch-or-return */
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
@@ -183,11 +187,12 @@ export default function MonitorDashboard() {
           return ret;
         }),
     );
-    const removePhonePanelToggle =
-      window.electron.utils.ui.onTogglePhonePanel(() => {
+    const removePhonePanelToggle = window.electron.utils.ui.onTogglePhonePanel(
+      () => {
         setAutoPhonePanel(false);
         setShowPhonePanel((prev) => !prev);
-      });
+      },
+    );
     const removeFullscreenChanged =
       window.electron.utils.ui.onFullscreenChanged((fullScreen) => {
         if (fullScreen) {

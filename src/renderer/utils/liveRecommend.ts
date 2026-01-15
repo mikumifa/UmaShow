@@ -70,8 +70,9 @@ export const getRecommendedSongIds = ({
     const keys: NoteKey[] = ['da', 'pa', 'vo', 'vi', 'me'];
     const canAffordReserved = keys.every((key) => {
       const currentValue = noteStat[key]?.value ?? 0;
-      const cost = costByNote[key] ?? 0;
+      const cost = song.notes[key] ?? 0;
       if (cost === 0) {
+        //如果该属性不消耗，直接返回true
         return true;
       }
       return currentValue - cost >= reservedCost[key];
