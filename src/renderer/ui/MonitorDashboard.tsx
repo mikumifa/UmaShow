@@ -20,6 +20,7 @@ import SongStatusCard, {
 } from 'renderer/components/SongStatusCard';
 import LivePlan from 'renderer/components/LivePlan';
 import { loadUMDB } from 'renderer/utils/umdb';
+import { getRecommendedSongIds } from 'renderer/utils/liveRecommend';
 
 export default function MonitorDashboard() {
   const [charInfo, setCharInfo] = useState<CharInfo | null>(() => {
@@ -74,7 +75,9 @@ export default function MonitorDashboard() {
     noteKeys.forEach((key) => {
       const ids = Array.from(trainingCommandsByNote.get(key) ?? []);
       const labels = ids
-        .map((commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]])
+        .map(
+          (commandId) => trainingLabelMap[COMMAND_TARGET_TYPE_MAP[commandId]],
+        )
         .filter(Boolean);
       if (labels.length > 0) {
         result[key] = Array.from(new Set(labels));
@@ -111,6 +114,16 @@ export default function MonitorDashboard() {
     });
     return next;
   }, [charInfo?.noteStat, charInfo?.liveCommands, hoveredCommandId]);
+
+  const recommendedIds = useMemo(() => {
+    if (!charInfo) return new Set<number>();
+    const effectiveNoteStat = previewNoteStat ?? charInfo.noteStat;
+    return getRecommendedSongIds({
+      selectedIds: liveSelectedIds,
+      noteStat: effectiveNoteStat,
+      songStats: charInfo.songStats ?? [],
+    });
+  }, [charInfo, liveSelectedIds, previewNoteStat]);
 
   const livePoolIds = useMemo(() => {
     if (!charInfo) return [];
@@ -221,6 +234,7 @@ export default function MonitorDashboard() {
               {...song}
               noteStat={charInfo.noteStat}
               previewNoteStat={previewNoteStat ?? undefined}
+              recommended={recommendedIds.has(song.id)}
               trainingCommandIds={(() => {
                 const noteKeys = Object.keys(song.notes) as Array<
                   keyof NoteStat
@@ -253,11 +267,12 @@ export default function MonitorDashboard() {
           previewNoteStat={previewNoteStat ?? null}
           purchasedLiveIds={charInfo.livePurchasedIds}
           selectedIds={liveSelectedIds}
+          sellingIds={new Set((charInfo.songStats ?? []).map((s) => s.id))}
           trainingLabelsByNote={trainingLabelsByNote}
           onToggleSelect={(id) =>
             setLiveSelectedIds((prev) => {
               const next = new Set(prev);
-              if (next.has(id)) {
+                  if (next.has(id)) {
                     next.delete(id);
                   } else {
                     next.add(id);

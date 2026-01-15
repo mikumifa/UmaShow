@@ -17,6 +17,7 @@ interface LivePlanProps {
   selectedIds: Set<number>;
   onToggleSelect: (id: number) => void;
   trainingLabelsByNote?: Partial<Record<NoteType, string[]>>;
+  sellingIds?: Set<number>;
 }
 
 const PERF_TYPE_TO_NOTE_KEY: Record<number, NoteType> = {
@@ -47,6 +48,7 @@ export default function LivePlan({
   selectedIds,
   onToggleSelect,
   trainingLabelsByNote,
+  sellingIds,
 }: LivePlanProps) {
   const minCurrencyKeys = useMemo(() => {
     if (!noteStat) return null;
@@ -220,6 +222,7 @@ export default function LivePlan({
           const weightBorder =
             SONG_WEIGHT_BORDER[song.weight ?? 0] ?? 'border-slate-200';
           const weightBg = SONG_WEIGHT_BG[song.weight ?? 0] ?? 'bg-white';
+          const isSelling = sellingIds?.has(song.id) ?? false;
           const isPurchasable =
             noteStat != null &&
             song.perfType.every((type, idx) => {
@@ -243,6 +246,11 @@ export default function LivePlan({
               {isPurchasable ? (
                 <span className="absolute right-0 top-0 rounded bg-emerald-500 px-1 py-0 text-[8px] font-black text-white">
                   可购
+                </span>
+              ) : null}
+              {isSelling ? (
+                <span className="absolute right-0 bottom-0 rounded bg-sky-500 px-0 py-0 text-[8px] font-black text-white">
+                  可售
                 </span>
               ) : null}
               <div className="text-[11px] font-bold text-slate-800 truncate">

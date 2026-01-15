@@ -6,7 +6,6 @@ import {
   TARGET_TYPE,
   type NoteStat,
 } from 'types/gameTypes';
-import PurchaseBadge from 'renderer/components/PurchaseBadge';
 
 export type NoteType = 'da' | 'pa' | 'vo' | 'vi' | 'me';
 
@@ -28,6 +27,7 @@ export interface SongStatus {
   previewNoteStat?: NoteStat;
   trainingCommandIds?: number[];
   trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
+  recommended?: boolean;
 }
 
 export const NOTE_STYLES: Record<
@@ -100,6 +100,7 @@ export default function SongStatusCard({
   previewNoteStat,
   trainingCommandIds,
   trainingCommandsByNote,
+  recommended,
 }: SongStatus) {
   const trainingLabelMap: Record<number, string> = {
     [TARGET_TYPE.SPEED]: '\u901f',
@@ -124,17 +125,13 @@ export default function SongStatusCard({
     },
     {} as Record<NoteType, string[]>,
   );
-  const activeNoteStat = previewNoteStat ?? noteStat;
-  const isPurchasable =
-    activeNoteStat != null &&
-    (Object.keys(notes) as NoteType[]).every((key) => {
-      const targetValue = notes[key] ?? 0;
-      const currentValue = activeNoteStat?.[key]?.value ?? 0;
-      return currentValue >= targetValue;
-    });
   return (
     <div className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible">
-      {isPurchasable ? <PurchaseBadge /> : null}
+      {recommended ? (
+        <span className="absolute right-2 top-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+          推荐
+        </span>
+      ) : null}
       <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
         <div className="min-w-0 flex items-center gap-2">
           <h3 className="min-w-0 font-black text-xs tracking-wide truncate">
