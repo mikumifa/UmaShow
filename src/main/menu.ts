@@ -120,6 +120,12 @@ export default class MenuBuilder {
           },
         },
         {
+          label: '开/关 模拟器预留区',
+          click: () => {
+            this.mainWindow.webContents.send('ui:toggle-phone-panel');
+          },
+        },
+        {
           label: 'Toggle Full Screen',
           accelerator: 'Ctrl+Command+F',
           click: () => {
@@ -138,6 +144,12 @@ export default class MenuBuilder {
     const subMenuViewProd: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
+        {
+          label: '开/关 模拟器预留区',
+          click: () => {
+            this.mainWindow.webContents.send('ui:toggle-phone-panel');
+          },
+        },
         {
           label: 'Toggle Full Screen',
           accelerator: 'Ctrl+Command+F',
@@ -204,6 +216,12 @@ export default class MenuBuilder {
                   },
                 },
                 {
+                  label: '开/关 模拟器预留区',
+                  click: () => {
+                    this.mainWindow.webContents.send('ui:toggle-phone-panel');
+                  },
+                },
+                {
                   label: 'Toggle &Full Screen',
                   accelerator: 'F11',
                   click: () => {
@@ -221,6 +239,12 @@ export default class MenuBuilder {
                 },
               ]
             : [
+                {
+                  label: '开/关 模拟器预留区',
+                  click: () => {
+                    this.mainWindow.webContents.send('ui:toggle-phone-panel');
+                  },
+                },
                 {
                   label: 'Toggle &Full Screen',
                   accelerator: 'F11',

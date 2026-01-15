@@ -30,6 +30,28 @@ const electronHandler = {
     getUmaDatabase: () => {
       return ipcRenderer.invoke('umdb-get');
     },
+    ui: {
+      onTogglePhonePanel: (callback: () => void) => {
+        const subscription = () => callback();
+        ipcRenderer.on('ui:toggle-phone-panel', subscription);
+        return () => {
+          ipcRenderer.removeListener('ui:toggle-phone-panel', subscription);
+        };
+      },
+      onFullscreenChanged: (callback: (fullScreen: boolean) => void) => {
+        const subscription = (_event: IpcRendererEvent, data: any) =>
+          callback(!!data?.fullScreen);
+        ipcRenderer.on('ui:fullscreen-changed', subscription);
+        return () => {
+          ipcRenderer.removeListener('ui:fullscreen-changed', subscription);
+        };
+      },
+    },
+    windowControl: {
+      listWindows: () => ipcRenderer.invoke('window:list'),
+      setTopmost: (windowId: number, enabled: boolean) =>
+        ipcRenderer.invoke('window:set-topmost', { windowId, enabled }),
+    },
     navigation: {
       onNavigate: (callback: (data: { path: string; state: any }) => void) => {
         const subscription = (_event: IpcRendererEvent, data: any) =>

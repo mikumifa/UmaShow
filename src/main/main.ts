@@ -6,6 +6,8 @@
 
 import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { execFile } from 'child_process';
+import { windowManager } from 'node-window-manager';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
@@ -74,10 +76,19 @@ const createWindow = async () => {
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
     mainWindow.show();
+    mainWindow.webContents.send('ui:fullscreen-changed', {
+      fullScreen: mainWindow.isFullScreen(),
+    });
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow?.webContents.send('ui:fullscreen-changed', { fullScreen: true });
+  });
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow?.webContents.send('ui:fullscreen-changed', { fullScreen: false });
   });
 
   if (!appUpdater) {
@@ -98,6 +109,66 @@ const createWindow = async () => {
 //race
 handleRaceList(ipcMain);
 handleDataLoad(ipcMain);
+
+ipcMain.handle('window:list', () => {
+  return windowManager
+    .getWindows()
+    .filter((win) => win.isVisible())
+    .map((win) => ({
+      id: win.id,
+      title: win.getTitle(),
+      pid: win.processId,
+    }))
+    .filter((win) => win.title && win.title.trim().length > 0);
+});
+
+ipcMain.handle(
+  'window:set-topmost',
+  (_event, payload: { windowId: number; enabled: boolean }) => {
+    if (process.platform !== 'win32') {
+      return { ok: false };
+    }
+    const { windowId, enabled } = payload;
+    const win = windowManager.getWindows().find((w) => w.id === windowId);
+    if (!win) {
+      return { ok: false };
+    }
+    const insertAfter = enabled ? -1 : -2;
+    const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+}
+"@;
+$HWND = [IntPtr]${windowId};
+$HWND_INSERT = [IntPtr](${insertAfter});
+$SWP_NOSIZE = 0x0001;
+$SWP_NOMOVE = 0x0002;
+$SWP_NOACTIVATE = 0x0010;
+[Win32]::SetWindowPos($HWND, $HWND_INSERT, 0, 0, 0, 0, $SWP_NOMOVE -bor $SWP_NOSIZE -bor $SWP_NOACTIVATE) | Out-Null;
+`;
+    return new Promise((resolve) => {
+      execFile(
+        'powershell',
+        ['-NoProfile', '-Command', script],
+        { windowsHide: true },
+        (err) => {
+          if (err) {
+            resolve({ ok: false });
+            return;
+          }
+          if (mainWindow) {
+            mainWindow.setAlwaysOnTop(false);
+          }
+          resolve({ ok: true });
+        },
+      );
+    });
+  },
+);
 
 /**
  * App lifecycle

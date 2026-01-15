@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
 import {
@@ -27,6 +27,12 @@ import { getRecommendedSongIds } from 'renderer/utils/liveRecommend';
 
 export default function MonitorDashboard() {
   const [charInfo, setCharInfo] = useState<CharInfo | null>(() => {
+    if (
+      process.env.NODE_ENV !== 'development' &&
+      process.env.DEBUG_PROD !== 'true'
+    ) {
+      return null;
+    }
     try {
       const cached = localStorage.getItem('monitorDashboard.charInfo');
       return cached ? (JSON.parse(cached) as CharInfo) : null;
@@ -40,6 +46,16 @@ export default function MonitorDashboard() {
   const [liveSelectedIds, setLiveSelectedIds] = useState<Set<number>>(
     () => new Set(),
   );
+  const [showPhonePanel, setShowPhonePanel] = useState(false);
+  const [autoPhonePanel, setAutoPhonePanel] = useState(false);
+  const [phonePanelWidth, setPhonePanelWidth] = useState(360);
+  const resizingRef = useRef(false);
+  const [windowList, setWindowList] = useState<
+    Array<{ id: number; title: string; pid: number }>
+  >([]);
+  const [selectedWindowId, setSelectedWindowId] = useState<number | ''>('');
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [windowLoading, setWindowLoading] = useState(false);
 
   const trainingCommandsByNote = useMemo(() => {
     const map = new Map<keyof NoteStat, Set<number>>();
@@ -167,6 +183,21 @@ export default function MonitorDashboard() {
           return ret;
         }),
     );
+    const removePhonePanelToggle =
+      window.electron.utils.ui.onTogglePhonePanel(() => {
+        setAutoPhonePanel(false);
+        setShowPhonePanel((prev) => !prev);
+      });
+    const removeFullscreenChanged =
+      window.electron.utils.ui.onFullscreenChanged((fullScreen) => {
+        if (fullScreen) {
+          setAutoPhonePanel(true);
+          setShowPhonePanel(true);
+        } else if (autoPhonePanel) {
+          setShowPhonePanel(false);
+          setAutoPhonePanel(false);
+        }
+      });
     loadUMDB()
       .then(() => setReady(true))
       .catch((err) => {
@@ -174,8 +205,10 @@ export default function MonitorDashboard() {
       });
     return () => {
       removeCharInfoListener?.();
+      removePhonePanelToggle?.();
+      removeFullscreenChanged?.();
     };
-  }, []);
+  }, [autoPhonePanel]);
 
   useEffect(() => {
     if (!charInfo) return;
@@ -188,6 +221,87 @@ export default function MonitorDashboard() {
       log.warn('Failed to cache charInfo:', err);
     }
   }, [charInfo]);
+
+  const refreshWindowList = () => {
+    setWindowLoading(true);
+    window.electron.utils.windowControl
+      .listWindows()
+      .then((list) => {
+        setWindowList(Array.isArray(list) ? list : []);
+      })
+      .finally(() => {
+        setWindowLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    if (showPhonePanel) {
+      refreshWindowList();
+    }
+  }, [showPhonePanel]);
+
+  useEffect(() => {
+    if (selectedWindowId === '') return;
+    window.electron.utils.windowControl.setTopmost(
+      Number(selectedWindowId),
+      pinEnabled,
+    );
+  }, [selectedWindowId, pinEnabled]);
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const nextWidth = window.innerWidth - event.clientX - 16;
+      setPhonePanelWidth(Math.max(0, nextWidth));
+    };
+    const handleUp = () => {
+      resizingRef.current = false;
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('monitorDashboard.phonePanel');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        width?: number;
+        windowId?: number;
+        pinEnabled?: boolean;
+      };
+      if (typeof parsed.width === 'number') {
+        setPhonePanelWidth(parsed.width);
+      }
+      if (typeof parsed.windowId === 'number') {
+        setSelectedWindowId(parsed.windowId);
+      }
+      if (typeof parsed.pinEnabled === 'boolean') {
+        setPinEnabled(parsed.pinEnabled);
+      }
+    } catch (err) {
+      log.warn('Failed to load phone panel cache:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'monitorDashboard.phonePanel',
+        JSON.stringify({
+          width: phonePanelWidth,
+          windowId: selectedWindowId === '' ? undefined : selectedWindowId,
+          pinEnabled,
+        }),
+      );
+    } catch (err) {
+      log.warn('Failed to save phone panel cache:', err);
+    }
+  }, [phonePanelWidth, selectedWindowId, pinEnabled]);
 
   const eventDetailRows = (charInfo?.gameEvents ?? [])
     .map((event) => {
@@ -206,159 +320,243 @@ export default function MonitorDashboard() {
       };
     })
     .filter(
-      (row): row is { eventId: number; eventName: string; options: EventDetailOption[] } =>
-        !!row && row.options.length > 0,
+      (
+        row,
+      ): row is {
+        eventId: number;
+        eventName: string;
+        options: EventDetailOption[];
+      } => !!row && row.options.length > 0,
     );
 
   return ready && charInfo ? (
-    <div className="p-4 flex flex-col gap-4 bg-gray-100 min-h-screen">
-      {/* =================== VITAL =================== */}
-      <div className="flex items-center gap-3 w-full">
-        <section className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-green-600 font-bold shrink-0">
-              <Battery size={22} />
-              <span>体力</span>
-            </div>
+    <div className="p-4 bg-gray-100 min-h-screen">
+      <div className="flex gap-4">
+        <div className="flex-1 flex flex-col gap-4 min-w-0">
+          {/* =================== VITAL =================== */}
+          <div className="flex items-center gap-3 w-full">
+            <section className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-green-600 font-bold shrink-0">
+                  <Battery size={22} />
+                  <span>体力</span>
+                </div>
 
-            <div className="flex-1 relative h-5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+                <div className="flex-1 relative h-5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+                  <div
+                    className={`absolute top-0 left-0 h-full transition-all duration-300 ${
+                      // eslint-disable-next-line no-nested-ternary
+                      (charInfo.stats.vital.value / charInfo.stats.vital.max) *
+                        100 >
+                      50
+                        ? 'bg-gradient-to-r from-green-500 to-green-400'
+                        : (charInfo.stats.vital.value /
+                              charInfo.stats.vital.max) *
+                              100 >
+                            30
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
+                          : 'bg-gradient-to-r from-red-500 to-red-400'
+                    }`}
+                    style={{
+                      width: `${(charInfo.stats.vital.value / charInfo.stats.vital.max) * 100}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="text-base font-black text-gray-700 shrink-0 min-w-[70px] text-right">
+                  {charInfo.stats.vital.value}
+                  <span className="text-[10px] text-gray-400 font-normal">
+                    /{charInfo.stats.vital.max}
+                  </span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* =================== SONG STATUS =================== */}
+          <section className="mt-2">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
+              {(charInfo.songStats ?? []).map((song) => (
+                // eslint-disable-next-line react/jsx-props-no-spreading
+                <SongStatusCard
+                  key={song.id}
+                  // eslint-disable-next-line react/jsx-props-no-spreading
+                  {...song}
+                  noteStat={charInfo.noteStat}
+                  previewNoteStat={previewNoteStat ?? undefined}
+                  recommended={recommendedIds.has(song.id)}
+                  recommendedReason={
+                    recommendedIds.has(song.id)
+                      ? liveSelectedIds.has(song.id)
+                        ? '当前为预购歌曲'
+                        : '购买当前课程不影响预购歌曲的购买'
+                      : undefined
+                  }
+                  trainingCommandIds={(() => {
+                    const noteKeys = Object.keys(song.notes) as Array<
+                      keyof NoteStat
+                    >;
+                    const ids = noteKeys
+                      .filter((key) => (song.notes[key] ?? 0) > 0)
+                      .flatMap((key) =>
+                        Array.from(trainingCommandsByNote.get(key) ?? []),
+                      );
+                    return ids.length > 0
+                      ? Array.from(new Set(ids))
+                      : undefined;
+                  })()}
+                  trainingCommandsByNote={(() => {
+                    const noteKeys = Object.keys(song.notes) as Array<NoteType>;
+                    const perNote: Partial<Record<NoteType, number[]>> = {};
+                    noteKeys.forEach((key) => {
+                      const ids = Array.from(
+                        trainingCommandsByNote.get(key) ?? [],
+                      );
+                      if (ids.length > 0) {
+                        perNote[key] = ids;
+                      }
+                    });
+                    return Object.keys(perNote).length > 0
+                      ? perNote
+                      : undefined;
+                  })()}
+                />
+              ))}
+              {/* =================== LIVE PLAN =================== */}
+              <section>
+                <LivePlan
+                  turn={charInfo.gameStats.turn}
+                  noteStat={charInfo.noteStat}
+                  previewNoteStat={previewNoteStat ?? null}
+                  purchasedLiveIds={charInfo.livePurchasedIds}
+                  selectedIds={liveSelectedIds}
+                  sellingIds={
+                    new Set((charInfo.songStats ?? []).map((s) => s.id))
+                  }
+                  trainingLabelsByNote={trainingLabelsByNote}
+                  onToggleSelect={(id) =>
+                    setLiveSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) {
+                        next.delete(id);
+                      } else {
+                        next.add(id);
+                      }
+                      return next;
+                    })
+                  }
+                />
+              </section>
+            </div>
+          </section>
+          {/* =================== TRAINING COMMANDS =================== */}
+          <section className="mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              {charInfo.commands
+                .filter((cmd) => {
+                  return (
+                    cmd.trainingPartners?.length > 0 ||
+                    cmd.tipsPartners?.length > 0 ||
+                    cmd.params?.length > 0
+                  );
+                })
+                .map((cmd) => (
+                  <TrainingCard
+                    key={cmd.commandId}
+                    command={cmd}
+                    partnerStats={charInfo.partnerStats}
+                    liveCommands={charInfo.liveCommands}
+                    currentStats={charInfo.stats}
+                    onHoverChange={(command, isHovering) =>
+                      setHoveredCommandId(isHovering ? command.commandId : null)
+                    }
+                  />
+                ))}
+              {charInfo.gameEvents.map((ev) => (
+                <EventCard key={ev.eventId} event={ev} />
+              ))}
+            </div>
+          </section>
+
+          {eventDetailRows.length > 0 && (
+            <section className="mt-2 space-y-3">
+              {eventDetailRows.map((row) => (
+                <EventDetailRow
+                  key={row.eventId}
+                  eventName={row.eventName}
+                  options={row.options}
+                />
+              ))}
+            </section>
+          )}
+        </div>
+        <aside className="shrink-0 hidden xl:block">
+          {showPhonePanel ? (
+            <div className="relative">
               <div
-                className={`absolute top-0 left-0 h-full transition-all duration-300 ${
-                  // eslint-disable-next-line no-nested-ternary
-                  (charInfo.stats.vital.value / charInfo.stats.vital.max) *
-                    100 >
-                  50
-                    ? 'bg-gradient-to-r from-green-500 to-green-400'
-                    : (charInfo.stats.vital.value / charInfo.stats.vital.max) *
-                          100 >
-                        30
-                      ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
-                      : 'bg-gradient-to-r from-red-500 to-red-400'
-                }`}
-                style={{
-                  width: `${(charInfo.stats.vital.value / charInfo.stats.vital.max) * 100}%`,
+                className="sticky top-4 rounded-xl border-2 border-dashed border-gray-300 bg-white/70 h-[calc(100vh-2rem)]"
+                style={{ width: phonePanelWidth }}
+              >
+                <div className="px-3 py-2 text-sm font-semibold text-gray-500">
+                  {'\u6a21\u62df\u5668\u9884\u7559\u533a'}
+                </div>
+                <div className="px-3 pb-3 text-xs text-gray-600 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="flex-1 max-w-[260px] rounded border border-gray-200 bg-white px-2 py-1 text-xs"
+                      value={selectedWindowId}
+                      onChange={(event) =>
+                        setSelectedWindowId(
+                          event.target.value === ''
+                            ? ''
+                            : Number(event.target.value),
+                        )
+                      }
+                    >
+                      <option value="">
+                        {'\u9009\u62e9\u6a21\u62df\u5668\u7a97\u53e3...'}
+                      </option>
+                      {windowList.map((win) => (
+                        <option key={win.id} value={win.id}>
+                          {win.title} (PID {win.pid})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={refreshWindowList}
+                      className="rounded border border-gray-200 bg-white px-2 py-1 text-xs"
+                      disabled={windowLoading}
+                    >
+                      {windowLoading ? '\u52a0\u8f7d\u4e2d' : '\u5237\u65b0'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPinEnabled((prev) => !prev)}
+                    className={`w-full rounded border px-2 py-1 text-xs font-semibold ${
+                      pinEnabled
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-gray-200 bg-white text-gray-600'
+                    }`}
+                    disabled={selectedWindowId === ''}
+                  >
+                    {pinEnabled
+                      ? '\u53d6\u6d88\u7f6e\u9876\u6240\u9009\u7a97\u53e3'
+                      : '\u7f6e\u9876\u6240\u9009\u7a97\u53e3'}
+                  </button>
+                </div>
+              </div>
+              <div
+                className="absolute left-0 top-4 -translate-x-1/2 h-[calc(100vh-2rem)] w-3 cursor-col-resize"
+                onMouseDown={() => {
+                  resizingRef.current = true;
                 }}
               />
             </div>
-
-            <div className="text-base font-black text-gray-700 shrink-0 min-w-[70px] text-right">
-              {charInfo.stats.vital.value}
-              <span className="text-[10px] text-gray-400 font-normal">
-                /{charInfo.stats.vital.max}
-              </span>
-            </div>
-          </div>
-        </section>
+          ) : null}
+        </aside>
       </div>
-
-      {/* =================== SONG STATUS =================== */}
-      <section className="mt-2">
-        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
-          {(charInfo.songStats ?? []).map((song) => (
-            // eslint-disable-next-line react/jsx-props-no-spreading
-            <SongStatusCard
-              key={song.id}
-              // eslint-disable-next-line react/jsx-props-no-spreading
-              {...song}
-              noteStat={charInfo.noteStat}
-              previewNoteStat={previewNoteStat ?? undefined}
-              recommended={recommendedIds.has(song.id)}
-              recommendedReason={
-                recommendedIds.has(song.id)
-                  ? liveSelectedIds.has(song.id)
-                    ? '当前为预购歌曲'
-                    : '购买当前课程不影响预购歌曲的购买'
-                  : undefined
-              }
-              trainingCommandIds={(() => {
-                const noteKeys = Object.keys(song.notes) as Array<
-                  keyof NoteStat
-                >;
-                const ids = noteKeys
-                  .filter((key) => (song.notes[key] ?? 0) > 0)
-                  .flatMap((key) =>
-                    Array.from(trainingCommandsByNote.get(key) ?? []),
-                  );
-                return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
-              })()}
-              trainingCommandsByNote={(() => {
-                const noteKeys = Object.keys(song.notes) as Array<NoteType>;
-                const perNote: Partial<Record<NoteType, number[]>> = {};
-                noteKeys.forEach((key) => {
-                  const ids = Array.from(trainingCommandsByNote.get(key) ?? []);
-                  if (ids.length > 0) {
-                    perNote[key] = ids;
-                  }
-                });
-                return Object.keys(perNote).length > 0 ? perNote : undefined;
-              })()}
-            />
-          ))}
-          {/* =================== LIVE PLAN =================== */}
-          <section>
-        <LivePlan
-          turn={charInfo.gameStats.turn}
-          noteStat={charInfo.noteStat}
-          previewNoteStat={previewNoteStat ?? null}
-          purchasedLiveIds={charInfo.livePurchasedIds}
-          selectedIds={liveSelectedIds}
-          sellingIds={new Set((charInfo.songStats ?? []).map((s) => s.id))}
-          trainingLabelsByNote={trainingLabelsByNote}
-          onToggleSelect={(id) =>
-            setLiveSelectedIds((prev) => {
-              const next = new Set(prev);
-                  if (next.has(id)) {
-                    next.delete(id);
-                  } else {
-                    next.add(id);
-                  }
-                  return next;
-                })
-              }
-            />
-          </section>
-        </div>
-      </section>
-      {/* =================== TRAINING COMMANDS =================== */}
-      <section className="mt-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-          {charInfo.commands
-            .filter((cmd) => {
-              return (
-                cmd.trainingPartners?.length > 0 ||
-                cmd.tipsPartners?.length > 0 ||
-                cmd.params?.length > 0
-              );
-            })
-            .map((cmd) => (
-              <TrainingCard
-                key={cmd.commandId}
-                command={cmd}
-                partnerStats={charInfo.partnerStats}
-                liveCommands={charInfo.liveCommands}
-                currentStats={charInfo.stats}
-                onHoverChange={(command, isHovering) =>
-                  setHoveredCommandId(isHovering ? command.commandId : null)
-                }
-              />
-            ))}
-          {charInfo.gameEvents.map((ev) => (
-            <EventCard key={ev.eventId} event={ev} />
-          ))}
-        </div>
-      </section>
-
-      {eventDetailRows.length > 0 && (
-        <section className="mt-2 space-y-3">
-          {eventDetailRows.map((row) => (
-            <EventDetailRow
-              key={row.eventId}
-              eventName={row.eventName}
-              options={row.options}
-            />
-          ))}
-        </section>
-      )}
     </div>
   ) : (
     <GameStartScreen />
