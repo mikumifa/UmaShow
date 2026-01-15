@@ -58,33 +58,45 @@ export const getRecommendedSongIds = ({
   noteStat?: NoteStat | null;
   songStats: SongStat[];
 }) => {
-  if (!noteStat || selectedIds.size === 0 || songStats.length === 0) {
+  if (!noteStat || songStats.length === 0) {
     return new Set<number>();
   }
 
   const reservedCost = sumSelectedCost(selectedIds);
+  const keys: NoteKey[] = ['da', 'pa', 'vo', 'vi', 'me'];
 
-  const candidates: Array<{ id: number; score: number }> = [];
+  const candidates: number[] = [];
+
   songStats.forEach((song) => {
     const costByNote = getSongCostByNote(song.id);
-    const keys: NoteKey[] = ['da', 'pa', 'vo', 'vi', 'me'];
+
+    /** ① 是否能单独购买这首歌 */
+    const canBuyAlone = keys.every((key) => {
+      const currentValue = noteStat[key]?.value ?? 0;
+      const cost = song.notes[key] ?? 0;
+      return currentValue - cost >= 0;
+    });
+
+    /** 预约歌曲：能买就直接推荐 */
+    if (selectedIds.has(song.id)) {
+      if (canBuyAlone) {
+        candidates.push(song.id);
+      }
+      return;
+    }
+
+    /** ② 非预约歌曲：检查是否还能覆盖预约消耗 */
     const canAffordReserved = keys.every((key) => {
       const currentValue = noteStat[key]?.value ?? 0;
       const cost = song.notes[key] ?? 0;
-      if (cost === 0) {
-        //如果该属性不消耗，直接返回true
-        return true;
-      }
+      if (cost === 0) return true;
       return currentValue - cost >= reservedCost[key];
     });
+
     if (!canAffordReserved) return;
-    const score = keys.reduce((acc, key) => acc + costByNote[key], 0);
-    candidates.push({ id: song.id, score });
+
+    candidates.push(song.id);
   });
 
-  if (candidates.length === 0) {
-    return new Set<number>();
-  }
-
-  return new Set(candidates.map((c) => c.id));
+  return new Set(candidates);
 };
