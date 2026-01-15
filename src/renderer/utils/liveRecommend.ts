@@ -31,24 +31,6 @@ const sumSelectedCost = (selectedIds: Set<number>) => {
   return total;
 };
 
-const getSongCostByNote = (songId: number) => {
-  const cost: Record<NoteKey, number> = {
-    da: 0,
-    pa: 0,
-    vo: 0,
-    vi: 0,
-    me: 0,
-  };
-  const square = LIVE_SQUARE_MAP[songId];
-  if (!square) return cost;
-  square.perfType.forEach((type, idx) => {
-    const key = PERF_TYPE_TO_NOTE_KEY[type];
-    if (!key) return;
-    cost[key] += square.perfValue[idx] ?? 0;
-  });
-  return cost;
-};
-
 export const getRecommendedSongIds = ({
   selectedIds,
   noteStat,
@@ -68,8 +50,6 @@ export const getRecommendedSongIds = ({
   const candidates: number[] = [];
 
   songStats.forEach((song) => {
-    const costByNote = getSongCostByNote(song.id);
-
     /** ① 是否能单独购买这首歌 */
     const canBuyAlone = keys.every((key) => {
       const currentValue = noteStat[key]?.value ?? 0;
@@ -77,15 +57,18 @@ export const getRecommendedSongIds = ({
       return currentValue - cost >= 0;
     });
 
-    /** 预约歌曲：能买就直接推荐 */
-    if (selectedIds.has(song.id)) {
-      if (canBuyAlone) {
-        candidates.push(song.id);
+    /* 歌曲 */
+    if (song.id in LIVE_SQUARE_MAP) {
+      // 只推荐已选择的歌曲中能单独购买的
+      if (selectedIds.has(song.id)) {
+        if (canBuyAlone) {
+          candidates.push(song.id);
+        }
       }
       return;
     }
 
-    /** ② 非预约歌曲：检查是否还能覆盖预约消耗 */
+    /** ② 课程：检查是否还能覆盖预约消耗 */
     const canAffordReserved = keys.every((key) => {
       const currentValue = noteStat[key]?.value ?? 0;
       const cost = song.notes[key] ?? 0;
