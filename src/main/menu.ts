@@ -7,9 +7,14 @@ interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
 
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
+  checkForUpdates?: () => void | Promise<void>;
 
-  constructor(mainWindow: BrowserWindow) {
+  constructor(
+    mainWindow: BrowserWindow,
+    checkForUpdates?: () => void | Promise<void>,
+  ) {
     this.mainWindow = mainWindow;
+    this.checkForUpdates = checkForUpdates;
   }
 
   buildMenu(): Menu {
@@ -53,6 +58,16 @@ export default class MenuBuilder {
         {
           label: 'About UmaShow',
           selector: 'orderFrontStandardAboutPanel:',
+        },
+        {
+          label: `当前版本：${app.getVersion()}`,
+          enabled: false,
+        },
+        {
+          label: '检查更新...',
+          click: () => {
+            void this.checkForUpdates?.();
+          },
         },
         { type: 'separator' },
         { label: 'Services', submenu: [] },
@@ -145,37 +160,6 @@ export default class MenuBuilder {
         { label: 'Bring All to Front', selector: 'arrangeInFront:' },
       ],
     };
-    // const subMenuHelp: MenuItemConstructorOptions = {
-    //   label: 'Help',
-    //   submenu: [
-    //     {
-    //       label: 'Learn More',
-    //       click() {
-    //         shell.openExternal('https://electronjs.org');
-    //       },
-    //     },
-    //     {
-    //       label: 'Documentation',
-    //       click() {
-    //         shell.openExternal(
-    //           'https://github.com/electron/electron/tree/main/docs#readme',
-    //         );
-    //       },
-    //     },
-    //     {
-    //       label: 'Community Discussions',
-    //       click() {
-    //         shell.openExternal('https://www.electronjs.org/community');
-    //       },
-    //     },
-    //     {
-    //       label: 'Search Issues',
-    //       click() {
-    //         shell.openExternal('https://github.com/electron/electron/issues');
-    //       },
-    //     },
-    //   ],
-    // };
 
     const subMenuView =
       process.env.NODE_ENV === 'development' ||
@@ -193,19 +177,6 @@ export default class MenuBuilder {
 
   buildDefaultTemplate() {
     const templateDefault = [
-      // {
-      //   label: '&File',
-      //   submenu: [
-      //     {
-      //       label: '&Close',
-      //       accelerator: 'Ctrl+W',
-      //       click: () => {
-      //         this.mainWindow.close();
-      //       },
-      //     },
-      //   ],
-      // },
-
       {
         label: 'Dashboard',
         click: () => {
@@ -261,37 +232,21 @@ export default class MenuBuilder {
                 },
               ],
       },
-      // {
-      //   label: 'Help',
-      //   submenu: [
-      //     {
-      //       label: 'Learn More',
-      //       click() {
-      //         shell.openExternal('https://electronjs.org');
-      //       },
-      //     },
-      //     {
-      //       label: 'Documentation',
-      //       click() {
-      //         shell.openExternal(
-      //           'https://github.com/electron/electron/tree/main/docs#readme',
-      //         );
-      //       },
-      //     },
-      //     {
-      //       label: 'Community Discussions',
-      //       click() {
-      //         shell.openExternal('https://www.electronjs.org/community');
-      //       },
-      //     },
-      //     {
-      //       label: 'Search Issues',
-      //       click() {
-      //         shell.openExternal('https://github.com/electron/electron/issues');
-      //       },
-      //     },
-      //   ],
-      // },
+      {
+        label: 'Updata',
+        submenu: [
+          {
+            label: `当前版本：${app.getVersion()}`,
+            enabled: false,
+          },
+          {
+            label: '检查更新...',
+            click: () => {
+              void this.checkForUpdates?.();
+            },
+          },
+        ],
+      },
     ];
 
     return templateDefault;

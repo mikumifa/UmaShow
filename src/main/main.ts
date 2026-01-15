@@ -6,26 +6,15 @@
 
 import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
+import AppUpdater from './updater';
 import { handleDataLoad, UMDBload } from './handle/Data';
 import { startExpressServer } from './handle/Server';
 import { ensureRaceDir, handleRaceList } from './handle/RaceInfo';
 
-export default class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-  }
-
-  checkForUpdates() {
-    autoUpdater.checkForUpdatesAndNotify();
-  }
-}
-
 let mainWindow: BrowserWindow | null = null;
+let appUpdater: AppUpdater | null = null;
 
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
@@ -91,15 +80,18 @@ const createWindow = async () => {
     mainWindow = null;
   });
 
-  const menuBuilder = new MenuBuilder(mainWindow);
+  if (!appUpdater) {
+    appUpdater = new AppUpdater();
+  }
+  const menuBuilder = new MenuBuilder(mainWindow, () =>
+    appUpdater?.checkForUpdates(true),
+  );
   menuBuilder.buildMenu();
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
   startExpressServer(mainWindow);
-  // eslint-disable-next-line no-new
-  const appUpdater = new AppUpdater();
   appUpdater.checkForUpdates();
 };
 
