@@ -111,7 +111,6 @@
     "lucide-react": "^0.556.0",
     "memoize-one": "^6.0.0",
     "node-gyp": "^12.1.0",
-    "node-window-manager": "^2.2.4",
     "pako": "^2.1.0",
     "react": "^19.0.0",
     "react-activation": "^0.13.4",
@@ -208,6 +207,7 @@
       "package.json"
     ],
     "mac": {
+      "icon": "assets/icon.icns",
       "notarize": false,
       "target": {
         "target": "default",
