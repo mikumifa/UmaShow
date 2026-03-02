@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest]
 
     steps:
       - name: Checkout git repo
@@ -34,8 +34,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            npm exec electron-builder -- --publish always --mac
-          else
-            npm exec electron-builder -- --publish always --win
-          fi
+          npm exec electron-builder -- --publish always --win
