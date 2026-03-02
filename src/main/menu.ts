@@ -109,6 +109,23 @@ export default class MenuBuilder {
         },
       ],
     };
+    const subMenuNavigate: DarwinMenuItemConstructorOptions = {
+      label: 'Navigate',
+      submenu: [
+        {
+          label: 'Dashboard',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', { path: '/' });
+          },
+        },
+        {
+          label: 'Races',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', { path: '/races' });
+          },
+        },
+      ],
+    };
     const subMenuViewDev: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
@@ -182,6 +199,7 @@ export default class MenuBuilder {
     return [
       subMenuAbout,
       subMenuEdit,
+      subMenuNavigate,
       subMenuView,
       subMenuWindow /* , subMenuHelp */,
     ];

@@ -31,7 +31,9 @@ const configuration: webpack.Configuration = {
   module: require('./webpack.config.renderer.dev').default.module,
 
   entry: {
-    renderer: Object.keys(dependencies || {}),
+    renderer: Object.keys(dependencies || {}).filter(
+      (dependency) => dependency !== 'node-gyp'
+    ),
   },
 
   output: {
