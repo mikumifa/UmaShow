@@ -143,6 +143,22 @@ function extractDirectPayloads(candidates: any[]): RacePayload[] {
         roomKey: resolveRoomKeyFromCandidate(candidate),
       });
     }
+
+    const roomInfoScenario = candidate?.room_info?.race_scenario ?? null;
+    const roomInfoMeta = candidate?.room_info ?? null;
+    if (
+      roomInfoScenario &&
+      Array.isArray(raceHorseData) &&
+      roomInfoMeta?.random_seed != null
+    ) {
+      results.push({
+        scenario: roomInfoScenario,
+        horses: raceHorseData,
+        meta: roomInfoMeta,
+        raceNum: candidate?.race_num,
+        roomKey: resolveRoomKeyFromCandidate(candidate),
+      });
+    }
   });
 
   return results;

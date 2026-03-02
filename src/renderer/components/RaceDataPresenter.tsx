@@ -106,6 +106,7 @@ type CharaTableData = {
   chara: Chara | undefined;
   frameOrder: number;
   finishOrder: number;
+  finalHp: number;
   horseResultData: RaceSimulateHorseResultData;
   popularity: number;
   popularityMarks: number[];
@@ -185,7 +186,7 @@ class RaceDataPresenter extends React.PureComponent<
         const charaDisplayName =
           typeof charaId === 'number' && charaId in this.props.umdb.charas
             ? this.props.umdb.charas[charaId].name
-            : cardName ?? unknownCharaTag;
+            : (cardName ?? unknownCharaTag);
 
         const trainerNameSuffix = d['trainer_name']
           ? ` by ${d['trainer_name']}`
@@ -594,23 +595,28 @@ class RaceDataPresenter extends React.PureComponent<
         const horseResult = this.props.raceData.horseResult[frameOrder];
         if (!horseResult) return [];
         const trainedCharaData = fromRaceHorseData(data, UMDB.skills);
+        const finalHp =
+          _.last(this.props.raceData.frame)?.horseFrame?.[frameOrder]?.hp ?? 0;
 
-        return [{
-          trainedChara: trainedCharaData,
-          chara: this.props.umdb.charas[trainedCharaData.charaId],
-          frameOrder: frameOrder + 1,
-          finishOrder: horseResult.finishOrder! + 1,
-          horseResultData: horseResult,
-          popularity: data['popularity'] ?? 0,
-          popularityMarks: Array.isArray(data['popularity_mark_rank_array'])
-            ? data['popularity_mark_rank_array']
-            : [],
-          motivation: data['motivation'] ?? 0,
-          activatedSkills: getCharaActivatedSkillIds(
-            this.props.raceData,
-            frameOrder,
-          ),
-        }];
+        return [
+          {
+            trainedChara: trainedCharaData,
+            chara: this.props.umdb.charas[trainedCharaData.charaId],
+            frameOrder: frameOrder + 1,
+            finishOrder: horseResult.finishOrder! + 1,
+            finalHp,
+            horseResultData: horseResult,
+            popularity: data['popularity'] ?? 0,
+            popularityMarks: Array.isArray(data['popularity_mark_rank_array'])
+              ? data['popularity_mark_rank_array']
+              : [],
+            motivation: data['motivation'] ?? 0,
+            activatedSkills: getCharaActivatedSkillIds(
+              this.props.raceData,
+              frameOrder,
+            ),
+          },
+        ];
       })
       .sort((a, b) => a.finishOrder - b.finishOrder);
 
@@ -634,6 +640,9 @@ class RaceDataPresenter extends React.PureComponent<
               </th>
               <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
                 Time
+              </th>
+              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                剩余HP
               </th>
               <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
                 状态
@@ -698,6 +707,9 @@ class RaceDataPresenter extends React.PureComponent<
                       row.horseResultData.finishTimeRaw!,
                     )}
                   </div>
+                </td>
+                <td className="px-2 py-2 text-center text-gray-600 font-mono">
+                  {Math.round(row.finalHp)}
                 </td>
                 <td className="px-3 py-2 text-gray-600">
                   <div>
