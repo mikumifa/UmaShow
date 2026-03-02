@@ -121,7 +121,11 @@ export function fromRaceHorseData(
   raceHorseData: any,
   skills: Record<number, Skill>,
 ): TrainedCharaData {
-  const charaSkills: CharaSkill[] = raceHorseData['skill_array'].map(
+  const skillArray = Array.isArray(raceHorseData?.skill_array)
+    ? raceHorseData.skill_array
+    : [];
+
+  const charaSkills: CharaSkill[] = skillArray.map(
     (skill: any) =>
       ({
         skillId: skill['skill_id'],
@@ -130,36 +134,37 @@ export function fromRaceHorseData(
   );
 
   const statusPoints = {
-    speed: raceHorseData['speed'],
-    stamina: raceHorseData['stamina'],
-    pow: raceHorseData['pow'] || raceHorseData['power'], // 'power' in trained_chara
-    guts: raceHorseData['guts'],
-    wiz: raceHorseData['wiz'],
+    speed: raceHorseData['speed'] ?? 0,
+    stamina: raceHorseData['stamina'] ?? 0,
+    pow: raceHorseData['pow'] ?? raceHorseData['power'] ?? 0, // 'power' in trained_chara
+    guts: raceHorseData['guts'] ?? 0,
+    wiz: raceHorseData['wiz'] ?? 0,
   };
 
   const properDistances: Record<number, number> = {
-    1: raceHorseData['proper_distance_short'],
-    2: raceHorseData['proper_distance_mile'],
-    3: raceHorseData['proper_distance_middle'],
-    4: raceHorseData['proper_distance_long'],
+    1: raceHorseData['proper_distance_short'] ?? 0,
+    2: raceHorseData['proper_distance_mile'] ?? 0,
+    3: raceHorseData['proper_distance_middle'] ?? 0,
+    4: raceHorseData['proper_distance_long'] ?? 0,
   };
   const properRunningStyles: Record<number, number> = {
-    1: raceHorseData['proper_running_style_nige'],
-    2: raceHorseData['proper_running_style_senko'],
-    3: raceHorseData['proper_running_style_sashi'],
-    4: raceHorseData['proper_running_style_oikomi'],
+    1: raceHorseData['proper_running_style_nige'] ?? 0,
+    2: raceHorseData['proper_running_style_senko'] ?? 0,
+    3: raceHorseData['proper_running_style_sashi'] ?? 0,
+    4: raceHorseData['proper_running_style_oikomi'] ?? 0,
   };
 
-  const turf = raceHorseData['proper_ground_turf'];
-  const dirt = raceHorseData['proper_ground_dirt'];
+  const turf = raceHorseData['proper_ground_turf'] ?? 0;
+  const dirt = raceHorseData['proper_ground_dirt'] ?? 0;
+  const rankScoreFallback = raceHorseData['rank_score'] ?? raceHorseData['final_grade'];
 
   return {
-    viewerId: raceHorseData['viewer_id'],
-    viewerName: raceHorseData['trainer_name'],
+    viewerId: raceHorseData['viewer_id'] ?? 0,
+    viewerName: raceHorseData['trainer_name'] ?? '',
 
-    trainedCharaId: raceHorseData['trained_chara_id'],
-    charaId: raceHorseData['chara_id'],
-    cardId: raceHorseData['card_id'],
+    trainedCharaId: raceHorseData['trained_chara_id'] ?? 0,
+    charaId: raceHorseData['chara_id'] ?? 0,
+    cardId: raceHorseData['card_id'] ?? 0,
 
     skills: charaSkills,
 
@@ -171,7 +176,10 @@ export function fromRaceHorseData(
     properGroundDirt: dirt,
 
     rankScore: calcRankScore(
-      raceHorseData,
+      {
+        ...raceHorseData,
+        rank_score: rankScoreFallback,
+      },
       statusPoints,
       charaSkills,
       skills,

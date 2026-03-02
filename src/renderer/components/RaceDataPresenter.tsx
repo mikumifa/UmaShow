@@ -157,17 +157,35 @@ class RaceDataPresenter extends React.PureComponent<
     };
   }
 
+  resolveFrameOrder = (horseData: any, fallbackIndex: number) => {
+    const frameOrderRaw = Number(horseData?.frame_order);
+    if (Number.isFinite(frameOrderRaw) && frameOrderRaw > 0) {
+      return frameOrderRaw - 1;
+    }
+
+    const rankRaw = Number(horseData?.rank);
+    if (Number.isFinite(rankRaw) && rankRaw > 0) {
+      const foundIndex = this.props.raceData.horseResult.findIndex(
+        (result) => (result.finishOrder ?? -1) + 1 === rankRaw,
+      );
+      if (foundIndex >= 0) return foundIndex;
+    }
+
+    return fallbackIndex;
+  };
+
   displayNames = memoize((raceHorseInfo: any[], raceData: RaceSimulateData) => {
     const nameFromRaceHorseInfo: Record<number, string> = {};
     if (raceHorseInfo && raceHorseInfo.length === raceData.horseResult.length) {
-      raceHorseInfo.forEach((d: any) => {
+      raceHorseInfo.forEach((d: any, index: number) => {
         const trainedCharaData = fromRaceHorseData(d, UMDB.skills);
-        const frameOrder = d['frame_order'] - 1; // 0-indexed
+        const frameOrder = this.resolveFrameOrder(d, index);
         const charaId = d['chara_id'];
+        const cardName = this.props.umdb.cards[d['card_id']]?.name;
         const charaDisplayName =
-          charaId in this.props.umdb.charas
+          typeof charaId === 'number' && charaId in this.props.umdb.charas
             ? this.props.umdb.charas[charaId].name
-            : unknownCharaTag;
+            : cardName ?? unknownCharaTag;
 
         const trainerNameSuffix = d['trainer_name']
           ? ` by ${d['trainer_name']}`
@@ -571,25 +589,28 @@ class RaceDataPresenter extends React.PureComponent<
     }
 
     const rows: CharaTableData[] = this.props.raceHorseInfo
-      .map((data) => {
-        const frameOrder = data['frame_order'] - 1;
+      .flatMap((data, index) => {
+        const frameOrder = this.resolveFrameOrder(data, index);
         const horseResult = this.props.raceData.horseResult[frameOrder];
+        if (!horseResult) return [];
         const trainedCharaData = fromRaceHorseData(data, UMDB.skills);
 
-        return {
+        return [{
           trainedChara: trainedCharaData,
           chara: this.props.umdb.charas[trainedCharaData.charaId],
           frameOrder: frameOrder + 1,
           finishOrder: horseResult.finishOrder! + 1,
           horseResultData: horseResult,
-          popularity: data['popularity'],
-          popularityMarks: data['popularity_mark_rank_array'],
-          motivation: data['motivation'],
+          popularity: data['popularity'] ?? 0,
+          popularityMarks: Array.isArray(data['popularity_mark_rank_array'])
+            ? data['popularity_mark_rank_array']
+            : [],
+          motivation: data['motivation'] ?? 0,
           activatedSkills: getCharaActivatedSkillIds(
             this.props.raceData,
             frameOrder,
           ),
-        };
+        }];
       })
       .sort((a, b) => a.finishOrder - b.finishOrder);
 
