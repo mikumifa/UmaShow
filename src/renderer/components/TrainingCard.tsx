@@ -283,6 +283,7 @@ export default function TrainingCard({
             toNotes={previewMinNotes}
             warningNotes={warningNoteTypes}
             className="mb-1"
+            tooltipMode="training"
           />
           {gains.map((p, idx) => {
             const conf = getStatConfig(p.targetType);

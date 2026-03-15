@@ -31,6 +31,7 @@ import SongStatusCard from 'renderer/components/SongStatusCard';
 import { type NoteType } from 'renderer/components/NoteStyles';
 import LivePlan from 'renderer/components/LivePlan';
 import { getMissingNoteTypes } from 'renderer/components/MinNoteTransfer';
+import { type DoubleLessonYear } from 'renderer/utils/liveCourseProbability';
 import { loadUMDB } from 'renderer/utils/umdb';
 import { getRecommendedSongIds } from 'renderer/utils/liveRecommend';
 
@@ -97,6 +98,25 @@ const getRemainingCoursesToRefresh = (
   return remaining;
 };
 
+const isPurpleProgress = (phaseKey: LivePhaseKey, progress: number) => {
+  const sequenceData = parseSequence(
+    LIVE_REFRESH_PATTERN_BY_PHASE[phaseKey].join(''),
+  );
+  if (sequenceData.fullList.length === 0) return false;
+  const normalizedProgress = normalizeSequenceProgress(progress, sequenceData);
+  return sequenceData.fullList[normalizedProgress]?.type === 'purple';
+};
+
+const getCoursesToRefreshFromCurrent = (
+  phaseKey: LivePhaseKey,
+  progress: number,
+) => {
+  if (isPurpleProgress(phaseKey, progress)) {
+    return 0;
+  }
+  return getRemainingCoursesToRefresh(phaseKey, progress) + 1;
+};
+
 const buildLiveRefreshHint = (
   phaseKey: LivePhaseKey,
   currentProgress: number,
@@ -116,7 +136,19 @@ const buildLiveRefreshHint = (
       phaseKey,
       currentProgress,
     ),
+    coursesToRefreshFromCurrent: getCoursesToRefreshFromCurrent(
+      phaseKey,
+      currentProgress,
+    ),
+    isCurrentProgressPurple: isPurpleProgress(phaseKey, currentProgress),
   };
+};
+
+const getDoubleLessonYearByTurn = (turn: number): DoubleLessonYear => {
+  const { year } = getGameTimeByTurn(turn);
+  if (year <= 1) return 1;
+  if (year === 2) return 2;
+  return 3;
 };
 
 const getLivePhaseKey = (turn: number): LivePhaseKey => {
@@ -179,6 +211,8 @@ export default function MonitorDashboard() {
     observedSteps: number[];
     purchasesSinceLastRefresh: number;
     remainingCoursesToRefresh: number;
+    coursesToRefreshFromCurrent: number;
+    isCurrentProgressPurple: boolean;
   } | null>(null);
 
   const getLiveRefreshCacheKey = useCallback((startTime: string) => {
@@ -199,6 +233,11 @@ export default function MonitorDashboard() {
     if (!liveRefreshHint) return '';
     return LIVE_REFRESH_PATTERN_BY_PHASE[liveRefreshHint.phaseKey].join('');
   }, [liveRefreshHint]);
+
+  const doubleLessonYear = useMemo(() => {
+    if (!charInfo) return null;
+    return getDoubleLessonYearByTurn(charInfo.gameStats.turn);
+  }, [charInfo]);
 
   const trainingCommandsByNote = useMemo(() => {
     const map = new Map<keyof NoteStat, Set<number>>();
@@ -308,13 +347,13 @@ export default function MonitorDashboard() {
 
   const recommendedIds = useMemo(() => {
     if (!charInfo) return new Set<number>();
-    const effectiveNoteStat = previewNoteStat ?? charInfo.noteStat;
+    const effectiveNoteStat = trainingPreviewNoteStat ?? charInfo.noteStat;
     return getRecommendedSongIds({
       selectedIds: liveSelectedIds,
       noteStat: effectiveNoteStat,
       songStats: charInfo.songStats ?? [],
     });
-  }, [charInfo, liveSelectedIds, previewNoteStat]);
+  }, [charInfo, liveSelectedIds, trainingPreviewNoteStat]);
 
   const selectedNoteCosts = useMemo(() => {
     const total: Partial<Record<NoteType, number>> = {
@@ -705,7 +744,6 @@ export default function MonitorDashboard() {
                       notes={song.notes}
                       noteStat={charInfo.noteStat}
                       previewNoteStat={trainingPreviewNoteStat ?? undefined}
-                      warningNoteTypes={plannedMissingNoteTypes}
                       onHoverChange={(id, isHovering) =>
                         setHoveredSongId((prev) => {
                           if (isHovering) return id;
@@ -750,6 +788,13 @@ export default function MonitorDashboard() {
                           ? perNote
                           : undefined;
                       })()}
+                      remainingPurchasesToRefresh={
+                        liveRefreshHint?.coursesToRefreshFromCurrent
+                      }
+                      purchaseProbabilityYear={doubleLessonYear ?? undefined}
+                      hidePurchaseProbability={
+                        liveRefreshHint?.isCurrentProgressPurple ?? false
+                      }
                     />
                   ))}
                 </div>
