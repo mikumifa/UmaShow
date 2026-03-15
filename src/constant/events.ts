@@ -112,6 +112,15 @@ export const EXACT_EVENT_RULES: Record<string, EventRule> = {
       },
     ],
   },
+  '830146002': {
+    name: '智帽事件2',
+    options: [
+      {
+        1: { desp: '成功', detail: '成功', type: 'correct' },
+        2: { desp: '失败', detail: '失败', type: 'wrong' },
+      },
+    ],
+  },
   '501006524': {
     name: '小栗帽干饭事件',
     options: [

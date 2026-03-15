@@ -1,0 +1,4 @@
+interface:
+  display_name: "UmaShow Project Event Version"
+  short_description: "Add project events and bump release app version."
+  default_prompt: "Use $uma-show-project-event-version to add an UmaShow event rule and update release/app/package.json."

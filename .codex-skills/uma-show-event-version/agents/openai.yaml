@@ -1,0 +1,4 @@
+interface:
+  display_name: "UmaShow Event Version"
+  short_description: "Add UmaShow events and sync version bumps."
+  default_prompt: "Use $uma-show-event-version to add an UmaShow event rule and update the app version consistently."

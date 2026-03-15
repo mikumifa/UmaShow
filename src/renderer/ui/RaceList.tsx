@@ -71,7 +71,7 @@ export default function RaceList() {
         <div className="mb-6 pb-4 border-b border-gray-200 flex justify-between items-end">
           <div>
             <p className="text-gray-500 text-sm mt-1 ml-1">
-              练习，自定义比赛，保存的比赛
+              练习，自定义比赛，保存的比赛，星座杯比赛
             </p>
           </div>
 
