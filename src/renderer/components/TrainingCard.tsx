@@ -10,9 +10,11 @@ import {
   type CharStats,
 } from '../../types/gameTypes';
 import { UMDB } from '../utils/umdb';
+import { getSupportCardSpecialtySummary } from '../../utils/supportCardSpecialty';
 import FailureRateBadge from './FailureRateBadge';
 import createImageIcon from './Icon';
-import { NOTE_STYLES, type NoteType } from './SongStatusCard';
+import { NOTE_STYLES, type NoteType } from './NoteStyles';
+import MinNoteTransfer, { getMinNoteTypes } from './MinNoteTransfer';
 
 export interface TargetConfig {
   label: string;
@@ -117,6 +119,7 @@ const PERFORMANCE_TYPE_MAP: Record<number, NoteType> = {
 };
 
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 const getStatKeyNameByTarget = (targetType: number) => {
   switch (targetType) {
@@ -155,16 +158,22 @@ export default function TrainingCard({
   liveCommands,
   onHoverChange,
   currentStats,
+  currentNoteStat,
+  warningNoteTypes,
+  liveSpecialtyRateBonus,
 }: {
   command: TrainingCommand;
   partnerStats: PartnerStats;
   liveCommands?: LiveCommands;
   onHoverChange?: (command: TrainingCommand, isHovering: boolean) => void;
   currentStats?: CharStats;
+  currentNoteStat?: Record<NoteType, { value: number }>;
+  warningNoteTypes?: NoteType[];
+  liveSpecialtyRateBonus?: number;
 }) {
   const isDisabled = command.isEnable === 0;
   const name =
-    COMMAND_NAME_MAP[command.commandId] || `训练 ${command.commandId}`;
+    COMMAND_NAME_MAP[command.commandId] || `璁粌 ${command.commandId}`;
 
   const gains = command.params.filter(
     (p) => p.value > 0 && p.targetType !== 10,
@@ -185,6 +194,23 @@ export default function TrainingCard({
   const performanceGains = (liveCommand?.performance ?? []).filter(
     (p) => p.value !== 0,
   );
+  const previewNoteStat =
+    currentNoteStat && performanceGains.length > 0
+      ? {
+          da: { ...currentNoteStat.da },
+          pa: { ...currentNoteStat.pa },
+          vo: { ...currentNoteStat.vo },
+          vi: { ...currentNoteStat.vi },
+          me: { ...currentNoteStat.me },
+        }
+      : null;
+  performanceGains.forEach((p) => {
+    const noteType = PERFORMANCE_TYPE_MAP[p.performanceType];
+    if (!noteType || !previewNoteStat) return;
+    previewNoteStat[noteType].value += p.value;
+  });
+  const currentMinNotes = getMinNoteTypes(currentNoteStat);
+  const previewMinNotes = getMinNoteTypes(previewNoteStat ?? currentNoteStat);
   const hasPositiveImpact = gains.length > 0 || performanceGains.length > 0;
   const mainStatKey =
     getStatKeyNameByTarget(COMMAND_TARGET_TYPE_MAP[command.commandId]) ??
@@ -252,6 +278,12 @@ export default function TrainingCard({
       <div className="p-3 space-y-2 bg-white rounded-b-lg flex-1">
         {/* Gains */}
         <div className="space-y-1">
+          <MinNoteTransfer
+            fromNotes={currentMinNotes}
+            toNotes={previewMinNotes}
+            warningNotes={warningNoteTypes}
+            className="mb-1"
+          />
           {gains.map((p, idx) => {
             const conf = getStatConfig(p.targetType);
             const Icon = conf.icon;
@@ -353,17 +385,45 @@ export default function TrainingCard({
         <div className="bg-gray-50 p-2 rounded-b-lg border-t border-gray-100 flex flex-wrap gap-1.5 justify-start min-h-[46px]">
           {command.trainingPartners.map((p) => {
             const partner = partnerStats.find((c) => c.position === p);
+            const supportCard = partner?.supportCardId
+              ? UMDB.supportCards[partner.supportCardId]
+              : undefined;
             const progress =
               partner?.supportCardId === 0 && partner?.position >= 1000
                 ? null // not a support card but a person -> no progress bar
                 : Math.min(100, Math.max(0, partner?.evaluation ?? 0));
+            const specialtySummary =
+              partner && supportCard
+                ? getSupportCardSpecialtySummary({
+                    supportCard,
+                    exp: partner.exp,
+                    limitBreakCount: partner.limitBreak,
+                    supportCardLevels: UMDB.supportCardLevels,
+                    liveSpecialtyRateBonus,
+                  })
+                : null;
 
+            const isMatchingTraining =
+              COMMAND_TARGET_TYPE_MAP[supportCard?.commandId ?? 0] ===
+              COMMAND_TARGET_TYPE_MAP[command.commandId];
             const isMotivated =
-              progress !== null &&
-              progress >= 80 &&
-              COMMAND_TARGET_TYPE_MAP[
-                UMDB.supportCards[partner!.supportCardId!]?.commandId ?? 0
-              ] === COMMAND_TARGET_TYPE_MAP[command.commandId];
+              progress !== null && progress >= 80 && isMatchingTraining;
+            const rainbowRate = specialtySummary
+              ? specialtySummary.targetAppearanceRate
+              : null;
+            const otherTrainingRate = specialtySummary
+              ? specialtySummary.otherAppearanceRate
+              : null;
+            const absentRate = specialtySummary
+              ? specialtySummary.absentRate
+              : null;
+            const partnerProbabilityLabel =
+              rainbowRate !== null &&
+              otherTrainingRate !== null &&
+              absentRate !== null &&
+              specialtySummary
+                ? `擅长率 ${specialtySummary.totalRate}\nLive擅长 +${specialtySummary.liveBonusRate}\n彩圈概率 ${formatPercent(rainbowRate)}\n他训概率 ${formatPercent(otherTrainingRate)}\n外出概率 ${formatPercent(absentRate)}`
+                : null;
             const isTip = command.tipsPartners?.includes(p);
             const progressColor =
               progress !== null &&
@@ -378,7 +438,7 @@ export default function TrainingCard({
                 key={p}
                 className="relative group/partner flex flex-col items-center"
               >
-                {/* 只有在 isMotivated 为 true 时显示 */}
+                {/* Rainbow ring */}
                 {isMotivated && (
                   <div className="absolute -top-[3px] w-[38px] h-[38px] rounded-full z-0 animate-spin-slow">
                     <div className="w-full h-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] blur-[1px] opacity-90" />
@@ -415,6 +475,11 @@ export default function TrainingCard({
                       <div className="border-r border-black/20 h-full" />
                       <div />
                     </div>
+                  </div>
+                )}
+                {partnerProbabilityLabel && (
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden -translate-x-1/2 whitespace-pre rounded bg-gray-900/90 px-2 py-1 text-[10px] font-semibold leading-snug text-white shadow-lg group-hover/partner:block">
+                    {partnerProbabilityLabel}
                   </div>
                 )}
                 {/* Exclamation Mark Alert (Example: Show on partner 4) */}

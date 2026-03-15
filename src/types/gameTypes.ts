@@ -26,6 +26,14 @@ export interface NoteStat {
 export interface GameStats {
   turn: number;
   coinNum: number;
+  startTime?: string | number | Date;
+  liveMasterIds?: number[];
+  nextLiveIds?: number[];
+  effectedLiveIds?: number[];
+  specialtyLiveEffectCount?: number;
+  specialtyLiveEffectRate?: number;
+  currentTrainingPartnerCount?: number;
+  currentTrainingPartnerUniqueCount?: number;
 }
 
 // =============================
@@ -66,7 +74,7 @@ export interface LiveCommand {
 
 export interface PartnerStat {
   position: number;
-  supportCardId: number; //if id == 0, this is not a support card
+  supportCardId: number; // if id == 0, this is not a support card
   charaPath: string;
   evaluation: number; // 来自 evaluation_info_array
   limitBreak: number;
@@ -189,6 +197,12 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
       incoming.livePurchasedIds != null
         ? incoming.livePurchasedIds
         : prev.livePurchasedIds,
+    gameStats: isEmptyField(incoming.gameStats)
+      ? prev.gameStats
+      : {
+          ...prev.gameStats,
+          ...incoming.gameStats,
+        },
   };
 }
 

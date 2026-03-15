@@ -9,6 +9,20 @@ from google.protobuf import json_format
 import proto.data_pb2 as data_pb2
 
 SOURCE_ICON_DIR = r"D:\Apps\umas\export\Texture2D"
+SUPPORT_CARD_SPECIALTY_RATE_TYPE = 19
+SUPPORT_CARD_EFFECT_LEVEL_COLUMNS = (
+    (1, "init"),
+    (5, "limit_lv5"),
+    (10, "limit_lv10"),
+    (15, "limit_lv15"),
+    (20, "limit_lv20"),
+    (25, "limit_lv25"),
+    (30, "limit_lv30"),
+    (35, "limit_lv35"),
+    (40, "limit_lv40"),
+    (45, "limit_lv45"),
+    (50, "limit_lv50"),
+)
 LIVE_SHOW_CONTEXT_BY_ID = {
     40000: "擅长率 +5",
     40001: "友情加成 +5%",
@@ -91,6 +105,88 @@ def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         c.chara_id = row[2]
         c.command_id = row[3]
         pb.support_card.append(c)
+
+
+def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
+    support_card_meta = {}
+
+    cursor.execute(
+        """SELECT id, rarity, effect_table_id, unique_effect_id
+           FROM support_card_data;"""
+    )
+    for support_card_id, rarity, effect_table_id, unique_effect_id in cursor.fetchall():
+        support_card_meta[support_card_id] = {
+            "rarity": rarity,
+            "effectTableId": effect_table_id,
+            "uniqueEffectId": unique_effect_id,
+            "specialtyRateEffectValues": {
+                str(level): -1 for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+            },
+            "specialtyRateUnique": None,
+        }
+
+    cursor.execute(
+        """SELECT id, type, init, limit_lv5, limit_lv10, limit_lv15, limit_lv20,
+                  limit_lv25, limit_lv30, limit_lv35, limit_lv40, limit_lv45, limit_lv50
+           FROM support_card_effect_table
+           WHERE type=?;""",
+        (SUPPORT_CARD_SPECIALTY_RATE_TYPE,),
+    )
+    for row in cursor.fetchall():
+        effect_id = row[0]
+        values = row[2:]
+        for support_card in support_card_meta.values():
+            if support_card["effectTableId"] != effect_id:
+                continue
+            support_card["specialtyRateEffectValues"] = {
+                str(level): value
+                for (level, _), value in zip(SUPPORT_CARD_EFFECT_LEVEL_COLUMNS, values)
+            }
+
+    cursor.execute(
+        """SELECT id, lv,
+                  type_0, value_0,
+                  type_1, value_1
+           FROM support_card_unique_effect;"""
+    )
+    for unique_effect_id, activation_level, type_0, value_0, type_1, value_1 in cursor.fetchall():
+        unique_value = None
+        for effect_type, effect_value in ((type_0, value_0), (type_1, value_1)):
+            if effect_type == SUPPORT_CARD_SPECIALTY_RATE_TYPE:
+                unique_value = {
+                    "type": SUPPORT_CARD_SPECIALTY_RATE_TYPE,
+                    "level": activation_level,
+                    "value": effect_value,
+                }
+                break
+
+        if unique_value is None:
+            continue
+
+        for support_card in support_card_meta.values():
+            if support_card["uniqueEffectId"] == unique_effect_id:
+                support_card["specialtyRateUnique"] = unique_value
+
+    cursor.execute(
+        """SELECT rarity, level, total_exp
+           FROM support_card_level
+           ORDER BY rarity, level;"""
+    )
+    support_card_levels = defaultdict(dict)
+    for rarity, level, total_exp in cursor.fetchall():
+        support_card_levels[str(rarity)][str(level)] = total_exp
+
+    for support_card in support_card_meta.values():
+        support_card.pop("effectTableId", None)
+        support_card.pop("uniqueEffectId", None)
+
+    return {
+        "supportCardMeta": {
+            str(support_card_id): meta
+            for support_card_id, meta in support_card_meta.items()
+        },
+        "supportCardLevels": dict(support_card_levels),
+    }
 
 
 def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
@@ -286,11 +382,29 @@ def main():
         populate_live_songs,
     ):
         p(pb, cursor)
+    support_card_meta = build_support_card_meta(cursor)
     os.makedirs("assets/data", exist_ok=True)
     with open("assets/data/umdb.binarypb.gz", "wb") as f:
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))
+    umdb_json = json_format.MessageToDict(pb)
+    for support_card in umdb_json.get("supportCard", []):
+        support_card_id = str(support_card["id"])
+        support_card.update(
+            support_card_meta["supportCardMeta"].get(
+                support_card_id,
+                {
+                    "specialtyRateEffectValues": {
+                        str(level): -1 for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+                    },
+                    "specialtyRateUnique": None,
+                },
+            )
+        )
+    umdb_json["supportCardLevels"] = support_card_meta["supportCardLevels"]
     with open("assets/data/umdb.json", "w", encoding="utf-8") as f:
-        json.dump(json_format.MessageToDict(pb), f, ensure_ascii=False, indent=2)
+        json.dump(umdb_json, f, ensure_ascii=False, indent=2)
+    with open("assets/data/support_card_meta.json", "w", encoding="utf-8") as f:
+        json.dump(support_card_meta, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":

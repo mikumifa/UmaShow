@@ -10,15 +10,19 @@ import {
   LiveSong,
   RaceInstance,
   Skill,
-  SupportCard,
   UMDatabase,
 } from 'umdb/data_pb';
 import { Story } from 'umdb/UMDatabaseUtils';
+import type {
+  SupportCardMetaFile,
+  SupportCardWithMeta,
+} from 'types/supportCard';
 
 export const UMDB = {
   charas: {} as Record<number, Chara>,
   cards: {} as Record<number, Card>,
-  supportCards: {} as Record<number, SupportCard>,
+  supportCards: {} as Record<number, SupportCardWithMeta>,
+  supportCardLevels: {} as Record<string, Record<string, number>>,
   liveSongs: {} as Record<number, LiveSong>,
   successionRelationMemberCharaIds: {} as Record<number, Set<number>>,
   raceInstances: {} as Record<number, RaceInstance>,
@@ -30,6 +34,13 @@ export const UMDB = {
 export function UMDBload() {
   try {
     const filePath = path.join(ASSETS_PATH, 'data', 'umdb.binarypb.gz');
+    const supportCardMetaPaths = [
+      path.join(ASSETS_PATH, 'data', 'support_card_meta.json'),
+      path.join(process.cwd(), 'support_card_meta.generated.json'),
+    ];
+    const supportCardMetaPath = supportCardMetaPaths.find((candidate) =>
+      fs.existsSync(candidate),
+    );
     if (!fs.existsSync(filePath)) {
       log.error(`[UMDB] ❌ DB file not found: ${filePath}`);
       return;
@@ -37,12 +48,24 @@ export function UMDBload() {
     const gzData = fs.readFileSync(filePath);
     const inflated = pako.inflate(gzData);
     const umdb = UMDatabase.fromBinary(inflated);
+    let supportCardMetaFile: SupportCardMetaFile | null = null;
+    UMDB.supportCardLevels = {};
+    if (supportCardMetaPath) {
+      supportCardMetaFile = JSON.parse(
+        fs.readFileSync(supportCardMetaPath, 'utf-8'),
+      ) as SupportCardMetaFile;
+      UMDB.supportCardLevels = supportCardMetaFile.supportCardLevels ?? {};
+    }
     // ---- chara
     umdb.chara.forEach((c) => (UMDB.charas[c.id!] = c));
     // ---- card
     umdb.card.forEach((card) => (UMDB.cards[card.id!] = card));
     // ---- support card
-    umdb.supportCard.forEach((card) => (UMDB.supportCards[card.id!] = card));
+    umdb.supportCard.forEach((card) => {
+      const meta =
+        supportCardMetaFile?.supportCardMeta?.[String(card.id ?? '')] ?? {};
+      UMDB.supportCards[card.id!] = Object.assign(card, meta);
+    });
     // ---- succession relation
     umdb.successionRelation.forEach((relation) => {
       UMDB.successionRelationMemberCharaIds[relation.relationType!] = new Set(

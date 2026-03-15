@@ -2,7 +2,10 @@ import https from 'https';
 import zlib from 'zlib';
 import log from 'electron-log';
 import { resolveEventRule } from 'constant/events';
-import { COMMAND_TO_MASTER_BONUS } from 'constant/live/liveSchedule';
+import {
+  COMMAND_TO_MASTER_BONUS,
+  SPECIALTY_RATE_PLUS_FIVE_EFFECT_IDS,
+} from 'constant/live/liveSchedule';
 import { BrowserWindow } from 'electron';
 import {
   CharStats,
@@ -142,11 +145,37 @@ export async function extractCoreInfo(
     skillPoint: chara.skill_point,
   };
   const freeData = decoded.data.free_data_set;
+  const liveData = decoded.data.live_data_set;
+  const effectedLiveIds = Array.from(
+    new Set(
+      (liveData?.effected_live_id_array ?? [])
+        .map((id) => COMMAND_TO_MASTER_BONUS[id] ?? id)
+        .filter((id): id is number => typeof id === 'number'),
+    ),
+  );
+  log.info('effectedLiveIds:', effectedLiveIds);
+  const specialtyEffectIds = new Set(
+    (liveData?.effected_live_id_array ?? []).filter((id) =>
+      SPECIALTY_RATE_PLUS_FIVE_EFFECT_IDS.includes(id),
+    ),
+  );
+  const specialtyLiveEffectCount = specialtyEffectIds.size;
+  const homeCommandInfoArray = home?.command_info_array ?? [];
+  const allTrainingPartners = homeCommandInfoArray.flatMap(
+    (cmd) => cmd.training_partner_array || [],
+  );
   const gameStats: GameStats = {
     turn: chara.turn,
     coinNum: freeData?.coin_num ?? 0,
+    startTime: chara.start_time,
+    liveMasterIds: liveData?.master_live_id_array ?? [],
+    nextLiveIds: liveData?.next_live_id_array ?? [],
+    effectedLiveIds,
+    specialtyLiveEffectCount,
+    specialtyLiveEffectRate: specialtyLiveEffectCount * 5,
+    currentTrainingPartnerCount: allTrainingPartners.length,
+    currentTrainingPartnerUniqueCount: new Set(allTrainingPartners).size,
   };
-  const liveData = decoded.data.live_data_set;
   const livePerf = liveData?.live_performance_info;
   const noteStat: NoteStat | undefined = livePerf
     ? {
@@ -198,7 +227,7 @@ export async function extractCoreInfo(
     .filter(Boolean) as SongStat[] | undefined;
 
   // ---------- command Stats ----------
-  const commands = (home?.command_info_array ?? []).map((cmd) => ({
+  const commands = homeCommandInfoArray.map((cmd) => ({
     commandId: cmd.command_id,
     commandType: cmd.command_type,
     isEnable: cmd.is_enable,

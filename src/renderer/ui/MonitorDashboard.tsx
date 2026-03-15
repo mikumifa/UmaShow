@@ -2,7 +2,7 @@
 /* eslint-disable promise/always-return */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable promise/catch-or-return */
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Battery } from 'lucide-react';
 import log from 'electron-log';
 import {
@@ -23,12 +23,118 @@ import EventDetailRow, {
   type EventDetailOption,
 } from 'renderer/components/EventDetailRow';
 import GameStartScreen from 'renderer/components/GameStartScreen';
-import SongStatusCard, {
-  type NoteType,
-} from 'renderer/components/SongStatusCard';
+import LiveRefreshTracker, {
+  normalizeSequenceProgress,
+  parseSequence,
+} from 'renderer/components/LiveRefreshTracker';
+import SongStatusCard from 'renderer/components/SongStatusCard';
+import { type NoteType } from 'renderer/components/NoteStyles';
 import LivePlan from 'renderer/components/LivePlan';
+import { getMissingNoteTypes } from 'renderer/components/MinNoteTransfer';
 import { loadUMDB } from 'renderer/utils/umdb';
 import { getRecommendedSongIds } from 'renderer/utils/liveRecommend';
+
+type LivePhaseKey = 'year1' | 'year2_h1' | 'year2_h2' | 'year3_h1' | 'year3_h2';
+
+interface LiveRefreshPhaseState {
+  currentProgress: number;
+  lastOfferingSignature: string;
+}
+
+const LIVE_REFRESH_CACHE_PREFIX = 'monitorDashboard.liveRefreshTracker';
+
+const LIVE_REFRESH_PATTERN_BY_PHASE: Record<LivePhaseKey, number[]> = {
+  year1: [1, 2, 3, 4, 4, 2],
+  year2_h1: [2, 2, 2, 4, 5, 2],
+  year2_h2: [2, 2, 2, 4, 5, 2],
+  year3_h1: [2, 2, 2, 4, 5, 2],
+  year3_h2: [2, 2, 2, 4, 3, 2],
+};
+
+const getObservedStepsByProgress = (
+  phaseKey: LivePhaseKey,
+  progress: number,
+) => {
+  const counts = LIVE_REFRESH_PATTERN_BY_PHASE[phaseKey];
+  const sequenceData = parseSequence(counts.join(''));
+  const normalizedProgress = normalizeSequenceProgress(progress, sequenceData);
+  let cursor = 0;
+  return counts.filter((count) => {
+    cursor += count;
+    const purpleIndex = cursor;
+    cursor += 1;
+    return normalizedProgress >= purpleIndex;
+  });
+};
+
+const getRemainingCoursesToRefresh = (
+  phaseKey: LivePhaseKey,
+  progress: number,
+) => {
+  const sequenceData = parseSequence(
+    LIVE_REFRESH_PATTERN_BY_PHASE[phaseKey].join(''),
+  );
+  if (sequenceData.fullList.length === 0) return 0;
+  const normalizedProgress = normalizeSequenceProgress(progress, sequenceData);
+  let remaining = 0;
+  const getWrappedIndex = (index: number) => {
+    if (index < sequenceData.fullList.length) {
+      return index;
+    }
+    return (
+      sequenceData.loopStartIndex +
+      ((index - sequenceData.loopStartIndex) % sequenceData.loopLength)
+    );
+  };
+  for (let step = 1; step <= sequenceData.fullList.length; step += 1) {
+    const nextIndex = getWrappedIndex(normalizedProgress + step);
+    const nextItem = sequenceData.fullList[nextIndex];
+    if (nextItem.type === 'purple') {
+      return remaining;
+    }
+    remaining += 1;
+  }
+  return remaining;
+};
+
+const buildLiveRefreshHint = (
+  phaseKey: LivePhaseKey,
+  currentProgress: number,
+) => {
+  const sequenceData = parseSequence(
+    LIVE_REFRESH_PATTERN_BY_PHASE[phaseKey].join(''),
+  );
+  const normalizedProgress = normalizeSequenceProgress(
+    currentProgress,
+    sequenceData,
+  );
+  return {
+    phaseKey,
+    observedSteps: getObservedStepsByProgress(phaseKey, currentProgress),
+    purchasesSinceLastRefresh: normalizedProgress,
+    remainingCoursesToRefresh: getRemainingCoursesToRefresh(
+      phaseKey,
+      currentProgress,
+    ),
+  };
+};
+
+const getLivePhaseKey = (turn: number): LivePhaseKey => {
+  const { year, month } = getGameTimeByTurn(turn);
+  if (year <= 1) {
+    return 'year1';
+  }
+  if (year === 2 && month <= 6) {
+    return 'year2_h1';
+  }
+  if (year === 2) {
+    return 'year2_h2';
+  }
+  if (year === 3 && month <= 6) {
+    return 'year3_h1';
+  }
+  return 'year3_h2';
+};
 
 export default function MonitorDashboard() {
   const [charInfo, setCharInfo] = useState<CharInfo | null>(() => {
@@ -48,6 +154,7 @@ export default function MonitorDashboard() {
   });
   const [ready, setReady] = useState(false);
   const [hoveredCommandId, setHoveredCommandId] = useState<number | null>(null);
+  const [hoveredSongId, setHoveredSongId] = useState<number | null>(null);
   const [liveSelectedIds, setLiveSelectedIds] = useState<Set<number>>(
     () => new Set(),
   );
@@ -57,12 +164,41 @@ export default function MonitorDashboard() {
   const resizingRef = useRef(false);
   const autoSelectPoolKeyRef = useRef<string | null>(null);
   const lastTurnRef = useRef<number | null>(null);
+  const lastStartTimeRef = useRef<string | null>(null);
+  const liveRefreshTrackerRef = useRef<
+    Partial<Record<LivePhaseKey, LiveRefreshPhaseState>>
+  >({});
   const [windowList, setWindowList] = useState<
     Array<{ id: number; title: string; pid: number }>
   >([]);
   const [selectedWindowId, setSelectedWindowId] = useState<number | ''>('');
   const [pinEnabled, setPinEnabled] = useState(false);
   const [windowLoading, setWindowLoading] = useState(false);
+  const [liveRefreshHint, setLiveRefreshHint] = useState<{
+    phaseKey: LivePhaseKey;
+    observedSteps: number[];
+    purchasesSinceLastRefresh: number;
+    remainingCoursesToRefresh: number;
+  } | null>(null);
+
+  const getLiveRefreshCacheKey = useCallback((startTime: string) => {
+    return `${LIVE_REFRESH_CACHE_PREFIX}.${startTime}`;
+  }, []);
+
+  const resetRunScopedState = useCallback(() => {
+    autoSelectPoolKeyRef.current = null;
+    lastTurnRef.current = null;
+    liveRefreshTrackerRef.current = {};
+    setLiveSelectedIds(new Set());
+    setHoveredCommandId(null);
+    setHoveredSongId(null);
+    setLiveRefreshHint(null);
+  }, []);
+
+  const liveRefreshPattern = useMemo(() => {
+    if (!liveRefreshHint) return '';
+    return LIVE_REFRESH_PATTERN_BY_PHASE[liveRefreshHint.phaseKey].join('');
+  }, [liveRefreshHint]);
 
   const trainingCommandsByNote = useMemo(() => {
     const map = new Map<keyof NoteStat, Set<number>>();
@@ -112,7 +248,7 @@ export default function MonitorDashboard() {
     return result;
   }, [trainingCommandsByNote]);
 
-  const previewNoteStat = useMemo(() => {
+  const trainingPreviewNoteStat = useMemo(() => {
     if (!charInfo?.noteStat || !charInfo?.liveCommands) return null;
     if (!hoveredCommandId) return null;
     const liveCommand = charInfo.liveCommands.find(
@@ -141,6 +277,35 @@ export default function MonitorDashboard() {
     return next;
   }, [charInfo?.noteStat, charInfo?.liveCommands, hoveredCommandId]);
 
+  const previewNoteStat = useMemo(() => {
+    const baseNoteStat = trainingPreviewNoteStat ?? charInfo?.noteStat;
+    if (!baseNoteStat || hoveredSongId == null) {
+      return trainingPreviewNoteStat;
+    }
+    const hoveredSong = charInfo?.songStats?.find(
+      (song) => song.id === hoveredSongId,
+    );
+    if (!hoveredSong) {
+      return trainingPreviewNoteStat;
+    }
+    const next = {
+      da: { ...baseNoteStat.da },
+      pa: { ...baseNoteStat.pa },
+      vo: { ...baseNoteStat.vo },
+      vi: { ...baseNoteStat.vi },
+      me: { ...baseNoteStat.me },
+    };
+    (Object.keys(hoveredSong.notes) as Array<keyof NoteStat>).forEach((key) => {
+      next[key].value -= hoveredSong.notes[key] ?? 0;
+    });
+    return next;
+  }, [
+    charInfo?.noteStat,
+    charInfo?.songStats,
+    hoveredSongId,
+    trainingPreviewNoteStat,
+  ]);
+
   const recommendedIds = useMemo(() => {
     if (!charInfo) return new Set<number>();
     const effectiveNoteStat = previewNoteStat ?? charInfo.noteStat;
@@ -150,6 +315,38 @@ export default function MonitorDashboard() {
       songStats: charInfo.songStats ?? [],
     });
   }, [charInfo, liveSelectedIds, previewNoteStat]);
+
+  const selectedNoteCosts = useMemo(() => {
+    const total: Partial<Record<NoteType, number>> = {
+      da: 0,
+      pa: 0,
+      vo: 0,
+      vi: 0,
+      me: 0,
+    };
+    liveSelectedIds.forEach((id) => {
+      const song = LIVE_SQUARE_MAP[id];
+      if (!song) return;
+      song.perfType.forEach((type, idx) => {
+        const keyMap: Record<number, NoteType> = {
+          1: 'da',
+          2: 'pa',
+          3: 'vo',
+          4: 'vi',
+          5: 'me',
+        };
+        const key = keyMap[type];
+        if (!key) return;
+        total[key] = (total[key] ?? 0) + (song.perfValue[idx] ?? 0);
+      });
+    });
+    return total;
+  }, [liveSelectedIds]);
+
+  const plannedMissingNoteTypes = useMemo(
+    () => getMissingNoteTypes(charInfo?.noteStat, selectedNoteCosts),
+    [charInfo?.noteStat, selectedNoteCosts],
+  );
 
   const livePoolIds = useMemo(() => {
     if (!charInfo) return [];
@@ -166,11 +363,85 @@ export default function MonitorDashboard() {
       purchasedSet.forEach((id) => next.delete(id));
       return next;
     });
-  }, [charInfo?.livePurchasedIds]);
+  }, [charInfo]);
+
+  useEffect(() => {
+    const startTime = charInfo?.gameStats.startTime;
+    if (startTime == null) return;
+
+    const startTimeKey = String(startTime);
+    if (
+      lastStartTimeRef.current != null &&
+      lastStartTimeRef.current !== startTimeKey
+    ) {
+      resetRunScopedState();
+    }
+    lastStartTimeRef.current = startTimeKey;
+  }, [charInfo?.gameStats.startTime, resetRunScopedState]);
+
+  useEffect(() => {
+    const startTime = charInfo?.gameStats.startTime;
+    if (startTime == null) return;
+
+    try {
+      const cached = localStorage.getItem(
+        getLiveRefreshCacheKey(String(startTime)),
+      );
+      if (!cached) return;
+      liveRefreshTrackerRef.current = JSON.parse(cached) as Partial<
+        Record<LivePhaseKey, LiveRefreshPhaseState>
+      >;
+    } catch (err) {
+      log.warn('Failed to restore live refresh tracker cache:', err);
+    }
+  }, [charInfo?.gameStats.startTime, getLiveRefreshCacheKey]);
+
+  useEffect(() => {
+    if (!charInfo) return;
+
+    const phaseKey = getLivePhaseKey(charInfo.gameStats.turn);
+    const offeringIds = (charInfo.songStats ?? [])
+      .map((song) => song.id)
+      .sort((a, b) => a - b);
+    const offeringSignature = offeringIds.join(',');
+    const tracker =
+      liveRefreshTrackerRef.current[phaseKey] ??
+      ({
+        currentProgress: 0,
+        lastOfferingSignature: offeringSignature,
+      } satisfies LiveRefreshPhaseState);
+
+    if (
+      tracker.lastOfferingSignature &&
+      tracker.lastOfferingSignature !== offeringSignature
+    ) {
+      tracker.currentProgress += 1;
+      tracker.lastOfferingSignature = offeringSignature;
+    } else if (!tracker.lastOfferingSignature) {
+      tracker.lastOfferingSignature = offeringSignature;
+    }
+
+    liveRefreshTrackerRef.current[phaseKey] = tracker;
+
+    setLiveRefreshHint(buildLiveRefreshHint(phaseKey, tracker.currentProgress));
+  }, [charInfo, charInfo?.gameStats.turn, charInfo?.songStats]);
+
+  useEffect(() => {
+    const startTime = charInfo?.gameStats.startTime;
+    if (startTime == null) return;
+    try {
+      localStorage.setItem(
+        getLiveRefreshCacheKey(String(startTime)),
+        JSON.stringify(liveRefreshTrackerRef.current),
+      );
+    } catch (err) {
+      log.warn('Failed to cache live refresh tracker:', err);
+    }
+  }, [charInfo?.gameStats.startTime, getLiveRefreshCacheKey, liveRefreshHint]);
 
   useEffect(() => {
     if (!charInfo || livePoolIds.length === 0) return;
-    const turn = charInfo.gameStats.turn;
+    const { turn } = charInfo.gameStats;
     if (lastTurnRef.current != null && turn < lastTurnRef.current) {
       autoSelectPoolKeyRef.current = null;
     }
@@ -403,58 +674,87 @@ export default function MonitorDashboard() {
               </div>
             </section>
           </div>
-
           {/* =================== SONG STATUS =================== */}
           <section className="mt-2">
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,max-content))] justify-items-start justify-content-start">
-              {(charInfo.songStats ?? []).map((song) => (
-                // eslint-disable-next-line react/jsx-props-no-spreading
-                <SongStatusCard
-                  key={song.id}
-                  // eslint-disable-next-line react/jsx-props-no-spreading
-                  {...song}
-                  noteStat={charInfo.noteStat}
-                  previewNoteStat={previewNoteStat ?? undefined}
-                  recommended={recommendedIds.has(song.id)}
-                  recommendedReason={
-                    recommendedIds.has(song.id)
-                      ? liveSelectedIds.has(song.id)
-                        ? '当前为预购歌曲'
-                        : '购买当前课程不影响预购歌曲的购买'
-                      : undefined
-                  }
-                  trainingCommandIds={(() => {
-                    const noteKeys = Object.keys(song.notes) as Array<
-                      keyof NoteStat
-                    >;
-                    const ids = noteKeys
-                      .filter((key) => (song.notes[key] ?? 0) > 0)
-                      .flatMap((key) =>
-                        Array.from(trainingCommandsByNote.get(key) ?? []),
-                      );
-                    return ids.length > 0
-                      ? Array.from(new Set(ids))
-                      : undefined;
-                  })()}
-                  trainingCommandsByNote={(() => {
-                    const noteKeys = Object.keys(song.notes) as Array<NoteType>;
-                    const perNote: Partial<Record<NoteType, number[]>> = {};
-                    noteKeys.forEach((key) => {
-                      const ids = Array.from(
-                        trainingCommandsByNote.get(key) ?? [],
-                      );
-                      if (ids.length > 0) {
-                        perNote[key] = ids;
-                      }
-                    });
-                    return Object.keys(perNote).length > 0
-                      ? perNote
-                      : undefined;
-                  })()}
+            <div className="grid items-start justify-start gap-3 lg:grid-cols-[max-content_minmax(360px,1fr)]">
+              <div className="max-w-full">
+                <LiveRefreshTracker
+                  pattern={liveRefreshPattern}
+                  progress={liveRefreshHint?.purchasesSinceLastRefresh ?? 0}
+                  onJump={(index) => {
+                    if (!charInfo) return;
+                    const phaseKey = getLivePhaseKey(charInfo.gameStats.turn);
+                    const offeringSignature = (charInfo.songStats ?? [])
+                      .map((song) => song.id)
+                      .sort((a, b) => a - b)
+                      .join(',');
+                    liveRefreshTrackerRef.current[phaseKey] = {
+                      currentProgress: index,
+                      lastOfferingSignature: offeringSignature,
+                    };
+                    setLiveRefreshHint(buildLiveRefreshHint(phaseKey, index));
+                  }}
                 />
-              ))}
-              {/* =================== LIVE PLAN =================== */}
-              <section>
+                <div className="mt-3 grid grid-cols-3 gap-3 justify-items-start justify-content-start">
+                  {(charInfo.songStats ?? []).map((song) => (
+                    <SongStatusCard
+                      key={song.id}
+                      id={song.id}
+                      title={song.title}
+                      attributes={song.attributes}
+                      notes={song.notes}
+                      noteStat={charInfo.noteStat}
+                      previewNoteStat={trainingPreviewNoteStat ?? undefined}
+                      warningNoteTypes={plannedMissingNoteTypes}
+                      onHoverChange={(id, isHovering) =>
+                        setHoveredSongId((prev) => {
+                          if (isHovering) return id;
+                          return prev === id ? null : prev;
+                        })
+                      }
+                      recommended={recommendedIds.has(song.id)}
+                      recommendedReason={
+                        recommendedIds.has(song.id)
+                          ? liveSelectedIds.has(song.id)
+                            ? '预购歌曲'
+                            : '不影响其他歌曲'
+                          : undefined
+                      }
+                      trainingCommandIds={(() => {
+                        const noteKeys = Object.keys(song.notes) as Array<
+                          keyof NoteStat
+                        >;
+                        const ids = noteKeys
+                          .filter((key) => (song.notes[key] ?? 0) > 0)
+                          .flatMap((key) =>
+                            Array.from(trainingCommandsByNote.get(key) ?? []),
+                          );
+                        return ids.length > 0
+                          ? Array.from(new Set(ids))
+                          : undefined;
+                      })()}
+                      trainingCommandsByNote={(() => {
+                        const noteKeys = Object.keys(
+                          song.notes,
+                        ) as Array<NoteType>;
+                        const perNote: Partial<Record<NoteType, number[]>> = {};
+                        noteKeys.forEach((key) => {
+                          const ids = Array.from(
+                            trainingCommandsByNote.get(key) ?? [],
+                          );
+                          if (ids.length > 0) {
+                            perNote[key] = ids;
+                          }
+                        });
+                        return Object.keys(perNote).length > 0
+                          ? perNote
+                          : undefined;
+                      })()}
+                    />
+                  ))}
+                </div>
+              </div>
+              <section className="h-full">
                 <LivePlan
                   turn={charInfo.gameStats.turn}
                   noteStat={charInfo.noteStat}
@@ -498,6 +798,11 @@ export default function MonitorDashboard() {
                     partnerStats={charInfo.partnerStats}
                     liveCommands={charInfo.liveCommands}
                     currentStats={charInfo.stats}
+                    currentNoteStat={charInfo.noteStat}
+                    warningNoteTypes={plannedMissingNoteTypes}
+                    liveSpecialtyRateBonus={
+                      charInfo.gameStats.specialtyLiveEffectRate ?? 0
+                    }
                     onHoverChange={(command, isHovering) =>
                       setHoveredCommandId(isHovering ? command.commandId : null)
                     }

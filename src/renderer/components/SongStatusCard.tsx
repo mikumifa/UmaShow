@@ -6,8 +6,8 @@ import {
   TARGET_TYPE,
   type NoteStat,
 } from 'types/gameTypes';
-
-export type NoteType = 'da' | 'pa' | 'vo' | 'vi' | 'me';
+import MinNoteTransfer, { getMinNoteTypes } from './MinNoteTransfer';
+import { NOTE_STYLES, type NoteType } from './NoteStyles';
 
 export interface SongAttribute {
   icon?: ComponentType<{ size?: number; className?: string }> | string;
@@ -30,60 +30,9 @@ export interface SongStatus {
   trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
   recommended?: boolean;
   recommendedReason?: string;
+  onHoverChange?: (id: number, isHovering: boolean) => void;
+  warningNoteTypes?: NoteType[];
 }
-
-export const NOTE_STYLES: Record<
-  NoteType,
-  {
-    label: string;
-    bg: string;
-    text: string;
-    border: string;
-    ring: string;
-    accent: string;
-  }
-> = {
-  da: {
-    label: 'Da',
-    bg: 'bg-rose-50',
-    text: 'text-sky-700',
-    border: 'border-sky-200',
-    ring: 'ring-sky-200',
-    accent: 'bg-rose-200/50',
-  },
-  pa: {
-    label: 'Pa',
-    bg: 'bg-rose-50',
-    text: 'text-rose-700',
-    border: 'border-rose-200',
-    ring: 'ring-rose-200',
-    accent: 'bg-rose-200/50',
-  },
-  vo: {
-    label: 'Vo',
-    bg: 'bg-rose-50',
-    text: 'text-fuchsia-700',
-    border: 'border-fuchsia-200',
-    ring: 'ring-fuchsia-200',
-    accent: 'bg-rose-200/50',
-  },
-  vi: {
-    label: 'Vi',
-    bg: 'bg-rose-50',
-    text: 'text-amber-800',
-    border: 'border-amber-200',
-    ring: 'ring-amber-200',
-    accent: 'bg-rose-200/50',
-  },
-  me: {
-    label: 'Me',
-    bg: 'bg-rose-50',
-    text: 'text-indigo-700',
-    border: 'border-indigo-200',
-    ring: 'ring-indigo-200',
-    accent: 'bg-rose-200/50',
-  },
-};
 
 const TONE_STYLES: Record<
   NonNullable<SongAttribute['tone']>,
@@ -95,6 +44,7 @@ const TONE_STYLES: Record<
 };
 
 export default function SongStatusCard({
+  id,
   title,
   attributes,
   notes,
@@ -103,6 +53,8 @@ export default function SongStatusCard({
   trainingCommandsByNote,
   recommended,
   recommendedReason,
+  onHoverChange,
+  warningNoteTypes,
 }: SongStatus) {
   const trainingLabelMap: Record<number, string> = {
     [TARGET_TYPE.SPEED]: '\u901f',
@@ -124,8 +76,14 @@ export default function SongStatusCard({
     },
     {} as Record<NoteType, string[]>,
   );
+  const currentMinNotes = getMinNoteTypes(noteStat);
+  const previewMinNotes = getMinNoteTypes(previewNoteStat ?? noteStat);
   return (
-    <div className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible">
+    <div
+      className="relative bg-white rounded-lg border border-purple-200 shadow-sm overflow-visible"
+      onMouseEnter={() => onHoverChange?.(id, true)}
+      onMouseLeave={() => onHoverChange?.(id, false)}
+    >
       {recommended ? (
         <div className="absolute right-1 top-0 group">
           <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm cursor-default">
@@ -138,13 +96,21 @@ export default function SongStatusCard({
           ) : null}
         </div>
       ) : null}
-      <header className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
-        <div className="min-w-0 flex items-center gap-2">
-          <h3 className="min-w-0 font-black text-xs tracking-wide truncate">
-            {title}
-          </h3>
+      <header className="px-2.5 py-1.5 bg-gradient-to-r from-purple-400 to-purple-300 text-white">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex items-center gap-2">
+            <h3 className="min-w-0 font-black text-xs tracking-wide truncate">
+              {title}
+            </h3>
+          </div>
         </div>
-        {null}
+        <div className="mt-1 flex justify-start">
+          <MinNoteTransfer
+            fromNotes={currentMinNotes}
+            toNotes={previewMinNotes}
+            warningNotes={warningNoteTypes}
+          />
+        </div>
       </header>
 
       <div className="p-2 flex gap-2.5">

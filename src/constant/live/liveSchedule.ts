@@ -1,4 +1,4 @@
-﻿import { getGameTimeByTurn } from 'constant/gameStat';
+import { getGameTimeByTurn } from 'constant/gameStat';
 
 export const LIVE_SQUARE_BY_YEAR = {
   /** 第一年的Live（出道战） */
@@ -301,8 +301,16 @@ export const LIVE_SQUARE_MAP: Record<number, LiveSquare> = {
   },
 };
 
+export const SPECIALTY_RATE_PLUS_FIVE_LIVE_IDS = [
+  40000, 40007, 40008, 40011, 40013, 40017,
+];
+
+export const SPECIALTY_RATE_PLUS_FIVE_EFFECT_IDS = [
+  1006, 1011, 1023, 1032, 1034, 1038, 1045,
+];
+
 export const COMMAND_TO_MASTER_BONUS: Record<number, number> = {
-  // 1006: 40091, excluded
+  1006: 40091,
   1032: 40000,
   1040: 40001,
   1044: 40002,
@@ -325,5 +333,5 @@ export const COMMAND_TO_MASTER_BONUS: Record<number, number> = {
   1024: 40019,
   1036: 40092,
   1057: 40020,
-  // 1029: 40092, excluded
+  1029: 40092,
 };

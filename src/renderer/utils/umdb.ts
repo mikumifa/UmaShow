@@ -1,4 +1,5 @@
-import { LiveSong, RaceInstance, Skill, SupportCard } from 'umdb/data_pb';
+import { LiveSong, RaceInstance, Skill } from 'umdb/data_pb';
+import type { SupportCardWithMeta } from 'types/supportCard';
 
 let umdbInstance: any = null;
 let loadPromise: Promise<any> | null = null;
@@ -24,8 +25,11 @@ export const UMDB = {
   get raceInstances(): Record<number, RaceInstance> {
     return umdbInstance?.raceInstances ?? {};
   },
-  get supportCards(): Record<number, SupportCard> {
+  get supportCards(): Record<number, SupportCardWithMeta> {
     return umdbInstance?.supportCards ?? {};
+  },
+  get supportCardLevels(): Record<string, Record<string, number>> {
+    return umdbInstance?.supportCardLevels ?? {};
   },
   get cards() {
     return umdbInstance?.cards ?? {};
