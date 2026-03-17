@@ -197,3 +197,82 @@ export function getLessonPurchaseProbabilityAfterCurrent({
     year,
   });
 }
+
+export function getReservedSongAffordableProbabilityAfterCurrent({
+  inventory,
+  currentLessonCost,
+  reservedCost,
+  totalPurchaseCount,
+  year,
+}: {
+  inventory: NoteInventory;
+  currentLessonCost: NoteInventory;
+  reservedCost: NoteInventory;
+  totalPurchaseCount: number;
+  year: DoubleLessonYear;
+}) {
+  if (totalPurchaseCount <= 0) {
+    return canAfford(inventory, reservedCost) ? 1 : 0;
+  }
+
+  if (!canAfford(inventory, currentLessonCost)) {
+    return 0;
+  }
+
+  const baseInventory = subtractCost(inventory, currentLessonCost);
+  if (totalPurchaseCount === 1) {
+    return canAfford(baseInventory, reservedCost) ? 1 : 0;
+  }
+
+  const pool = DOUBLE_LESSON_POOL_BY_YEAR[year];
+  if (pool.length === 0) {
+    return canAfford(baseInventory, reservedCost) ? 1 : 0;
+  }
+
+  let states = new Map<string, { inventory: NoteInventory; probability: number }>(
+    [[serializeInventory(baseInventory), { inventory: baseInventory, probability: 1 }]],
+  );
+
+  for (let i = 0; i < totalPurchaseCount - 1; i += 1) {
+    const nextStates = new Map<
+      string,
+      { inventory: NoteInventory; probability: number }
+    >();
+
+    states.forEach((state) => {
+      pool.forEach((lesson) => {
+        if (!canAfford(state.inventory, lesson.notes)) {
+          return;
+        }
+
+        const nextInventory = subtractCost(state.inventory, lesson.notes);
+        const key = serializeInventory(nextInventory);
+        const nextProbability = state.probability / pool.length;
+        const existing = nextStates.get(key);
+
+        if (existing) {
+          existing.probability += nextProbability;
+          return;
+        }
+
+        nextStates.set(key, {
+          inventory: nextInventory,
+          probability: nextProbability,
+        });
+      });
+    });
+
+    states = nextStates;
+    if (states.size === 0) {
+      return 0;
+    }
+  }
+
+  let probability = 0;
+  states.forEach((state) => {
+    if (canAfford(state.inventory, reservedCost)) {
+      probability += state.probability;
+    }
+  });
+  return probability;
+}

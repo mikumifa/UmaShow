@@ -39,6 +39,7 @@ export interface SongStatus {
   remainingPurchasesToRefresh?: number;
   purchaseProbabilityYear?: DoubleLessonYear;
   hidePurchaseProbability?: boolean;
+  reserveProbability?: number | null;
 }
 
 const TONE_STYLES: Record<
@@ -67,6 +68,7 @@ export default function SongStatusCard({
   remainingPurchasesToRefresh,
   purchaseProbabilityYear,
   hidePurchaseProbability,
+  reserveProbability,
 }: SongStatus) {
   const isPurpleTheme = String(id).startsWith('4');
   const cardBorderClass = isPurpleTheme
@@ -140,23 +142,54 @@ export default function SongStatusCard({
         })
       : null;
 
-  const statusBadgeLabel =
+  const badgeItems = [
     recommended
-      ? purchaseProbability != null
-        ? `${formatProbabilityPercent(purchaseProbability)} | 推荐`
-        : '推荐'
-      : purchaseProbability != null
-        ? formatProbabilityPercent(purchaseProbability)
-        : null;
-
-  const statusTooltipLines = [
-    recommended && recommendedReason ? `推荐：${recommendedReason}` : null,
-    purchaseProbability != null
-      ? `当前购买这门课程/歌曲后，连续买满${remainingPurchasesToRefresh}次课程并到达下一个紫色格的概率：${formatProbabilityPercent(
-          purchaseProbability,
-        )}`
+      ? {
+          key: 'recommended',
+          label:
+            recommendedReason && recommendedReason.includes('预')
+              ? '预订'
+              : '推荐',
+          icon: true,
+          className:
+            'border border-emerald-200/80 bg-emerald-400/20 shadow-emerald-900/20',
+          tooltip: recommendedReason
+            ? `${
+                recommendedReason.includes('预') ? '预订' : '推荐'
+              }：${recommendedReason}`
+            : '推荐',
+        }
       : null,
-  ].filter(Boolean) as string[];
+    purchaseProbability != null
+      ? {
+          key: 'purchase-probability',
+          label: formatProbabilityPercent(purchaseProbability),
+          icon: false,
+          className: 'border border-white/35 bg-white/15',
+          tooltip: `当前购买这门课程/歌曲后，连续买满${remainingPurchasesToRefresh}次课程并到达下一个紫色格的概率：${formatProbabilityPercent(
+            purchaseProbability,
+          )}`,
+        }
+      : null,
+    reserveProbability != null
+      ? {
+          key: 'reserve-probability',
+          label: formatProbabilityPercent(reserveProbability),
+          icon: false,
+          className:
+            'border border-sky-200/80 bg-sky-400/20 shadow-sky-900/20',
+          tooltip: `买到下一个紫色歌曲时，仍然够预订歌曲的概率：${formatProbabilityPercent(
+            reserveProbability,
+          )}`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    icon: boolean;
+    className: string;
+    tooltip: string;
+  }>;
 
   return (
     <div
@@ -164,25 +197,21 @@ export default function SongStatusCard({
       onMouseEnter={() => onHoverChange?.(id, true)}
       onMouseLeave={() => onHoverChange?.(id, false)}
     >
-      {statusBadgeLabel ? (
-        <div className="absolute right-1 top-0 group">
-          <div
-            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black text-white shadow-sm cursor-default backdrop-blur-sm ${
-              recommended
-                ? 'border border-emerald-200/80 bg-emerald-400/20 shadow-emerald-900/20 ring-1 ring-emerald-300/60'
-                : 'border border-white/35 bg-white/15'
-            }`}
-          >
-            {recommended ? <Sparkles size={10} /> : null}
-            <span>{statusBadgeLabel}</span>
-          </div>
-          {statusTooltipLines.length > 0 ? (
-            <div className="absolute right-0 top-full mt-1 hidden w-max max-w-[220px] rounded bg-gray-800 px-2 py-1 text-[10px] text-white shadow-lg group-hover:block">
-              {statusTooltipLines.map((line) => (
-                <div key={line}>{line}</div>
-              ))}
+      {badgeItems.length > 0 ? (
+        <div className="absolute right-1 top-0 flex flex-wrap items-center justify-end gap-1">
+          {badgeItems.map((badge) => (
+            <div key={badge.key} className="group relative">
+              <div
+                className={`inline-flex h-5 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black text-white shadow-sm cursor-default backdrop-blur-sm align-middle ${badge.className}`}
+              >
+                {badge.icon ? <Sparkles size={10} /> : null}
+                <span>{badge.label}</span>
+              </div>
+              <div className="absolute right-0 top-full mt-1 hidden w-max max-w-[220px] rounded bg-gray-800 px-2 py-1 text-[10px] text-white shadow-lg group-hover:block">
+                {badge.tooltip}
+              </div>
             </div>
-          ) : null}
+          ))}
         </div>
       ) : null}
 

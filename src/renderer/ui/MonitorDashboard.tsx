@@ -31,7 +31,10 @@ import SongStatusCard from 'renderer/components/SongStatusCard';
 import { type NoteType } from 'renderer/components/NoteStyles';
 import LivePlan from 'renderer/components/LivePlan';
 import { getMissingNoteTypes } from 'renderer/components/MinNoteTransfer';
-import { type DoubleLessonYear } from 'renderer/utils/liveCourseProbability';
+import {
+  getReservedSongAffordableProbabilityAfterCurrent,
+  type DoubleLessonYear,
+} from 'renderer/utils/liveCourseProbability';
 import { loadUMDB } from 'renderer/utils/umdb';
 import { getRecommendedSongIds } from 'renderer/utils/liveRecommend';
 
@@ -381,6 +384,78 @@ export default function MonitorDashboard() {
     });
     return total;
   }, [liveSelectedIds]);
+
+  const reserveProbabilityBySongId = useMemo(() => {
+    if (
+      !charInfo?.noteStat ||
+      !doubleLessonYear ||
+      !liveRefreshHint?.coursesToRefreshFromCurrent
+    ) {
+      return new Map<number, number>();
+    }
+
+    const hasReservedSongs = liveSelectedIds.size > 0;
+    if (!hasReservedSongs) {
+      return new Map<number, number>();
+    }
+
+    const currentInventory = {
+      da: charInfo.noteStat.da.value,
+      pa: charInfo.noteStat.pa.value,
+      vo: charInfo.noteStat.vo.value,
+      vi: charInfo.noteStat.vi.value,
+      me: charInfo.noteStat.me.value,
+    };
+
+    const result = new Map<number, number>();
+    (charInfo.songStats ?? []).forEach((song) => {
+      const reservedCost = {
+        da:
+          (selectedNoteCosts.da ?? 0) -
+          (liveSelectedIds.has(song.id) ? song.notes.da ?? 0 : 0),
+        pa:
+          (selectedNoteCosts.pa ?? 0) -
+          (liveSelectedIds.has(song.id) ? song.notes.pa ?? 0 : 0),
+        vo:
+          (selectedNoteCosts.vo ?? 0) -
+          (liveSelectedIds.has(song.id) ? song.notes.vo ?? 0 : 0),
+        vi:
+          (selectedNoteCosts.vi ?? 0) -
+          (liveSelectedIds.has(song.id) ? song.notes.vi ?? 0 : 0),
+        me:
+          (selectedNoteCosts.me ?? 0) -
+          (liveSelectedIds.has(song.id) ? song.notes.me ?? 0 : 0),
+      };
+
+      const normalizedReservedCost = {
+        da: Math.max(reservedCost.da, 0),
+        pa: Math.max(reservedCost.pa, 0),
+        vo: Math.max(reservedCost.vo, 0),
+        vi: Math.max(reservedCost.vi, 0),
+        me: Math.max(reservedCost.me, 0),
+      };
+
+      result.set(
+        song.id,
+        getReservedSongAffordableProbabilityAfterCurrent({
+          inventory: currentInventory,
+          currentLessonCost: song.notes,
+          reservedCost: normalizedReservedCost,
+          totalPurchaseCount: liveRefreshHint.coursesToRefreshFromCurrent,
+          year: doubleLessonYear,
+        }),
+      );
+    });
+
+    return result;
+  }, [
+    charInfo?.noteStat,
+    charInfo?.songStats,
+    doubleLessonYear,
+    liveRefreshHint?.coursesToRefreshFromCurrent,
+    liveSelectedIds,
+    selectedNoteCosts,
+  ]);
 
   const plannedMissingNoteTypes = useMemo(
     () => getMissingNoteTypes(charInfo?.noteStat, selectedNoteCosts),
@@ -794,6 +869,9 @@ export default function MonitorDashboard() {
                       purchaseProbabilityYear={doubleLessonYear ?? undefined}
                       hidePurchaseProbability={
                         liveRefreshHint?.isCurrentProgressPurple ?? false
+                      }
+                      reserveProbability={
+                        reserveProbabilityBySongId.get(song.id) ?? null
                       }
                     />
                   ))}
