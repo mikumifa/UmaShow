@@ -180,6 +180,32 @@ export const EXACT_EVENT_RULES: Record<string, EventRule> = {
       },
     ],
   },
+  '501010524': {
+    name: '夏树秘密快件',
+    options: [
+      {
+        1: { desp: '耐力+5力量+10', detail: '耐力+5力量+10', type: 'correct' },
+        2: {
+          desp: '掉干劲',
+          detail: '掉干劲',
+          type: 'wrong',
+        },
+      },
+    ],
+  },
+  '501010525': {
+    name: '夏树事件',
+    options: [
+      {
+        1: { desp: '加属性', detail: '加属性', type: 'correct' },
+        2: {
+          desp: '掉干劲',
+          detail: '掉干劲',
+          type: 'wrong',
+        },
+      },
+    ],
+  },
 };
 
 export const REGEX_EVENT_RULES: { pattern: RegExp; rule: EventRule }[] = [

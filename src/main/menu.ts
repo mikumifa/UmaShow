@@ -1,4 +1,11 @@
-import { app, Menu, BrowserWindow, MenuItemConstructorOptions } from 'electron';
+import {
+  app,
+  Menu,
+  BrowserWindow,
+  MenuItemConstructorOptions,
+  dialog,
+} from 'electron';
+import { SERVER_PORT_OPTIONS } from './config';
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -8,13 +15,19 @@ interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
   checkForUpdates?: () => void | Promise<void>;
+  getServerPort?: () => number;
+  onServerPortChange?: (port: number) => void | Promise<void>;
 
   constructor(
     mainWindow: BrowserWindow,
     checkForUpdates?: () => void | Promise<void>,
+    getServerPort?: () => number,
+    onServerPortChange?: (port: number) => void | Promise<void>,
   ) {
     this.mainWindow = mainWindow;
     this.checkForUpdates = checkForUpdates;
+    this.getServerPort = getServerPort;
+    this.onServerPortChange = onServerPortChange;
   }
 
   buildMenu(): Menu {
@@ -49,6 +62,44 @@ export default class MenuBuilder {
         },
       ]).popup({ window: this.mainWindow });
     });
+  }
+
+  buildServerPortMenu(): MenuItemConstructorOptions {
+    const currentPort = this.getServerPort?.();
+    return {
+      label: '设置',
+      submenu: [
+        {
+          label: `当前监听端口：${currentPort ?? '未启动'}`,
+          enabled: false,
+        },
+        { type: 'separator' },
+        ...SERVER_PORT_OPTIONS.map<MenuItemConstructorOptions>((port) => ({
+          label: `${port}`,
+          type: 'radio',
+          checked: currentPort === port,
+          click: () => {
+            void this.handleServerPortChange(port);
+          },
+        })),
+      ],
+    };
+  }
+
+  async handleServerPortChange(port: number) {
+    try {
+      await this.onServerPortChange?.(port);
+      this.buildMenu();
+      await dialog.showMessageBox(this.mainWindow, {
+        type: 'info',
+        message: `监听端口已切换到 ${port}`,
+      });
+    } catch (error) {
+      await dialog.showMessageBox(this.mainWindow, {
+        type: 'error',
+        message: `监听端口切换失败：${(error as Error).message}`,
+      });
+    }
   }
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
@@ -200,6 +251,7 @@ export default class MenuBuilder {
       subMenuAbout,
       subMenuEdit,
       subMenuNavigate,
+      this.buildServerPortMenu(),
       subMenuView,
       subMenuWindow /* , subMenuHelp */,
     ];
@@ -219,6 +271,7 @@ export default class MenuBuilder {
           this.mainWindow.webContents.send('navigate-to', { path: '/races' });
         },
       },
+      this.buildServerPortMenu(),
 
       {
         label: '&View',

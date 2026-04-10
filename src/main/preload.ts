@@ -70,6 +70,7 @@ const electronHandler = {
     delete: (names: string[]) => ipcRenderer.invoke('race:delete', names),
   },
   packetListener: {
+    getPort: () => ipcRenderer.invoke('server:get-port'),
     onLog(callback: (data: any) => void) {
       const subscription = (_event: IpcRendererEvent, data: any) =>
         callback(data);

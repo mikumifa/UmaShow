@@ -14,6 +14,7 @@ import AppUpdater from './updater';
 import { handleDataLoad, UMDBload } from './handle/Data';
 import { startExpressServer } from './handle/Server';
 import { ensureRaceDir, handleRaceList } from './handle/RaceInfo';
+import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
@@ -97,21 +98,28 @@ const createWindow = async () => {
   if (!appUpdater) {
     appUpdater = new AppUpdater();
   }
-  const menuBuilder = new MenuBuilder(mainWindow, () =>
-    appUpdater?.checkForUpdates(true),
+  const expressServer = await startExpressServer(mainWindow, getServerPort());
+  const menuBuilder = new MenuBuilder(
+    mainWindow,
+    () => appUpdater?.checkForUpdates(true),
+    () => expressServer.getPort(),
+    async (port) => {
+      await expressServer.restart(port);
+      setServerPort(port);
+    },
   );
   menuBuilder.buildMenu();
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
-  startExpressServer(mainWindow);
   appUpdater.checkForUpdates();
 };
 
 //race
 handleRaceList(ipcMain);
 handleDataLoad(ipcMain);
+ipcMain.handle('server:get-port', () => getServerPort());
 
 ipcMain.handle('window:list', () => {
   return windowManager

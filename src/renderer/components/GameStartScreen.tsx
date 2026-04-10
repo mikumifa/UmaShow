@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 function GameStartScreen() {
   const [img, setImg] = useState<string>('');
+  const [port, setPort] = useState<number | null>(null);
   useEffect(() => {
     // eslint-disable-next-line promise/catch-or-return
     window.electron.utils
@@ -9,6 +10,14 @@ function GameStartScreen() {
       // eslint-disable-next-line promise/always-return
       .then((base64) => {
         setImg(base64);
+      });
+
+    // eslint-disable-next-line promise/catch-or-return
+    window.electron.packetListener
+      .getPort()
+      // eslint-disable-next-line promise/always-return
+      .then((value) => {
+        setPort(value);
       });
   }, []);
   return (
@@ -57,7 +66,8 @@ function GameStartScreen() {
           </svg>
 
           <span className="text-slate-700 font-semibold tracking-wide">
-            请先开启游戏，我们将自动开始监听数据。
+            请先开启游戏，我们将自动开始监听数据。当前监听端口：
+            {port ?? '...'}
           </span>
         </div>
       </div>
