@@ -34,7 +34,7 @@ export const EVENT_OPTION_STYLE = {
 
 export default function EventCard({ event }: { event: GameEvent }) {
   return (
-    <div className="relative flex flex-col items-stretch text-left border-4 border-white bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+    <div className="relative flex h-full w-full flex-col items-stretch overflow-hidden rounded-xl border-4 border-white bg-white text-left shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
       {/* Header */}
       <div className="bg-purple-100 py-1.5 px-3 flex items-center justify-center gap-2 border-b border-purple-200">
         <HelpCircle className="text-purple-600" size={14} />

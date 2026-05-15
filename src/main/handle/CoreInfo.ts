@@ -14,6 +14,7 @@ import {
   type ScenarioType,
   SongStat,
   StoryDetail,
+  type VenusData,
 } from 'types/gameTypes';
 import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
 import { UMDB } from './Data';
@@ -45,6 +46,89 @@ const resolveScenarioType = (
     return 'idolCup';
   }
   return 'unknown';
+};
+
+const extractVenusData = (
+  venusDataSet: Record<string, any> | null | undefined,
+): VenusData | undefined => {
+  if (!venusDataSet) {
+    return undefined;
+  }
+
+  return {
+    commandInfo: (venusDataSet.command_info_array ?? []).map((cmd: any) => ({
+      commandId: cmd.command_id,
+      commandType: cmd.command_type,
+      params: (cmd.params_inc_dec_info_array ?? []).map((param: any) => ({
+        targetType: param.target_type,
+        value: param.value,
+      })),
+    })),
+    evaluationInfo: (venusDataSet.evaluation_info_array ?? []).map(
+      (item: any) => ({
+        targetId: item.target_id,
+        charaId: item.chara_id,
+        memberState: item.member_state,
+      }),
+    ),
+    spiritInfo: (venusDataSet.spirit_info_array ?? []).map((item: any) => ({
+      spiritNum: item.spirit_num,
+      spiritId: item.spirit_id,
+      effectGroupId: item.effect_group_id,
+    })),
+    activeEffectInfo: (
+      venusDataSet.venus_spirit_active_effect_info_array ?? []
+    ).map((item: any) => ({
+      charaId: item.chara_id,
+      effectGroupId: item.effect_group_id,
+      beginTurn: item.begin_turn,
+      endTurn: item.end_turn,
+    })),
+    charaInfo: (venusDataSet.venus_chara_info_array ?? []).map((item: any) => ({
+      charaId: item.chara_id,
+      venusLevel: item.venus_level,
+    })),
+    charaCommandInfo: (
+      venusDataSet.venus_chara_command_info_array ?? []
+    ).map((item: any) => ({
+      commandId: item.command_id,
+      commandType: item.command_type,
+      spiritId: item.spirit_id,
+      isBoost: item.is_boost,
+    })),
+    liveItemId: venusDataSet.live_item_id ?? 0,
+  };
+};
+
+const normalizeSingleModeData = (data: Record<string, any>) => {
+  const common = data.single_mode_load_common;
+  if (!common || typeof common !== 'object') {
+    return data;
+  }
+
+  const normalized = { ...common } as Record<string, any>;
+  const dataSetKey = Object.keys(data).find((key) => key.endsWith('_data_set'));
+  if (dataSetKey && normalized[dataSetKey] == null) {
+    normalized[dataSetKey] = data[dataSetKey];
+  }
+  const dataSetLoadKey = Object.keys(data).find((key) =>
+    key.endsWith('_data_set_load'),
+  );
+  if (dataSetLoadKey && normalized[dataSetLoadKey] == null) {
+    normalized[dataSetLoadKey] = data[dataSetLoadKey];
+  }
+
+  const venusDataSet = normalized.venus_data_set;
+  if (venusDataSet && typeof venusDataSet === 'object') {
+    if (Array.isArray(venusDataSet.race_start_info)) {
+      venusDataSet.race_start_info = null;
+    }
+    if (Array.isArray(venusDataSet.venus_race_condition)) {
+      venusDataSet.venus_race_condition = null;
+    }
+  }
+
+  return normalized;
 };
 
 const fetchStoryDetail = (storyId: number): Promise<StoryDetail | null> => {
@@ -146,12 +230,15 @@ export async function extractCoreInfo(
     return;
   }
   const decoded = decodedData;
-  const chara = decoded.data.chara_info;
+  const normalizedData = normalizeSingleModeData(
+    decoded.data as Record<string, any>,
+  );
+  const chara = normalizedData.chara_info;
   if (!chara) return;
   const scenarioType = resolveScenarioType(
-    decoded.data as unknown as Record<string, unknown>,
+    normalizedData as Record<string, unknown>,
   );
-  const home = decoded.data.home_info;
+  const home = normalizedData.home_info;
   const stats: CharStats = {
     speed: { value: chara.speed, max: chara.max_speed },
     stamina: { value: chara.stamina, max: chara.max_stamina },
@@ -161,8 +248,9 @@ export async function extractCoreInfo(
     vital: { value: chara.vital, max: chara.max_vital },
     skillPoint: chara.skill_point,
   };
-  const freeData = decoded.data.free_data_set;
-  const liveData = decoded.data.live_data_set;
+  const freeData = normalizedData.free_data_set;
+  const liveData = normalizedData.live_data_set;
+  const venusData = extractVenusData(normalizedData.venus_data_set);
   const effectedLiveIds = Array.from(
     new Set(
       (liveData?.effected_live_id_array ?? [])
@@ -308,7 +396,7 @@ export async function extractCoreInfo(
     return result;
   });
 
-  const rawEvents = decoded.data?.unchecked_event_array || [];
+  const rawEvents = normalizedData?.unchecked_event_array || [];
   const gameEvents = rawEvents.flatMap((ev: any) => {
     const storyId = ev.story_id;
     const choiceArray = ev.event_contents_info?.choice_array || [];
@@ -361,6 +449,7 @@ export async function extractCoreInfo(
     partnerStats,
     gameEvents,
     eventDetails,
+    venusData: scenarioType === 'venusCup' ? venusData : undefined,
     noteStat: scenarioType === 'idolCup' ? noteStat : undefined,
     songStats: scenarioType === 'idolCup' ? songStats : undefined,
   });

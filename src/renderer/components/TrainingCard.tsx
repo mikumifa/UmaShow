@@ -84,7 +84,7 @@ const getStatConfig = (typeId: number) => {
       };
     case TARGET_TYPE.SKILL_PTS:
       return {
-        label: '技能Pt',
+        label: 'PT',
         icon: createImageIcon('./icons/status/vital.png'),
         color: 'amber',
         bg: 'bg-amber-400',

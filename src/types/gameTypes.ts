@@ -74,6 +74,53 @@ export interface LiveCommand {
   params: LiveCommandParam[];
 }
 
+export interface VenusCommandInfo {
+  commandId: number;
+  commandType: number;
+  params: CommandParam[];
+}
+
+export interface VenusEvaluationInfo {
+  targetId: number;
+  charaId: number;
+  memberState: number;
+}
+
+export interface VenusSpiritInfo {
+  spiritNum: number;
+  spiritId: number;
+  effectGroupId: number;
+}
+
+export interface VenusActiveSpiritEffect {
+  charaId: number;
+  effectGroupId: number;
+  beginTurn: number;
+  endTurn: number;
+}
+
+export interface VenusCharaInfo {
+  charaId: number;
+  venusLevel: number;
+}
+
+export interface VenusCharaCommandInfo {
+  commandId: number;
+  commandType: number;
+  spiritId: number;
+  isBoost: number;
+}
+
+export interface VenusData {
+  commandInfo: VenusCommandInfo[];
+  evaluationInfo: VenusEvaluationInfo[];
+  spiritInfo: VenusSpiritInfo[];
+  activeEffectInfo: VenusActiveSpiritEffect[];
+  charaInfo: VenusCharaInfo[];
+  charaCommandInfo: VenusCharaCommandInfo[];
+  liveItemId: number;
+}
+
 export interface PartnerStat {
   position: number;
   supportCardId: number; // if id == 0, this is not a support card
@@ -143,6 +190,7 @@ export interface CharInfo {
   liveCommands?: LiveCommands;
   livePurchasedIds?: number[];
   eventDetails?: Record<number, StoryDetail>;
+  venusData?: VenusData;
 }
 
 export interface RaceHorseInfo {
@@ -181,7 +229,7 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
   const scenarioChanged =
     incoming.scenarioType != null &&
     incoming.scenarioType !== prev.scenarioType;
-  const pickScenarioScopedValue = <T,>(
+  const pickScenarioScopedValue = <T>(
     incomingValue: T | undefined,
     prevValue: T | undefined,
   ) => {
@@ -214,6 +262,7 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
       incoming.liveCommands,
       prev.liveCommands,
     ),
+    venusData: pickScenarioScopedValue(incoming.venusData, prev.venusData),
     songStats: pickScenarioScopedValue(incoming.songStats, prev.songStats),
     noteStat: pickScenarioScopedValue(incoming.noteStat, prev.noteStat),
     livePurchasedIds,
@@ -248,10 +297,6 @@ export const COMMAND_NAME_MAP: Record<number, string> = {
   603: '力量夏训',
   604: '毅力夏训',
   605: '智力夏训',
-  // 301: "休息",
-  // 390: "外出",
-  // 401: "保健室",
-  // 701: "比赛报名",
 };
 export const COMMAND_TARGET_TYPE_MAP: Record<number, TARGET_TYPE> = {
   101: TARGET_TYPE.SPEED,
@@ -265,8 +310,4 @@ export const COMMAND_TARGET_TYPE_MAP: Record<number, TARGET_TYPE> = {
   603: TARGET_TYPE.POWER,
   605: TARGET_TYPE.WIZ,
   0: TARGET_TYPE.UNKNOWN,
-  // 301: "休息",
-  // 390: "外出",
-  // 401: "保健室",
-  // 701: "比赛报名",
 };

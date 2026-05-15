@@ -67,7 +67,7 @@ const createWindow = async () => {
   mainWindow = new BrowserWindow({
     show: false,
     width: 1400,
-    height: 1000,
+    height: 1200,
     icon: getAssetPath('icon.png'),
     webPreferences: {
       preload: app.isPackaged
@@ -92,7 +92,9 @@ const createWindow = async () => {
     mainWindow?.webContents.send('ui:fullscreen-changed', { fullScreen: true });
   });
   mainWindow.on('leave-full-screen', () => {
-    mainWindow?.webContents.send('ui:fullscreen-changed', { fullScreen: false });
+    mainWindow?.webContents.send('ui:fullscreen-changed', {
+      fullScreen: false,
+    });
   });
 
   if (!appUpdater) {

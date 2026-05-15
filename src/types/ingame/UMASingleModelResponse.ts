@@ -16,6 +16,7 @@ export interface Data {
   free_data_set: FreeDataSet;
   live_data_set?: LiveDataSet | null;
   venus_data_set?: Record<string, unknown> | null;
+  single_mode_load_common?: Partial<Data> | null;
 }
 export interface UnchekedEventArray {
   event_id: number;
@@ -304,6 +305,12 @@ export function isUMASingleModelResponse(
   if (!payload || typeof payload !== 'object') return false;
   const maybe = payload as Partial<UMASingleModelResponse>;
   const hasDataObject =
-    maybe.data != null && typeof maybe.data === 'object' && 'chara_info' in maybe.data;
+    maybe.data != null &&
+    typeof maybe.data === 'object' &&
+    ('chara_info' in maybe.data ||
+      ('single_mode_load_common' in maybe.data &&
+        maybe.data.single_mode_load_common != null &&
+        typeof maybe.data.single_mode_load_common === 'object' &&
+        'chara_info' in maybe.data.single_mode_load_common));
   return typeof maybe.response_code === 'number' && hasDataObject;
 }
