@@ -1479,6 +1479,108 @@
       },
       "specialtyRateUnique": null
     },
+    "10088": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": 5,
+        "10": -1,
+        "15": 20,
+        "20": 20,
+        "25": -1,
+        "30": -1,
+        "35": 35,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "10089": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": 5,
+        "10": -1,
+        "15": 20,
+        "20": 20,
+        "25": -1,
+        "30": -1,
+        "35": 35,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "10091": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": 5,
+        "10": -1,
+        "15": 20,
+        "20": 20,
+        "25": -1,
+        "30": -1,
+        "35": 35,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "10092": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": 35,
+        "25": -1,
+        "30": -1,
+        "35": -1,
+        "40": 50,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "10093": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": 5,
+        "10": -1,
+        "15": 20,
+        "20": 20,
+        "25": -1,
+        "30": -1,
+        "35": 35,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "10094": {
+      "rarity": 1,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
     "20001": {
       "rarity": 2,
       "specialtyRateEffectValues": {
@@ -2425,6 +2527,193 @@
       },
       "specialtyRateUnique": null
     },
+    "20056": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20057": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20058": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": 50,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": 65,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20059": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20060": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20061": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20062": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20063": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20064": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": 50,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": 65,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20065": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": 20,
+        "25": 20,
+        "30": -1,
+        "35": -1,
+        "40": 35,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "20066": {
+      "rarity": 2,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": 50,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": 65,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
     "30001": {
       "rarity": 3,
       "specialtyRateEffectValues": {
@@ -3045,6 +3334,23 @@
         "40": -1,
         "45": -1,
         "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30037": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
       },
       "specialtyRateUnique": null
     },
@@ -4645,6 +4951,176 @@
       },
       "specialtyRateUnique": null
     },
+    "30134": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30135": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": 5,
+        "20": -1,
+        "25": 20,
+        "30": 20,
+        "35": -1,
+        "40": -1,
+        "45": 35,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30136": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30137": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30138": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30139": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 80
+      },
+      "specialtyRateUnique": null
+    },
+    "30140": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": 5,
+        "20": -1,
+        "25": 20,
+        "30": 20,
+        "35": -1,
+        "40": -1,
+        "45": 35,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30141": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30142": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30143": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
     "30145": {
       "rarity": 3,
       "specialtyRateEffectValues": {
@@ -4676,6 +5152,295 @@
         "40": -1,
         "45": 50,
         "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30147": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30148": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 80
+      },
+      "specialtyRateUnique": null
+    },
+    "30149": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30150": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": 5,
+        "20": -1,
+        "25": 20,
+        "30": 20,
+        "35": -1,
+        "40": -1,
+        "45": 35,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30151": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30152": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30153": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30154": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 80
+      },
+      "specialtyRateUnique": null
+    },
+    "30155": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": 5,
+        "20": -1,
+        "25": 20,
+        "30": 20,
+        "35": -1,
+        "40": -1,
+        "45": 35,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30156": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30157": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30158": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30159": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": 5,
+        "20": -1,
+        "25": 20,
+        "30": 20,
+        "35": -1,
+        "40": -1,
+        "45": 35,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30160": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": -1,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30161": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 65
+      },
+      "specialtyRateUnique": null
+    },
+    "30162": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": -1,
+        "5": -1,
+        "10": 5,
+        "15": -1,
+        "20": -1,
+        "25": 35,
+        "30": 35,
+        "35": -1,
+        "40": -1,
+        "45": 50,
+        "50": -1
+      },
+      "specialtyRateUnique": null
+    },
+    "30163": {
+      "rarity": 3,
+      "specialtyRateEffectValues": {
+        "1": 5,
+        "5": -1,
+        "10": -1,
+        "15": -1,
+        "20": -1,
+        "25": -1,
+        "30": 50,
+        "35": -1,
+        "40": -1,
+        "45": -1,
+        "50": 80
       },
       "specialtyRateUnique": null
     }
