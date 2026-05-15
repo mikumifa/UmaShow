@@ -120,15 +120,10 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
               currentStats={charInfo.stats}
             />
           ))}
-          {charInfo.gameEvents.map((ev) => (
-            <div key={ev.eventId} className="w-[248px] shrink-0">
-              <EventCard event={ev} />
-            </div>
-          ))}
         </div>
       </section>
 
-      {actionCommands.length > 0 || eventDetailRows.length > 0 ? (
+      {actionCommands.length > 0 ? (
         <section className="mt-4">
           <div className="flex flex-wrap items-start justify-start gap-4">
             {actionCommands.map((cmd) => {
@@ -164,8 +159,20 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
                 </section>
               );
             })}
+          </div>
+        </section>
+      ) : null}
+
+      {charInfo.gameEvents.length > 0 || eventDetailRows.length > 0 ? (
+        <section className="mt-4">
+          <div className="flex flex-wrap items-start justify-start gap-4">
+            {charInfo.gameEvents.map((ev) => (
+              <div key={ev.eventId} className="w-[248px] shrink-0">
+                <EventCard event={ev} />
+              </div>
+            ))}
             {eventDetailRows.map((row) => (
-              <div key={row.eventId} className="w-[420px] shrink-0">
+              <div key={row.eventId} className="min-w-[420px] flex-1">
                 <EventDetailRow
                   eventName={row.eventName}
                   options={row.options}

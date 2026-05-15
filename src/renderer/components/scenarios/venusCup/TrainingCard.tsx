@@ -182,6 +182,7 @@ type FragmentSlotData = {
   spiritId?: number;
   isPreview?: boolean;
   isBoost?: boolean;
+  showDoubleBadge?: boolean;
 };
 
 export function findVenusSpiritBinding(
@@ -234,6 +235,7 @@ export function buildVenusFragmentSlots(
         spiritId: spiritBinding.spiritId,
         isPreview: true,
         isBoost: spiritBinding.isBoost === 1,
+        showDoubleBadge: spiritBinding.isBoost === 1 && index === 0,
       };
     }
   }
@@ -250,6 +252,39 @@ export function VenusFragmentGrid({ slots }: { slots: FragmentSlotData[] }) {
           slot={slot}
         />
       ))}
+    </div>
+  );
+}
+
+function TrainingFragmentPreview({
+  spiritId,
+  count,
+}: {
+  spiritId?: number;
+  count: number;
+}) {
+  const previewItems = Array.from({ length: count });
+
+  return (
+    <div className="flex min-h-[48px] items-center gap-2">
+      {spiritId != null && count > 0
+        ? previewItems.map((_, index) => (
+            <div
+              key={`${spiritId}-${index}`}
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-fuchsia-300 bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 shadow-sm"
+            >
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-tr from-fuchsia-300/30 via-transparent to-pink-300/45" />
+              <img
+                src={getSpiritIconPath(spiritId)}
+                alt={`fragment-${spiritId}`}
+                className="relative z-10 h-8 w-8 object-contain"
+              />
+              <div className="absolute -bottom-1 -right-1 z-20 rounded-full bg-fuchsia-600 px-1 py-[1px] text-[9px] font-black leading-none text-white shadow-sm">
+                x{count}
+              </div>
+            </div>
+          ))
+        : null}
     </div>
   );
 }
@@ -273,6 +308,11 @@ function FragmentSlot({ slot }: { slot?: FragmentSlotData }) {
     >
       {slot.isPreview ? (
         <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-300/45 via-transparent to-pink-300/70" />
+      ) : null}
+      {slot.showDoubleBadge ? (
+        <div className="absolute right-0 top-0 z-10 rounded-bl-md bg-fuchsia-600 px-1 py-[1px] text-[9px] font-black leading-none text-white shadow-sm">
+          x2
+        </div>
       ) : null}
       <img
         src={getSpiritIconPath(slot.spiritId)}
@@ -335,7 +375,7 @@ export default function VenusCupTrainingCard({
           ? activeModifierSummary.powerBonus
           : currentTrainingTargetType === TARGET_TYPE.GUTS
             ? activeModifierSummary.gutsBonus
-        : currentTrainingTargetType === TARGET_TYPE.WIZ
+            : currentTrainingTargetType === TARGET_TYPE.WIZ
               ? activeModifierSummary.wizBonus
               : 0;
   const mainStatKey =
@@ -358,17 +398,18 @@ export default function VenusCupTrainingCard({
     venusData?.charaCommandInfo,
     command,
   );
-  const fragmentSlots = buildVenusFragmentSlots(
-    venusData?.spiritInfo,
-    spiritBinding,
-  );
+  const fragmentPreviewCount = spiritBinding?.spiritId
+    ? spiritBinding.isBoost === 1
+      ? 2
+      : 1
+    : 0;
 
   return (
     <button
       disabled={isDisabled}
       type="button"
       className={[
-        'relative flex w-[288px] shrink-0 flex-col items-stretch rounded-xl border-4 text-left transition-all duration-150 transform active:scale-95',
+        'relative flex w-[224px] shrink-0 flex-col items-stretch rounded-xl border-4 text-left transition-all duration-150 transform active:scale-95',
         isDisabled
           ? 'cursor-not-allowed border-gray-300 bg-gray-100 opacity-60 grayscale'
           : `border-white bg-gradient-to-br from-gray-50 to-gray-100 shadow-md hover:-translate-y-1 hover:border-${mainConfig.color}-300 hover:shadow-xl`,
@@ -422,8 +463,8 @@ export default function VenusCupTrainingCard({
         ) : null}
       </div>
 
-      <div className="flex gap-2 rounded-b-lg bg-white p-3">
-        <div className="min-w-0 flex-1 space-y-2">
+      <div className="rounded-b-lg bg-white p-3">
+        <div className="min-w-0 space-y-2">
           <div className="space-y-1">
             {gains.map((param, index) => {
               const conf = getStatConfig(param.targetType);
@@ -517,10 +558,16 @@ export default function VenusCupTrainingCard({
                 )}
               </div>
             ) : null}
+            {fragmentPreviewCount > 0 ? (
+              <div className="pt-1">
+                <TrainingFragmentPreview
+                  spiritId={spiritBinding?.spiritId}
+                  count={fragmentPreviewCount}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
-
-        <VenusFragmentGrid slots={fragmentSlots} />
       </div>
 
       <div className="flex min-h-[46px] flex-wrap justify-start gap-1.5 rounded-b-lg border-t border-gray-100 bg-gray-50 p-2">
@@ -528,10 +575,18 @@ export default function VenusCupTrainingCard({
           const partner = partnerStats.find(
             (item) => item.position === position,
           );
+          const supportCard = partner?.supportCardId
+            ? UMDB.supportCards[partner.supportCardId]
+            : null;
           const progress =
             partner?.supportCardId === 0 && partner?.position >= 1000
               ? null
               : Math.min(100, Math.max(0, partner?.evaluation ?? 0));
+          const isMatchingTraining =
+            COMMAND_TARGET_TYPE_MAP[supportCard?.commandId ?? 0] ===
+            COMMAND_TARGET_TYPE_MAP[command.commandId];
+          const isMotivated =
+            progress !== null && progress >= 80 && isMatchingTraining;
           const isTip = command.tipsPartners?.includes(position);
           const progressColor =
             progress !== null &&
@@ -543,7 +598,15 @@ export default function VenusCupTrainingCard({
                 : 'bg-[#2AC0FF]');
 
           return (
-            <div key={position} className="relative flex flex-col items-center">
+            <div
+              key={position}
+              className="relative flex flex-col items-center group/partner"
+            >
+              {isMotivated ? (
+                <div className="absolute -top-[3px] z-0 h-[38px] w-[38px] animate-spin-slow rounded-full">
+                  <div className="h-full w-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] opacity-90 blur-[1px]" />
+                </div>
+              ) : null}
               <div className="relative z-10 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-orange-100 text-[10px] shadow-sm transition-transform hover:scale-110">
                 {partner?.charaPath ? (
                   <img
