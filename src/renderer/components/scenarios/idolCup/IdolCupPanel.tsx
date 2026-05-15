@@ -17,9 +17,7 @@ import LiveRefreshTracker, {
   parseSequence,
 } from 'renderer/components/scenarios/idolCup/LiveRefreshTracker';
 import SongStatusCard from 'renderer/components/scenarios/idolCup/SongStatusCard';
-import {
-  type NoteType,
-} from 'renderer/components/scenarios/idolCup/NoteStyles';
+import { type NoteType } from 'renderer/components/scenarios/idolCup/NoteStyles';
 import LivePlan from 'renderer/components/scenarios/idolCup/LivePlan';
 import { getMissingNoteTypes } from 'renderer/components/scenarios/idolCup/MinNoteTransfer';
 import {
@@ -166,6 +164,14 @@ const getLivePhaseKey = (turn: number): LivePhaseKey => {
 };
 
 export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
+  const { gameStats } = charInfo;
+  const { turn, startTime, specialtyLiveEffectRate } = gameStats;
+  const {
+    liveCommands,
+    livePurchasedIds,
+    noteStat,
+    songStats,
+  } = charInfo;
   const [hoveredCommandId, setHoveredCommandId] = useState<number | null>(null);
   const [hoveredSongId, setHoveredSongId] = useState<number | null>(null);
   const [liveSelectedIds, setLiveSelectedIds] = useState<Set<number>>(
@@ -206,12 +212,12 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
   }, [liveRefreshHint]);
 
   const doubleLessonYear = useMemo(() => {
-    return getDoubleLessonYearByTurn(charInfo.gameStats.turn);
-  }, [charInfo.gameStats.turn]);
+    return getDoubleLessonYearByTurn(turn);
+  }, [turn]);
 
   const trainingCommandsByNote = useMemo(() => {
     const map = new Map<keyof NoteStat, Set<number>>();
-    if (!charInfo.liveCommands) return map;
+    if (!liveCommands) return map;
     const performanceTypeMap: Record<number, keyof NoteStat> = {
       1: 'da',
       2: 'pa',
@@ -219,7 +225,7 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       4: 'vi',
       5: 'me',
     };
-    charInfo.liveCommands.forEach((live) => {
+    liveCommands.forEach((live) => {
       (live.performance ?? []).forEach((p) => {
         if (p.value === 0) return;
         const key = performanceTypeMap[p.performanceType];
@@ -231,7 +237,7 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       });
     });
     return map;
-  }, [charInfo.liveCommands]);
+  }, [liveCommands]);
 
   const trainingLabelsByNote = useMemo(() => {
     const trainingLabelMap: Record<number, string> = {
@@ -258,18 +264,18 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
   }, [trainingCommandsByNote]);
 
   const trainingPreviewNoteStat = useMemo(() => {
-    if (!charInfo.noteStat || !charInfo.liveCommands) return null;
+    if (!noteStat || !liveCommands) return null;
     if (!hoveredCommandId) return null;
-    const liveCommand = charInfo.liveCommands.find(
+    const liveCommand = liveCommands.find(
       (live) => live.commandId === hoveredCommandId,
     );
     if (!liveCommand?.performance?.length) return null;
     const next = {
-      da: { ...charInfo.noteStat.da },
-      pa: { ...charInfo.noteStat.pa },
-      vo: { ...charInfo.noteStat.vo },
-      vi: { ...charInfo.noteStat.vi },
-      me: { ...charInfo.noteStat.me },
+      da: { ...noteStat.da },
+      pa: { ...noteStat.pa },
+      vo: { ...noteStat.vo },
+      vi: { ...noteStat.vi },
+      me: { ...noteStat.me },
     };
     const performanceTypeMap: Record<number, keyof NoteStat> = {
       1: 'da',
@@ -284,14 +290,16 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       next[key].value += p.value;
     });
     return next;
-  }, [charInfo.noteStat, charInfo.liveCommands, hoveredCommandId]);
+  }, [hoveredCommandId, liveCommands, noteStat]);
 
   const previewNoteStat = useMemo(() => {
-    const baseNoteStat = trainingPreviewNoteStat ?? charInfo.noteStat;
+    const baseNoteStat = trainingPreviewNoteStat ?? noteStat;
     if (!baseNoteStat || hoveredSongId == null) {
       return trainingPreviewNoteStat;
     }
-    const hoveredSong = charInfo.songStats?.find((song) => song.id === hoveredSongId);
+    const hoveredSong = songStats?.find(
+      (song) => song.id === hoveredSongId,
+    );
     if (!hoveredSong) {
       return trainingPreviewNoteStat;
     }
@@ -306,21 +314,16 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       next[key].value -= hoveredSong.notes[key] ?? 0;
     });
     return next;
-  }, [
-    charInfo.noteStat,
-    charInfo.songStats,
-    hoveredSongId,
-    trainingPreviewNoteStat,
-  ]);
+  }, [hoveredSongId, noteStat, songStats, trainingPreviewNoteStat]);
 
   const recommendedIds = useMemo(() => {
-    const effectiveNoteStat = trainingPreviewNoteStat ?? charInfo.noteStat;
+    const effectiveNoteStat = trainingPreviewNoteStat ?? noteStat;
     return getRecommendedSongIds({
       selectedIds: liveSelectedIds,
       noteStat: effectiveNoteStat,
-      songStats: charInfo.songStats ?? [],
+      songStats: songStats ?? [],
     });
-  }, [charInfo.noteStat, charInfo.songStats, liveSelectedIds, trainingPreviewNoteStat]);
+  }, [liveSelectedIds, noteStat, songStats, trainingPreviewNoteStat]);
 
   const selectedNoteCosts = useMemo(() => {
     const total: Partial<Record<NoteType, number>> = {
@@ -350,7 +353,7 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
   }, [liveSelectedIds]);
 
   const reserveProbabilityBySongId = useMemo(() => {
-    if (!charInfo.noteStat || !liveRefreshHint?.coursesToRefreshFromCurrent) {
+    if (!noteStat || !liveRefreshHint?.coursesToRefreshFromCurrent) {
       return new Map<number, number>();
     }
     if (liveSelectedIds.size === 0) {
@@ -358,31 +361,31 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
     }
 
     const currentInventory = {
-      da: charInfo.noteStat.da.value,
-      pa: charInfo.noteStat.pa.value,
-      vo: charInfo.noteStat.vo.value,
-      vi: charInfo.noteStat.vi.value,
-      me: charInfo.noteStat.me.value,
+      da: noteStat.da.value,
+      pa: noteStat.pa.value,
+      vo: noteStat.vo.value,
+      vi: noteStat.vi.value,
+      me: noteStat.me.value,
     };
 
     const result = new Map<number, number>();
-    (charInfo.songStats ?? []).forEach((song) => {
+    (songStats ?? []).forEach((song) => {
       const reservedCost = {
         da:
           (selectedNoteCosts.da ?? 0) -
-          (liveSelectedIds.has(song.id) ? song.notes.da ?? 0 : 0),
+          (liveSelectedIds.has(song.id) ? (song.notes.da ?? 0) : 0),
         pa:
           (selectedNoteCosts.pa ?? 0) -
-          (liveSelectedIds.has(song.id) ? song.notes.pa ?? 0 : 0),
+          (liveSelectedIds.has(song.id) ? (song.notes.pa ?? 0) : 0),
         vo:
           (selectedNoteCosts.vo ?? 0) -
-          (liveSelectedIds.has(song.id) ? song.notes.vo ?? 0 : 0),
+          (liveSelectedIds.has(song.id) ? (song.notes.vo ?? 0) : 0),
         vi:
           (selectedNoteCosts.vi ?? 0) -
-          (liveSelectedIds.has(song.id) ? song.notes.vi ?? 0 : 0),
+          (liveSelectedIds.has(song.id) ? (song.notes.vi ?? 0) : 0),
         me:
           (selectedNoteCosts.me ?? 0) -
-          (liveSelectedIds.has(song.id) ? song.notes.me ?? 0 : 0),
+          (liveSelectedIds.has(song.id) ? (song.notes.me ?? 0) : 0),
       };
 
       result.set(
@@ -405,36 +408,35 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
 
     return result;
   }, [
-    charInfo.noteStat,
-    charInfo.songStats,
     doubleLessonYear,
     liveRefreshHint?.coursesToRefreshFromCurrent,
     liveSelectedIds,
+    noteStat,
     selectedNoteCosts,
+    songStats,
   ]);
 
   const plannedMissingNoteTypes = useMemo(
-    () => getMissingNoteTypes(charInfo.noteStat, selectedNoteCosts),
-    [charInfo.noteStat, selectedNoteCosts],
+    () => getMissingNoteTypes(noteStat, selectedNoteCosts),
+    [noteStat, selectedNoteCosts],
   );
 
   const livePoolIds = useMemo(() => {
-    const ids = getLivePoolIdsByTurn(charInfo.gameStats.turn);
-    const purchased = new Set(charInfo.livePurchasedIds ?? []);
+    const ids = getLivePoolIdsByTurn(turn);
+    const purchased = new Set(livePurchasedIds ?? []);
     return ids.filter((id) => !purchased.has(id));
-  }, [charInfo.gameStats.turn, charInfo.livePurchasedIds]);
+  }, [livePurchasedIds, turn]);
 
   useEffect(() => {
     setLiveSelectedIds((prev) => {
       const next = new Set<number>(prev);
-      const purchasedSet = new Set(charInfo.livePurchasedIds ?? []);
+      const purchasedSet = new Set(livePurchasedIds ?? []);
       purchasedSet.forEach((id) => next.delete(id));
       return next;
     });
-  }, [charInfo.livePurchasedIds]);
+  }, [livePurchasedIds]);
 
   useEffect(() => {
-    const startTime = charInfo.gameStats.startTime;
     if (startTime == null) return;
 
     const startTimeKey = String(startTime);
@@ -445,10 +447,9 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       resetRunScopedState();
     }
     lastStartTimeRef.current = startTimeKey;
-  }, [charInfo.gameStats.startTime, resetRunScopedState]);
+  }, [resetRunScopedState, startTime]);
 
   useEffect(() => {
-    const startTime = charInfo.gameStats.startTime;
     if (startTime == null) return;
 
     try {
@@ -462,11 +463,11 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
     } catch (err) {
       log.warn('Failed to restore live refresh tracker cache:', err);
     }
-  }, [charInfo.gameStats.startTime, getLiveRefreshCacheKey]);
+  }, [getLiveRefreshCacheKey, startTime]);
 
   useEffect(() => {
-    const phaseKey = getLivePhaseKey(charInfo.gameStats.turn);
-    const offeringIds = (charInfo.songStats ?? [])
+    const phaseKey = getLivePhaseKey(turn);
+    const offeringIds = (songStats ?? [])
       .map((song) => song.id)
       .sort((a, b) => a - b);
     const offeringSignature = offeringIds.join(',');
@@ -490,10 +491,9 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
 
     liveRefreshTrackerRef.current[phaseKey] = tracker;
     setLiveRefreshHint(buildLiveRefreshHint(phaseKey, tracker.currentProgress));
-  }, [charInfo.gameStats.turn, charInfo.songStats]);
+  }, [songStats, turn]);
 
   useEffect(() => {
-    const startTime = charInfo.gameStats.startTime;
     if (startTime == null) return;
     try {
       localStorage.setItem(
@@ -503,11 +503,10 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
     } catch (err) {
       log.warn('Failed to cache live refresh tracker:', err);
     }
-  }, [charInfo.gameStats.startTime, getLiveRefreshCacheKey, liveRefreshHint]);
+  }, [getLiveRefreshCacheKey, liveRefreshHint, startTime]);
 
   useEffect(() => {
     if (livePoolIds.length === 0) return;
-    const { turn } = charInfo.gameStats;
     if (lastTurnRef.current != null && turn < lastTurnRef.current) {
       autoSelectPoolKeyRef.current = null;
     }
@@ -539,7 +538,7 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
       });
       return next;
     });
-  }, [charInfo.gameStats.turn, livePoolIds]);
+  }, [livePoolIds, turn]);
 
   return (
     <>
@@ -552,8 +551,8 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
               pattern={liveRefreshPattern}
               progress={liveRefreshHint?.purchasesSinceLastRefresh ?? 0}
               onJump={(index) => {
-                const phaseKey = getLivePhaseKey(charInfo.gameStats.turn);
-                const offeringSignature = (charInfo.songStats ?? [])
+                const phaseKey = getLivePhaseKey(turn);
+                const offeringSignature = (songStats ?? [])
                   .map((song) => song.id)
                   .sort((a, b) => a - b)
                   .join(',');
@@ -565,14 +564,14 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
               }}
             />
             <div className="mt-3 grid grid-cols-3 gap-3 justify-items-start justify-content-start">
-              {(charInfo.songStats ?? []).map((song) => (
+              {(songStats ?? []).map((song) => (
                 <SongStatusCard
                   key={song.id}
                   id={song.id}
                   title={song.title}
                   attributes={song.attributes}
                   notes={song.notes}
-                  noteStat={charInfo.noteStat}
+                  noteStat={noteStat}
                   previewNoteStat={trainingPreviewNoteStat ?? undefined}
                   onHoverChange={(id, isHovering) =>
                     setHoveredSongId((prev) => {
@@ -588,27 +587,20 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
                         : '不影响其他歌曲'
                       : undefined
                   }
-                  trainingCommandIds={(() => {
-                    const noteKeys = Object.keys(song.notes) as Array<
-                      keyof NoteStat
-                    >;
-                    const ids = noteKeys
-                      .filter((key) => (song.notes[key] ?? 0) > 0)
-                      .flatMap((key) =>
-                        Array.from(trainingCommandsByNote.get(key) ?? []),
-                      );
-                    return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
-                  })()}
                   trainingCommandsByNote={(() => {
                     const noteKeys = Object.keys(song.notes) as Array<NoteType>;
                     const perNote: Partial<Record<NoteType, number[]>> = {};
                     noteKeys.forEach((key) => {
-                      const ids = Array.from(trainingCommandsByNote.get(key) ?? []);
+                      const ids = Array.from(
+                        trainingCommandsByNote.get(key) ?? [],
+                      );
                       if (ids.length > 0) {
                         perNote[key] = ids;
                       }
                     });
-                    return Object.keys(perNote).length > 0 ? perNote : undefined;
+                    return Object.keys(perNote).length > 0
+                      ? perNote
+                      : undefined;
                   })()}
                   remainingPurchasesToRefresh={
                     liveRefreshHint?.coursesToRefreshFromCurrent
@@ -617,19 +609,21 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
                   hidePurchaseProbability={
                     liveRefreshHint?.isCurrentProgressPurple ?? false
                   }
-                  reserveProbability={reserveProbabilityBySongId.get(song.id) ?? null}
+                  reserveProbability={
+                    reserveProbabilityBySongId.get(song.id) ?? null
+                  }
                 />
               ))}
             </div>
           </div>
           <section className="h-full">
             <LivePlan
-              turn={charInfo.gameStats.turn}
-              noteStat={charInfo.noteStat}
+              turn={turn}
+              noteStat={noteStat}
               previewNoteStat={previewNoteStat ?? null}
-              purchasedLiveIds={charInfo.livePurchasedIds}
+              purchasedLiveIds={livePurchasedIds}
               selectedIds={liveSelectedIds}
-              sellingIds={new Set((charInfo.songStats ?? []).map((s) => s.id))}
+              sellingIds={new Set((songStats ?? []).map((s) => s.id))}
               trainingLabelsByNote={trainingLabelsByNote}
               onToggleSelect={(id) =>
                 setLiveSelectedIds((prev) => {
@@ -649,9 +643,9 @@ export default function IdolCupPanel({ charInfo }: { charInfo: CharInfo }) {
 
       <TrainingEventsSection
         charInfo={charInfo}
-        currentNoteStat={charInfo.noteStat}
+        currentNoteStat={noteStat}
         warningNoteTypes={plannedMissingNoteTypes}
-        liveSpecialtyRateBonus={charInfo.gameStats.specialtyLiveEffectRate ?? 0}
+        liveSpecialtyRateBonus={specialtyLiveEffectRate ?? 0}
         onTrainingHoverChange={setHoveredCommandId}
       />
     </>

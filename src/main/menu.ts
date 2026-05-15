@@ -67,7 +67,7 @@ export default class MenuBuilder {
   buildServerPortMenu(): MenuItemConstructorOptions {
     const currentPort = this.getServerPort?.();
     return {
-      label: '设置',
+      label: 'Port',
       submenu: [
         {
           label: `当前监听端口：${currentPort ?? '未启动'}`,

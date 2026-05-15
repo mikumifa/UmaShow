@@ -137,6 +137,7 @@ const fetchStoryDetail = (storyId: number): Promise<StoryDetail | null> => {
   return request;
 };
 
+// eslint-disable-next-line import/prefer-default-export
 export async function extractCoreInfo(
   decodedData: unknown,
   _mainWindow: BrowserWindow,
@@ -333,7 +334,7 @@ export async function extractCoreInfo(
     return [
       {
         eventId: storyId,
-        eventName: rule ? rule.name : `事件 ${storyId}`,
+        eventName: rule?.name ?? `事件 ${storyId}`,
         options,
       },
     ];
@@ -356,8 +357,7 @@ export async function extractCoreInfo(
     stats,
     commands,
     liveCommands: scenarioType === 'idolCup' ? liveCommands : undefined,
-    livePurchasedIds:
-      scenarioType === 'idolCup' ? livePurchasedIds : undefined,
+    livePurchasedIds: scenarioType === 'idolCup' ? livePurchasedIds : undefined,
     partnerStats,
     gameEvents,
     eventDetails,

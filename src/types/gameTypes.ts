@@ -179,7 +179,26 @@ export function isEmptyField(field: any): boolean {
 
 export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
   const scenarioChanged =
-    incoming.scenarioType != null && incoming.scenarioType !== prev.scenarioType;
+    incoming.scenarioType != null &&
+    incoming.scenarioType !== prev.scenarioType;
+  const pickScenarioScopedValue = <T,>(
+    incomingValue: T | undefined,
+    prevValue: T | undefined,
+  ) => {
+    if (!isEmptyField(incomingValue)) {
+      return incomingValue;
+    }
+    if (scenarioChanged) {
+      return incomingValue;
+    }
+    return prevValue;
+  };
+  let livePurchasedIds = prev.livePurchasedIds;
+  if (incoming.livePurchasedIds != null) {
+    livePurchasedIds = incoming.livePurchasedIds;
+  } else if (scenarioChanged) {
+    livePurchasedIds = incoming.livePurchasedIds;
+  }
 
   return {
     ...incoming,
@@ -191,27 +210,13 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     commands: isEmptyField(incoming.commands)
       ? prev.commands
       : incoming.commands,
-    liveCommands: isEmptyField(incoming.liveCommands)
-      ? scenarioChanged
-        ? incoming.liveCommands
-        : prev.liveCommands
-      : incoming.liveCommands,
-    songStats: isEmptyField(incoming.songStats)
-      ? scenarioChanged
-        ? incoming.songStats
-        : prev.songStats
-      : incoming.songStats,
-    noteStat: isEmptyField(incoming.noteStat)
-      ? scenarioChanged
-        ? incoming.noteStat
-        : prev.noteStat
-      : incoming.noteStat,
-    livePurchasedIds:
-      incoming.livePurchasedIds != null
-        ? incoming.livePurchasedIds
-        : scenarioChanged
-          ? incoming.livePurchasedIds
-          : prev.livePurchasedIds,
+    liveCommands: pickScenarioScopedValue(
+      incoming.liveCommands,
+      prev.liveCommands,
+    ),
+    songStats: pickScenarioScopedValue(incoming.songStats, prev.songStats),
+    noteStat: pickScenarioScopedValue(incoming.noteStat, prev.noteStat),
+    livePurchasedIds,
     gameStats: isEmptyField(incoming.gameStats)
       ? prev.gameStats
       : {

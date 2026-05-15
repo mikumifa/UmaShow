@@ -12,6 +12,12 @@ export function VitalPanel({ charInfo }: { charInfo: CharInfo }) {
     charInfo.stats.vital.max > 0
       ? (charInfo.stats.vital.value / charInfo.stats.vital.max) * 100
       : 0;
+  let vitalBarClass = 'bg-gradient-to-r from-red-500 to-red-400';
+  if (vitalPercent > 50) {
+    vitalBarClass = 'bg-gradient-to-r from-green-500 to-green-400';
+  } else if (vitalPercent > 30) {
+    vitalBarClass = 'bg-gradient-to-r from-yellow-500 to-yellow-400';
+  }
 
   return (
     <div className="flex items-center gap-3 w-full">
@@ -24,13 +30,7 @@ export function VitalPanel({ charInfo }: { charInfo: CharInfo }) {
 
           <div className="flex-1 relative h-5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
             <div
-              className={`absolute top-0 left-0 h-full transition-all duration-300 ${
-                vitalPercent > 50
-                  ? 'bg-gradient-to-r from-green-500 to-green-400'
-                  : vitalPercent > 30
-                    ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
-                    : 'bg-gradient-to-r from-red-500 to-red-400'
-              }`}
+              className={`absolute top-0 left-0 h-full transition-all duration-300 ${vitalBarClass}`}
               style={{
                 width: `${vitalPercent}%`,
               }}

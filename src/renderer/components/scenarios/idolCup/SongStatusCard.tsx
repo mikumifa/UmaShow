@@ -31,7 +31,6 @@ export interface SongStatus {
   notes: Record<NoteType, number>;
   noteStat?: NoteStat;
   previewNoteStat?: NoteStat;
-  trainingCommandIds?: number[];
   trainingCommandsByNote?: Partial<Record<NoteType, number[]>>;
   recommended?: boolean;
   recommendedReason?: string;
