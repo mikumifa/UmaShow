@@ -13,8 +13,10 @@ import { UMDB } from '../utils/umdb';
 import { getSupportCardSpecialtySummary } from '../../utils/supportCardSpecialty';
 import FailureRateBadge from './FailureRateBadge';
 import createImageIcon from './Icon';
-import { NOTE_STYLES, type NoteType } from './NoteStyles';
-import MinNoteTransfer, { getMinNoteTypes } from './MinNoteTransfer';
+import { NOTE_STYLES, type NoteType } from './scenarios/idolCup/NoteStyles';
+import MinNoteTransfer, {
+  getMinNoteTypes,
+} from './scenarios/idolCup/MinNoteTransfer';
 
 export interface TargetConfig {
   label: string;

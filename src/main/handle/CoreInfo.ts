@@ -11,6 +11,7 @@ import {
   CharStats,
   GameStats,
   NoteStat,
+  type ScenarioType,
   SongStat,
   StoryDetail,
 } from 'types/gameTypes';
@@ -33,6 +34,18 @@ const formatColorHtml = (input: string) => {
 
 const storyDetailCache = new Map<number, StoryDetail>();
 const storyDetailInFlight = new Map<number, Promise<StoryDetail | null>>();
+
+const resolveScenarioType = (
+  data: Record<string, unknown> | null | undefined,
+): ScenarioType => {
+  if (data?.venus_data_set != null) {
+    return 'venusCup';
+  }
+  if (data?.live_data_set != null) {
+    return 'idolCup';
+  }
+  return 'unknown';
+};
 
 const fetchStoryDetail = (storyId: number): Promise<StoryDetail | null> => {
   const cached = storyDetailCache.get(storyId);
@@ -134,6 +147,9 @@ export async function extractCoreInfo(
   const decoded = decodedData;
   const chara = decoded.data.chara_info;
   if (!chara) return;
+  const scenarioType = resolveScenarioType(
+    decoded.data as unknown as Record<string, unknown>,
+  );
   const home = decoded.data.home_info;
   const stats: CharStats = {
     speed: { value: chara.speed, max: chara.max_speed },
@@ -335,15 +351,17 @@ export async function extractCoreInfo(
     }
   });
   _mainWindow.webContents.send('core-info-update', {
+    scenarioType,
     gameStats,
     stats,
     commands,
-    liveCommands,
-    livePurchasedIds,
+    liveCommands: scenarioType === 'idolCup' ? liveCommands : undefined,
+    livePurchasedIds:
+      scenarioType === 'idolCup' ? livePurchasedIds : undefined,
     partnerStats,
     gameEvents,
     eventDetails,
-    noteStat,
-    songStats,
+    noteStat: scenarioType === 'idolCup' ? noteStat : undefined,
+    songStats: scenarioType === 'idolCup' ? songStats : undefined,
   });
 }

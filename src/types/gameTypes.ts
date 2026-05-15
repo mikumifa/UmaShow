@@ -36,6 +36,8 @@ export interface GameStats {
   currentTrainingPartnerUniqueCount?: number;
 }
 
+export type ScenarioType = 'idolCup' | 'venusCup' | 'unknown';
+
 // =============================
 // Training Command Types
 // =============================
@@ -130,6 +132,7 @@ export interface SongStats extends Array<SongStat> {}
 // Wrapper for Character Info
 // =============================
 export interface CharInfo {
+  scenarioType: ScenarioType;
   partnerStats: PartnerStats;
   gameEvents: GameEvents;
   gameStats: GameStats;
@@ -175,8 +178,12 @@ export function isEmptyField(field: any): boolean {
 }
 
 export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
+  const scenarioChanged =
+    incoming.scenarioType != null && incoming.scenarioType !== prev.scenarioType;
+
   return {
     ...incoming,
+    scenarioType: incoming.scenarioType ?? prev.scenarioType,
     stats: isEmptyField(incoming.stats) ? prev.stats : incoming.stats,
     partnerStats: isEmptyField(incoming.partnerStats)
       ? prev.partnerStats
@@ -185,18 +192,26 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
       ? prev.commands
       : incoming.commands,
     liveCommands: isEmptyField(incoming.liveCommands)
-      ? prev.liveCommands
+      ? scenarioChanged
+        ? incoming.liveCommands
+        : prev.liveCommands
       : incoming.liveCommands,
     songStats: isEmptyField(incoming.songStats)
-      ? prev.songStats
+      ? scenarioChanged
+        ? incoming.songStats
+        : prev.songStats
       : incoming.songStats,
     noteStat: isEmptyField(incoming.noteStat)
-      ? prev.noteStat
+      ? scenarioChanged
+        ? incoming.noteStat
+        : prev.noteStat
       : incoming.noteStat,
     livePurchasedIds:
       incoming.livePurchasedIds != null
         ? incoming.livePurchasedIds
-        : prev.livePurchasedIds,
+        : scenarioChanged
+          ? incoming.livePurchasedIds
+          : prev.livePurchasedIds,
     gameStats: isEmptyField(incoming.gameStats)
       ? prev.gameStats
       : {

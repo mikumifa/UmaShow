@@ -6,7 +6,7 @@ import {
   getLivePoolIdsByTurn,
   type LiveSquare,
 } from 'constant/live/liveSchedule';
-import { NOTE_STYLES, type NoteType } from 'renderer/components/NoteStyles';
+import { NOTE_STYLES, type NoteType } from './NoteStyles';
 import type { NoteStat } from 'types/gameTypes';
 
 interface LivePlanProps {

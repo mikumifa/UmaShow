@@ -14,7 +14,8 @@ export interface Data {
   race_condition_array: RaceConditionArray[];
   race_start_info: null;
   free_data_set: FreeDataSet;
-  live_data_set: LiveDataSet;
+  live_data_set?: LiveDataSet | null;
+  venus_data_set?: Record<string, unknown> | null;
 }
 export interface UnchekedEventArray {
   event_id: number;
