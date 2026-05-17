@@ -8,29 +8,40 @@ import RaceList from 'renderer/ui/RaceList';
 
 export default function App() {
   return (
-    <Router>
-      <AliveScope>
-        <HiddenNavigator />
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <KeepAlive name="Dashboard" cacheKey="Dashboard">
-                <MonitorDashboard />
-              </KeepAlive>
-            }
-          />
-          <Route
-            path="/races"
-            element={
-              <KeepAlive name="RaceList" cacheKey="RaceList">
-                <RaceList />
-              </KeepAlive>
-            }
-          />
-          <Route path="/race" element={<RaceDataPage />} />
-        </Routes>
-      </AliveScope>
-    </Router>
+    <div className="min-h-screen select-none">
+      <style>
+        {`
+          img {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+          }
+        `}
+      </style>
+      <Router>
+        <AliveScope>
+          <HiddenNavigator />
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <KeepAlive name="Dashboard" cacheKey="Dashboard">
+                  <MonitorDashboard />
+                </KeepAlive>
+              }
+            />
+            <Route
+              path="/races"
+              element={
+                <KeepAlive name="RaceList" cacheKey="RaceList">
+                  <RaceList />
+                </KeepAlive>
+              }
+            />
+            <Route path="/race" element={<RaceDataPage />} />
+          </Routes>
+        </AliveScope>
+      </Router>
+    </div>
   );
 }

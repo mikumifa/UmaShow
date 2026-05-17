@@ -11,6 +11,7 @@ import VenusCupTrainingCard, {
   buildVenusFragmentSlots,
   findVenusSpiritBinding,
 } from './TrainingCard';
+import VenusSpiritTree from './VenusSpiritTree';
 
 const NON_TRAINING_COMMAND_TYPE_LABELS: Record<number, string> = {
   7: '休息',
@@ -102,12 +103,11 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
         options: EventDetailOption[];
       } => !!row && row.options.length > 0,
     );
+  const hasSpiritTree = (charInfo.venusData?.spiritInfo?.length ?? 0) > 0;
 
   return (
-    <>
+    <div className="p-3">
       <VitalPanel charInfo={charInfo} />
-
-
 
       <section className="mt-4">
         <div className="flex flex-wrap items-start justify-start gap-4">
@@ -123,49 +123,57 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
         </div>
       </section>
 
-      {actionCommands.length > 0 ? (
-        <section className="mt-4">
-          <div className="flex flex-wrap items-start justify-start gap-4">
-            {actionCommands.map((cmd) => {
-              const spiritBinding = findVenusSpiritBinding(
-                charInfo.venusData?.charaCommandInfo,
-                cmd,
-              );
-              const fragmentSlots = buildVenusFragmentSlots(
-                charInfo.venusData?.spiritInfo,
-                spiritBinding,
-              );
-              const style = NON_TRAINING_COMMAND_TYPE_STYLES[cmd.commandType];
+      {hasSpiritTree || actionCommands.length > 0 ? (
+        <section className="mt-1">
+          <div className="flex items-start gap-4">
+            {hasSpiritTree ? (
+              <VenusSpiritTree
+                spiritInfo={charInfo.venusData?.spiritInfo}
+                charaInfo={charInfo.venusData?.charaInfo}
+              />
+            ) : null}
+            <div className="flex min-w-0 flex-1 flex-wrap items-start justify-start gap-4">
+              {actionCommands.map((cmd) => {
+                const spiritBinding = findVenusSpiritBinding(
+                  charInfo.venusData?.charaCommandInfo,
+                  cmd,
+                );
+                const fragmentSlots = buildVenusFragmentSlots(
+                  charInfo.venusData?.spiritInfo,
+                  spiritBinding,
+                );
+                const style = NON_TRAINING_COMMAND_TYPE_STYLES[cmd.commandType];
 
-              return (
-                <section
-                  key={cmd.commandId}
-                  className={`w-fit max-w-full shrink-0 rounded-xl border p-3 shadow-sm ${style.border} ${style.bg}`}
-                >
-                  <div className="inline-flex max-w-full items-start gap-3">
-                    <div className="min-w-0">
-                      <div
-                        className={`rounded-full px-3 py-1 text-sm font-black ${style.badgeBg} ${style.badgeText}`}
-                      >
-                        {NON_TRAINING_COMMAND_TYPE_LABELS[cmd.commandType] ??
-                          `动作 ${cmd.commandId}`}
+                return (
+                  <section
+                    key={cmd.commandId}
+                    className={`flex h-[214px] w-fit max-w-full shrink-0 flex-col rounded-xl border p-3 shadow-sm ${style.border} ${style.bg}`}
+                  >
+                    <div className="inline-flex max-w-full items-start gap-3">
+                      <div className="min-w-0">
+                        <div
+                          className={`rounded-full px-3 py-1 text-sm font-black ${style.badgeBg} ${style.badgeText}`}
+                        >
+                          {NON_TRAINING_COMMAND_TYPE_LABELS[cmd.commandType] ??
+                            `动作 ${cmd.commandId}`}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-2 flex justify-start">
-                    <VenusFragmentGrid slots={fragmentSlots} />
-                  </div>
-                </section>
-              );
-            })}
+                    <div className="mt-2 flex justify-start">
+                      <VenusFragmentGrid slots={fragmentSlots} />
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           </div>
         </section>
       ) : null}
 
       {charInfo.gameEvents.length > 0 || eventDetailRows.length > 0 ? (
         <section className="mt-4">
-          <div className="flex flex-wrap items-start justify-start gap-4">
+          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-start gap-4">
             {charInfo.gameEvents.map((ev) => (
               <div key={ev.eventId} className="w-[248px] shrink-0">
                 <EventCard event={ev} />
@@ -182,6 +190,6 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
           </div>
         </section>
       ) : null}
-    </>
+    </div>
   );
 }

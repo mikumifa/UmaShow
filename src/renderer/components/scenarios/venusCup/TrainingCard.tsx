@@ -11,6 +11,7 @@ import {
 } from 'types/gameTypes';
 import { getVenusTrainingModifierSummary } from 'constant/venusCup';
 import { UMDB } from 'renderer/utils/umdb';
+import { getSupportCardSpecialtySummary } from 'utils/supportCardSpecialty';
 import FailureRateBadge from 'renderer/components/FailureRateBadge';
 import createImageIcon from 'renderer/components/Icon';
 
@@ -112,6 +113,7 @@ const getStatConfig = (typeId: number): TargetConfig => {
 };
 
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 const mergeParamsWithBonus = (
   baseParams: CommandParam[],
@@ -582,11 +584,37 @@ export default function VenusCupTrainingCard({
             partner?.supportCardId === 0 && partner?.position >= 1000
               ? null
               : Math.min(100, Math.max(0, partner?.evaluation ?? 0));
+          const specialtySummary =
+            partner && supportCard
+              ? getSupportCardSpecialtySummary({
+                  supportCard,
+                  exp: partner.exp,
+                  limitBreakCount: partner.limitBreak,
+                  supportCardLevels: UMDB.supportCardLevels,
+                  liveSpecialtyRateBonus: 0,
+                })
+              : null;
           const isMatchingTraining =
             COMMAND_TARGET_TYPE_MAP[supportCard?.commandId ?? 0] ===
             COMMAND_TARGET_TYPE_MAP[command.commandId];
           const isMotivated =
             progress !== null && progress >= 80 && isMatchingTraining;
+          const rainbowRate = specialtySummary
+            ? specialtySummary.targetAppearanceRate
+            : null;
+          const otherTrainingRate = specialtySummary
+            ? specialtySummary.otherAppearanceRate
+            : null;
+          const absentRate = specialtySummary
+            ? specialtySummary.absentRate
+            : null;
+          const partnerProbabilityLabel =
+            rainbowRate !== null &&
+            otherTrainingRate !== null &&
+            absentRate !== null &&
+            specialtySummary
+              ? `擅长率 ${specialtySummary.totalRate}\n彩圈概率 ${formatPercent(rainbowRate)}\n他训概率 ${formatPercent(otherTrainingRate)}\n外出概率 ${formatPercent(absentRate)}`
+              : null;
           const isTip = command.tipsPartners?.includes(position);
           const progressColor =
             progress !== null &&
@@ -636,6 +664,11 @@ export default function VenusCupTrainingCard({
                   </div>
                 </div>
               )}
+              {partnerProbabilityLabel ? (
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 hidden -translate-x-1/2 whitespace-pre rounded bg-gray-900/90 px-2 py-1 text-[10px] font-semibold leading-snug text-white shadow-lg group-hover/partner:block">
+                  {partnerProbabilityLabel}
+                </div>
+              ) : null}
 
               {isTip ? (
                 <div className="absolute -right-0.5 -top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border-[1.5px] border-white bg-red-500 shadow-sm">
