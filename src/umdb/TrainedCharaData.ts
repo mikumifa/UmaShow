@@ -156,11 +156,15 @@ export function fromRaceHorseData(
 
   const turf = raceHorseData['proper_ground_turf'] ?? 0;
   const dirt = raceHorseData['proper_ground_dirt'] ?? 0;
-  const rankScoreFallback = raceHorseData['rank_score'] ?? raceHorseData['final_grade'];
+  const rankScoreFallback =
+    raceHorseData['rank_score'] ?? raceHorseData['final_grade'];
 
   return {
     viewerId: raceHorseData['viewer_id'] ?? 0,
-    viewerName: raceHorseData['trainer_name'] ?? '',
+    viewerName:
+      raceHorseData['owner_trainer_name'] ||
+      raceHorseData['trainer_name'] ||
+      '',
 
     trainedCharaId: raceHorseData['trained_chara_id'] ?? 0,
     charaId: raceHorseData['chara_id'] ?? 0,

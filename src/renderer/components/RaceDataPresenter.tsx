@@ -188,9 +188,8 @@ class RaceDataPresenter extends React.PureComponent<
             ? this.props.umdb.charas[charaId].name
             : (cardName ?? unknownCharaTag);
 
-        const trainerNameSuffix = d['trainer_name']
-          ? ` by ${d['trainer_name']}`
-          : '';
+        const trainerName = d['owner_trainer_name'] || d['trainer_name'];
+        const trainerNameSuffix = trainerName ? trainerName : '';
         nameFromRaceHorseInfo[frameOrder] =
           ` ${charaDisplayName}-${trainedCharaData.rankScore}${trainerNameSuffix}`;
       });

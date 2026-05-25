@@ -203,7 +203,10 @@ function getHorseSummary(
   return {
     key: identityKey,
     name: getHorseLabel(horse),
-    trainerName: String(horseField(horse, 'trainer_name') ?? ''),
+    trainerName: String(
+      horseField(horse, 'owner_trainer_name') ||
+        horseField(horse, 'trainer_name'),
+    ),
     status: getHorseStatusItems(horse),
     properGroups: getHorseProperGroups(horse),
     finalHpTotal: 0,
@@ -242,26 +245,25 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
   }
 
   return item.horses.flatMap((horse, index) => {
-    const viewerId = numberValue(horseField(horse, 'viewer_id'));
-    const singleModeCharaId =
-      numberValue(horseField(horse, 'single_mode_chara_id')) ??
-      numberValue(horseField(horse, 'card_id'));
+    const viewerId =
+      numberValue(horseField(horse, 'viewer_id')) ??
+      numberValue(horseField(horse, 'owner_viewer_id'));
+    const trainedCharaId = numberValue(horseField(horse, 'trained_chara_id'));
     const charaId = numberValue(horseField(horse, 'chara_id'));
-    const cardId =
-      numberValue(horseField(horse, 'card_id')) ?? singleModeCharaId;
+    const cardId = numberValue(horseField(horse, 'card_id')) ?? trainedCharaId;
     const raceDressId = numberValue(horseField(horse, 'race_dress_id'));
 
-    if (viewerId == null || singleModeCharaId == null) return [];
+    if (viewerId == null || trainedCharaId == null) return [];
 
     const frameOrder = resolveFrameOrder(horse, index);
     const finishOrder = finishOrderByFrame.get(frameOrder);
     const finalHp = finalHpByFrame.get(frameOrder);
-    const identityKey = `${viewerId}|${singleModeCharaId}`;
+    const identityKey = `${viewerId}|${trainedCharaId}`;
 
     return [
       {
         identityKey,
-        typeKey: `${charaId ?? 'unknown'}|${cardId ?? singleModeCharaId}`,
+        typeKey: `${charaId ?? 'unknown'}|${cardId ?? trainedCharaId}`,
         summary: getHorseSummary(horse, identityKey, charaId, raceDressId),
         finalHp,
         isWin: finishOrder === 0 || getHorseWinFromFields(horse),
