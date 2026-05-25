@@ -73,8 +73,12 @@ const electronHandler = {
       ipcRenderer.invoke('race:archive-create', name),
     deleteArchive: (archiveId: string) =>
       ipcRenderer.invoke('race:archive-delete', archiveId),
-    setDefaultArchive: (archiveId: string) =>
-      ipcRenderer.invoke('race:archive-default', archiveId),
+    getStatsCache: (archiveId: string) =>
+      ipcRenderer.invoke('race:stats-cache-get', archiveId),
+    setStatsCache: (
+      archiveId: string,
+      payload: { version: number; archiveUpdatedAt: number; data: unknown },
+    ) => ipcRenderer.invoke('race:stats-cache-set', archiveId, payload),
     assignArchive: (names: string[], archiveId: string) =>
       ipcRenderer.invoke('race:archive-assign', names, archiveId),
   },

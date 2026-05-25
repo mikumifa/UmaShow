@@ -40,7 +40,14 @@ export default function App() {
               }
             />
             <Route path="/race" element={<RaceDataPage />} />
-            <Route path="/race-stats" element={<RaceStats />} />
+            <Route
+              path="/race-stats"
+              element={
+                <KeepAlive name="RaceStats" cacheKey="RaceStats">
+                  <RaceStats />
+                </KeepAlive>
+              }
+            />
           </Routes>
         </AliveScope>
       </Router>

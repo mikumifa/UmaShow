@@ -8,6 +8,7 @@ import {
   Clock,
   Plus,
   X,
+  BarChart3,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RaceArchive, RaceRecord } from 'types/gameTypes';
@@ -49,11 +50,11 @@ export default function RaceList() {
     try {
       const config = await window.electron.race.archives();
       setArchives(config.archives ?? fallbackArchives);
-      setTargetArchiveId(config.defaultArchiveId ?? 'default');
+      setTargetArchiveId('default');
       setActiveArchiveId((prev) =>
         config.archives?.some((archive: RaceArchive) => archive.id === prev)
           ? prev
-          : (config.defaultArchiveId ?? 'default'),
+          : 'default',
       );
     } catch {
       setArchives(fallbackArchives);
@@ -124,8 +125,8 @@ export default function RaceList() {
     try {
       const config = await window.electron.race.deleteArchive(archive.id);
       setArchives(config.archives ?? fallbackArchives);
-      setTargetArchiveId(config.defaultArchiveId ?? 'default');
-      setActiveArchiveId(config.defaultArchiveId ?? 'default');
+      setTargetArchiveId('default');
+      setActiveArchiveId('default');
     } catch {
       alert('存档功能尚未在主进程注册，请重启应用后再试');
     }
@@ -135,11 +136,6 @@ export default function RaceList() {
     setActiveArchiveId(archiveId);
     setTargetArchiveId(archiveId);
     setSelected(new Set());
-    try {
-      await window.electron.race.setDefaultArchive(archiveId);
-    } catch {
-      // Older main process: keep navigation usable even if default archive IPC is absent.
-    }
   };
 
   const archiveSelected = async () => {
@@ -181,6 +177,18 @@ export default function RaceList() {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              onClick={() =>
+                navigate('/race-stats', {
+                  state: { archiveId: activeArchiveId },
+                })
+              }
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <BarChart3 size={16} />
+              统计
+            </button>
+            <button
+              type="button"
               onClick={toggleAll}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
@@ -193,14 +201,23 @@ export default function RaceList() {
             </button>
 
             {selected.size > 0 && (
-              <button
-                type="button"
-                onClick={deleteSelected}
-                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border border-red-200"
-              >
-                <Trash2 size={16} />
-                删除 ({selected.size})
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveTarget((prev) => !prev)}
+                  className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border border-blue-200"
+                >
+                  归档所选 ({selected.size})
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border border-red-200"
+                >
+                  <Trash2 size={16} />
+                  删除 ({selected.size})
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -282,47 +299,36 @@ export default function RaceList() {
           </div>
         )}
 
-        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-          <button
-            type="button"
-            onClick={() => setShowArchiveTarget((prev) => !prev)}
-            disabled={selected.size === 0}
-            className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-gray-50"
-          >
-            归档所选 ({selected.size})
-          </button>
-
-          {showArchiveTarget && selected.size > 0 && (
-            <div className="flex items-center gap-2 text-gray-600">
-              <span>归档到</span>
-              <select
-                value={targetArchiveId}
-                onChange={(e) => setTargetArchiveId(e.target.value)}
-                className="border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700"
-              >
-                {archives.map((archive) => (
-                  <option key={archive.id} value={archive.id}>
-                    {archive.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={archiveSelected}
-                className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-              >
-                确认归档
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowArchiveTarget(false)}
-                className="px-2 py-1.5 text-gray-500 hover:text-gray-800"
-              >
-                取消
-              </button>
-            </div>
-          )}
-        </div>
+        {showArchiveTarget && selected.size > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            <span>归档到</span>
+            <select
+              value={targetArchiveId}
+              onChange={(e) => setTargetArchiveId(e.target.value)}
+              className="border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700"
+            >
+              {archives.map((archive) => (
+                <option key={archive.id} value={archive.id}>
+                  {archive.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={archiveSelected}
+              className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              确认归档
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowArchiveTarget(false)}
+              className="px-2 py-1.5 text-gray-500 hover:text-gray-800"
+            >
+              取消
+            </button>
+          </div>
+        )}
 
         {/* 列表 */}
         <div className="space-y-3">
