@@ -3,21 +3,36 @@ import shutil
 import re
 
 SOURCE_DIR = "D:\\Apps\\umas\\export\\Texture2D"
-TARGET_DIR = "./assets/chr_icon"
+CHARA_ICON_TARGET_DIR = "./assets/chr_icon"
+TRAINED_CHR_ICON_TARGET_DIR = "./assets/trained_chr_icon"
 
-os.makedirs(TARGET_DIR, exist_ok=True)
-pattern = re.compile(r"chr_icon_training_(\d+)\.png$")
+for target_dir in (CHARA_ICON_TARGET_DIR, TRAINED_CHR_ICON_TARGET_DIR):
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+
+chara_icon_pattern = re.compile(r"chr_icon_training_(\d+)\.png$")
+trained_chara_icon_pattern = re.compile(
+    r"trained_chr_icon_(\d+)_(\d+)_02\.png$"
+)
 
 for filename in os.listdir(SOURCE_DIR):
-    match = pattern.match(filename)
-    if not match:
+    src_path = os.path.join(SOURCE_DIR, filename)
+
+    chara_icon_match = chara_icon_pattern.match(filename)
+    if chara_icon_match:
+        chara_id = chara_icon_match.group(1)
+        dst_path = os.path.join(CHARA_ICON_TARGET_DIR, "{}.png".format(chara_id))
+        shutil.copy2(src_path, dst_path)
+        print("Copied chara icon: {} -> {}.png".format(filename, chara_id))
         continue
 
-    chara_id = match.group(1)
-    src_path = os.path.join(SOURCE_DIR, filename)
-    dst_path = os.path.join(TARGET_DIR, f"{chara_id}.png")
-
-    shutil.copy2(src_path, dst_path)
-    print(f"Copied: {filename} → {chara_id}.png")
+    trained_chara_icon_match = trained_chara_icon_pattern.match(filename)
+    if trained_chara_icon_match:
+        chara_id = trained_chara_icon_match.group(1)
+        race_dress_id = trained_chara_icon_match.group(2)
+        dst_filename = "{}_{}.png".format(chara_id, race_dress_id)
+        dst_path = os.path.join(TRAINED_CHR_ICON_TARGET_DIR, dst_filename)
+        shutil.copy2(src_path, dst_path)
+        print("Copied trained chara icon: {} -> {}".format(filename, dst_filename))
 
 print("Done.")

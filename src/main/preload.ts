@@ -66,8 +66,17 @@ const electronHandler = {
     },
   },
   race: {
-    list: () => ipcRenderer.invoke('race:list'),
+    list: (archiveId?: string) => ipcRenderer.invoke('race:list', archiveId),
     delete: (names: string[]) => ipcRenderer.invoke('race:delete', names),
+    archives: () => ipcRenderer.invoke('race:archives'),
+    createArchive: (name: string) =>
+      ipcRenderer.invoke('race:archive-create', name),
+    deleteArchive: (archiveId: string) =>
+      ipcRenderer.invoke('race:archive-delete', archiveId),
+    setDefaultArchive: (archiveId: string) =>
+      ipcRenderer.invoke('race:archive-default', archiveId),
+    assignArchive: (names: string[], archiveId: string) =>
+      ipcRenderer.invoke('race:archive-assign', names, archiveId),
   },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),

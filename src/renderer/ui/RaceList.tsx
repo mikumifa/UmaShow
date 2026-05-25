@@ -1,24 +1,69 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { useEffect, useState } from 'react';
-import { Trash2, Square, CheckSquare, Trophy, Clock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { RaceRecord } from 'types/gameTypes';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Trash2,
+  Square,
+  CheckSquare,
+  Trophy,
+  Clock,
+  Plus,
+  X,
+} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { RaceArchive, RaceRecord } from 'types/gameTypes';
 import RaceMetaTag from 'renderer/components/RaceMetaTag';
+
+const fallbackArchives: RaceArchive[] = [
+  {
+    id: 'default',
+    name: '默认',
+    createdAt: 0,
+  },
+];
 
 export default function RaceList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialArchiveId =
+    (location.state as { archiveId?: string } | null)?.archiveId ?? 'default';
   const [items, setItems] = useState<RaceRecord[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [archives, setArchives] = useState<RaceArchive[]>([]);
+  const [activeArchiveId, setActiveArchiveId] = useState(initialArchiveId);
+  const [targetArchiveId, setTargetArchiveId] = useState('default');
+  const [newArchiveName, setNewArchiveName] = useState('');
+  const [showCreateArchive, setShowCreateArchive] = useState(false);
+  const [showArchiveTarget, setShowArchiveTarget] = useState(false);
 
-  // ... (保持原有的 loadFiles, toggle, toggleAll, deleteSelected 逻辑不变) ...
-  // 为了简洁，这里省略了未修改的逻辑函数，请直接复制你原来代码中的逻辑部分
-  // 只展示 return 部分的修改
+  const archiveNameById = new Map(
+    archives.map((archive) => [archive.id, archive.name]),
+  );
 
   /** 加载比赛文件列表 */
-  const loadFiles = async () => {
-    const list = await window.electron.race.list();
+  const loadFiles = useCallback(async () => {
+    const list = await window.electron.race.list(activeArchiveId);
     setItems((list ?? []) as any[]);
-  };
+  }, [activeArchiveId]);
+
+  const loadArchives = useCallback(async () => {
+    try {
+      const config = await window.electron.race.archives();
+      setArchives(config.archives ?? fallbackArchives);
+      setTargetArchiveId(config.defaultArchiveId ?? 'default');
+      setActiveArchiveId((prev) =>
+        config.archives?.some((archive: RaceArchive) => archive.id === prev)
+          ? prev
+          : (config.defaultArchiveId ?? 'default'),
+      );
+    } catch {
+      setArchives(fallbackArchives);
+      setTargetArchiveId('default');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadArchives();
+  }, [loadArchives]);
 
   useEffect(() => {
     loadFiles();
@@ -26,7 +71,12 @@ export default function RaceList() {
       loadFiles();
     });
     return () => unsubscribe?.();
-  }, []);
+  }, [loadFiles]);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setShowArchiveTarget(false);
+  }, [activeArchiveId]);
 
   const toggle = (filename: string) => {
     setSelected((prev) => {
@@ -49,6 +99,59 @@ export default function RaceList() {
     await window.electron.race.delete([...selected]);
     setItems((prev) => prev.filter((i) => !selected.has(i.filename)));
     setSelected(new Set());
+  };
+
+  const createArchive = async () => {
+    const name = newArchiveName.trim();
+    if (!name) return;
+    try {
+      const config = await window.electron.race.createArchive(name);
+      setArchives(config.archives ?? fallbackArchives);
+      const createdId = config.archives?.[config.archives.length - 1]?.id;
+      setTargetArchiveId(createdId);
+      setActiveArchiveId(createdId);
+      setNewArchiveName('');
+      setShowCreateArchive(false);
+    } catch {
+      alert('存档功能尚未在主进程注册，请重启应用后再试');
+    }
+  };
+
+  const deleteArchive = async (archive: RaceArchive) => {
+    if (archive.id === 'default') return;
+    if (!confirm(`确定删除存档「${archive.name}」及其中所有比赛？`)) return;
+
+    try {
+      const config = await window.electron.race.deleteArchive(archive.id);
+      setArchives(config.archives ?? fallbackArchives);
+      setTargetArchiveId(config.defaultArchiveId ?? 'default');
+      setActiveArchiveId(config.defaultArchiveId ?? 'default');
+    } catch {
+      alert('存档功能尚未在主进程注册，请重启应用后再试');
+    }
+  };
+
+  const activateArchive = async (archiveId: string) => {
+    setActiveArchiveId(archiveId);
+    setTargetArchiveId(archiveId);
+    setSelected(new Set());
+    try {
+      await window.electron.race.setDefaultArchive(archiveId);
+    } catch {
+      // Older main process: keep navigation usable even if default archive IPC is absent.
+    }
+  };
+
+  const archiveSelected = async () => {
+    if (selected.size === 0) return;
+    try {
+      await window.electron.race.assignArchive([...selected], targetArchiveId);
+      await loadFiles();
+      setSelected(new Set());
+      setShowArchiveTarget(false);
+    } catch {
+      alert('存档功能尚未在主进程注册，请重启应用后再试');
+    }
   };
 
   const enterRace = (item: RaceRecord) => {
@@ -100,6 +203,125 @@ export default function RaceList() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="mb-4 border-b border-gray-200">
+          <div className="flex flex-wrap items-end gap-2">
+            {archives.map((archive) => (
+              <div
+                key={archive.id}
+                className={`flex items-center gap-1 border-b-2 transition-colors ${
+                  activeArchiveId === archive.id
+                    ? 'border-blue-600'
+                    : 'border-transparent'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    activateArchive(archive.id);
+                  }}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    activeArchiveId === archive.id
+                      ? 'text-blue-700'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {archive.name}
+                </button>
+                {archive.id !== 'default' && (
+                  <button
+                    type="button"
+                    onClick={() => deleteArchive(archive)}
+                    className="p-1 text-gray-300 hover:text-red-600"
+                    title="删除存档"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setShowCreateArchive((prev) => !prev)}
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800"
+            >
+              <Plus size={16} />
+              新建
+            </button>
+          </div>
+        </div>
+
+        {showCreateArchive && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+            <input
+              value={newArchiveName}
+              onChange={(e) => setNewArchiveName(e.target.value)}
+              placeholder="新存档名称"
+              className="w-48 border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700 placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={createArchive}
+              disabled={!newArchiveName.trim()}
+              className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              创建
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateArchive(false);
+                setNewArchiveName('');
+              }}
+              className="px-3 py-1.5 text-gray-500 hover:text-gray-800"
+            >
+              取消
+            </button>
+          </div>
+        )}
+
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setShowArchiveTarget((prev) => !prev)}
+            disabled={selected.size === 0}
+            className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            归档所选 ({selected.size})
+          </button>
+
+          {showArchiveTarget && selected.size > 0 && (
+            <div className="flex items-center gap-2 text-gray-600">
+              <span>归档到</span>
+              <select
+                value={targetArchiveId}
+                onChange={(e) => setTargetArchiveId(e.target.value)}
+                className="border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700"
+              >
+                {archives.map((archive) => (
+                  <option key={archive.id} value={archive.id}>
+                    {archive.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={archiveSelected}
+                className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              >
+                确认归档
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArchiveTarget(false)}
+                className="px-2 py-1.5 text-gray-500 hover:text-gray-800"
+              >
+                取消
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 列表 */}
@@ -167,6 +389,11 @@ export default function RaceList() {
                     <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded">
                       <Clock size={12} />
                       <span>创建时间：{created}</span>
+                    </div>
+                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                      存档：
+                      {archiveNameById.get(item.archiveId ?? 'default') ??
+                        '默认'}
                     </div>
                   </div>
                 </div>

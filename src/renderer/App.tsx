@@ -5,6 +5,7 @@ import 'tailwindcss/tailwind.css';
 import RaceDataPage from 'renderer/ui/RaceDataPage';
 import HiddenNavigator from 'renderer/components/HiddenNavigator';
 import RaceList from 'renderer/ui/RaceList';
+import RaceStats from 'renderer/ui/RaceStats';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
               }
             />
             <Route path="/race" element={<RaceDataPage />} />
+            <Route path="/race-stats" element={<RaceStats />} />
           </Routes>
         </AliveScope>
       </Router>

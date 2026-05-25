@@ -214,9 +214,16 @@ export interface RaceRecord {
   filename: string;
   fullPath: string;
   createdAt: number;
+  archiveId?: string;
   raceMetaInfo: RaceMetaInfo;
   scenario: string;
   horses: RaceHorseInfo[];
+}
+
+export interface RaceArchive {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export function isEmptyField(field: any): boolean {

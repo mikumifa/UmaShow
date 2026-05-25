@@ -3,7 +3,7 @@ import fs from 'fs';
 
 import path from 'path';
 import log from 'electron-log';
-import { RaceMetaInfo, RaceRecord } from 'types/gameTypes';
+import { RaceArchive, RaceMetaInfo, RaceRecord } from 'types/gameTypes';
 import { jsonReplacer } from 'main/util';
 import { RACE_DIR } from 'main/paths';
 
@@ -24,6 +24,145 @@ type PendingHistoryPayload = {
 };
 
 const pendingHistoryByRoom = new Map<string, PendingHistoryPayload[]>();
+const DEFAULT_ARCHIVE_ID = 'default';
+const ARCHIVE_CONFIG_FILE = 'race_archives.config.json';
+const ARCHIVES_DIR = 'archives';
+
+type RaceArchiveConfig = {
+  defaultArchiveId: string;
+  archives: RaceArchive[];
+};
+
+function archiveConfigPath() {
+  return path.join(RACE_DIR, ARCHIVE_CONFIG_FILE);
+}
+
+function archivesRootPath() {
+  return path.join(RACE_DIR, ARCHIVES_DIR);
+}
+
+function archiveDirPath(archiveId: string) {
+  return archiveId === DEFAULT_ARCHIVE_ID
+    ? RACE_DIR
+    : path.join(archivesRootPath(), archiveId);
+}
+
+function defaultArchive(): RaceArchive {
+  return {
+    id: DEFAULT_ARCHIVE_ID,
+    name: '默认',
+    createdAt: 0,
+  };
+}
+
+function ensureArchiveDir() {
+  if (!fs.existsSync(RACE_DIR)) {
+    fs.mkdirSync(RACE_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(archivesRootPath())) {
+    fs.mkdirSync(archivesRootPath(), { recursive: true });
+  }
+}
+
+function sanitizeArchiveId(name: string) {
+  const base = name
+    .trim()
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `${Date.now()}-${base || 'archive'}`;
+}
+
+function ensureArchiveFolders(config: RaceArchiveConfig) {
+  config.archives.forEach((archive) => {
+    const dir = archiveDirPath(archive.id);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
+
+function writeArchiveConfig(config: RaceArchiveConfig) {
+  ensureArchiveDir();
+  fs.writeFileSync(
+    archiveConfigPath(),
+    JSON.stringify(config, jsonReplacer, 2),
+    'utf-8',
+  );
+}
+
+function raceRecordFilesInDir(dir: string) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.startsWith('race_info_') && f.endsWith('.json'))
+    .map((filename) => path.join(dir, filename));
+}
+
+function migrateLegacyArchivedRecords(config: RaceArchiveConfig) {
+  raceRecordFilesInDir(RACE_DIR).forEach((file) => {
+    try {
+      const record = JSON.parse(fs.readFileSync(file, 'utf-8')) as RaceRecord;
+      const archiveId = record.archiveId ?? DEFAULT_ARCHIVE_ID;
+      if (archiveId === DEFAULT_ARCHIVE_ID) return;
+      if (!config.archives.some((archive) => archive.id === archiveId)) return;
+
+      const targetDir = archiveDirPath(archiveId);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      const target = path.join(targetDir, path.basename(file));
+      record.fullPath = target;
+      fs.writeFileSync(file, JSON.stringify(record, jsonReplacer, 2), 'utf-8');
+      fs.renameSync(file, target);
+    } catch (e) {
+      log.error('[RaceData] Failed to migrate archived record:', file, e);
+    }
+  });
+}
+
+function readArchiveConfig(runMigration = true): RaceArchiveConfig {
+  ensureArchiveDir();
+  const fallback: RaceArchiveConfig = {
+    defaultArchiveId: DEFAULT_ARCHIVE_ID,
+    archives: [defaultArchive()],
+  };
+  const configPath = archiveConfigPath();
+  if (!fs.existsSync(configPath)) return fallback;
+
+  try {
+    const config = JSON.parse(
+      fs.readFileSync(configPath, 'utf-8'),
+    ) as Partial<RaceArchiveConfig>;
+    const archives = Array.isArray(config.archives)
+      ? config.archives.filter((archive) => archive?.id && archive?.name)
+      : [];
+    if (!archives.some((archive) => archive.id === DEFAULT_ARCHIVE_ID)) {
+      archives.unshift(defaultArchive());
+    }
+    const defaultArchiveId =
+      config.defaultArchiveId &&
+      archives.some((archive) => archive.id === config.defaultArchiveId)
+        ? config.defaultArchiveId
+        : DEFAULT_ARCHIVE_ID;
+
+    const result = { defaultArchiveId, archives };
+    ensureArchiveFolders(result);
+    if (runMigration) migrateLegacyArchivedRecords(result);
+    return result;
+  } catch (e) {
+    log.error('[RaceData] Failed to parse archive config:', e);
+    return fallback;
+  }
+}
+
+function findRaceRecordFile(filename: string) {
+  const config = readArchiveConfig(false);
+  const candidates = config.archives.map((archive) =>
+    path.join(archiveDirPath(archive.id), filename),
+  );
+  return candidates.find((candidate) => fs.existsSync(candidate));
+}
 
 function toRoomKey(roomId: unknown): string | undefined {
   if (roomId == null) return undefined;
@@ -292,16 +431,22 @@ function dedupePayloads(payloads: RacePayload[]): RacePayload[] {
 
 function persistPayloads(payloads: RacePayload[], win: BrowserWindow) {
   const now = Date.now();
+  const archiveConfig = readArchiveConfig();
+  const targetDir = archiveDirPath(archiveConfig.defaultArchiveId);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
 
   payloads.forEach((payload, index) => {
     const raceNum = payload.raceNum ?? index + 1;
     const filename = `race_info_${now}_r${raceNum}_${index}.json`;
-    const filepath = path.join(RACE_DIR, filename);
+    const filepath = path.join(targetDir, filename);
 
     const record = {
       filename,
       fullPath: filepath,
       createdAt: payload.meta?.start_time ?? new Date().toISOString(),
+      archiveId: archiveConfig.defaultArchiveId,
       raceMetaInfo: {
         race_instance_id: payload.meta?.race_instance_id ?? -1,
         season: payload.meta?.season ?? -1,
@@ -345,22 +490,28 @@ export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
 }
 
 export function handleRaceList(ipcMain: IpcMain) {
-  ipcMain.handle('race:list', async () => {
-    if (!fs.existsSync(RACE_DIR)) {
-      fs.mkdirSync(RACE_DIR, { recursive: true });
-    }
+  ipcMain.handle('race:list', async (_, archiveId?: string) => {
+    const config = readArchiveConfig();
+    const archivesToRead = archiveId
+      ? config.archives.filter((archive) => archive.id === archiveId)
+      : config.archives;
 
-    const files = fs
-      .readdirSync(RACE_DIR)
-      .filter((f) => f.endsWith('.json'))
-      .flatMap((f) => {
-        const full = path.join(RACE_DIR, f);
+    const files = archivesToRead
+      .flatMap((archive) =>
+        raceRecordFilesInDir(archiveDirPath(archive.id)).map((file) => ({
+          archiveId: archive.id,
+          file,
+        })),
+      )
+      .flatMap(({ archiveId: currentArchiveId, file }) => {
         try {
-          const content = fs.readFileSync(full, 'utf-8');
+          const content = fs.readFileSync(file, 'utf-8');
           const record = JSON.parse(content) as RaceRecord;
+          record.archiveId = currentArchiveId;
+          record.fullPath = file;
           return [record];
         } catch (e) {
-          log.error('[RaceData] Failed to parse:', full, e);
+          log.error('[RaceData] Failed to parse:', file, e);
           return [];
         }
       });
@@ -368,10 +519,99 @@ export function handleRaceList(ipcMain: IpcMain) {
     return files;
   });
 
+  ipcMain.handle('race:archives', async () => readArchiveConfig());
+
+  ipcMain.handle('race:archive-create', async (_, name: string) => {
+    const trimmedName = String(name ?? '').trim();
+    if (!trimmedName) return readArchiveConfig();
+
+    const config = readArchiveConfig();
+    const archive = {
+      id: sanitizeArchiveId(trimmedName),
+      name: trimmedName,
+      createdAt: Date.now(),
+    };
+    config.archives.push(archive);
+    ensureArchiveFolders(config);
+    writeArchiveConfig(config);
+    return config;
+  });
+
+  ipcMain.handle('race:archive-default', async (_, archiveId: string) => {
+    const config = readArchiveConfig();
+    if (config.archives.some((archive) => archive.id === archiveId)) {
+      config.defaultArchiveId = archiveId;
+      writeArchiveConfig(config);
+    }
+    return config;
+  });
+
+  ipcMain.handle('race:archive-delete', async (_, archiveId: string) => {
+    if (archiveId === DEFAULT_ARCHIVE_ID) return readArchiveConfig();
+
+    const config = readArchiveConfig();
+    const archive = config.archives.find((item) => item.id === archiveId);
+    if (!archive) return config;
+
+    const archiveDir = archiveDirPath(archiveId);
+    if (fs.existsSync(archiveDir)) {
+      fs.rmSync(archiveDir, { recursive: true, force: true });
+    }
+
+    const nextConfig = {
+      defaultArchiveId:
+        config.defaultArchiveId === archiveId
+          ? DEFAULT_ARCHIVE_ID
+          : config.defaultArchiveId,
+      archives: config.archives.filter((item) => item.id !== archiveId),
+    };
+    writeArchiveConfig(nextConfig);
+    return nextConfig;
+  });
+
+  ipcMain.handle(
+    'race:archive-assign',
+    async (_, filenames: string[], archiveId: string) => {
+      const config = readArchiveConfig();
+      if (!config.archives.some((archive) => archive.id === archiveId)) {
+        return false;
+      }
+
+      filenames.forEach((name) => {
+        const file = findRaceRecordFile(name);
+        if (!file || !fs.existsSync(file)) return;
+        try {
+          const record = JSON.parse(
+            fs.readFileSync(file, 'utf-8'),
+          ) as RaceRecord;
+          const targetDir = archiveDirPath(archiveId);
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+          const target = path.join(targetDir, name);
+          record.archiveId = archiveId;
+          record.fullPath = target;
+          fs.writeFileSync(
+            file,
+            JSON.stringify(record, jsonReplacer, 2),
+            'utf-8',
+          );
+          if (file !== target) {
+            if (fs.existsSync(target)) fs.unlinkSync(target);
+            fs.renameSync(file, target);
+          }
+        } catch (e) {
+          log.error('[RaceData] Failed to assign archive:', file, e);
+        }
+      });
+      return true;
+    },
+  );
+
   ipcMain.handle('race:delete', async (_, filenames: string[]) => {
     filenames.forEach((name) => {
-      const file = path.join(RACE_DIR, name);
-      if (fs.existsSync(file)) {
+      const file = findRaceRecordFile(name);
+      if (file && fs.existsSync(file)) {
         fs.unlinkSync(file);
       }
     });
@@ -380,7 +620,5 @@ export function handleRaceList(ipcMain: IpcMain) {
 }
 
 export function ensureRaceDir() {
-  if (!fs.existsSync(RACE_DIR)) {
-    fs.mkdirSync(RACE_DIR, { recursive: true });
-  }
+  ensureArchiveDir();
 }
