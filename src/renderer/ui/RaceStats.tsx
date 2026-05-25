@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowUpDown, BarChart3, RefreshCw, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useActivate } from 'react-activation';
 import { RaceArchive, RaceHorseInfo, RaceRecord } from 'types/gameTypes';
 import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
@@ -61,6 +62,7 @@ type HorseEntry = {
   typeKey: string;
   summary: HorseSummaryData;
   finalHp?: number;
+  finishRank?: number;
   isWin: boolean;
   trainedSkills: CharaSkill[];
   activatedSkillIds: Set<number>;
@@ -77,8 +79,12 @@ type StatRow = {
   label: string;
   horses: HorseSummaryData[];
   wins: number;
+  top2: number;
+  top3: number;
   total: number;
   winRate: number;
+  top2Rate: number;
+  top3Rate: number;
 };
 
 type StatConfig = {
@@ -128,7 +134,7 @@ const fallbackArchives: RaceArchive[] = [
   },
 ];
 
-const STATS_CACHE_VERSION = 2;
+const STATS_CACHE_VERSION = 3;
 
 const horseEventDefinitions: ProcStatDefinition[] = [
   {
@@ -182,11 +188,15 @@ function resolveFrameOrder(horse: RaceHorseInfo, fallbackIndex: number) {
 }
 
 function getHorseWinFromFields(horse: RaceHorseInfo): boolean {
-  const rank =
+  return getHorseFinishRankFromFields(horse) === 1;
+}
+
+function getHorseFinishRankFromFields(horse: RaceHorseInfo): number | undefined {
+  return (
     numberValue(horseField(horse, 'rank')) ??
     numberValue(horseField(horse, 'result_rank')) ??
-    numberValue(horseField(horse, 'final_rank'));
-  return rank === 1;
+    numberValue(horseField(horse, 'final_rank'))
+  );
 }
 
 function getHorseLabel(horse: RaceHorseInfo) {
@@ -533,6 +543,8 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
 
     const frameOrder = resolveFrameOrder(horse, index);
     const finishOrder = finishOrderByFrame.get(frameOrder);
+    const finishRank =
+      finishOrder != null ? finishOrder + 1 : getHorseFinishRankFromFields(horse);
     const finalHp = finalHpByFrame.get(frameOrder);
     const identityKey = `${viewerId}|${trainedCharaId}`;
     const trainedCharaData = fromRaceHorseData(horse, UMDB.skills);
@@ -543,7 +555,8 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
         typeKey: `${charaId ?? 'unknown'}|${cardId ?? trainedCharaId}`,
         summary: getHorseSummary(horse, identityKey, charaId, raceDressId),
         finalHp,
-        isWin: finishOrder === 0 || getHorseWinFromFields(horse),
+        finishRank,
+        isWin: finishRank === 1 || getHorseWinFromFields(horse),
         trainedSkills: trainedCharaData.skills,
         activatedSkillIds:
           activatedSkillIdsByFrame.get(frameOrder) ?? new Set<number>(),
@@ -619,11 +632,15 @@ function buildDetailRows(items: RaceRecord[]) {
     string,
     {
       wins: number;
+      top2: number;
+      top3: number;
       total: number;
     }
   >();
   let allHorseSummary: MutableHorseSummary | null = null;
   let allHorseWins = 0;
+  let allHorseTop2 = 0;
+  let allHorseTop3 = 0;
   let allHorseTotal = 0;
 
   items.forEach((item) => {
@@ -638,11 +655,19 @@ function buildDetailRows(items: RaceRecord[]) {
         });
       const existingRowStats = rowStatsByType.get(typeKey) ?? {
         wins: 0,
+        top2: 0,
+        top3: 0,
         total: 0,
       };
 
       existingSummary.appearances += 1;
       existingRowStats.total += 1;
+      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 2) {
+        existingRowStats.top2 += 1;
+      }
+      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 3) {
+        existingRowStats.top3 += 1;
+      }
       if (entry.isWin) {
         existingSummary.winAppearances += 1;
         existingRowStats.wins += 1;
@@ -693,6 +718,12 @@ function buildDetailRows(items: RaceRecord[]) {
 
       allHorseSummary.appearances += 1;
       allHorseTotal += 1;
+      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 2) {
+        allHorseTop2 += 1;
+      }
+      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 3) {
+        allHorseTop3 += 1;
+      }
       if (entry.isWin) {
         allHorseSummary.winAppearances += 1;
         allHorseWins += 1;
@@ -738,8 +769,12 @@ function buildDetailRows(items: RaceRecord[]) {
         label: summary.name,
         horses: [finalizeHorseSummary(summary)],
         wins: stats.wins,
+        top2: stats.top2,
+        top3: stats.top3,
         total: stats.total,
         winRate: stats.total > 0 ? stats.wins / stats.total : 0,
+        top2Rate: stats.total > 0 ? stats.top2 / stats.total : 0,
+        top3Rate: stats.total > 0 ? stats.top3 / stats.total : 0,
       };
     })
     .sort((a, b) => b.total - a.total || b.winRate - a.winRate);
@@ -750,8 +785,12 @@ function buildDetailRows(items: RaceRecord[]) {
       label: '全部马',
       horses: [finalizeHorseSummary(allHorseSummary)],
       wins: allHorseWins,
+      top2: allHorseTop2,
+      top3: allHorseTop3,
       total: allHorseTotal,
       winRate: allHorseTotal > 0 ? allHorseWins / allHorseTotal : 0,
+      top2Rate: allHorseTotal > 0 ? allHorseTop2 / allHorseTotal : 0,
+      top3Rate: allHorseTotal > 0 ? allHorseTop3 / allHorseTotal : 0,
     });
   }
 
@@ -778,11 +817,21 @@ function buildStatsForSize(items: RaceRecord[], size: number) {
         label: rowLabel(sorted),
         horses: sorted.map((entry) => createMutableHorseSummary(entry.summary)),
         wins: 0,
+        top2: 0,
+        top3: 0,
         total: 0,
       };
 
+      const hasTop2 = sorted.some(
+        (entry) => (entry.finishRank ?? Number.POSITIVE_INFINITY) <= 2,
+      );
+      const hasTop3 = sorted.some(
+        (entry) => (entry.finishRank ?? Number.POSITIVE_INFINITY) <= 3,
+      );
       row.total += 1;
       if (isWin) row.wins += 1;
+      if (hasTop2) row.top2 += 1;
+      if (hasTop3) row.top3 += 1;
 
       sorted.forEach((entry, index) => {
         const horse = row.horses[index];
@@ -831,6 +880,8 @@ function buildStatsForSize(items: RaceRecord[], size: number) {
       ...row,
       horses: row.horses.map((horse) => finalizeHorseSummary(horse)),
       winRate: row.total > 0 ? row.wins / row.total : 0,
+      top2Rate: row.total > 0 ? row.top2 / row.total : 0,
+      top3Rate: row.total > 0 ? row.top3 / row.total : 0,
     }))
     .sort((a, b) => b.winRate - a.winRate || b.total - a.total);
 }
@@ -1034,7 +1085,10 @@ function compareValues(
   return String(a).localeCompare(String(b)) * modifier;
 }
 
-function sortRows(rows: StatRow[], sort: TableSort<'label' | 'winRate' | 'wins' | 'total'>) {
+function sortRows(
+  rows: StatRow[],
+  sort: TableSort<'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'>,
+) {
   return [...rows].sort((a, b) => {
     const value =
       sort.key === 'label'
@@ -1230,13 +1284,18 @@ function StatTable({
   sort,
   onSort,
   onHorseClick,
+  showTopRates,
 }: {
   rows: StatRow[];
-  sort: TableSort<'label' | 'winRate' | 'wins' | 'total'>;
-  onSort: (key: 'label' | 'winRate' | 'wins' | 'total') => void;
+  sort: TableSort<'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'>;
+  onSort: (
+    key: 'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total',
+  ) => void;
   onHorseClick: (horse: HorseSummaryData) => void;
+  showTopRates: boolean;
 }) {
   const sortedRows = useMemo(() => sortRows(rows, sort), [rows, sort]);
+  const emptyColSpan = showTopRates ? 6 : 4;
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -1259,6 +1318,26 @@ function StatTable({
                   align="right"
                 />
               </th>
+              {showTopRates && (
+                <>
+                  <th className="px-3 py-2 text-right font-medium">
+                    <SortHeader
+                      label="前2率"
+                      active={sort.key === 'top2Rate'}
+                      onClick={() => onSort('top2Rate')}
+                      align="right"
+                    />
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    <SortHeader
+                      label="前3率"
+                      active={sort.key === 'top3Rate'}
+                      onClick={() => onSort('top3Rate')}
+                      align="right"
+                    />
+                  </th>
+                </>
+              )}
               <th className="px-3 py-2 text-right font-medium">
                 <SortHeader
                   label="胜场"
@@ -1300,6 +1379,16 @@ function StatTable({
                 <td className="px-3 py-3 text-right font-mono font-bold text-blue-700">
                   {percent(row.winRate)}
                 </td>
+                {showTopRates && (
+                  <>
+                    <td className="px-3 py-3 text-right font-mono text-indigo-700">
+                      {percent(row.top2Rate)} ({row.top2})
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-violet-700">
+                      {percent(row.top3Rate)} ({row.top3})
+                    </td>
+                  </>
+                )}
                 <td className="px-3 py-3 text-right font-mono text-emerald-700">
                   {row.wins}
                 </td>
@@ -1312,7 +1401,7 @@ function StatTable({
               <tr>
                 <td
                   className="px-3 py-10 text-center text-gray-400"
-                  colSpan={4}
+                  colSpan={emptyColSpan}
                 >
                   暂无可统计数据
                 </td>
@@ -1688,11 +1777,11 @@ function HorseSkillsModal({
 export default function RaceStats() {
   const navigate = useNavigate();
   const location = useLocation();
-  const initialArchiveId =
+  const requestedArchiveId =
     (location.state as { archiveId?: string } | null)?.archiveId ?? 'default';
 
   const [archives, setArchives] = useState<RaceArchive[]>([]);
-  const [activeArchiveId, setActiveArchiveId] = useState(initialArchiveId);
+  const [activeArchiveId, setActiveArchiveId] = useState(requestedArchiveId);
   const [umdbReady, setUmdbReady] = useState(false);
   const [activeConfig, setActiveConfig] = useState<StatConfig['key']>('single');
   const [statsBundle, setStatsBundle] = useState<ArchiveStatsBundle>(emptyBundle);
@@ -1703,7 +1792,7 @@ export default function RaceStats() {
   );
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [tableSort, setTableSort] = useState<
-    TableSort<'label' | 'winRate' | 'wins' | 'total'>
+    TableSort<'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'>
   >({
     key: 'winRate',
     direction: 'desc',
@@ -1712,26 +1801,36 @@ export default function RaceStats() {
   const active = statConfigs.find((config) => config.key === activeConfig)!;
   const rows = statsBundle.rowsBySize[active.key] ?? [];
 
-  useEffect(() => {
-    window.electron.race
-      .archives()
-      .then((config) => {
-        const nextArchives = config.archives ?? fallbackArchives;
-        setArchives(nextArchives);
-        setActiveArchiveId((prev) =>
-          nextArchives.some((archive) => archive.id === prev) ? prev : 'default',
-        );
-        return undefined;
-      })
-      .catch(() => {
-        setArchives(fallbackArchives);
-        setActiveArchiveId('default');
+  const loadArchives = useCallback(async () => {
+    try {
+      const config = await window.electron.race.archives();
+      const nextArchives = config.archives ?? fallbackArchives;
+      setArchives(nextArchives);
+      setActiveArchiveId((prev) => {
+        if (nextArchives.some((archive) => archive.id === requestedArchiveId)) {
+          return requestedArchiveId;
+        }
+        return nextArchives.some((archive) => archive.id === prev)
+          ? prev
+          : 'default';
       });
+    } catch {
+      setArchives(fallbackArchives);
+      setActiveArchiveId('default');
+    }
+  }, [requestedArchiveId]);
+
+  useEffect(() => {
+    void loadArchives();
 
     loadUMDB()
       .then(() => setUmdbReady(true))
       .catch(() => setUmdbReady(true));
-  }, []);
+  }, [loadArchives]);
+
+  useActivate(() => {
+    void loadArchives();
+  });
 
   useEffect(() => {
     if (!umdbReady) return;
@@ -1801,7 +1900,9 @@ export default function RaceStats() {
     setRefreshNonce((prev) => prev + 1);
   };
 
-  const toggleTableSort = (key: 'label' | 'winRate' | 'wins' | 'total') => {
+  const toggleTableSort = (
+    key: 'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total',
+  ) => {
     setTableSort((prev) => ({
       key,
       direction:
@@ -1912,6 +2013,7 @@ export default function RaceStats() {
             sort={tableSort}
             onSort={toggleTableSort}
             onHorseClick={setSelectedHorse}
+            showTopRates={active.key === 'single'}
           />
         )}
       </div>
