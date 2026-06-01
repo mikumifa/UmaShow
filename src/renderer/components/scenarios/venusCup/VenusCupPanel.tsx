@@ -103,7 +103,7 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
         options: EventDetailOption[];
       } => !!row && row.options.length > 0,
     );
-  const hasSpiritTree = (charInfo.venusData?.spiritInfo?.length ?? 0) > 0;
+  const hasSpiritTree = !!charInfo.venusData;
 
   return (
     <div className="p-3">

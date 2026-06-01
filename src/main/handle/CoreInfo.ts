@@ -9,6 +9,7 @@ import {
 import { BrowserWindow } from 'electron';
 import {
   CharStats,
+  type CharaEffect,
   GameStats,
   NoteStat,
   type ScenarioType,
@@ -88,14 +89,14 @@ const extractVenusData = (
       charaId: item.chara_id,
       venusLevel: item.venus_level,
     })),
-    charaCommandInfo: (
-      venusDataSet.venus_chara_command_info_array ?? []
-    ).map((item: any) => ({
-      commandId: item.command_id,
-      commandType: item.command_type,
-      spiritId: item.spirit_id,
-      isBoost: item.is_boost,
-    })),
+    charaCommandInfo: (venusDataSet.venus_chara_command_info_array ?? []).map(
+      (item: any) => ({
+        commandId: item.command_id,
+        commandType: item.command_type,
+        spiritId: item.spirit_id,
+        isBoost: item.is_boost,
+      }),
+    ),
     liveItemId: venusDataSet.live_item_id ?? 0,
   };
 };
@@ -251,6 +252,12 @@ export async function extractCoreInfo(
   const freeData = normalizedData.free_data_set;
   const liveData = normalizedData.live_data_set;
   const venusData = extractVenusData(normalizedData.venus_data_set);
+  const charaEffects: CharaEffect[] = (chara.chara_effect_id_array ?? [])
+    .filter((id: unknown): id is number => typeof id === 'number')
+    .map((id: number) => ({
+      id,
+      text: UMDB.charaEffectTexts[id] ?? `状态 ${id}`,
+    }));
   const effectedLiveIds = Array.from(
     new Set(
       (liveData?.effected_live_id_array ?? [])
@@ -443,6 +450,7 @@ export async function extractCoreInfo(
     scenarioType,
     gameStats,
     stats,
+    charaEffects,
     commands,
     liveCommands: scenarioType === 'idolCup' ? liveCommands : undefined,
     livePurchasedIds: scenarioType === 'idolCup' ? livePurchasedIds : undefined,

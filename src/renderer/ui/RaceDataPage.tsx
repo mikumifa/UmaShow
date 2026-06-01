@@ -1,18 +1,23 @@
 import React from 'react';
-import { Button } from 'react-bootstrap'; // 保留 Button 用于做一个“返回”按钮
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import type { NavigateFunction } from 'react-router-dom';
 import RaceDataPresenter from 'renderer/components/RaceDataPresenter';
 import { RaceSimulateData } from 'umdb/race_data_pb';
 import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
+import RacePageLayout, {
+  raceHeaderButtonClass,
+} from 'renderer/components/RacePageLayout';
 
 // 1. Props 定义：只接收路由跳转过来的参数
 type RaceDataPageProps = {
   initialValues?: {
     scenario?: string;
     horseInfo?: string;
+    archiveId?: string;
   };
-  navigate: (path: string) => void; // 传入 navigate 函数以便支持返回操作
+  navigate: NavigateFunction; // 传入 navigate 函数以便支持返回操作
 };
 
 // 2. State 定义：不再需要 input 字符串，只需要解析后的对象
@@ -40,7 +45,7 @@ class RaceDataPageClass extends React.Component<
     await loadUMDB();
     if (!initialValues || !initialValues.scenario) {
       this.setState({
-        error: 'No race data provided. Please start from the Dashboard.',
+        error: '未提供比赛数据，请从比赛记录页打开。',
       });
       return;
     }
@@ -63,37 +68,87 @@ class RaceDataPageClass extends React.Component<
     } catch (e) {
       console.error('Parse error:', e);
       this.setState({
-        error: 'Failed to parse race data. Format might be invalid.',
+        error: '比赛数据解析失败，数据格式可能无效。',
       });
     }
   }
 
   render() {
+    const archiveId = this.props.initialValues?.archiveId ?? 'default';
+    const backToRaces = () =>
+      this.props.navigate('/races', { state: { archiveId } });
+
     if (this.state.error) {
       return (
-        <div className="p-4 text-center">
-          <h3 className="text-danger">Error</h3>
-          <p>{this.state.error}</p>
-          <Button variant="secondary" onClick={() => this.props.navigate('/')}>
-            Back to Dashboard
-          </Button>
-        </div>
+        <RacePageLayout
+          title="比赛详情"
+          description="查看出赛表、曲线和事件分析"
+          icon={<FileText size={20} />}
+          actions={
+            <button
+              type="button"
+              onClick={backToRaces}
+              className={raceHeaderButtonClass}
+            >
+              <ArrowLeft size={16} />
+              返回记录
+            </button>
+          }
+        >
+          <div className="rounded-lg border border-red-200 bg-white px-4 py-10 text-center text-red-600">
+            {this.state.error}
+          </div>
+        </RacePageLayout>
       );
     }
 
     if (this.state.parsedRaceData) {
       return (
-        <div className="p-2">
+        <RacePageLayout
+          title="比赛详情"
+          description="查看出赛表、曲线和事件分析"
+          icon={<FileText size={20} />}
+          actions={
+            <button
+              type="button"
+              onClick={backToRaces}
+              className={raceHeaderButtonClass}
+            >
+              <ArrowLeft size={16} />
+              返回记录
+            </button>
+          }
+        >
           <RaceDataPresenter
             raceHorseInfo={this.state.parsedHorseInfo}
             raceData={this.state.parsedRaceData}
             umdb={UMDB}
           />
-        </div>
+        </RacePageLayout>
       );
     }
 
-    return <div className="p-4 text-center">Loading and parsing data...</div>;
+    return (
+      <RacePageLayout
+        title="比赛详情"
+        description="查看出赛表、曲线和事件分析"
+        icon={<FileText size={20} />}
+        actions={
+          <button
+            type="button"
+            onClick={backToRaces}
+            className={raceHeaderButtonClass}
+          >
+            <ArrowLeft size={16} />
+            返回记录
+          </button>
+        }
+      >
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-gray-400">
+          Loading and parsing data...
+        </div>
+      </RacePageLayout>
+    );
   }
 }
 
@@ -104,6 +159,7 @@ export default function RaceDataPage() {
   const state = location.state as {
     scenario?: string;
     horseInfo?: string;
+    archiveId?: string;
   } | null;
 
   return (

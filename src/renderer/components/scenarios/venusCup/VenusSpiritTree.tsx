@@ -129,6 +129,12 @@ export default function VenusSpiritTree({
   const goddessList = [...(charaInfo ?? [])].sort(
     (left, right) => left.charaId - right.charaId,
   );
+  const goddessSlots =
+    goddessList.length > 0
+      ? goddessList
+      : Array.from<VenusData['charaInfo'][number] | undefined>({
+          length: 3,
+        });
 
   const fragmentSlots = [1, 2, 3, 4, 5, 6, 7, 8].map((num) =>
     spiritMap.get(num),
@@ -155,38 +161,38 @@ export default function VenusSpiritTree({
             }
             kind="level"
           />
-          {goddessList.length > 0 ? (
-            <div className="flex min-w-0 flex-1 items-start justify-end gap-1">
-              {goddessList.map((goddess) => {
-                const iconUrl = UMDB.charas[goddess.charaId]?.iconUrl ?? '';
-                return (
-                  <div
-                    key={goddess.charaId}
-                    className="flex w-[46px] shrink-0 flex-col items-center"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-sm ring-2 ring-rose-100">
-                      {iconUrl ? (
-                        <img
-                          src={iconUrl}
-                          alt={UMDB.charaName(goddess.charaId)}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-[8px] font-bold text-gray-400">
-                          ?
-                        </div>
-                      )}
-                    </div>
-                    <div className="-mt-2 rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[8px] font-black leading-none text-amber-700 shadow-sm">
-                      {goddess.venusLevel > 0
-                        ? `Lv${goddess.venusLevel}`
-                        : 'None'}
-                    </div>
+          <div className="flex min-w-0 flex-1 items-start justify-end gap-1">
+            {goddessSlots.map((goddess, index) => {
+              const iconUrl = goddess
+                ? (UMDB.charas[goddess.charaId]?.iconUrl ?? '')
+                : '';
+              return (
+                <div
+                  key={goddess?.charaId ?? `empty-goddess-${index}`}
+                  className="flex w-[46px] shrink-0 flex-col items-center"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-sm ring-2 ring-rose-100">
+                    {iconUrl && goddess ? (
+                      <img
+                        src={iconUrl}
+                        alt={UMDB.charaName(goddess.charaId)}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-[8px] font-bold text-gray-400">
+                        ?
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          ) : null}
+                  <div className="-mt-2 rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[8px] font-black leading-none text-amber-700 shadow-sm">
+                    {goddess && goddess.venusLevel > 0
+                      ? `Lv${goddess.venusLevel}`
+                      : 'None'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ height: LINE_HEIGHT }}>

@@ -82,6 +82,28 @@ const electronHandler = {
     assignArchive: (names: string[], archiveId: string) =>
       ipcRenderer.invoke('race:archive-assign', names, archiveId),
   },
+  trainingHistory: {
+    list: () => ipcRenderer.invoke('training-history:list'),
+    getConfig: () => ipcRenderer.invoke('training-history:config-get'),
+    setConfig: (payload: { maxCachedRuns: number }) =>
+      ipcRenderer.invoke('training-history:config-set', payload),
+    setFavorite: (id: string, favorite: boolean) =>
+      ipcRenderer.invoke('training-history:favorite', id, favorite),
+    recalculate: (ids?: string[]) =>
+      ipcRenderer.invoke('training-history:recalculate', ids),
+    delete: (ids: string[]) =>
+      ipcRenderer.invoke('training-history:delete', ids),
+    onNew(callback: (data: any) => void) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+
+      ipcRenderer.on('training-history:new', subscription);
+
+      return () => {
+        ipcRenderer.removeListener('training-history:new', subscription);
+      };
+    },
+  },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),
     onLog(callback: (data: any) => void) {

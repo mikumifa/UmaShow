@@ -1,15 +1,68 @@
+# -*- coding: utf-8 -*-
 import argparse
 import base64
 import gzip
 import json
 import sqlite3
 import os
+import re
 from collections import defaultdict
 from google.protobuf import json_format
 import proto.data_pb2 as data_pb2
 
 SOURCE_ICON_DIR = r"D:\Apps\umas\export\Texture2D"
 SUPPORT_CARD_SPECIALTY_RATE_TYPE = 19
+SUPPORT_CARD_EFFECT_TYPES = {
+    1: "友情加成",
+    2: "干劲效果提升",
+    3: "速度加成",
+    4: "耐力加成",
+    5: "力量加成",
+    6: "毅力加成",
+    7: "智力加成",
+    8: "训练效果提升",
+    9: "初始速度提升",
+    10: "初始耐力提升",
+    11: "初始力量提升",
+    12: "初始毅力提升",
+    13: "初始智力提升",
+    14: "初始友情槽提升",
+    15: "比赛加成",
+    16: "粉丝数加成",
+    17: "启发等级提升",
+    18: "启发出现率提升",
+    19: "擅长率提升",
+    25: "事件回复量提升",
+    26: "事件效果提升",
+    27: "失败率降低",
+    28: "体力消耗降低",
+    30: "技能点数加成",
+    31: "智力友情回复量提升",
+}
+SUPPORT_CARD_SPECIAL_UNIQUE_EFFECT_TYPES = {
+    101: "羁绊达到指定值时追加效果",
+    102: "羁绊达到指定值时提升非指定训练类型的训练效果",
+    103: "编成支援卡种类达到指定数量时追加效果",
+    104: "粉丝数处于指定区间时效果随粉丝数变化",
+    105: "根据编成支援卡类型提供对应初始属性加成",
+    106: "每次友情训练后叠加友情加成",
+    107: "体力越低友情加成越高",
+    108: "按指定成长指标动态提高训练效果",
+    109: "支援卡羁绊总和越高训练效果越高",
+    110: "同时训练的支援卡数量越多训练效果越高",
+    111: "当前训练设施等级越高训练效果越高",
+    112: "概率将失败率变为0%",
+    113: "参与友情训练时追加特殊效果",
+    114: "当前体力越高训练效果越高",
+    115: "编成支援卡初始羁绊槽提升",
+    116: "根据已拥有的某类技能数量提升训练效果",
+    117: "总训练设施等级越高训练效果越高",
+    118: "羁绊达到指定值时增加训练可同时出现的位置数量",
+}
+SUPPORT_CARD_ALL_EFFECT_TYPES = {
+    **SUPPORT_CARD_EFFECT_TYPES,
+    **SUPPORT_CARD_SPECIAL_UNIQUE_EFFECT_TYPES,
+}
 SUPPORT_CARD_EFFECT_LEVEL_COLUMNS = (
     (1, "init"),
     (5, "limit_lv5"),
@@ -109,6 +162,13 @@ def populate_support_cards(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
 
 def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
     support_card_meta = {}
+    default_effect_values = {
+        str(level): -1 for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+    }
+    default_effects = {
+        str(effect_type): dict(default_effect_values)
+        for effect_type in SUPPORT_CARD_EFFECT_TYPES
+    }
 
     cursor.execute(
         """SELECT id, rarity, effect_table_id, unique_effect_id
@@ -119,9 +179,12 @@ def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
             "rarity": rarity,
             "effectTableId": effect_table_id,
             "uniqueEffectId": unique_effect_id,
-            "specialtyRateEffectValues": {
-                str(level): -1 for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+            "effectValues": {
+                effect_type: dict(values)
+                for effect_type, values in default_effects.items()
             },
+            "uniqueEffects": {},
+            "specialtyRateEffectValues": dict(default_effect_values),
             "specialtyRateUnique": None,
         }
 
@@ -129,43 +192,74 @@ def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
         """SELECT id, type, init, limit_lv5, limit_lv10, limit_lv15, limit_lv20,
                   limit_lv25, limit_lv30, limit_lv35, limit_lv40, limit_lv45, limit_lv50
            FROM support_card_effect_table
-           WHERE type=?;""",
-        (SUPPORT_CARD_SPECIALTY_RATE_TYPE,),
+           WHERE type IN ({placeholders});""".format(
+            placeholders=",".join("?" for _ in SUPPORT_CARD_EFFECT_TYPES)
+        ),
+        tuple(SUPPORT_CARD_EFFECT_TYPES),
     )
     for row in cursor.fetchall():
         effect_id = row[0]
-        values = row[2:]
+        effect_type = str(row[1])
+        values = {
+            str(level): value
+            for (level, _), value in zip(SUPPORT_CARD_EFFECT_LEVEL_COLUMNS, row[2:])
+        }
         for support_card in support_card_meta.values():
             if support_card["effectTableId"] != effect_id:
                 continue
-            support_card["specialtyRateEffectValues"] = {
-                str(level): value
-                for (level, _), value in zip(SUPPORT_CARD_EFFECT_LEVEL_COLUMNS, values)
-            }
+            support_card["effectValues"][effect_type] = values
+            if effect_type == str(SUPPORT_CARD_SPECIALTY_RATE_TYPE):
+                support_card["specialtyRateEffectValues"] = dict(values)
 
     cursor.execute(
         """SELECT id, lv,
-                  type_0, value_0,
-                  type_1, value_1
+                  type_0, value_0, value_0_1, value_0_2, value_0_3, value_0_4,
+                  type_1, value_1, value_1_1, value_1_2, value_1_3, value_1_4
            FROM support_card_unique_effect;"""
     )
-    for unique_effect_id, activation_level, type_0, value_0, type_1, value_1 in cursor.fetchall():
-        unique_value = None
-        for effect_type, effect_value in ((type_0, value_0), (type_1, value_1)):
-            if effect_type == SUPPORT_CARD_SPECIALTY_RATE_TYPE:
-                unique_value = {
-                    "type": SUPPORT_CARD_SPECIALTY_RATE_TYPE,
+    for (
+        unique_effect_id,
+        activation_level,
+        type_0,
+        value_0,
+        value_0_1,
+        value_0_2,
+        value_0_3,
+        value_0_4,
+        type_1,
+        value_1,
+        value_1_1,
+        value_1_2,
+        value_1_3,
+        value_1_4,
+    ) in cursor.fetchall():
+        unique_effects = {}
+        for effect_type, effect_value, effect_value_1, effect_value_2, effect_value_3, effect_value_4 in (
+            (type_0, value_0, value_0_1, value_0_2, value_0_3, value_0_4),
+            (type_1, value_1, value_1_1, value_1_2, value_1_3, value_1_4),
+        ):
+            if effect_type > 0:
+                unique_effects[str(effect_type)] = {
+                    "type": effect_type,
                     "level": activation_level,
                     "value": effect_value,
+                    "value1": effect_value_1,
+                    "value2": effect_value_2,
+                    "value3": effect_value_3,
+                    "value4": effect_value_4,
                 }
-                break
 
-        if unique_value is None:
+        if not unique_effects:
             continue
 
         for support_card in support_card_meta.values():
             if support_card["uniqueEffectId"] == unique_effect_id:
-                support_card["specialtyRateUnique"] = unique_value
+                support_card["uniqueEffects"] = dict(unique_effects)
+                specialty_rate_unique = unique_effects.get(
+                    str(SUPPORT_CARD_SPECIALTY_RATE_TYPE)
+                )
+                if specialty_rate_unique is not None:
+                    support_card["specialtyRateUnique"] = specialty_rate_unique
 
     cursor.execute(
         """SELECT rarity, level, total_exp
@@ -185,7 +279,75 @@ def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
             str(support_card_id): meta
             for support_card_id, meta in support_card_meta.items()
         },
+        "supportCardEffectTypes": {
+            str(effect_type): name
+            for effect_type, name in SUPPORT_CARD_ALL_EFFECT_TYPES.items()
+        },
         "supportCardLevels": dict(support_card_levels),
+    }
+
+
+def build_chara_effect_texts(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute('SELECT "index", text FROM text_data WHERE category=142;')
+    return {str(effect_id): text for effect_id, text in cursor.fetchall()}
+
+
+def normalize_skill_tip_name(name: str) -> str:
+    return re.sub(r"[◎○×]$", "", name).strip()
+
+
+def build_skill_tip_names(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute(
+        """SELECT s.group_id, s.rarity, t.text
+           FROM skill_data AS s
+           JOIN text_data AS t ON t."index"=s.id AND t.category=47
+           ORDER BY s.group_id, s.rarity, s.id;"""
+    )
+    grouped_names = defaultdict(lambda: defaultdict(list))
+    for group_id, rarity, text in cursor.fetchall():
+        if not text:
+            continue
+        grouped_names[str(group_id)][str(rarity)].append(text)
+
+    result = {}
+    for group_id, rarity_map in grouped_names.items():
+        result[group_id] = {}
+        for rarity, names in rarity_map.items():
+            unique_names = list(dict.fromkeys(names))
+            if len(unique_names) == 1:
+                result[group_id][rarity] = unique_names[0]
+                continue
+
+            normalized_names = [normalize_skill_tip_name(name) for name in unique_names]
+            if len(set(normalized_names)) == 1:
+                result[group_id][rarity] = normalized_names[0]
+            else:
+                result[group_id][rarity] = unique_names[0]
+
+    return result
+
+
+def build_card_talent_rates(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute(
+        """SELECT id, talent_speed, talent_stamina, talent_pow, talent_guts, talent_wiz
+           FROM card_data;"""
+    )
+    return {
+        str(card_id): {
+            "speed": talent_speed or 0,
+            "stamina": talent_stamina or 0,
+            "power": talent_pow or 0,
+            "guts": talent_guts or 0,
+            "wiz": talent_wiz or 0,
+        }
+        for (
+            card_id,
+            talent_speed,
+            talent_stamina,
+            talent_pow,
+            talent_guts,
+            talent_wiz,
+        ) in cursor.fetchall()
     }
 
 
@@ -383,6 +545,9 @@ def main():
     ):
         p(pb, cursor)
     support_card_meta = build_support_card_meta(cursor)
+    chara_effect_texts = build_chara_effect_texts(cursor)
+    skill_tip_names = build_skill_tip_names(cursor)
+    card_talent_rates = build_card_talent_rates(cursor)
     os.makedirs("assets/data", exist_ok=True)
     with open("assets/data/umdb.binarypb.gz", "wb") as f:
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))
@@ -393,18 +558,34 @@ def main():
             support_card_meta["supportCardMeta"].get(
                 support_card_id,
                 {
+                    "effectValues": {
+                        str(effect_type): {
+                            str(level): -1
+                            for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+                        }
+                        for effect_type in SUPPORT_CARD_EFFECT_TYPES
+                    },
+                    "uniqueEffects": {},
                     "specialtyRateEffectValues": {
-                        str(level): -1 for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
+                        str(level): -1
+                        for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS
                     },
                     "specialtyRateUnique": None,
                 },
             )
         )
     umdb_json["supportCardLevels"] = support_card_meta["supportCardLevels"]
+    umdb_json["charaEffectTexts"] = chara_effect_texts
+    umdb_json["skillTipNames"] = skill_tip_names
+    umdb_json["cardTalentRates"] = card_talent_rates
     with open("assets/data/umdb.json", "w", encoding="utf-8") as f:
         json.dump(umdb_json, f, ensure_ascii=False, indent=2)
-    with open("assets/data/support_card_meta.json", "w", encoding="utf-8") as f:
-        json.dump(support_card_meta, f, ensure_ascii=False, indent=2)
+    for support_card_meta_path in (
+        "assets/data/support_card_meta.json",
+        "support_card_meta.generated.json",
+    ):
+        with open(support_card_meta_path, "w", encoding="utf-8") as f:
+            json.dump(support_card_meta, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":

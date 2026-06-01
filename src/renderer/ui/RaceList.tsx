@@ -13,6 +13,9 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RaceArchive, RaceRecord } from 'types/gameTypes';
 import RaceMetaTag from 'renderer/components/RaceMetaTag';
+import RacePageLayout, {
+  raceHeaderButtonClass,
+} from 'renderer/components/RacePageLayout';
 
 const fallbackArchives: RaceArchive[] = [
   {
@@ -159,255 +162,249 @@ export default function RaceList() {
       state: {
         scenario: item.scenario,
         horseInfo: JSON.stringify(item.horses ?? {}),
+        archiveId: activeArchiveId,
       },
     });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* 标题栏 */}
-        <div className="mb-6 pb-4 border-b border-gray-200 flex justify-between items-end">
-          <div>
-            <p className="text-gray-500 text-sm mt-1 ml-1">
-              练习，自定义比赛，保存的比赛，星座杯比赛
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/race-stats', {
-                  state: { archiveId: activeArchiveId },
-                })
-              }
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <BarChart3 size={16} />
-              统计
-            </button>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              {selected.size === items.length && items.length > 0 ? (
-                <CheckSquare size={18} className="text-blue-600" />
-              ) : (
-                <Square size={18} />
-              )}
-              全选
-            </button>
-
-            {selected.size > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowArchiveTarget((prev) => !prev)}
-                  className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border border-blue-200"
-                >
-                  归档所选 ({selected.size})
-                </button>
-                <button
-                  type="button"
-                  onClick={deleteSelected}
-                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border border-red-200"
-                >
-                  <Trash2 size={16} />
-                  删除 ({selected.size})
-                </button>
-              </>
+    <RacePageLayout
+      title="比赛记录"
+      description="练习，自定义比赛，保存的比赛，星座杯比赛"
+      icon={<Trophy size={20} />}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              navigate('/race-stats', {
+                state: { archiveId: activeArchiveId },
+              })
+            }
+            className={raceHeaderButtonClass}
+          >
+            <BarChart3 size={16} />
+            统计
+          </button>
+          <button
+            type="button"
+            onClick={toggleAll}
+            className={raceHeaderButtonClass}
+          >
+            {selected.size === items.length && items.length > 0 ? (
+              <CheckSquare size={18} className="text-blue-600" />
+            ) : (
+              <Square size={18} />
             )}
-          </div>
-        </div>
+            全选
+          </button>
 
-        <div className="mb-4 border-b border-gray-200">
-          <div className="flex flex-wrap items-end gap-2">
-            {archives.map((archive) => (
-              <div
-                key={archive.id}
-                className={`flex items-center gap-1 border-b-2 transition-colors ${
+          {selected.size > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowArchiveTarget((prev) => !prev)}
+                className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
+              >
+                归档所选 ({selected.size})
+              </button>
+              <button
+                type="button"
+                onClick={deleteSelected}
+                className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+              >
+                <Trash2 size={16} />
+                删除 ({selected.size})
+              </button>
+            </>
+          )}
+        </>
+      }
+    >
+      <div className="mb-4 border-b border-gray-200">
+        <div className="flex flex-wrap items-end gap-2">
+          {archives.map((archive) => (
+            <div
+              key={archive.id}
+              className={`flex items-center gap-1 border-b-2 transition-colors ${
+                activeArchiveId === archive.id
+                  ? 'border-blue-600'
+                  : 'border-transparent'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  activateArchive(archive.id);
+                }}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
                   activeArchiveId === archive.id
-                    ? 'border-blue-600'
-                    : 'border-transparent'
+                    ? 'text-blue-700'
+                    : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
+                {archive.name}
+              </button>
+              {archive.id !== 'default' && (
                 <button
                   type="button"
-                  onClick={() => {
-                    activateArchive(archive.id);
-                  }}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    activeArchiveId === archive.id
-                      ? 'text-blue-700'
-                      : 'text-gray-500 hover:text-gray-800'
-                  }`}
+                  onClick={() => deleteArchive(archive)}
+                  className="p-1 text-gray-300 hover:text-red-600"
+                  title="删除存档"
                 >
-                  {archive.name}
+                  <X size={14} />
                 </button>
-                {archive.id !== 'default' && (
-                  <button
-                    type="button"
-                    onClick={() => deleteArchive(archive)}
-                    className="p-1 text-gray-300 hover:text-red-600"
-                    title="删除存档"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setShowCreateArchive((prev) => !prev)}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800"
-            >
-              <Plus size={16} />
-              新建
-            </button>
-          </div>
-        </div>
-
-        {showCreateArchive && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-            <input
-              value={newArchiveName}
-              onChange={(e) => setNewArchiveName(e.target.value)}
-              placeholder="新存档名称"
-              className="w-48 border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700 placeholder:text-gray-400"
-            />
-            <button
-              type="button"
-              onClick={createArchive}
-              disabled={!newArchiveName.trim()}
-              className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              创建
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowCreateArchive(false);
-                setNewArchiveName('');
-              }}
-              className="px-3 py-1.5 text-gray-500 hover:text-gray-800"
-            >
-              取消
-            </button>
-          </div>
-        )}
-
-        {showArchiveTarget && selected.size > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-            <span>归档到</span>
-            <select
-              value={targetArchiveId}
-              onChange={(e) => setTargetArchiveId(e.target.value)}
-              className="border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700"
-            >
-              {archives.map((archive) => (
-                <option key={archive.id} value={archive.id}>
-                  {archive.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={archiveSelected}
-              className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              确认归档
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowArchiveTarget(false)}
-              className="px-2 py-1.5 text-gray-500 hover:text-gray-800"
-            >
-              取消
-            </button>
-          </div>
-        )}
-
-        {/* 列表 */}
-        <div className="space-y-3">
-          {items.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-              <Trophy size={48} className="text-gray-300 mb-4" />
-              <div className="text-gray-400 font-medium">暂无比赛记录</div>
+              )}
             </div>
-          )}
+          ))}
 
-          {items.map((item) => {
-            const created = new Date(item.createdAt).toLocaleString();
-            const isSelected = selected.has(item.filename);
-
-            return (
-              <div
-                key={item.filename}
-                className={`group relative bg-white border rounded-xl p-1.5 flex gap-4 transition-all duration-200 hover:shadow-md
-                  ${isSelected ? 'border-blue-400 ring-1 ring-blue-400 bg-blue-50/10' : 'border-gray-200'}
-                `}
-              >
-                {/* 勾选框 (绝对定位在右上角，稍微优化点击区域) */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(item.filename);
-                  }}
-                  className="absolute right-3 top-3 z-10 p-1 cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity"
-                >
-                  {isSelected ? (
-                    <CheckSquare
-                      className="text-blue-600 drop-shadow-sm"
-                      size={20}
-                    />
-                  ) : (
-                    <Square
-                      className="text-gray-400 hover:text-gray-600"
-                      size={20}
-                    />
-                  )}
-                </div>
-
-                {/* 左侧：漂亮的 MetaTag 卡片 */}
-                <div
-                  className="shrink-0"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => enterRace(item)}
-                >
-                  <RaceMetaTag meta={item.raceMetaInfo} />
-                </div>
-
-                {/* 右侧：剩余信息区域 */}
-                <div className="flex-1 py-2 flex flex-col justify-between pr-10">
-                  {/* 这里可以放备注、ID或者文件名等辅助信息 */}
-                  <div className="text-sm font-medium text-gray-400 font-mono truncate">
-                    {item.filename}
-                  </div>
-
-                  {/* 底部信息：时间 */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded">
-                      <Clock size={12} />
-                      <span>创建时间：{created}</span>
-                    </div>
-                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                      存档：
-                      {archiveNameById.get(item.archiveId ?? 'default') ??
-                        '默认'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => setShowCreateArchive((prev) => !prev)}
+            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800"
+          >
+            <Plus size={16} />
+            新建
+          </button>
         </div>
       </div>
-    </div>
+
+      {showCreateArchive && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <input
+            value={newArchiveName}
+            onChange={(e) => setNewArchiveName(e.target.value)}
+            placeholder="新存档名称"
+            className="w-48 border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700 placeholder:text-gray-400"
+          />
+          <button
+            type="button"
+            onClick={createArchive}
+            disabled={!newArchiveName.trim()}
+            className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            创建
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowCreateArchive(false);
+              setNewArchiveName('');
+            }}
+            className="px-3 py-1.5 text-gray-500 hover:text-gray-800"
+          >
+            取消
+          </button>
+        </div>
+      )}
+
+      {showArchiveTarget && selected.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          <span>归档到</span>
+          <select
+            value={targetArchiveId}
+            onChange={(e) => setTargetArchiveId(e.target.value)}
+            className="border border-gray-200 rounded-md bg-white px-2 py-1 text-gray-700"
+          >
+            {archives.map((archive) => (
+              <option key={archive.id} value={archive.id}>
+                {archive.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={archiveSelected}
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+          >
+            确认归档
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowArchiveTarget(false)}
+            className="px-2 py-1.5 text-gray-500 hover:text-gray-800"
+          >
+            取消
+          </button>
+        </div>
+      )}
+
+      {/* 列表 */}
+      <div className="space-y-3">
+        {items.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+            <Trophy size={48} className="text-gray-300 mb-4" />
+            <div className="text-gray-400 font-medium">暂无比赛记录</div>
+          </div>
+        )}
+
+        {items.map((item) => {
+          const created = new Date(item.createdAt).toLocaleString();
+          const isSelected = selected.has(item.filename);
+
+          return (
+            <div
+              key={item.filename}
+              className={`group relative bg-white border rounded-xl p-1.5 flex gap-4 transition-all duration-200 hover:shadow-md
+                  ${isSelected ? 'border-blue-400 ring-1 ring-blue-400 bg-blue-50/10' : 'border-gray-200'}
+                `}
+            >
+              {/* 勾选框 (绝对定位在右上角，稍微优化点击区域) */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle(item.filename);
+                }}
+                className="absolute right-3 top-3 z-10 p-1 cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity"
+              >
+                {isSelected ? (
+                  <CheckSquare
+                    className="text-blue-600 drop-shadow-sm"
+                    size={20}
+                  />
+                ) : (
+                  <Square
+                    className="text-gray-400 hover:text-gray-600"
+                    size={20}
+                  />
+                )}
+              </div>
+
+              {/* 左侧：漂亮的 MetaTag 卡片 */}
+              <div
+                className="shrink-0"
+                role="button"
+                tabIndex={0}
+                onClick={() => enterRace(item)}
+              >
+                <RaceMetaTag meta={item.raceMetaInfo} />
+              </div>
+
+              {/* 右侧：剩余信息区域 */}
+              <div className="flex-1 py-2 flex flex-col justify-between pr-10">
+                {/* 这里可以放备注、ID或者文件名等辅助信息 */}
+                <div className="text-sm font-medium text-gray-400 font-mono truncate">
+                  {item.filename}
+                </div>
+
+                {/* 底部信息：时间 */}
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded">
+                    <Clock size={12} />
+                    <span>创建时间：{created}</span>
+                  </div>
+                  <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                    存档：
+                    {archiveNameById.get(item.archiveId ?? 'default') ?? '默认'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </RacePageLayout>
   );
 }

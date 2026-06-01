@@ -7,3 +7,7 @@ export const ASSETS_PATH = app.isPackaged
 
 export const APP_PATH = app.getAppPath();
 export const RACE_DIR = path.join(app.getPath('userData'), 'race_data');
+export const TRAINING_HISTORY_DIR = path.join(
+  app.getPath('userData'),
+  'training_history',
+);

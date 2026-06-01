@@ -4,6 +4,7 @@ import express from 'express';
 import type { Server as HttpServer } from 'http';
 import { extractCoreInfo } from './CoreInfo';
 import { handleRaceInfo } from './RaceInfo';
+import { handleTrainingHistoryInfo } from './TrainingHistory';
 
 export interface ExpressServerController {
   getPort: () => number;
@@ -41,6 +42,7 @@ export async function startExpressServer(
           type: 'Info',
           message: `收到 Response 包 (${buffer.length} bytes)`,
         });
+        handleTrainingHistoryInfo(decoded, _mainWindow);
         await extractCoreInfo(decoded, _mainWindow);
         // handleUncheckedEventInfo(decoded, mainWindow);
         handleRaceInfo(decoded, _mainWindow);

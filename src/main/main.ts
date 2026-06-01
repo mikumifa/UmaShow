@@ -14,6 +14,10 @@ import AppUpdater from './updater';
 import { handleDataLoad, UMDBload } from './handle/Data';
 import { startExpressServer } from './handle/Server';
 import { ensureRaceDir, handleRaceList } from './handle/RaceInfo';
+import {
+  ensureTrainingHistory,
+  handleTrainingHistoryList,
+} from './handle/TrainingHistory';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -120,6 +124,7 @@ const createWindow = async () => {
 
 //race
 handleRaceList(ipcMain);
+handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
@@ -194,6 +199,7 @@ app
   .whenReady()
   .then(() => {
     ensureRaceDir();
+    ensureTrainingHistory();
     UMDBload();
     createWindow();
     app.on('activate', () => {

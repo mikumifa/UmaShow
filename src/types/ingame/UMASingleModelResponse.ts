@@ -9,7 +9,8 @@ export interface Data {
   not_up_parameter_info: NotUpParameterInfo;
   not_down_parameter_info: NotDownParameterInfo;
   home_info: HomeInfo;
-  unchecked_event_array: any[];
+  unchecked_event_array: UncheckedEventArray[];
+  command_result: CommandResult;
   event_effected_factor_array: null;
   race_condition_array: RaceConditionArray[];
   race_start_info: null;
@@ -18,7 +19,13 @@ export interface Data {
   venus_data_set?: Record<string, unknown> | null;
   single_mode_load_common?: Partial<Data> | null;
 }
-export interface UnchekedEventArray {
+export interface CommandResult {
+  command_id: number;
+  sub_id: number;
+  result_state: number;
+}
+
+export interface UncheckedEventArray {
   event_id: number;
   chara_id: number;
   story_id: number;
@@ -97,7 +104,7 @@ export interface CharaInfo {
   evaluation_info_array: EvaluationInfoArray[];
   training_level_info_array: TrainingLevelInfoArray[];
   nickname_id_array: number[];
-  chara_effect_id_array: any[];
+  chara_effect_id_array: number[];
   route_race_id_array: number[];
   guest_outing_info_array: any[];
 }
@@ -262,13 +269,13 @@ export interface NotDownParameterInfo {
 
 export interface NotUpParameterInfo {
   status_type_array: any[];
-  chara_effect_id_array: any[];
+  chara_effect_id_array: number[];
   skill_id_array: any[];
   skill_tips_array: any[];
   skill_lv_id_array: any[];
   evaluation_chara_id_array: any[];
   command_lv_array: any[];
-  has_chara_effect_id_array: any[];
+  has_chara_effect_id_array: number[];
   unsupported_evaluation_chara_id_array: any[];
   not_gain_chara_effect_array: any[];
 }

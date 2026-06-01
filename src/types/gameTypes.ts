@@ -36,6 +36,11 @@ export interface GameStats {
   currentTrainingPartnerUniqueCount?: number;
 }
 
+export interface CharaEffect {
+  id: number;
+  text: string;
+}
+
 export type ScenarioType = 'idolCup' | 'venusCup' | 'unknown';
 
 // =============================
@@ -184,6 +189,7 @@ export interface CharInfo {
   gameEvents: GameEvents;
   gameStats: GameStats;
   stats: CharStats;
+  charaEffects?: CharaEffect[];
   commands: TrainingCommands;
   songStats?: SongStats;
   noteStat?: NoteStat;
@@ -224,6 +230,188 @@ export interface RaceArchive {
   id: string;
   name: string;
   createdAt: number;
+}
+
+export interface TrainingHistorySupportCard {
+  position: number;
+  supportCardId: number;
+  limitBreak: number;
+  exp: number;
+}
+
+export interface TrainingHistorySummary {
+  viewerId: number;
+  singleModeCharaId: number;
+  cardId: number;
+  startTime?: string | number | Date;
+  updatedAt: number;
+  packetCount: number;
+  turnCount: number;
+  supportCards: TrainingHistorySupportCard[];
+}
+
+export interface TrainingHistorySkill {
+  skillId: number;
+  level: number;
+}
+
+export interface TrainingHistorySkillTip {
+  groupId: number;
+  rarity: number;
+  level: number;
+}
+
+export interface TrainingHistoryVenusSpirit {
+  spiritNum: number;
+  spiritId: number;
+  effectGroupId: number;
+}
+
+export interface TrainingHistoryVenusGoddessLevel {
+  charaId: number;
+  venusLevel: number;
+}
+
+export interface TrainingHistoryTurnSnapshot {
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  skillPoint: number;
+  motivation: number;
+  vital: number;
+  maxVital: number;
+  effectIds: number[];
+  skills: TrainingHistorySkill[];
+  skillTips: TrainingHistorySkillTip[];
+  venusSpirits: TrainingHistoryVenusSpirit[];
+  venusGoddessLevels: TrainingHistoryVenusGoddessLevel[];
+}
+
+export interface TrainingHistoryTurnVenusSpiritDelta {
+  spiritNum: number;
+  spiritId: number;
+  effectGroupId: number;
+}
+
+export interface TrainingHistoryTurnVenusLevelDelta {
+  charaId: number;
+  beforeLevel: number;
+  afterLevel: number;
+}
+
+export interface TrainingHistoryTurnDelta {
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  skillPoint: number;
+  motivation: number;
+  vital: number;
+  addedEffectIds: number[];
+  removedEffectIds: number[];
+  addedVenusSpirits: TrainingHistoryTurnVenusSpiritDelta[];
+  removedVenusSpirits: TrainingHistoryTurnVenusSpiritDelta[];
+  venusLevelChanges: TrainingHistoryTurnVenusLevelDelta[];
+}
+
+export interface TrainingHistoryTrainingContribution {
+  source: string;
+  value: number;
+  supportCardId?: number;
+}
+
+export interface TrainingHistoryTrainingTargetEstimate {
+  targetType: number;
+  observed: number;
+  estimated: number;
+  approxScenarioBase: number;
+  supportBonus: number;
+  supportBonusSources: TrainingHistoryTrainingContribution[];
+  friendshipMultiplier: number;
+  friendshipSources: TrainingHistoryTrainingContribution[];
+  trainingEffectPercent: number;
+  trainingEffectSources: TrainingHistoryTrainingContribution[];
+  motivationMultiplier: number;
+  motivationBase: number;
+  motivationSupportPercent: number;
+  motivationSources: TrainingHistoryTrainingContribution[];
+  growthMultiplier: number;
+  growthPercent: number;
+  partnerMultiplier: number;
+  partnerCount: number;
+}
+
+export interface TrainingHistoryTrainingEstimate {
+  commandId: number;
+  commandLevel: number;
+  partnerCount: number;
+  supportPartnerCount: number;
+  targetType: number;
+  presentSupportCardIds: number[];
+  targets: TrainingHistoryTrainingTargetEstimate[];
+  notes: string[];
+}
+
+export type TrainingHistoryTurnEntry =
+  | {
+      type: 'command';
+      packetIndex: number;
+      receivedAt: number;
+      commandResult: unknown;
+      delta?: TrainingHistoryTurnDelta | null;
+      trainingEstimate?: TrainingHistoryTrainingEstimate;
+    }
+  | {
+      type: 'event';
+      packetIndex: number;
+      receivedAt: number;
+      event: unknown;
+      storyId?: number;
+      delta?: TrainingHistoryTurnDelta | null;
+    }
+  | {
+      type: 'delta';
+      packetIndex: number;
+      receivedAt: number;
+      title: string;
+      delta?: TrainingHistoryTurnDelta | null;
+    };
+
+export interface TrainingHistoryTurn {
+  turn: number;
+  snapshot: TrainingHistoryTurnSnapshot;
+  entries: TrainingHistoryTurnEntry[];
+}
+
+export interface TrainingHistoryPacket {
+  sequence: number;
+  receivedAt: number;
+  payload: unknown;
+}
+
+export interface TrainingHistoryAnalysis {
+  version: number;
+  summary: TrainingHistorySummary;
+  turns: TrainingHistoryTurn[];
+}
+
+export interface TrainingHistoryRecord {
+  id: string;
+  filename: string;
+  fullPath: string;
+  createdAt: number;
+  updatedAt: number;
+  favorite: boolean;
+  summary: TrainingHistorySummary;
+  analysis: TrainingHistoryAnalysis;
+  packets: TrainingHistoryPacket[];
+}
+
+export interface TrainingHistoryConfig {
+  maxCachedRuns: number;
 }
 
 export function isEmptyField(field: any): boolean {
@@ -304,6 +492,9 @@ export const COMMAND_NAME_MAP: Record<number, string> = {
   603: '力量夏训',
   604: '毅力夏训',
   605: '智力夏训',
+  701: '休息',
+  302: '外出',
+  390: '友人卡外出',
 };
 export const COMMAND_TARGET_TYPE_MAP: Record<number, TARGET_TYPE> = {
   101: TARGET_TYPE.SPEED,

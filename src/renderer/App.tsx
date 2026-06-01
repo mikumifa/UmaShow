@@ -6,6 +6,7 @@ import RaceDataPage from 'renderer/ui/RaceDataPage';
 import HiddenNavigator from 'renderer/components/HiddenNavigator';
 import RaceList from 'renderer/ui/RaceList';
 import RaceStats from 'renderer/ui/RaceStats';
+import TrainingHistory from 'renderer/ui/TrainingHistory';
 
 export default function App() {
   return (
@@ -40,6 +41,14 @@ export default function App() {
               }
             />
             <Route path="/race" element={<RaceDataPage />} />
+            <Route
+              path="/training-history"
+              element={
+                <KeepAlive name="TrainingHistory" cacheKey="TrainingHistory">
+                  <TrainingHistory />
+                </KeepAlive>
+              }
+            />
             <Route
               path="/race-stats"
               element={

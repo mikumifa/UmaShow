@@ -44,6 +44,20 @@ export function VitalPanel({ charInfo }: { charInfo: CharInfo }) {
             </span>
           </div>
         </div>
+
+        {charInfo.charaEffects && charInfo.charaEffects.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 pl-8">
+            {charInfo.charaEffects.map((effect) => (
+              <span
+                key={effect.id}
+                title={`effect_id: ${effect.id}`}
+                className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
+              >
+                {effect.text}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </section>
     </div>
   );

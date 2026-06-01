@@ -9,6 +9,9 @@ import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 import { RaceSimulateEventData_SimulateEventType } from 'umdb/race_data_pb';
 import { getCharaActivatedSkillIds } from 'umdb/RaceDataUtils';
 import { CharaSkill, fromRaceHorseData } from 'umdb/TrainedCharaData';
+import RacePageLayout, {
+  raceHeaderButtonClass,
+} from 'renderer/components/RacePageLayout';
 
 type HorseStatusItem = {
   label: string;
@@ -69,7 +72,10 @@ type HorseEntry = {
   activatedEventTypes: Set<number>;
 };
 
-type MutableHorseSummary = Omit<HorseSummaryData, 'procStats' | 'skillStats'> & {
+type MutableHorseSummary = Omit<
+  HorseSummaryData,
+  'procStats' | 'skillStats'
+> & {
   procStatMap: Map<string, ProcStatAccumulator>;
   skillStatMap: Map<number, SkillStatRow>;
 };
@@ -191,7 +197,9 @@ function getHorseWinFromFields(horse: RaceHorseInfo): boolean {
   return getHorseFinishRankFromFields(horse) === 1;
 }
 
-function getHorseFinishRankFromFields(horse: RaceHorseInfo): number | undefined {
+function getHorseFinishRankFromFields(
+  horse: RaceHorseInfo,
+): number | undefined {
   return (
     numberValue(horseField(horse, 'rank')) ??
     numberValue(horseField(horse, 'result_rank')) ??
@@ -389,7 +397,9 @@ function getHorseSummary(
   };
 }
 
-function createMutableHorseSummary(summary: HorseSummaryData): MutableHorseSummary {
+function createMutableHorseSummary(
+  summary: HorseSummaryData,
+): MutableHorseSummary {
   return {
     ...summary,
     procStatMap: new Map(),
@@ -397,7 +407,9 @@ function createMutableHorseSummary(summary: HorseSummaryData): MutableHorseSumma
   };
 }
 
-function cloneMutableHorseSummary(summary: MutableHorseSummary): MutableHorseSummary {
+function cloneMutableHorseSummary(
+  summary: MutableHorseSummary,
+): MutableHorseSummary {
   return {
     ...summary,
     status: [...summary.status],
@@ -406,10 +418,16 @@ function cloneMutableHorseSummary(summary: MutableHorseSummary): MutableHorseSum
       items: [...group.items],
     })),
     procStatMap: new Map(
-      [...summary.procStatMap.entries()].map(([key, value]) => [key, { ...value }]),
+      [...summary.procStatMap.entries()].map(([key, value]) => [
+        key,
+        { ...value },
+      ]),
     ),
     skillStatMap: new Map(
-      [...summary.skillStatMap.entries()].map(([key, value]) => [key, { ...value }]),
+      [...summary.skillStatMap.entries()].map(([key, value]) => [
+        key,
+        { ...value },
+      ]),
     ),
   };
 }
@@ -441,20 +459,29 @@ function bumpProcStat(
   }
 }
 
-function finalizeProcStat<T extends ProcStatAccumulator>(stat: T): T & ProcStatRow {
+function finalizeProcStat<T extends ProcStatAccumulator>(
+  stat: T,
+): T & ProcStatRow {
   const nonTriggeredCount = stat.totalCount - stat.triggeredCount;
   const nonTriggeredWinCount = stat.winCount - stat.winTriggeredCount;
   const triggeredWinRate =
-    stat.triggeredCount > 0 ? stat.winTriggeredCount / stat.triggeredCount : undefined;
+    stat.triggeredCount > 0
+      ? stat.winTriggeredCount / stat.triggeredCount
+      : undefined;
   const nonTriggeredWinRate =
-    nonTriggeredCount > 0 ? nonTriggeredWinCount / nonTriggeredCount : undefined;
-  const totalWinRate = stat.totalCount > 0 ? stat.winCount / stat.totalCount : undefined;
+    nonTriggeredCount > 0
+      ? nonTriggeredWinCount / nonTriggeredCount
+      : undefined;
+  const totalWinRate =
+    stat.totalCount > 0 ? stat.winCount / stat.totalCount : undefined;
   const totalEntropy =
     totalWinRate != null ? binaryEntropy(totalWinRate) : undefined;
   const triggeredEntropy =
     triggeredWinRate != null ? binaryEntropy(triggeredWinRate) : undefined;
   const nonTriggeredEntropy =
-    nonTriggeredWinRate != null ? binaryEntropy(nonTriggeredWinRate) : undefined;
+    nonTriggeredWinRate != null
+      ? binaryEntropy(nonTriggeredWinRate)
+      : undefined;
   const conditionalEntropy =
     totalEntropy != null
       ? (stat.triggeredCount / Math.max(stat.totalCount, 1)) *
@@ -465,8 +492,10 @@ function finalizeProcStat<T extends ProcStatAccumulator>(stat: T): T & ProcStatR
 
   return {
     ...stat,
-    triggerRate: stat.totalCount > 0 ? stat.triggeredCount / stat.totalCount : 0,
-    winTriggerRate: stat.winCount > 0 ? stat.winTriggeredCount / stat.winCount : 0,
+    triggerRate:
+      stat.totalCount > 0 ? stat.triggeredCount / stat.totalCount : 0,
+    winTriggerRate:
+      stat.winCount > 0 ? stat.winTriggeredCount / stat.winCount : 0,
     winRateLift:
       triggeredWinRate != null && nonTriggeredWinRate != null
         ? triggeredWinRate - nonTriggeredWinRate
@@ -544,7 +573,9 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
     const frameOrder = resolveFrameOrder(horse, index);
     const finishOrder = finishOrderByFrame.get(frameOrder);
     const finishRank =
-      finishOrder != null ? finishOrder + 1 : getHorseFinishRankFromFields(horse);
+      finishOrder != null
+        ? finishOrder + 1
+        : getHorseFinishRankFromFields(horse);
     const finalHp = finalHpByFrame.get(frameOrder);
     const identityKey = `${viewerId}|${trainedCharaId}`;
     const trainedCharaData = fromRaceHorseData(horse, UMDB.skills);
@@ -925,10 +956,16 @@ function toRateText(numerator: number, denominator: number) {
   return `${numerator}/${denominator} = ${percent(numerator / denominator)}`;
 }
 
-function winRateLiftDetail(stat: Pick<
-  ProcStatRow,
-  'triggeredCount' | 'winTriggeredCount' | 'totalCount' | 'winCount' | 'winRateLift'
->) {
+function winRateLiftDetail(
+  stat: Pick<
+    ProcStatRow,
+    | 'triggeredCount'
+    | 'winTriggeredCount'
+    | 'totalCount'
+    | 'winCount'
+    | 'winRateLift'
+  >,
+) {
   const nonTriggeredCount = stat.totalCount - stat.triggeredCount;
   const nonTriggeredWinCount = stat.winCount - stat.winTriggeredCount;
 
@@ -945,27 +982,36 @@ function entropyText(value: number | undefined) {
   return value.toFixed(4);
 }
 
-function informationGainDetail(stat: Pick<
-  ProcStatRow,
-  | 'triggeredCount'
-  | 'winTriggeredCount'
-  | 'totalCount'
-  | 'winCount'
-  | 'informationGain'
->) {
+function informationGainDetail(
+  stat: Pick<
+    ProcStatRow,
+    | 'triggeredCount'
+    | 'winTriggeredCount'
+    | 'totalCount'
+    | 'winCount'
+    | 'informationGain'
+  >,
+) {
   const nonTriggeredCount = stat.totalCount - stat.triggeredCount;
   const nonTriggeredWinCount = stat.winCount - stat.winTriggeredCount;
-  const totalWinRate = stat.totalCount > 0 ? stat.winCount / stat.totalCount : undefined;
+  const totalWinRate =
+    stat.totalCount > 0 ? stat.winCount / stat.totalCount : undefined;
   const triggeredWinRate =
-    stat.triggeredCount > 0 ? stat.winTriggeredCount / stat.triggeredCount : undefined;
+    stat.triggeredCount > 0
+      ? stat.winTriggeredCount / stat.triggeredCount
+      : undefined;
   const nonTriggeredWinRate =
-    nonTriggeredCount > 0 ? nonTriggeredWinCount / nonTriggeredCount : undefined;
+    nonTriggeredCount > 0
+      ? nonTriggeredWinCount / nonTriggeredCount
+      : undefined;
   const totalEntropy =
     totalWinRate != null ? binaryEntropy(totalWinRate) : undefined;
   const triggeredEntropy =
     triggeredWinRate != null ? binaryEntropy(triggeredWinRate) : undefined;
   const nonTriggeredEntropy =
-    nonTriggeredWinRate != null ? binaryEntropy(nonTriggeredWinRate) : undefined;
+    nonTriggeredWinRate != null
+      ? binaryEntropy(nonTriggeredWinRate)
+      : undefined;
   const conditionalEntropy =
     totalEntropy != null
       ? (stat.triggeredCount / Math.max(stat.totalCount, 1)) *
@@ -1087,7 +1133,9 @@ function compareValues(
 
 function sortRows(
   rows: StatRow[],
-  sort: TableSort<'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'>,
+  sort: TableSort<
+    'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'
+  >,
 ) {
   return [...rows].sort((a, b) => {
     const value =
@@ -1102,7 +1150,11 @@ function sortRows(
 function sortProcStats(
   rows: ProcStatRow[],
   sort: TableSort<
-    'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'winRateLift'
+    | 'informationGain'
   >,
 ) {
   return [...rows].sort((a, b) => {
@@ -1118,7 +1170,11 @@ function sortProcStats(
 function sortSkillStats(
   rows: SkillStatRow[],
   sort: TableSort<
-    'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'winRateLift'
+    | 'informationGain'
   >,
 ) {
   return [...rows].sort((a, b) => {
@@ -1246,7 +1302,10 @@ function HorseSummary({
       <div className="flex gap-2">
         <HorseIcon path={horse.iconPath} name={horse.name} />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-gray-900" title={horse.name}>
+          <div
+            className="truncate font-medium text-gray-900"
+            title={horse.name}
+          >
             {horse.name}
           </div>
           <div className="truncate text-xs text-gray-500">
@@ -1287,7 +1346,9 @@ function StatTable({
   showTopRates,
 }: {
   rows: StatRow[];
-  sort: TableSort<'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'>;
+  sort: TableSort<
+    'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total'
+  >;
   onSort: (
     key: 'label' | 'winRate' | 'top2Rate' | 'top3Rate' | 'wins' | 'total',
   ) => void;
@@ -1362,7 +1423,9 @@ function StatTable({
                 <td className="px-3 py-3 text-gray-700">
                   <div
                     className={`flex gap-2 ${
-                      row.horses.length >= 3 ? 'min-w-fit flex-nowrap' : 'flex-wrap'
+                      row.horses.length >= 3
+                        ? 'min-w-fit flex-nowrap'
+                        : 'flex-wrap'
                     }`}
                     title={row.label}
                   >
@@ -1421,7 +1484,11 @@ function ProcStatsTable({
 }: {
   rows: ProcStatRow[];
   sort: TableSort<
-    'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'winRateLift'
+    | 'informationGain'
   >;
   onSort: (
     key:
@@ -1487,10 +1554,12 @@ function ProcStatsTable({
             <tr key={row.key}>
               <td className="px-3 py-2 text-gray-800">{row.label}</td>
               <td className="px-3 py-2 text-right font-mono text-amber-700">
-                {percent(row.triggerRate)} ({ratioText(row.triggeredCount, row.totalCount)})
+                {percent(row.triggerRate)} (
+                {ratioText(row.triggeredCount, row.totalCount)})
               </td>
               <td className="px-3 py-2 text-right font-mono text-rose-700">
-                {percent(row.winTriggerRate)} ({ratioText(row.winTriggeredCount, row.winCount)})
+                {percent(row.winTriggerRate)} (
+                {ratioText(row.winTriggeredCount, row.winCount)})
               </td>
               <td className="px-3 py-2 text-right font-mono text-cyan-700">
                 <InformationGainValue
@@ -1498,9 +1567,7 @@ function ProcStatsTable({
                   detail={informationGainDetail(row)}
                 />
               </td>
-              <td
-                className="px-3 py-2 text-right font-mono"
-              >
+              <td className="px-3 py-2 text-right font-mono">
                 <WinRateLiftValue
                   value={row.winRateLift}
                   detail={winRateLiftDetail(row)}
@@ -1528,7 +1595,11 @@ function SkillStatsTable({
 }: {
   rows: SkillStatRow[];
   sort: TableSort<
-    'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'winRateLift'
+    | 'informationGain'
   >;
   onSort: (
     key:
@@ -1596,10 +1667,12 @@ function SkillStatsTable({
                 <SkillNameCell skillId={row.skillId} label={row.label} />
               </td>
               <td className="px-3 py-2 text-right font-mono text-amber-700">
-                {percent(row.triggerRate)} ({ratioText(row.triggeredCount, row.totalCount)})
+                {percent(row.triggerRate)} (
+                {ratioText(row.triggeredCount, row.totalCount)})
               </td>
               <td className="px-3 py-2 text-right font-mono text-rose-700">
-                {percent(row.winTriggerRate)} ({ratioText(row.winTriggeredCount, row.winCount)})
+                {percent(row.winTriggerRate)} (
+                {ratioText(row.winTriggeredCount, row.winCount)})
               </td>
               <td className="px-3 py-2 text-right font-mono text-cyan-700">
                 <InformationGainValue
@@ -1607,9 +1680,7 @@ function SkillStatsTable({
                   detail={informationGainDetail(row)}
                 />
               </td>
-              <td
-                className="px-3 py-2 text-right font-mono"
-              >
+              <td className="px-3 py-2 text-right font-mono">
                 <WinRateLiftValue
                   value={row.winRateLift}
                   detail={winRateLiftDetail(row)}
@@ -1639,7 +1710,11 @@ function HorseSkillsModal({
 }) {
   const [eventSort, setEventSort] = useState<
     TableSort<
-      'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+      | 'label'
+      | 'triggerRate'
+      | 'winTriggerRate'
+      | 'winRateLift'
+      | 'informationGain'
     >
   >({
     key: 'informationGain',
@@ -1647,7 +1722,11 @@ function HorseSkillsModal({
   });
   const [skillSort, setSkillSort] = useState<
     TableSort<
-      'label' | 'triggerRate' | 'winTriggerRate' | 'winRateLift' | 'informationGain'
+      | 'label'
+      | 'triggerRate'
+      | 'winTriggerRate'
+      | 'winRateLift'
+      | 'informationGain'
     >
   >({
     key: 'informationGain',
@@ -1682,8 +1761,7 @@ function HorseSkillsModal({
   ) => {
     setEventSort((prev) => ({
       key,
-      direction:
-        prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
     }));
   };
 
@@ -1697,8 +1775,7 @@ function HorseSkillsModal({
   ) => {
     setSkillSort((prev) => ({
       key,
-      direction:
-        prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
     }));
   };
 
@@ -1742,7 +1819,9 @@ function HorseSkillsModal({
               <div className="rounded-lg border border-gray-200 bg-fuchsia-50 px-3 py-3">
                 <div className="text-xs text-gray-500">胜场HP</div>
                 <div className="mt-1 font-mono text-lg font-bold text-fuchsia-700">
-                  {hpText(average(horse.winFinalHpTotal, horse.winFinalHpCount))}
+                  {hpText(
+                    average(horse.winFinalHpTotal, horse.winFinalHpCount),
+                  )}
                 </div>
                 <div className="mt-1 text-[11px] text-gray-500">
                   基于 {horse.winFinalHpCount} 场
@@ -1752,7 +1831,9 @@ function HorseSkillsModal({
           </div>
 
           <div>
-            <div className="mb-2 text-sm font-medium text-gray-900">事件发动率</div>
+            <div className="mb-2 text-sm font-medium text-gray-900">
+              事件发动率
+            </div>
             <ProcStatsTable
               rows={horse.procStats}
               sort={eventSort}
@@ -1761,7 +1842,9 @@ function HorseSkillsModal({
           </div>
 
           <div>
-            <div className="mb-2 text-sm font-medium text-gray-900">技能发动率</div>
+            <div className="mb-2 text-sm font-medium text-gray-900">
+              技能发动率
+            </div>
             <SkillStatsTable
               rows={horse.skillStats}
               sort={skillSort}
@@ -1784,7 +1867,8 @@ export default function RaceStats() {
   const [activeArchiveId, setActiveArchiveId] = useState(requestedArchiveId);
   const [umdbReady, setUmdbReady] = useState(false);
   const [activeConfig, setActiveConfig] = useState<StatConfig['key']>('single');
-  const [statsBundle, setStatsBundle] = useState<ArchiveStatsBundle>(emptyBundle);
+  const [statsBundle, setStatsBundle] =
+    useState<ArchiveStatsBundle>(emptyBundle);
   const [cacheInfo, setCacheInfo] = useState<StatsCachePayload | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [selectedHorse, setSelectedHorse] = useState<HorseSummaryData | null>(
@@ -1858,17 +1942,22 @@ export default function RaceStats() {
           return;
         }
 
-        const list = (await window.electron.race.list(activeArchiveId)) as RaceRecord[];
+        const list = (await window.electron.race.list(
+          activeArchiveId,
+        )) as RaceRecord[];
         if (cancelled) return;
 
         const nextBundle = buildArchiveStatsBundle(list ?? []);
         setStatsBundle(nextBundle);
 
-        const saved = (await window.electron.race.setStatsCache(activeArchiveId, {
-          version: STATS_CACHE_VERSION,
-          archiveUpdatedAt: cache.archiveUpdatedAt,
-          data: nextBundle,
-        })) as StatsCachePayload;
+        const saved = (await window.electron.race.setStatsCache(
+          activeArchiveId,
+          {
+            version: STATS_CACHE_VERSION,
+            archiveUpdatedAt: cache.archiveUpdatedAt,
+            data: nextBundle,
+          },
+        )) as StatsCachePayload;
         if (!cancelled) {
           setCacheInfo(saved);
         }
@@ -1905,120 +1994,113 @@ export default function RaceStats() {
   ) => {
     setTableSort((prev) => ({
       key,
-      direction:
-        prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
     }));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-end justify-between border-b border-gray-200 pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-              <BarChart3 size={20} />
-              比赛统计
-            </div>
-            <p className="ml-1 mt-1 text-sm text-gray-500">
-              按单马、双马组合、三马组合查看胜率
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+    <RacePageLayout
+      title="比赛统计"
+      description="按单马、双马组合、三马组合查看胜率"
+      icon={<BarChart3 size={20} />}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={refreshStats}
+            disabled={loadingStats}
+            className={raceHeaderButtonClass}
+          >
+            <RefreshCw
+              size={16}
+              className={loadingStats ? 'animate-spin' : undefined}
+            />
+            刷新统计
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate('/races', { state: { archiveId: activeArchiveId } })
+            }
+            className={raceHeaderButtonClass}
+          >
+            <ArrowLeft size={16} />
+            返回记录
+          </button>
+        </>
+      }
+    >
+      <div className="mb-4 border-b border-gray-200">
+        <div className="flex flex-wrap items-end gap-2">
+          {archives.map((archive) => (
             <button
+              key={archive.id}
               type="button"
-              onClick={refreshStats}
-              disabled={loadingStats}
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300"
-            >
-              <RefreshCw
-                size={16}
-                className={loadingStats ? 'animate-spin' : undefined}
-              />
-              刷新统计
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/races', { state: { archiveId: activeArchiveId } })
-              }
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-            >
-              <ArrowLeft size={16} />
-              返回记录
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-4 border-b border-gray-200">
-          <div className="flex flex-wrap items-end gap-2">
-            {archives.map((archive) => (
-              <button
-                key={archive.id}
-                type="button"
-                onClick={() => setActiveArchiveId(archive.id)}
-                className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-                  activeArchiveId === archive.id
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {archive.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-white p-1">
-          {statConfigs.map((config) => (
-            <button
-              key={config.key}
-              type="button"
-              onClick={() => setActiveConfig(config.key)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeConfig === config.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+              onClick={() => setActiveArchiveId(archive.id)}
+              className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                activeArchiveId === archive.id
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
               }`}
             >
-              {config.title}
+              {archive.name}
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+      <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-white p-1">
+        {statConfigs.map((config) => (
+          <button
+            key={config.key}
+            type="button"
+            onClick={() => setActiveConfig(config.key)}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeConfig === config.key
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {config.title}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+        <span>
+          统计存档：
+          {archives.find((archive) => archive.id === activeArchiveId)?.name ??
+            '默认'}
+        </span>
+        <span>共 {rows.length} 个统计对象</span>
+        {cacheInfo && (
           <span>
-            统计存档：
-            {archives.find((archive) => archive.id === activeArchiveId)?.name ??
-              '默认'}
+            缓存时间：
+            {cacheInfo.cacheUpdatedAt
+              ? new Date(cacheInfo.cacheUpdatedAt).toLocaleString()
+              : '-'}
           </span>
-          <span>共 {rows.length} 个统计对象</span>
-          {cacheInfo && (
-            <span>
-              缓存时间：
-              {cacheInfo.cacheUpdatedAt
-                ? new Date(cacheInfo.cacheUpdatedAt).toLocaleString()
-                : '-'}
-            </span>
-          )}
-        </div>
-
-        {loadingStats ? (
-          <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-gray-400">
-            正在计算统计...
-          </div>
-        ) : (
-          <StatTable
-            rows={rows}
-            sort={tableSort}
-            onSort={toggleTableSort}
-            onHorseClick={setSelectedHorse}
-            showTopRates={active.key === 'single'}
-          />
         )}
       </div>
 
-      <HorseSkillsModal horse={selectedHorse} onClose={() => setSelectedHorse(null)} />
-    </div>
+      {loadingStats ? (
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-gray-400">
+          正在计算统计...
+        </div>
+      ) : (
+        <StatTable
+          rows={rows}
+          sort={tableSort}
+          onSort={toggleTableSort}
+          onHorseClick={setSelectedHorse}
+          showTopRates={active.key === 'single'}
+        />
+      )}
+
+      <HorseSkillsModal
+        horse={selectedHorse}
+        onClose={() => setSelectedHorse(null)}
+      />
+    </RacePageLayout>
   );
 }

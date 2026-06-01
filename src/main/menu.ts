@@ -175,6 +175,14 @@ export default class MenuBuilder {
             this.mainWindow.webContents.send('navigate-to', { path: '/races' });
           },
         },
+        {
+          label: 'Training History',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', {
+              path: '/training-history',
+            });
+          },
+        },
       ],
     };
     const subMenuViewDev: MenuItemConstructorOptions = {
@@ -269,6 +277,14 @@ export default class MenuBuilder {
         label: 'Races',
         click: () => {
           this.mainWindow.webContents.send('navigate-to', { path: '/races' });
+        },
+      },
+      {
+        label: 'Training History',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', {
+            path: '/training-history',
+          });
         },
       },
       this.buildServerPortMenu(),
