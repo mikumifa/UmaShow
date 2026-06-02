@@ -2024,15 +2024,22 @@ export default function RaceTelemetryOverview({
                     ))}
 
                     {currentSnapshot.horses.map((horse) => {
+                      const finishOrder =
+                        raceData.horseResult[horse.frameOrder]?.finishOrder ?? 0;
+                      const finishTime =
+                        raceData.horseResult[horse.frameOrder]?.finishTimeRaw ??
+                        Number.POSITIVE_INFINITY;
+                      const finished = currentTime >= finishTime;
                       const xPercent = distanceToRaceTrackXPercent(
                         horse.distance,
                         horse.frameOrder,
                       );
-                      const yPercent = clamp(
-                        (horse.lanePosition / 5500) * 100,
-                        4,
-                        96,
-                      );
+                      const yPercent = finished
+                        ? horseCount <= 1
+                          ? 50
+                          : 12 +
+                            (finishOrder / Math.max(horseCount - 1, 1)) * 76
+                        : clamp((horse.lanePosition / 5500) * 100, 4, 96);
                       const liveRank =
                         currentRanks.find(
                           (rankedHorse) =>
@@ -2045,7 +2052,12 @@ export default function RaceTelemetryOverview({
                           key={horse.frameOrder}
                           className="absolute"
                           style={{
-                            left: `${xPercent}%`,
+                            left: `${
+                              finished
+                                ? finishAreaLeftPercent +
+                                  finishAreaWidthPercent * 0.42
+                                : xPercent
+                            }%`,
                             top: `${yPercent}%`,
                             transform: 'translate(-50%, -50%)',
                           }}
