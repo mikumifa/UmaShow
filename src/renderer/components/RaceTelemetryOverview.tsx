@@ -79,11 +79,15 @@ const chartLeftRatio = (chartPadding.left / chartWidth) * 100;
 const chartRightRatio = (chartPadding.right / chartWidth) * 100;
 const raceTrackLeftPercent = 8;
 const raceTrackUsableWidthPercent = 84;
+const raceTrackOverflowLeftWidthPercent = 10;
 const raceTrackPixelsPerMeter = 32;
 const finishAreaLeftPercent = 92;
 const finishAreaWidthPercent = 8;
-const raceTrackOverflowRightPercent =
-  finishAreaLeftPercent + finishAreaWidthPercent * 0.42;
+const raceTrackOverflowRightPercent = finishAreaLeftPercent;
+const raceTrackZeroPercent =
+  raceTrackLeftPercent + raceTrackOverflowLeftWidthPercent;
+const raceTrackMainUsableWidthPercent =
+  raceTrackOverflowRightPercent - raceTrackZeroPercent;
 const playbackSpeedStorageKey = 'raceTelemetryOverview.playSpeed';
 const courseData = courseDataJson as Record<string, CourseDataEntry>;
 
@@ -312,10 +316,12 @@ export default function RaceTelemetryOverview({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverLeft, setHoverLeft] = useState<number | null>(null);
   const [raceTrackViewportWidthPx, setRaceTrackViewportWidthPx] = useState(960);
+  const [playbackFinishedNotice, setPlaybackFinishedNotice] = useState(false);
 
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   const raceTrackContainerRef = useRef<HTMLDivElement | null>(null);
+  const playbackFinishedNoticeTimeoutRef = useRef<number | null>(null);
   const selectedHorseFinishTime =
     raceData.horseResult[selectedHorse]?.finishTimeRaw ?? maxTime;
   const course = useMemo(
@@ -326,6 +332,14 @@ export default function RaceTelemetryOverview({
   useEffect(() => {
     setSelectedHorse(defaultSelectedHorse);
   }, [defaultSelectedHorse]);
+
+  useEffect(() => {
+    return () => {
+      if (playbackFinishedNoticeTimeoutRef.current != null) {
+        window.clearTimeout(playbackFinishedNoticeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -934,6 +948,28 @@ export default function RaceTelemetryOverview({
     setCurrentTime(previousFrame.time ?? 0);
   };
 
+  const showPlaybackFinishedHint = () => {
+    setPlaybackFinishedNotice(true);
+    if (playbackFinishedNoticeTimeoutRef.current != null) {
+      window.clearTimeout(playbackFinishedNoticeTimeoutRef.current);
+    }
+    playbackFinishedNoticeTimeoutRef.current = window.setTimeout(() => {
+      setPlaybackFinishedNotice(false);
+      playbackFinishedNoticeTimeoutRef.current = null;
+    }, 1800);
+  };
+
+  const togglePlayback = () => {
+    const stopTime = Math.min(selectedHorseFinishTime, maxTime);
+    if (!isPlaying && currentTime >= stopTime - 0.0001) {
+      showPlaybackFinishedHint();
+      return;
+    }
+
+    setPlaybackFinishedNotice(false);
+    setIsPlaying((value) => !value);
+  };
+
   const currentRanks = useMemo(() => {
     return [...currentSnapshot.horses]
       .sort((left, right) => right.distance - left.distance)
@@ -953,14 +989,65 @@ export default function RaceTelemetryOverview({
 
   const raceTrackVisibleMeters = useMemo(() => {
     const usableWidthPx =
-      raceTrackViewportWidthPx * (raceTrackUsableWidthPercent / 100);
+      raceTrackViewportWidthPx * (raceTrackMainUsableWidthPercent / 100);
     return Math.max(1, Math.floor(usableWidthPx / raceTrackPixelsPerMeter));
   }, [raceTrackViewportWidthPx]);
 
-  const distanceToRaceTrackXPercent = (distance: number) => {
-    const relativeDistance = Math.max(distance - raceTrackTrailingDistance, 0);
+  const raceTrackLeadingDistance = useMemo(
+    () =>
+      currentSnapshot.horses.length > 0
+        ? Math.max(...currentSnapshot.horses.map((horse) => horse.distance))
+        : 0,
+    [currentSnapshot.horses],
+  );
+
+  const raceTrackZeroDistance = useMemo(() => {
+    const minZeroDistance = raceTrackLeadingDistance - raceTrackVisibleMeters;
+    return Math.max(raceTrackTrailingDistance, minZeroDistance);
+  }, [
+    raceTrackLeadingDistance,
+    raceTrackTrailingDistance,
+    raceTrackVisibleMeters,
+  ]);
+
+  const raceTrackOverflowOrder = useMemo(() => {
+    return currentSnapshot.horses
+      .filter((horse) => horse.distance < raceTrackZeroDistance)
+      .sort((left, right) => left.distance - right.distance)
+      .map((horse) => horse.frameOrder);
+  }, [currentSnapshot.horses, raceTrackZeroDistance]);
+
+  const raceTrackOverflowIndexByFrameOrder = useMemo(
+    () =>
+      new Map(
+        raceTrackOverflowOrder.map((frameOrder, index) => [frameOrder, index]),
+      ),
+    [raceTrackOverflowOrder],
+  );
+
+  const distanceToRaceTrackXPercent = (
+    distance: number,
+    frameOrder?: number,
+  ) => {
+    if (
+      frameOrder != null &&
+      distance < raceTrackZeroDistance &&
+      raceTrackOverflowOrder.length > 0
+    ) {
+      const overflowIndex =
+        raceTrackOverflowIndexByFrameOrder.get(frameOrder) ??
+        raceTrackOverflowOrder.length - 1;
+      const overflowRatio =
+        (overflowIndex + 1) / (raceTrackOverflowOrder.length + 1);
+      return (
+        raceTrackLeftPercent +
+        overflowRatio * raceTrackOverflowLeftWidthPercent
+      );
+    }
+
+    const relativeDistance = Math.max(distance - raceTrackZeroDistance, 0);
     const usableWidthPx =
-      raceTrackViewportWidthPx * (raceTrackUsableWidthPercent / 100);
+      raceTrackViewportWidthPx * (raceTrackMainUsableWidthPercent / 100);
     const ratio = clamp(
       (relativeDistance * raceTrackPixelsPerMeter) /
         Math.max(usableWidthPx, 1),
@@ -968,8 +1055,8 @@ export default function RaceTelemetryOverview({
       1,
     );
     return clamp(
-      raceTrackLeftPercent + ratio * raceTrackUsableWidthPercent,
-      raceTrackLeftPercent,
+      raceTrackZeroPercent + ratio * raceTrackMainUsableWidthPercent,
+      raceTrackZeroPercent,
       raceTrackOverflowRightPercent,
     );
   };
@@ -1195,7 +1282,7 @@ export default function RaceTelemetryOverview({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsPlaying((value) => !value)}
+                  onClick={togglePlayback}
                   className={`flex-1 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
                     isPlaying
                       ? 'bg-rose-600 text-white hover:bg-rose-700'
@@ -1229,6 +1316,11 @@ export default function RaceTelemetryOverview({
                   复位
                 </button>
               </div>
+              {playbackFinishedNotice ? (
+                <div className="mt-2 text-xs font-medium text-amber-600">
+                  已播放完，先复位或拖动时间。
+                </div>
+              ) : null}
 
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
@@ -1885,11 +1977,25 @@ export default function RaceTelemetryOverview({
                     ref={raceTrackContainerRef}
                     className="relative h-64 overflow-hidden rounded-[24px] border border-slate-200 bg-[linear-gradient(180deg,_#eff6ff_0%,_#f8fafc_44%,_#f1f5f9_100%)]"
                   >
+                    {raceTrackOverflowOrder.length > 0 ? (
+                      <div
+                        className="pointer-events-none absolute inset-y-0 border-r border-amber-300/70 bg-amber-100/30"
+                        style={{
+                          left: '0%',
+                          width: `${raceTrackZeroPercent}%`,
+                        }}
+                      >
+                        <div className="absolute left-1 top-1 text-[9px] font-medium text-amber-700">
+                          落后区
+                        </div>
+                      </div>
+                    ) : null}
+
                     {Array.from(
                       { length: raceTrackVisibleMeters + 1 },
                       (_, meter) => {
                         const xPercent = distanceToRaceTrackXPercent(
-                          raceTrackTrailingDistance + meter,
+                          raceTrackZeroDistance + meter,
                         );
                         const showLabel = meter % 2 === 0;
                         return (
@@ -1920,6 +2026,7 @@ export default function RaceTelemetryOverview({
                     {currentSnapshot.horses.map((horse) => {
                       const xPercent = distanceToRaceTrackXPercent(
                         horse.distance,
+                        horse.frameOrder,
                       );
                       const yPercent = clamp(
                         (horse.lanePosition / 5500) * 100,
@@ -1943,11 +2050,13 @@ export default function RaceTelemetryOverview({
                             transform: 'translate(-50%, -50%)',
                           }}
                         >
-                          <div
+                          <button
+                            type="button"
+                            onClick={() => setSelectedHorse(horse.frameOrder)}
                             className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-lg ${
                               selected
                                 ? 'z-10 scale-110 bg-red-500 ring-4 ring-red-200/80'
-                                : ''
+                                : 'cursor-pointer'
                             }`}
                             title={`${buildHorseName(
                               displayNames[horse.frameOrder] ?? '',
@@ -1992,7 +2101,7 @@ export default function RaceTelemetryOverview({
                             >
                               {horse.frameOrder + 1}
                             </div>
-                          </div>
+                          </button>
                         </div>
                       );
                     })}
@@ -2024,10 +2133,12 @@ export default function RaceTelemetryOverview({
                               <line
                                 x1={`${distanceToRaceTrackXPercent(
                                   selectedHorseTelemetry.distance,
+                                  selectedHorseTelemetry.frameOrder,
                                 )}%`}
                                 y1={`${toYPercent(selectedHorseTelemetry.lanePosition)}%`}
                                 x2={`${distanceToRaceTrackXPercent(
                                   targetHorse.distance,
+                                  targetHorse.frameOrder,
                                 )}%`}
                                 y2={`${toYPercent(targetHorse.lanePosition)}%`}
                                 stroke="#dc2626"
