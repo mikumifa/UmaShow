@@ -1,8 +1,9 @@
 import React from 'react';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, Download, FileText } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { NavigateFunction } from 'react-router-dom';
 import RaceDataPresenter from 'renderer/components/RaceDataPresenter';
+import type { RaceMetaInfo } from 'types/gameTypes';
 import { RaceSimulateData } from 'umdb/race_data_pb';
 import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
@@ -15,6 +16,7 @@ type RaceDataPageProps = {
   initialValues?: {
     scenario?: string;
     horseInfo?: string;
+    raceMetaInfo?: RaceMetaInfo;
     archiveId?: string;
   };
   navigate: NavigateFunction; // 传入 navigate 函数以便支持返回操作
@@ -25,6 +27,7 @@ type RaceDataPageState = {
   parsedHorseInfo: any;
   parsedRaceData: RaceSimulateData | undefined;
   error?: string; // 增加一个错误状态，万一解析失败显示提示
+  showLegacyPage: boolean;
 };
 
 class RaceDataPageClass extends React.Component<
@@ -37,6 +40,7 @@ class RaceDataPageClass extends React.Component<
       parsedHorseInfo: undefined,
       parsedRaceData: undefined,
       error: undefined,
+      showLegacyPage: false,
     };
   }
 
@@ -72,6 +76,32 @@ class RaceDataPageClass extends React.Component<
       });
     }
   }
+
+  downloadParsedRaceData = () => {
+    const { parsedRaceData } = this.state;
+    if (!parsedRaceData) return;
+
+    const raceInstanceId =
+      this.props.initialValues?.raceMetaInfo?.race_instance_id ?? 'unknown';
+    const payload = parsedRaceData.toJson();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '_')
+      .replace('Z', '');
+
+    anchor.href = url;
+    anchor.download = `race_data_${raceInstanceId}_${timestamp}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
 
   render() {
     const archiveId = this.props.initialValues?.archiveId ?? 'default';
@@ -109,20 +139,44 @@ class RaceDataPageClass extends React.Component<
           description="查看出赛表、曲线和事件分析"
           icon={<FileText size={20} />}
           actions={
-            <button
-              type="button"
-              onClick={backToRaces}
-              className={raceHeaderButtonClass}
-            >
-              <ArrowLeft size={16} />
-              返回记录
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={this.downloadParsedRaceData}
+                className={raceHeaderButtonClass}
+              >
+                <Download size={16} />
+                导出 RaceData JSON
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  this.setState((state) => ({
+                    showLegacyPage: !state.showLegacyPage,
+                  }))
+                }
+                className={raceHeaderButtonClass}
+              >
+                <FileText size={16} />
+                {this.state.showLegacyPage ? '返回总览' : '详细页'}
+              </button>
+              <button
+                type="button"
+                onClick={backToRaces}
+                className={raceHeaderButtonClass}
+              >
+                <ArrowLeft size={16} />
+                返回记录
+              </button>
+            </>
           }
         >
           <RaceDataPresenter
             raceHorseInfo={this.state.parsedHorseInfo}
             raceData={this.state.parsedRaceData}
+            raceMetaInfo={this.props.initialValues?.raceMetaInfo}
             umdb={UMDB}
+            showLegacyPage={this.state.showLegacyPage}
           />
         </RacePageLayout>
       );
@@ -159,6 +213,7 @@ export default function RaceDataPage() {
   const state = location.state as {
     scenario?: string;
     horseInfo?: string;
+    raceMetaInfo?: RaceMetaInfo;
     archiveId?: string;
   } | null;
 

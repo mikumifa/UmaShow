@@ -22,12 +22,16 @@ import type { MarkLine1DDataItemOption } from 'echarts/types/src/component/marke
 import _ from 'lodash';
 import memoize from 'memoize-one';
 import React from 'react';
+import type { RaceMetaInfo } from 'types/gameTypes';
+import courseDataJson from '../../../assets/data/course_data.json';
+import { RaceInstance_GroundType } from '../../umdb/data_pb';
 import { Chara } from '../../umdb/data_pb';
 import {
   RaceSimulateData,
   RaceSimulateEventData_SimulateEventType,
   RaceSimulateHorseFrameData_TemptationMode,
   RaceSimulateHorseResultData,
+  RaceSimulateHorseResultData_RunningStyle,
 } from '../../umdb/race_data_pb';
 import {
   filterCharaSkills,
@@ -40,6 +44,7 @@ import {
   TrainedCharaData,
 } from '../../umdb/TrainedCharaData';
 import * as UMDatabaseUtils from '../../umdb/UMDatabaseUtils';
+import RaceTelemetryOverview from './RaceTelemetryOverview';
 // import FoldCard from './FoldCard'; // Removed FoldCard
 import { UMDB } from '../utils/umdb';
 
@@ -100,6 +105,180 @@ const otherRaceEventLabels = new Map([
   [RaceSimulateEventData_SimulateEventType.SECURE_LEAD, '确保领先'],
 ]);
 
+const courseData = courseDataJson as Record<string, CourseDataEntry>;
+
+const motivationMultipliers: Record<number, number> = {
+  1: 0.96,
+  2: 0.98,
+  3: 1.0,
+  4: 1.02,
+  5: 1.04,
+};
+
+const runningStyleProperMultipliers: Record<number, number> = {
+  1: 0.1,
+  2: 0.2,
+  3: 0.4,
+  4: 0.6,
+  5: 0.75,
+  6: 0.85,
+  7: 1.0,
+  8: 1.1,
+};
+
+const courseStatusLabels: Record<number, string> = {
+  1: '速',
+  2: '耐',
+  3: '力',
+  4: '根',
+  5: '智',
+};
+
+const courseStatusToStatKey: Record<number, StatKey> = {
+  1: 'speed',
+  2: 'stamina',
+  3: 'pow',
+  4: 'guts',
+  5: 'wiz',
+};
+
+function toPanelStat(value: number): number {
+  if (value <= 1200) return value;
+  return 1200 + (value - 1200) / 2;
+}
+
+function formatStatValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+}
+
+function getCourseSpeedBonusRate(baseStat: number): number {
+  if (baseStat <= 300) return 0.05;
+  if (baseStat <= 600) return 0.1;
+  if (baseStat <= 900) return 0.15;
+  return 0.2;
+}
+
+function getSpeedGroundAdjustment(
+  groundType: RaceInstance_GroundType,
+  groundCondition: number,
+): number {
+  if (groundCondition !== 4) return 0;
+  if (
+    groundType === RaceInstance_GroundType.TURF ||
+    groundType === RaceInstance_GroundType.DIRT
+  ) {
+    return -50;
+  }
+  return 0;
+}
+
+function getPowerGroundAdjustment(
+  groundType: RaceInstance_GroundType,
+  groundCondition: number,
+): number {
+  if (groundType === RaceInstance_GroundType.TURF) {
+    if (groundCondition === 2 || groundCondition === 3 || groundCondition === 4)
+      return -50;
+    return 0;
+  }
+
+  if (groundType === RaceInstance_GroundType.DIRT) {
+    if (groundCondition === 2) return -50;
+    if (
+      groundCondition === 1 ||
+      groundCondition === 3 ||
+      groundCondition === 4
+    ) {
+      return -100;
+    }
+  }
+
+  return 0;
+}
+
+function resolveCourseData(
+  umdb: typeof UMDB,
+  raceInstanceId: number | undefined,
+) {
+  if (raceInstanceId == null) return undefined;
+  const courseSet = umdb.raceInstances[raceInstanceId]?.courseSet;
+  if (courseSet == null) return undefined;
+  return courseData[String(courseSet)];
+}
+
+function resolveGroundType(
+  raceInstanceGroundType: RaceInstance_GroundType | undefined,
+  course: CourseDataEntry | undefined,
+): RaceInstance_GroundType {
+  if (raceInstanceGroundType != null) return raceInstanceGroundType;
+  if (course?.surface === 1) return RaceInstance_GroundType.TURF;
+  if (course?.surface === 2) return RaceInstance_GroundType.DIRT;
+  return RaceInstance_GroundType.UNKNOWN_GROUND_TYPE;
+}
+
+function calculateAdjustedHorseStats(
+  trainedChara: TrainedCharaData,
+  motivation: number,
+  runningStyle: RaceSimulateHorseResultData_RunningStyle | undefined,
+  groundType: RaceInstance_GroundType,
+  groundCondition: number,
+  course: CourseDataEntry | undefined,
+): AdjustedHorseStats {
+  const panel = {
+    speed: toPanelStat(trainedChara.speed),
+    stamina: toPanelStat(trainedChara.stamina),
+    pow: toPanelStat(trainedChara.pow),
+    guts: toPanelStat(trainedChara.guts),
+    wiz: toPanelStat(trainedChara.wiz),
+  };
+  const motivationMultiplier = motivationMultipliers[motivation] ?? 1;
+  const base = {
+    speed: panel.speed * motivationMultiplier,
+    stamina: panel.stamina * motivationMultiplier,
+    pow: panel.pow * motivationMultiplier,
+    guts: panel.guts * motivationMultiplier,
+    wiz: panel.wiz * motivationMultiplier,
+  };
+  const speedCourseStatuses = (course?.courseSetStatus ?? []).filter(
+    (statusId) => courseStatusToStatKey[statusId] != null,
+  );
+  const speedCourseBonus =
+    speedCourseStatuses.length > 0
+      ? _.meanBy(speedCourseStatuses, (statusId) =>
+          getCourseSpeedBonusRate(base[courseStatusToStatKey[statusId]]),
+        ) ?? 0
+      : 0;
+  const speedGroundAdjustment = getSpeedGroundAdjustment(
+    groundType,
+    groundCondition,
+  );
+  const powerGroundAdjustment = getPowerGroundAdjustment(
+    groundType,
+    groundCondition,
+  );
+  const runningStyleProper =
+    runningStyle != null ? trainedChara.properRunningStyles[runningStyle] : 7;
+  const runningStyleCoefficient =
+    runningStyleProperMultipliers[runningStyleProper] ?? 1;
+
+  return {
+    panel,
+    base,
+    adjusted: {
+      speed: base.speed * (1 + speedCourseBonus) + speedGroundAdjustment,
+      stamina: base.stamina,
+      pow: base.pow + powerGroundAdjustment,
+      guts: base.guts,
+      wiz: base.wiz * runningStyleCoefficient,
+    },
+    speedCourseBonus,
+    speedGroundAdjustment,
+    powerGroundAdjustment,
+    runningStyleCoefficient,
+  };
+}
+
 // Data preparation interfaces
 type CharaTableData = {
   trainedChara: TrainedCharaData;
@@ -112,16 +291,53 @@ type CharaTableData = {
   popularityMarks: number[];
   motivation: number;
   activatedSkills: Set<number>;
+  adjustedStats: AdjustedHorseStats;
 };
 
 type RaceDataPresenterProps = {
   raceHorseInfo: any[];
   raceData: RaceSimulateData;
+  raceMetaInfo?: RaceMetaInfo;
   umdb: typeof UMDB;
+  showLegacyPage?: boolean;
+};
+
+type CourseDataEntry = {
+  distance?: number;
+  turn?: number;
+  courseSetStatus?: number[];
+  surface?: number;
+  raceTrackId?: number;
+  corners?: Array<{
+    start: number;
+    length: number;
+  }>;
+  straights?: Array<{
+    start: number;
+    end: number;
+  }>;
+  slopes?: Array<{
+    start: number;
+    length: number;
+    slope: number;
+  }>;
+};
+
+type StatKey = 'speed' | 'stamina' | 'pow' | 'guts' | 'wiz';
+
+type AdjustedHorseStats = {
+  panel: Record<StatKey, number>;
+  base: Record<StatKey, number>;
+  adjusted: Record<StatKey, number>;
+  speedCourseBonus: number;
+  speedGroundAdjustment: number;
+  powerGroundAdjustment: number;
+  runningStyleCoefficient: number;
 };
 
 // 定义 Tab 类型
 type TabType =
+  | 'telemetry'
   | 'summary'
   | 'diff'
   | 'speed'
@@ -147,7 +363,7 @@ class RaceDataPresenter extends React.PureComponent<
   constructor(props: RaceDataPresenterProps) {
     super(props);
     this.state = {
-      activeTab: 'summary', // 默认显示出赛表
+      activeTab: 'summary',
       selectedCharaFrameOrder: undefined,
       showSkills: true,
       showTargetedSkills: true,
@@ -156,6 +372,63 @@ class RaceDataPresenter extends React.PureComponent<
       showOtherRaceEvents: true,
       diffGraphUseDistanceAsXAxis: true,
     };
+  }
+
+  renderStatCell(
+    rawValue: number,
+    adjustedStats: AdjustedHorseStats,
+    statKey: StatKey,
+    extraLabel?: string,
+  ) {
+    const tooltipLines = [
+      `原 ${rawValue}`,
+      `面 ${formatStatValue(adjustedStats.panel[statKey])}`,
+      `基 ${formatStatValue(adjustedStats.base[statKey])}`,
+      `调 ${formatStatValue(adjustedStats.adjusted[statKey])}`,
+    ];
+    if (extraLabel) {
+      tooltipLines.push(extraLabel);
+    }
+
+    return (
+      <div
+        className="cursor-help py-1 text-center"
+        title={tooltipLines.join('\n')}
+      >
+        <div className="font-mono text-base font-semibold text-gray-900">
+          {rawValue}
+        </div>
+        <div className="text-[11px] font-medium text-blue-600">
+          {formatStatValue(adjustedStats.adjusted[statKey])}
+        </div>
+      </div>
+    );
+  }
+
+  renderCourseProfile(compact = false) {
+    return null;
+  }
+
+  buildFlatSlopeSegments(
+    distance: number,
+    slopes: Array<{ start: number; length: number; slope: number }>,
+  ) {
+    const sortedSlopes = [...slopes].sort((a, b) => a.start - b.start);
+    const segments: Array<{ start: number; length: number }> = [];
+    let cursor = 0;
+
+    sortedSlopes.forEach((slope) => {
+      if (slope.start > cursor) {
+        segments.push({ start: cursor, length: slope.start - cursor });
+      }
+      cursor = Math.max(cursor, slope.start + slope.length);
+    });
+
+    if (cursor < distance) {
+      segments.push({ start: cursor, length: distance - cursor });
+    }
+
+    return segments.filter((segment) => segment.length > 0);
   }
 
   resolveFrameOrder = (horseData: any, fallbackIndex: number) => {
@@ -207,6 +480,44 @@ class RaceDataPresenter extends React.PureComponent<
     }
     return m;
   });
+
+  telemetryIconPathByFrameOrder = memoize((raceHorseInfo: any[]) => {
+    const iconPathByFrameOrder: Record<number, string | undefined> = {};
+
+    raceHorseInfo.forEach((data: any, index: number) => {
+      const frameOrder = this.resolveFrameOrder(data, index);
+      const charaId = Number(data?.['chara_id']);
+      const raceDressId = Number(data?.['race_dress_id']);
+
+      if (Number.isFinite(charaId) && Number.isFinite(raceDressId)) {
+        iconPathByFrameOrder[frameOrder] =
+          `trained_chr_icon/${charaId}_${raceDressId}.png`;
+      }
+    });
+
+    return iconPathByFrameOrder;
+  });
+
+  renderTelemetryOverview() {
+    const raceInstanceId = this.props.raceMetaInfo?.race_instance_id;
+    const course = resolveCourseData(this.props.umdb, raceInstanceId);
+
+    return (
+      <RaceTelemetryOverview
+        displayNames={this.displayNames(
+          this.props.raceHorseInfo,
+          this.props.raceData,
+        )}
+        raceData={this.props.raceData}
+        raceMetaInfo={this.props.raceMetaInfo}
+        umdb={this.props.umdb}
+        courseDistance={course?.distance}
+        iconPathByFrameOrder={this.telemetryIconPathByFrameOrder(
+          this.props.raceHorseInfo,
+        )}
+      />
+    );
+  }
 
   // ... renderGraphs logic ...
   renderGraphs() {
@@ -498,6 +809,7 @@ class RaceDataPresenter extends React.PureComponent<
 
     return (
       <div className="mt-4 bg-white p-4 rounded shadow border border-gray-200">
+        <div className="mb-5">{this.renderCourseProfile()}</div>
         <EChartsReactCore
           echarts={echarts}
           option={options}
@@ -588,6 +900,22 @@ class RaceDataPresenter extends React.PureComponent<
       return undefined;
     }
 
+    const raceInstanceId = this.props.raceMetaInfo?.race_instance_id;
+    const course = resolveCourseData(this.props.umdb, raceInstanceId);
+    const groundType = resolveGroundType(
+      raceInstanceId != null
+        ? this.props.umdb.raceInstances[raceInstanceId]?.groundType
+        : undefined,
+      course,
+    );
+    const groundCondition = this.props.raceMetaInfo?.ground_condition ?? -1;
+    const speedCourseText =
+      course?.courseSetStatus && course.courseSetStatus.length > 0
+        ? course.courseSetStatus
+            .map((statusId) => courseStatusLabels[statusId] ?? `${statusId}`)
+            .join('/')
+        : '无';
+
     const rows: CharaTableData[] = this.props.raceHorseInfo
       .flatMap((data, index) => {
         const frameOrder = this.resolveFrameOrder(data, index);
@@ -614,6 +942,14 @@ class RaceDataPresenter extends React.PureComponent<
               this.props.raceData,
               frameOrder,
             ),
+            adjustedStats: calculateAdjustedHorseStats(
+              trainedCharaData,
+              Number(data['motivation'] ?? 0),
+              horseResult.runningStyle,
+              groundType,
+              groundCondition,
+              course,
+            ),
           },
         ];
       })
@@ -621,8 +957,15 @@ class RaceDataPresenter extends React.PureComponent<
 
     // Remove FoldCard, just return the table wrapper
     return (
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm mt-4">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <div className="mt-4">
+        <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-gray-700">
+          <span className="font-medium text-gray-900">属性说明：</span>
+          表内主显示原始属性，下方蓝字为最终调整值；悬停可查看 原 / 面 / 基 / 调 的计算过程。
+          当前赛道门槛属性：
+          <span className="font-medium">{speedCourseText}</span>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
@@ -662,7 +1005,7 @@ class RaceDataPresenter extends React.PureComponent<
                 力
               </th>
               <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                毅
+                根
               </th>
               <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
                 智
@@ -732,25 +1075,51 @@ class RaceDataPresenter extends React.PureComponent<
                 <td className="px-2 py-2 text-center text-gray-600">
                   {row.trainedChara.rankScore}
                 </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {row.trainedChara.speed}
+                <td className="px-2 py-2 text-gray-600">
+                  {this.renderStatCell(
+                    row.trainedChara.speed,
+                    row.adjustedStats,
+                    'speed',
+                    `赛 ${(row.adjustedStats.speedCourseBonus * 100).toFixed(0)}% / 场 ${row.adjustedStats.speedGroundAdjustment}`,
+                  )}
                 </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {row.trainedChara.stamina}
+                <td className="px-2 py-2 text-gray-600">
+                  {this.renderStatCell(
+                    row.trainedChara.stamina,
+                    row.adjustedStats,
+                    'stamina',
+                  )}
                 </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {row.trainedChara.pow}
+                <td className="px-2 py-2 text-gray-600">
+                  {this.renderStatCell(
+                    row.trainedChara.pow,
+                    row.adjustedStats,
+                    'pow',
+                    `场 ${row.adjustedStats.powerGroundAdjustment}`,
+                  )}
                 </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {row.trainedChara.guts}
+                <td className="px-2 py-2 text-gray-600">
+                  {this.renderStatCell(
+                    row.trainedChara.guts,
+                    row.adjustedStats,
+                    'guts',
+                  )}
                 </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {row.trainedChara.wiz}
+                <td className="px-2 py-2 text-gray-600">
+                  {this.renderStatCell(
+                    row.trainedChara.wiz,
+                    row.adjustedStats,
+                    'wiz',
+                    `跑法 x${formatStatValue(
+                      row.adjustedStats.runningStyleCoefficient,
+                    )}`,
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     );
   }
@@ -815,6 +1184,7 @@ class RaceDataPresenter extends React.PureComponent<
           </label>
         </div>
         <div className="w-full bg-white p-4 rounded shadow border border-gray-200">
+          <div className="mb-5">{this.renderCourseProfile()}</div>
           <EChartsReactCore
             echarts={echarts}
             option={options}
@@ -887,6 +1257,7 @@ class RaceDataPresenter extends React.PureComponent<
           </label>
         </div>
         <div className="bg-white p-4 rounded shadow border border-gray-200">
+          <div className="mb-5">{this.renderCourseProfile()}</div>
           <EChartsReactCore
             echarts={echarts}
             option={options}
@@ -959,6 +1330,7 @@ class RaceDataPresenter extends React.PureComponent<
           </label>
         </div>
         <div className="bg-white p-4 rounded shadow border border-gray-200">
+          <div className="mb-5">{this.renderCourseProfile()}</div>
           <EChartsReactCore
             echarts={echarts}
             option={options}
@@ -972,6 +1344,8 @@ class RaceDataPresenter extends React.PureComponent<
   renderDetailAnalysis() {
     return (
       <div className="mt-4 space-y-4">
+        {this.renderCourseProfile()}
+
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Detailed Analysis Controls
@@ -1115,20 +1489,28 @@ class RaceDataPresenter extends React.PureComponent<
           </div>
         )}
 
-        {this.renderTabs()}
+        {this.renderCourseProfile()}
 
-        <div className="min-h-[500px]">
-          {this.state.activeTab === 'summary' && this.renderCharaList()}
-          {this.state.activeTab === 'diff' &&
-            this.renderGlobalRaceDistanceDiffGraph()}
-          {this.state.activeTab === 'speed' &&
-            this.renderGlobalRaceSpeedGraph()}
-          {this.state.activeTab === 'hp' && this.renderGlobalRaceHpGraph()}
-          {this.state.activeTab === 'events' &&
-            this.renderOtherRaceEventsList()}
-          {this.state.activeTab === 'detail_analysis' &&
-            this.renderDetailAnalysis()}
-        </div>
+        {this.props.showLegacyPage ? (
+          <>
+            {this.renderTabs()}
+
+            <div className="min-h-[500px]">
+              {this.state.activeTab === 'summary' && this.renderCharaList()}
+              {this.state.activeTab === 'diff' &&
+                this.renderGlobalRaceDistanceDiffGraph()}
+              {this.state.activeTab === 'speed' &&
+                this.renderGlobalRaceSpeedGraph()}
+              {this.state.activeTab === 'hp' && this.renderGlobalRaceHpGraph()}
+              {this.state.activeTab === 'events' &&
+                this.renderOtherRaceEventsList()}
+              {this.state.activeTab === 'detail_analysis' &&
+                this.renderDetailAnalysis()}
+            </div>
+          </>
+        ) : (
+          this.renderTelemetryOverview()
+        )}
       </div>
     );
   }

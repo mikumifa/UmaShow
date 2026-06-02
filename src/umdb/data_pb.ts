@@ -374,6 +374,16 @@ export class RaceInstance extends Message<RaceInstance> {
   distance?: number;
 
   /**
+   * @generated from field: optional int32 race_id = 5;
+   */
+  raceId?: number;
+
+  /**
+   * @generated from field: optional int32 course_set = 6;
+   */
+  courseSet?: number;
+
+  /**
    * @generated from field: optional hakuraku.RaceInstance.GroundType ground_type = 4;
    */
   groundType?: RaceInstance_GroundType;
@@ -389,6 +399,8 @@ export class RaceInstance extends Message<RaceInstance> {
     { no: 1, name: "id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 3, name: "distance", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 5, name: "race_id", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 6, name: "course_set", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 4, name: "ground_type", kind: "enum", T: proto2.getEnumType(RaceInstance_GroundType), opt: true },
   ]);
 

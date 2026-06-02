@@ -85,7 +85,7 @@ class SuccessionRelation(_message.Message):
     def __init__(self, relation_type: _Optional[int] = ..., relation_point: _Optional[int] = ..., member: _Optional[_Iterable[_Union[SuccessionRelation.Member, _Mapping]]] = ...) -> None: ...
 
 class RaceInstance(_message.Message):
-    __slots__ = ("id", "name", "distance", "ground_type")
+    __slots__ = ("id", "name", "distance", "race_id", "course_set", "ground_type")
     class GroundType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         UNKNOWN_GROUND_TYPE: _ClassVar[RaceInstance.GroundType]
@@ -97,12 +97,16 @@ class RaceInstance(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISTANCE_FIELD_NUMBER: _ClassVar[int]
+    RACE_ID_FIELD_NUMBER: _ClassVar[int]
+    COURSE_SET_FIELD_NUMBER: _ClassVar[int]
     GROUND_TYPE_FIELD_NUMBER: _ClassVar[int]
     id: int
     name: str
     distance: int
+    race_id: int
+    course_set: int
     ground_type: RaceInstance.GroundType
-    def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ..., distance: _Optional[int] = ..., ground_type: _Optional[_Union[RaceInstance.GroundType, str]] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ..., distance: _Optional[int] = ..., race_id: _Optional[int] = ..., course_set: _Optional[int] = ..., ground_type: _Optional[_Union[RaceInstance.GroundType, str]] = ...) -> None: ...
 
 class WinsSaddle(_message.Message):
     __slots__ = ("id", "name", "race_instance_id", "priority", "group_id", "type")

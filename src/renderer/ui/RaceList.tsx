@@ -162,6 +162,7 @@ export default function RaceList() {
       state: {
         scenario: item.scenario,
         horseInfo: JSON.stringify(item.horses ?? {}),
+        raceMetaInfo: item.raceMetaInfo,
         archiveId: activeArchiveId,
       },
     });

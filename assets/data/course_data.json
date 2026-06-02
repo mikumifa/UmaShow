@@ -1,0 +1,5327 @@
+{
+  "10101": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 275
+      },
+      {
+        "start": 675,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 950,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10102": {
+    "corners": [
+      {
+        "start": 150,
+        "length": 275
+      },
+      {
+        "start": 700,
+        "length": 275
+      },
+      {
+        "start": 975,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1500,
+    "distanceType": 2,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 425,
+        "end": 700
+      },
+      {
+        "start": 1250,
+        "end": 1500
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10103": {
+    "corners": [
+      {
+        "start": 175,
+        "length": 275
+      },
+      {
+        "start": 450,
+        "length": 275
+      },
+      {
+        "start": 1000,
+        "length": 275
+      },
+      {
+        "start": 1275,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 175
+      },
+      {
+        "start": 725,
+        "end": 1000
+      },
+      {
+        "start": 1550,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10104": {
+    "corners": [
+      {
+        "start": 375,
+        "length": 275
+      },
+      {
+        "start": 650,
+        "length": 275
+      },
+      {
+        "start": 1200,
+        "length": 275
+      },
+      {
+        "start": 1475,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 375
+      },
+      {
+        "start": 925,
+        "end": 1200
+      },
+      {
+        "start": 1750,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10105": {
+    "corners": [
+      {
+        "start": 175,
+        "length": 275
+      },
+      {
+        "start": 450,
+        "length": 275
+      },
+      {
+        "start": 975,
+        "length": 275
+      },
+      {
+        "start": 1250,
+        "length": 275
+      },
+      {
+        "start": 1800,
+        "length": 275
+      },
+      {
+        "start": 2075,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2600,
+    "distanceType": 4,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 175
+      },
+      {
+        "start": 725,
+        "end": 975
+      },
+      {
+        "start": 1525,
+        "end": 1800
+      },
+      {
+        "start": 2350,
+        "end": 2600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10106": {
+    "corners": [
+      {
+        "start": 280,
+        "length": 230
+      },
+      {
+        "start": 510,
+        "length": 230
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1000,
+    "distanceType": 1,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 280
+      },
+      {
+        "start": 740,
+        "end": 1000
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10107": {
+    "corners": [
+      {
+        "start": 240,
+        "length": 230
+      },
+      {
+        "start": 470,
+        "length": 230
+      },
+      {
+        "start": 980,
+        "length": 230
+      },
+      {
+        "start": 1210,
+        "length": 230
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1700,
+    "distanceType": 2,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 240
+      },
+      {
+        "start": 700,
+        "end": 980
+      },
+      {
+        "start": 1440,
+        "end": 1700
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10108": {
+    "corners": [
+      {
+        "start": 200,
+        "length": 230
+      },
+      {
+        "start": 430,
+        "length": 230
+      },
+      {
+        "start": 940,
+        "length": 230
+      },
+      {
+        "start": 1170,
+        "length": 230
+      },
+      {
+        "start": 1680,
+        "length": 230
+      },
+      {
+        "start": 1910,
+        "length": 230
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10001,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 200
+      },
+      {
+        "start": 660,
+        "end": 940
+      },
+      {
+        "start": 1408,
+        "end": 1680
+      },
+      {
+        "start": 2140,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10201": {
+    "corners": [
+      {
+        "start": 310,
+        "length": 220
+      },
+      {
+        "start": 530,
+        "length": 220
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1000,
+    "distanceType": 1,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 555,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 310
+      },
+      {
+        "start": 750,
+        "end": 1000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10202": {
+    "corners": [
+      {
+        "start": 510,
+        "length": 220
+      },
+      {
+        "start": 730,
+        "length": 220
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 755,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 510
+      },
+      {
+        "start": 950,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10203": {
+    "corners": [
+      {
+        "start": 320,
+        "length": 220
+      },
+      {
+        "start": 540,
+        "length": 220
+      },
+      {
+        "start": 1110,
+        "length": 220
+      },
+      {
+        "start": 1330,
+        "length": 220
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 220,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 665,
+        "length": 720,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 320
+      },
+      {
+        "start": 760,
+        "end": 1110
+      },
+      {
+        "start": 1550,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10204": {
+    "corners": [
+      {
+        "start": 520,
+        "length": 220
+      },
+      {
+        "start": 740,
+        "length": 220
+      },
+      {
+        "start": 1310,
+        "length": 220
+      },
+      {
+        "start": 1530,
+        "length": 220
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 420,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 865,
+        "length": 720,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 520
+      },
+      {
+        "start": 960,
+        "end": 1310
+      },
+      {
+        "start": 1750,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10205": {
+    "corners": [
+      {
+        "start": 240,
+        "length": 230
+      },
+      {
+        "start": 470,
+        "length": 230
+      },
+      {
+        "start": 1070,
+        "length": 230
+      },
+      {
+        "start": 1300,
+        "length": 230
+      },
+      {
+        "start": 1890,
+        "length": 230
+      },
+      {
+        "start": 2120,
+        "length": 230
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2600,
+    "distanceType": 4,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 495,
+        "slope": 10000
+      },
+      {
+        "start": 970,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 1425,
+        "length": 720,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 240
+      },
+      {
+        "start": 700,
+        "end": 1070
+      },
+      {
+        "start": 1530,
+        "end": 1890
+      },
+      {
+        "start": 2350,
+        "end": 2600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10206": {
+    "corners": [
+      {
+        "start": 370,
+        "length": 190
+      },
+      {
+        "start": 560,
+        "length": 190
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1000,
+    "distanceType": 1,
+    "raceTrackId": 10002,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 370
+      },
+      {
+        "start": 750,
+        "end": 1000
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10207": {
+    "corners": [
+      {
+        "start": 350,
+        "length": 190
+      },
+      {
+        "start": 540,
+        "length": 190
+      },
+      {
+        "start": 1070,
+        "length": 190
+      },
+      {
+        "start": 1260,
+        "length": 190
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1700,
+    "distanceType": 2,
+    "raceTrackId": 10002,
+    "slopes": [
+      {
+        "start": 275,
+        "length": 340,
+        "slope": -10000
+      },
+      {
+        "start": 615,
+        "length": 670,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 350
+      },
+      {
+        "start": 730,
+        "end": 1070
+      },
+      {
+        "start": 1450,
+        "end": 1700
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10208": {
+    "corners": [
+      {
+        "start": 292,
+        "length": 190
+      },
+      {
+        "start": 482,
+        "length": 190
+      },
+      {
+        "start": 1040,
+        "length": 190
+      },
+      {
+        "start": 1230,
+        "length": 190
+      },
+      {
+        "start": 1770,
+        "length": 190
+      },
+      {
+        "start": 1960,
+        "length": 190
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10002,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 292
+      },
+      {
+        "start": 672,
+        "end": 1040
+      },
+      {
+        "start": 1420,
+        "end": 1770
+      },
+      {
+        "start": 2150,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10301": {
+    "corners": [],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1000,
+    "distanceType": 1,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 649.9
+      },
+      {
+        "start": 650,
+        "end": 1000
+      }
+    ],
+    "surface": 1,
+    "turn": 4
+  },
+  "10302": {
+    "corners": [
+      {
+        "start": 430,
+        "length": 200
+      },
+      {
+        "start": 640,
+        "length": 210
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 430
+      },
+      {
+        "start": 850,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10303": {
+    "corners": [
+      {
+        "start": 650,
+        "length": 200
+      },
+      {
+        "start": 850,
+        "length": 200
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 650
+      },
+      {
+        "start": 1050,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10304": {
+    "corners": [
+      {
+        "start": 550,
+        "length": 200
+      },
+      {
+        "start": 750,
+        "length": 200
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10003,
+    "slopes": [
+      {
+        "start": 250,
+        "length": 350,
+        "slope": 10000
+      },
+      {
+        "start": 600,
+        "length": 300,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 550
+      },
+      {
+        "start": 950,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10305": {
+    "corners": [
+      {
+        "start": 750,
+        "length": 200
+      },
+      {
+        "start": 950,
+        "length": 200
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10003,
+    "slopes": [
+      {
+        "start": 450,
+        "length": 350,
+        "slope": 10000
+      },
+      {
+        "start": 800,
+        "length": 300,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 750
+      },
+      {
+        "start": 1150,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10306": {
+    "corners": [
+      {
+        "start": 420,
+        "length": 200
+      },
+      {
+        "start": 620,
+        "length": 200
+      },
+      {
+        "start": 1250,
+        "length": 200
+      },
+      {
+        "start": 1450,
+        "length": 200
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      2,
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 420
+      },
+      {
+        "start": 820,
+        "end": 1250
+      },
+      {
+        "start": 1650,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10307": {
+    "corners": [
+      {
+        "start": 950,
+        "length": 200
+      },
+      {
+        "start": 1150,
+        "length": 200
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      2,
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10003,
+    "slopes": [
+      {
+        "start": 1000,
+        "length": 300,
+        "slope": -15000
+      },
+      {
+        "start": 650,
+        "length": 350,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 950
+      },
+      {
+        "start": 1350,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10308": {
+    "corners": [
+      {
+        "start": 650,
+        "length": 200
+      },
+      {
+        "start": 850,
+        "length": 200
+      },
+      {
+        "start": 1450,
+        "length": 200
+      },
+      {
+        "start": 1650,
+        "length": 200
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 2200,
+    "distanceType": 3,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 650
+      },
+      {
+        "start": 1050,
+        "end": 1450
+      },
+      {
+        "start": 1850,
+        "end": 2200
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10309": {
+    "corners": [
+      {
+        "start": 810,
+        "length": 200
+      },
+      {
+        "start": 1010,
+        "length": 200
+      },
+      {
+        "start": 1650,
+        "length": 200
+      },
+      {
+        "start": 1850,
+        "length": 200
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 810
+      },
+      {
+        "start": 1210,
+        "end": 1650
+      },
+      {
+        "start": 2050,
+        "end": 2400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10310": {
+    "corners": [
+      {
+        "start": 600,
+        "length": 150
+      },
+      {
+        "start": 750,
+        "length": 150
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 600
+      },
+      {
+        "start": 900,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10311": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 160
+      },
+      {
+        "start": 560,
+        "length": 160
+      },
+      {
+        "start": 1140,
+        "length": 160
+      },
+      {
+        "start": 1300,
+        "length": 160
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      5
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 720,
+        "end": 1140
+      },
+      {
+        "start": 1460,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10312": {
+    "corners": [
+      {
+        "start": 380,
+        "length": 160
+      },
+      {
+        "start": 540,
+        "length": 160
+      },
+      {
+        "start": 1120,
+        "length": 160
+      },
+      {
+        "start": 1280,
+        "length": 160
+      },
+      {
+        "start": 1850,
+        "length": 160
+      },
+      {
+        "start": 2010,
+        "length": 160
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2500,
+    "distanceType": 4,
+    "raceTrackId": 10003,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 380
+      },
+      {
+        "start": 700,
+        "end": 1120
+      },
+      {
+        "start": 1440,
+        "end": 1850
+      },
+      {
+        "start": 2170,
+        "end": 2500
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10401": {
+    "corners": [
+      {
+        "start": 420,
+        "length": 300
+      },
+      {
+        "start": 720,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10004,
+    "slopes": [
+      {
+        "start": 180,
+        "length": 100,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 420
+      },
+      {
+        "start": 920,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10402": {
+    "corners": [
+      {
+        "start": 330,
+        "length": 200
+      },
+      {
+        "start": 530,
+        "length": 200
+      },
+      {
+        "start": 1020,
+        "length": 300
+      },
+      {
+        "start": 1320,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10004,
+    "slopes": [
+      {
+        "start": 780,
+        "length": 100,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 330
+      },
+      {
+        "start": 730,
+        "end": 1020
+      },
+      {
+        "start": 1520,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10403": {
+    "corners": [
+      {
+        "start": 530,
+        "length": 200
+      },
+      {
+        "start": 730,
+        "length": 200
+      },
+      {
+        "start": 1220,
+        "length": 300
+      },
+      {
+        "start": 1520,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10004,
+    "slopes": [
+      {
+        "start": 980,
+        "length": 100,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 530
+      },
+      {
+        "start": 930,
+        "end": 1220
+      },
+      {
+        "start": 1720,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10404": {
+    "corners": [
+      {
+        "start": 220,
+        "length": 300
+      },
+      {
+        "start": 520,
+        "length": 200
+      },
+      {
+        "start": 1130,
+        "length": 200
+      },
+      {
+        "start": 1330,
+        "length": 200
+      },
+      {
+        "start": 1820,
+        "length": 300
+      },
+      {
+        "start": 2120,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2600,
+    "distanceType": 4,
+    "raceTrackId": 10004,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 80,
+        "slope": 15000
+      },
+      {
+        "start": 1580,
+        "length": 100,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 220
+      },
+      {
+        "start": 720,
+        "end": 1130
+      },
+      {
+        "start": 1530,
+        "end": 1820
+      },
+      {
+        "start": 2320,
+        "end": 2600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10405": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 210
+      },
+      {
+        "start": 710,
+        "length": 160
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1150,
+    "distanceType": 1,
+    "raceTrackId": 10004,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 870,
+        "end": 1150
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10406": {
+    "corners": [
+      {
+        "start": 360,
+        "length": 170
+      },
+      {
+        "start": 530,
+        "length": 170
+      },
+      {
+        "start": 1050,
+        "length": 210
+      },
+      {
+        "start": 1260,
+        "length": 160
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1700,
+    "distanceType": 2,
+    "raceTrackId": 10004,
+    "slopes": [
+      {
+        "start": 285,
+        "length": 320,
+        "slope": -10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 360
+      },
+      {
+        "start": 700,
+        "end": 1050
+      },
+      {
+        "start": 1420,
+        "end": 1700
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10407": {
+    "corners": [
+      {
+        "start": 310,
+        "length": 210
+      },
+      {
+        "start": 520,
+        "length": 160
+      },
+      {
+        "start": 1060,
+        "length": 170
+      },
+      {
+        "start": 1230,
+        "length": 170
+      },
+      {
+        "start": 1750,
+        "length": 210
+      },
+      {
+        "start": 1960,
+        "length": 160
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10004,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 310
+      },
+      {
+        "start": 680,
+        "end": 1060
+      },
+      {
+        "start": 1400,
+        "end": 1750
+      },
+      {
+        "start": 2120,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10501": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 350
+      },
+      {
+        "start": 650,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 200,
+        "slope": -15000
+      },
+      {
+        "start": 1025,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 900,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10502": {
+    "corners": [
+      {
+        "start": 50,
+        "length": 450
+      },
+      {
+        "start": 700,
+        "length": 350
+      },
+      {
+        "start": 1050,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 300,
+        "length": 300,
+        "slope": -15000
+      },
+      {
+        "start": 1425,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 1300,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10503": {
+    "corners": [
+      {
+        "start": 175,
+        "length": 250
+      },
+      {
+        "start": 425,
+        "length": 250
+      },
+      {
+        "start": 1000,
+        "length": 250
+      },
+      {
+        "start": 1250,
+        "length": 250
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 1,
+        "length": 35,
+        "slope": 20000
+      },
+      {
+        "start": 125,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 425,
+        "length": 400,
+        "slope": -15000
+      },
+      {
+        "start": 1625,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 175
+      },
+      {
+        "start": 675,
+        "end": 1000
+      },
+      {
+        "start": 1500,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10504": {
+    "corners": [
+      {
+        "start": 375,
+        "length": 250
+      },
+      {
+        "start": 625,
+        "length": 250
+      },
+      {
+        "start": 1200,
+        "length": 250
+      },
+      {
+        "start": 1450,
+        "length": 250
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 325,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 125,
+        "length": 110,
+        "slope": 20000
+      },
+      {
+        "start": 625,
+        "length": 400,
+        "slope": -15000
+      },
+      {
+        "start": 1825,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 375
+      },
+      {
+        "start": 875,
+        "end": 1200
+      },
+      {
+        "start": 1700,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10505": {
+    "corners": [
+      {
+        "start": 403,
+        "length": 247
+      },
+      {
+        "start": 650,
+        "length": 450
+      },
+      {
+        "start": 1300,
+        "length": 350
+      },
+      {
+        "start": 1650,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      2,
+      4
+    ],
+    "distance": 2200,
+    "distanceType": 3,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 153,
+        "length": 110,
+        "slope": 20000
+      },
+      {
+        "start": 353,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 900,
+        "length": 300,
+        "slope": -15000
+      },
+      {
+        "start": 2025,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 403
+      },
+      {
+        "start": 1900,
+        "end": 2200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10506": {
+    "corners": [
+      {
+        "start": 100,
+        "length": 146
+      },
+      {
+        "start": 246,
+        "length": 250
+      },
+      {
+        "start": 875,
+        "length": 250
+      },
+      {
+        "start": 1125,
+        "length": 250
+      },
+      {
+        "start": 1700,
+        "length": 250
+      },
+      {
+        "start": 1950,
+        "length": 250
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      2,
+      4
+    ],
+    "distance": 2500,
+    "distanceType": 4,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 621,
+        "length": 110,
+        "slope": 20000
+      },
+      {
+        "start": 825,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 1125,
+        "length": 400,
+        "slope": -15000
+      },
+      {
+        "start": 2325,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 496,
+        "end": 875
+      },
+      {
+        "start": 1375,
+        "end": 1700
+      },
+      {
+        "start": 2200,
+        "end": 2500
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10507": {
+    "corners": [
+      {
+        "start": 290,
+        "length": 250
+      },
+      {
+        "start": 540,
+        "length": 250
+      },
+      {
+        "start": 1115,
+        "length": 250
+      },
+      {
+        "start": 1365,
+        "length": 250
+      },
+      {
+        "start": 1975,
+        "length": 250
+      },
+      {
+        "start": 2225,
+        "length": 250
+      },
+      {
+        "start": 2800,
+        "length": 250
+      },
+      {
+        "start": 3050,
+        "length": 250
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 3600,
+    "distanceType": 4,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 40,
+        "length": 110,
+        "slope": 20000
+      },
+      {
+        "start": 240,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 540,
+        "length": 400,
+        "slope": -15000
+      },
+      {
+        "start": 1740,
+        "length": 110,
+        "slope": 20000
+      },
+      {
+        "start": 1925,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 2225,
+        "length": 400,
+        "slope": -15000
+      },
+      {
+        "start": 3425,
+        "length": 110,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 290
+      },
+      {
+        "start": 790,
+        "end": 1115
+      },
+      {
+        "start": 1615,
+        "end": 1975
+      },
+      {
+        "start": 2475,
+        "end": 2800
+      },
+      {
+        "start": 3300,
+        "end": 3600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10508": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 200
+      },
+      {
+        "start": 700,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 175,
+        "length": 175,
+        "slope": -15000
+      },
+      {
+        "start": 1000,
+        "length": 175,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 900,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10509": {
+    "corners": [
+      {
+        "start": 350,
+        "length": 200
+      },
+      {
+        "start": 550,
+        "length": 200
+      },
+      {
+        "start": 1100,
+        "length": 200
+      },
+      {
+        "start": 1300,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10005,
+    "slopes": [
+      {
+        "start": 100,
+        "length": 175,
+        "slope": 15000
+      },
+      {
+        "start": 350,
+        "length": 175,
+        "slope": 10000
+      },
+      {
+        "start": 775,
+        "length": 175,
+        "slope": -15000
+      },
+      {
+        "start": 1600,
+        "length": 175,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 350
+      },
+      {
+        "start": 750,
+        "end": 1100
+      },
+      {
+        "start": 1500,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10510": {
+    "corners": [
+      {
+        "start": 200,
+        "length": 200
+      },
+      {
+        "start": 400,
+        "length": 200
+      },
+      {
+        "start": 950,
+        "length": 200
+      },
+      {
+        "start": 1150,
+        "length": 200
+      },
+      {
+        "start": 1700,
+        "length": 200
+      },
+      {
+        "start": 1900,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10005,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 200
+      },
+      {
+        "start": 600,
+        "end": 950
+      },
+      {
+        "start": 1350,
+        "end": 1700
+      },
+      {
+        "start": 2100,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10511": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 200
+      },
+      {
+        "start": 500,
+        "length": 200
+      },
+      {
+        "start": 1050,
+        "length": 200
+      },
+      {
+        "start": 1250,
+        "length": 200
+      },
+      {
+        "start": 1800,
+        "length": 200
+      },
+      {
+        "start": 2000,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2500,
+    "distanceType": 4,
+    "raceTrackId": 10005,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 300
+      },
+      {
+        "start": 700,
+        "end": 1050
+      },
+      {
+        "start": 1450,
+        "end": 1800
+      },
+      {
+        "start": 2200,
+        "end": 2500
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10601": {
+    "corners": [
+      {
+        "start": 350,
+        "length": 275
+      },
+      {
+        "start": 625,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2,
+      3
+    ],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 125,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 250,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 950,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 350
+      },
+      {
+        "start": 900,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10602": {
+    "corners": [
+      {
+        "start": 550,
+        "length": 275
+      },
+      {
+        "start": 825,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2,
+      4
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 450,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 325,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 1150,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 550
+      },
+      {
+        "start": 1100,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10603": {
+    "corners": [
+      {
+        "start": 75,
+        "length": 250
+      },
+      {
+        "start": 750,
+        "length": 275
+      },
+      {
+        "start": 1025,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 525,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 650,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 1350,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 325,
+        "end": 750
+      },
+      {
+        "start": 1300,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10604": {
+    "corners": [
+      {
+        "start": 200,
+        "length": 200
+      },
+      {
+        "start": 950,
+        "length": 275
+      },
+      {
+        "start": 1225,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 725,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 850,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 1550,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 400,
+        "end": 950
+      },
+      {
+        "start": 1500,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10605": {
+    "corners": [
+      {
+        "start": 225,
+        "length": 250
+      },
+      {
+        "start": 475,
+        "length": 325
+      },
+      {
+        "start": 1250,
+        "length": 275
+      },
+      {
+        "start": 1525,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2300,
+    "distanceType": 3,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 1025,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 1150,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 1850,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 225
+      },
+      {
+        "start": 800,
+        "end": 1250
+      },
+      {
+        "start": 1800,
+        "end": 2300
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10606": {
+    "corners": [
+      {
+        "start": 325,
+        "length": 250
+      },
+      {
+        "start": 575,
+        "length": 325
+      },
+      {
+        "start": 1350,
+        "length": 275
+      },
+      {
+        "start": 1625,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 40,
+        "slope": 15000
+      },
+      {
+        "start": 1125,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 1250,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 1950,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 325
+      },
+      {
+        "start": 900,
+        "end": 1350
+      },
+      {
+        "start": 1900,
+        "end": 2400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10607": {
+    "corners": [
+      {
+        "start": 425,
+        "length": 250
+      },
+      {
+        "start": 675,
+        "length": 325
+      },
+      {
+        "start": 1450,
+        "length": 275
+      },
+      {
+        "start": 1725,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2500,
+    "distanceType": 4,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 140,
+        "slope": 15000
+      },
+      {
+        "start": 1225,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 1350,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 2050,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 425
+      },
+      {
+        "start": 1000,
+        "end": 1450
+      },
+      {
+        "start": 2000,
+        "end": 2500
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10608": {
+    "corners": [
+      {
+        "start": 292,
+        "length": 275
+      },
+      {
+        "start": 567,
+        "length": 275
+      },
+      {
+        "start": 1325,
+        "length": 250
+      },
+      {
+        "start": 1575,
+        "length": 325
+      },
+      {
+        "start": 2350,
+        "length": 275
+      },
+      {
+        "start": 2625,
+        "length": 275
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 3400,
+    "distanceType": 4,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 67,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 192,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 892,
+        "length": 150,
+        "slope": 15000
+      },
+      {
+        "start": 2125,
+        "length": 75,
+        "slope": 20000
+      },
+      {
+        "start": 2250,
+        "length": 250,
+        "slope": -15000
+      },
+      {
+        "start": 2950,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 292
+      },
+      {
+        "start": 842,
+        "end": 1325
+      },
+      {
+        "start": 1900,
+        "end": 2350
+      },
+      {
+        "start": 2900,
+        "end": 3400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10609": {
+    "corners": [
+      {
+        "start": 350,
+        "length": 225
+      },
+      {
+        "start": 575,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1300,
+    "distanceType": 1,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 275,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 800,
+        "length": 250,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 350
+      },
+      {
+        "start": 800,
+        "end": 1300
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10610": {
+    "corners": [
+      {
+        "start": 450,
+        "length": 225
+      },
+      {
+        "start": 675,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 375,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 900,
+        "length": 250,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 450
+      },
+      {
+        "start": 900,
+        "end": 1400
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10611": {
+    "corners": [
+      {
+        "start": 650,
+        "length": 225
+      },
+      {
+        "start": 875,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1,
+      2
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 575,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 1100,
+        "length": 250,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 650
+      },
+      {
+        "start": 1100,
+        "end": 1600
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10612": {
+    "corners": [
+      {
+        "start": 200,
+        "length": 250
+      },
+      {
+        "start": 450,
+        "length": 250
+      },
+      {
+        "start": 1150,
+        "length": 225
+      },
+      {
+        "start": 1375,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2100,
+    "distanceType": 3,
+    "raceTrackId": 10006,
+    "slopes": [
+      {
+        "start": 1075,
+        "length": 200,
+        "slope": -10000
+      },
+      {
+        "start": 1600,
+        "length": 250,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 200
+      },
+      {
+        "start": 700,
+        "end": 1150
+      },
+      {
+        "start": 1600,
+        "end": 2100
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10613": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 250
+      },
+      {
+        "start": 750,
+        "length": 250
+      },
+      {
+        "start": 1450,
+        "length": 225
+      },
+      {
+        "start": 1675,
+        "length": 225
+      },
+      {
+        "start": 2348,
+        "length": 500
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10006,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 1000,
+        "end": 1450
+      },
+      {
+        "start": 1900,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10701": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 250
+      },
+      {
+        "start": 550,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 100,
+        "length": 775,
+        "slope": -10000
+      },
+      {
+        "start": 875,
+        "length": 100,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 300
+      },
+      {
+        "start": 800,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10702": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 250
+      },
+      {
+        "start": 750,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 300,
+        "length": 775,
+        "slope": -10000
+      },
+      {
+        "start": 1075,
+        "length": 100,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 1000,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10703": {
+    "corners": [
+      {
+        "start": 150,
+        "length": 150
+      },
+      {
+        "start": 700,
+        "length": 250
+      },
+      {
+        "start": 950,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 500,
+        "length": 775,
+        "slope": -10000
+      },
+      {
+        "start": 1275,
+        "length": 100,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 300,
+        "end": 700
+      },
+      {
+        "start": 1200,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10704": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 200
+      },
+      {
+        "start": 500,
+        "length": 200
+      },
+      {
+        "start": 1100,
+        "length": 250
+      },
+      {
+        "start": 1350,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 50,
+        "slope": 20000
+      },
+      {
+        "start": 900,
+        "length": 775,
+        "slope": -10000
+      },
+      {
+        "start": 1675,
+        "length": 100,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 300
+      },
+      {
+        "start": 700,
+        "end": 1100
+      },
+      {
+        "start": 1600,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10705": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 200
+      },
+      {
+        "start": 700,
+        "length": 200
+      },
+      {
+        "start": 1300,
+        "length": 250
+      },
+      {
+        "start": 1550,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2200,
+    "distanceType": 3,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 150,
+        "slope": -10000
+      },
+      {
+        "start": 150,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 1100,
+        "length": 775,
+        "slope": -10000
+      },
+      {
+        "start": 1875,
+        "length": 100,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 900,
+        "end": 1300
+      },
+      {
+        "start": 1800,
+        "end": 2200
+      }
+    ],
+    "surface": 1,
+    "turn": 2
+  },
+  "10706": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 200
+      },
+      {
+        "start": 600,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10007,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 800,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10707": {
+    "corners": [
+      {
+        "start": 600,
+        "length": 200
+      },
+      {
+        "start": 800,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 425,
+        "length": 600,
+        "slope": -15000
+      },
+      {
+        "start": 1025,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 600
+      },
+      {
+        "start": 1000,
+        "end": 1400
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10708": {
+    "corners": [
+      {
+        "start": 270,
+        "length": 165
+      },
+      {
+        "start": 435,
+        "length": 165
+      },
+      {
+        "start": 1000,
+        "length": 200
+      },
+      {
+        "start": 1200,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10007,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 50,
+        "slope": 15000
+      },
+      {
+        "start": 825,
+        "length": 600,
+        "slope": -15000
+      },
+      {
+        "start": 1425,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 270
+      },
+      {
+        "start": 600,
+        "end": 1000
+      },
+      {
+        "start": 1400,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10709": {
+    "corners": [
+      {
+        "start": 370,
+        "length": 165
+      },
+      {
+        "start": 535,
+        "length": 165
+      },
+      {
+        "start": 1100,
+        "length": 200
+      },
+      {
+        "start": 1300,
+        "length": 200
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1900,
+    "distanceType": 3,
+    "raceTrackId": 10007,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 370
+      },
+      {
+        "start": 700,
+        "end": 1100
+      },
+      {
+        "start": 1500,
+        "end": 1900
+      }
+    ],
+    "surface": 2,
+    "turn": 2
+  },
+  "10801": {
+    "corners": [
+      {
+        "start": 320,
+        "length": 275
+      },
+      {
+        "start": 595,
+        "length": 275
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 120,
+        "length": 175,
+        "slope": 15000
+      },
+      {
+        "start": 420,
+        "length": 150,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 320
+      },
+      {
+        "start": 870,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10802": {
+    "corners": [
+      {
+        "start": 520,
+        "length": 275
+      },
+      {
+        "start": 795,
+        "length": 275
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 320,
+        "length": 175,
+        "slope": 15000
+      },
+      {
+        "start": 620,
+        "length": 150,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 520
+      },
+      {
+        "start": 1070,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10803": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 250
+      },
+      {
+        "start": 750,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 250,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 350,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 575,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 1000,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10804": {
+    "corners": [
+      {
+        "start": 720,
+        "length": 275
+      },
+      {
+        "start": 995,
+        "length": 275
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 520,
+        "length": 175,
+        "slope": 15000
+      },
+      {
+        "start": 820,
+        "length": 150,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 200,
+        "end": 720
+      },
+      {
+        "start": 1270,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10805": {
+    "corners": [
+      {
+        "start": 700,
+        "length": 250
+      },
+      {
+        "start": 950,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 450,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 550,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 775,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 200,
+        "end": 700
+      },
+      {
+        "start": 1200,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10806": {
+    "corners": [
+      {
+        "start": 900,
+        "length": 250
+      },
+      {
+        "start": 1150,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 650,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 750,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 975,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 400,
+        "end": 900
+      },
+      {
+        "start": 1400,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10807": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 185
+      },
+      {
+        "start": 585,
+        "length": 185
+      },
+      {
+        "start": 1170,
+        "length": 250
+      },
+      {
+        "start": 1420,
+        "length": 250
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 970,
+        "length": 175,
+        "slope": 15000
+      },
+      {
+        "start": 1270,
+        "length": 150,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 770,
+        "end": 1170
+      },
+      {
+        "start": 1670,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10808": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 200
+      },
+      {
+        "start": 600,
+        "length": 200
+      },
+      {
+        "start": 1300,
+        "length": 250
+      },
+      {
+        "start": 1550,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 2200,
+    "distanceType": 3,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 1050,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 1150,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 1375,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 800,
+        "end": 1300
+      },
+      {
+        "start": 1800,
+        "end": 2200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10809": {
+    "corners": [
+      {
+        "start": 600,
+        "length": 200
+      },
+      {
+        "start": 800,
+        "length": 200
+      },
+      {
+        "start": 1500,
+        "length": 250
+      },
+      {
+        "start": 1750,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 1350,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 1250,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 1575,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 600
+      },
+      {
+        "start": 1000,
+        "end": 1500
+      },
+      {
+        "start": 2000,
+        "end": 2400
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10810": {
+    "corners": [
+      {
+        "start": 261,
+        "length": 250
+      },
+      {
+        "start": 511,
+        "length": 250
+      },
+      {
+        "start": 1250,
+        "length": 200
+      },
+      {
+        "start": 1450,
+        "length": 200
+      },
+      {
+        "start": 2100,
+        "length": 250
+      },
+      {
+        "start": 2350,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3,
+      5
+    ],
+    "distance": 3000,
+    "distanceType": 4,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 11,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 111,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 336,
+        "length": 150,
+        "slope": -20000
+      },
+      {
+        "start": 1950,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 1850,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 2175,
+        "length": 150,
+        "slope": -20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 261
+      },
+      {
+        "start": 761,
+        "end": 1250
+      },
+      {
+        "start": 1650,
+        "end": 2100
+      },
+      {
+        "start": 2600,
+        "end": 3000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10811": {
+    "corners": [
+      {
+        "start": 458,
+        "length": 250
+      },
+      {
+        "start": 708,
+        "length": 250
+      },
+      {
+        "start": 1450,
+        "length": 200
+      },
+      {
+        "start": 1650,
+        "length": 200
+      },
+      {
+        "start": 2300,
+        "length": 250
+      },
+      {
+        "start": 2550,
+        "length": 250
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 3200,
+    "distanceType": 4,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 208,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 308,
+        "length": 225,
+        "slope": 10000
+      },
+      {
+        "start": 533,
+        "length": 150,
+        "slope": -20000
+      },
+      {
+        "start": 2050,
+        "length": 100,
+        "slope": 20000
+      },
+      {
+        "start": 2375,
+        "length": 150,
+        "slope": -20000
+      },
+      {
+        "start": 2150,
+        "length": 225,
+        "slope": 10000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 458
+      },
+      {
+        "start": 958,
+        "end": 1450
+      },
+      {
+        "start": 1850,
+        "end": 2300
+      },
+      {
+        "start": 2800,
+        "end": 3200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10812": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 225
+      },
+      {
+        "start": 625,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 175,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 475,
+        "length": 200,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 850,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10813": {
+    "corners": [
+      {
+        "start": 600,
+        "length": 225
+      },
+      {
+        "start": 825,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 375,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 675,
+        "length": 200,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 100,
+        "end": 600
+      },
+      {
+        "start": 1050,
+        "end": 1400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10814": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 150
+      },
+      {
+        "start": 450,
+        "length": 150
+      },
+      {
+        "start": 1000,
+        "length": 225
+      },
+      {
+        "start": 1225,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 775,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 1075,
+        "length": 200,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 300
+      },
+      {
+        "start": 600,
+        "end": 1000
+      },
+      {
+        "start": 1450,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10815": {
+    "corners": [
+      {
+        "start": 400,
+        "length": 150
+      },
+      {
+        "start": 550,
+        "length": 150
+      },
+      {
+        "start": 1100,
+        "length": 225
+      },
+      {
+        "start": 1325,
+        "length": 225
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1900,
+    "distanceType": 3,
+    "raceTrackId": 10008,
+    "slopes": [
+      {
+        "start": 875,
+        "length": 200,
+        "slope": 15000
+      },
+      {
+        "start": 1175,
+        "length": 200,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 400
+      },
+      {
+        "start": 700,
+        "end": 1100
+      },
+      {
+        "start": 1550,
+        "end": 1900
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10901": {
+    "corners": [
+      {
+        "start": 250,
+        "length": 300
+      },
+      {
+        "start": 550,
+        "length": 300
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 400,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 1000,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 250
+      },
+      {
+        "start": 850,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10902": {
+    "corners": [
+      {
+        "start": 450,
+        "length": 300
+      },
+      {
+        "start": 750,
+        "length": 300
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 600,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 1200,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 450
+      },
+      {
+        "start": 1050,
+        "end": 1400
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10903": {
+    "corners": [
+      {
+        "start": 450,
+        "length": 350
+      },
+      {
+        "start": 800,
+        "length": 350
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1600,
+    "distanceType": 2,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 950,
+        "length": 400,
+        "slope": -10000
+      },
+      {
+        "start": 1405,
+        "length": 120,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 450
+      },
+      {
+        "start": 1150,
+        "end": 1600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10904": {
+    "corners": [
+      {
+        "start": 650,
+        "length": 350
+      },
+      {
+        "start": 1000,
+        "length": 350
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 1150,
+        "length": 400,
+        "slope": -10000
+      },
+      {
+        "start": 1605,
+        "length": 120,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 650
+      },
+      {
+        "start": 1350,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10905": {
+    "corners": [
+      {
+        "start": 370,
+        "length": 190
+      },
+      {
+        "start": 560,
+        "length": 190
+      },
+      {
+        "start": 1050,
+        "length": 300
+      },
+      {
+        "start": 1350,
+        "length": 300
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      4
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 140,
+        "slope": -10000
+      },
+      {
+        "start": 145,
+        "length": 125,
+        "slope": 20000
+      },
+      {
+        "start": 1200,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 1800,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 370
+      },
+      {
+        "start": 750,
+        "end": 1050
+      },
+      {
+        "start": 1650,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10906": {
+    "corners": [
+      {
+        "start": 520,
+        "length": 190
+      },
+      {
+        "start": 710,
+        "length": 190
+      },
+      {
+        "start": 1250,
+        "length": 300
+      },
+      {
+        "start": 1550,
+        "length": 300
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 2200,
+    "distanceType": 3,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 290,
+        "slope": -10000
+      },
+      {
+        "start": 295,
+        "length": 125,
+        "slope": 20000
+      },
+      {
+        "start": 1400,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 2000,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 520
+      },
+      {
+        "start": 900,
+        "end": 1250
+      },
+      {
+        "start": 1850,
+        "end": 2200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10907": {
+    "corners": [
+      {
+        "start": 382,
+        "length": 190
+      },
+      {
+        "start": 558,
+        "length": 190
+      },
+      {
+        "start": 1250,
+        "length": 350
+      },
+      {
+        "start": 1600,
+        "length": 350
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 132,
+        "slope": -10000
+      },
+      {
+        "start": 187,
+        "length": 120,
+        "slope": 20000
+      },
+      {
+        "start": 1750,
+        "length": 400,
+        "slope": -10000
+      },
+      {
+        "start": 2205,
+        "length": 120,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 750,
+        "end": 1250
+      },
+      {
+        "start": 1950,
+        "end": 2400
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10908": {
+    "corners": [
+      {
+        "start": 570,
+        "length": 190
+      },
+      {
+        "start": 760,
+        "length": 190
+      },
+      {
+        "start": 1450,
+        "length": 350
+      },
+      {
+        "start": 1800,
+        "length": 350
+      }
+    ],
+    "course": 3,
+    "courseSetStatus": [],
+    "distance": 2600,
+    "distanceType": 4,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 315,
+        "slope": -10000
+      },
+      {
+        "start": 370,
+        "length": 120,
+        "slope": 20000
+      },
+      {
+        "start": 1950,
+        "length": 400,
+        "slope": -10000
+      },
+      {
+        "start": 2405,
+        "length": 120,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 570
+      },
+      {
+        "start": 950,
+        "end": 1450
+      },
+      {
+        "start": 2150,
+        "end": 2600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10909": {
+    "corners": [
+      {
+        "start": 348,
+        "length": 300
+      },
+      {
+        "start": 648,
+        "length": 300
+      },
+      {
+        "start": 1320,
+        "length": 190
+      },
+      {
+        "start": 1510,
+        "length": 190
+      },
+      {
+        "start": 2050,
+        "length": 300
+      },
+      {
+        "start": 2350,
+        "length": 300
+      }
+    ],
+    "course": 2,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 3000,
+    "distanceType": 4,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 498,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 1095,
+        "length": 125,
+        "slope": 20000
+      },
+      {
+        "start": 2200,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 2800,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 348
+      },
+      {
+        "start": 948,
+        "end": 1320
+      },
+      {
+        "start": 1700,
+        "end": 2050
+      },
+      {
+        "start": 2650,
+        "end": 3000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "10910": {
+    "corners": [
+      {
+        "start": 350,
+        "length": 250
+      },
+      {
+        "start": 600,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10009,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 350
+      },
+      {
+        "start": 850,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10911": {
+    "corners": [
+      {
+        "start": 550,
+        "length": 250
+      },
+      {
+        "start": 800,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1400,
+    "distanceType": 1,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 1200,
+        "length": 125,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 550
+      },
+      {
+        "start": 1050,
+        "end": 1400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10912": {
+    "corners": [
+      {
+        "start": 330,
+        "length": 150
+      },
+      {
+        "start": 480,
+        "length": 150
+      },
+      {
+        "start": 950,
+        "length": 250
+      },
+      {
+        "start": 1200,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 105,
+        "length": 125,
+        "slope": 15000
+      },
+      {
+        "start": 1599,
+        "length": 125,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 330
+      },
+      {
+        "start": 630,
+        "end": 950
+      },
+      {
+        "start": 1449,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10913": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 150
+      },
+      {
+        "start": 650,
+        "length": 150
+      },
+      {
+        "start": 1150,
+        "length": 250
+      },
+      {
+        "start": 1400,
+        "length": 250
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2,
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 275,
+        "length": 125,
+        "slope": 15000
+      },
+      {
+        "start": 1800,
+        "length": 125,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 800,
+        "end": 1150
+      },
+      {
+        "start": 1650,
+        "end": 2000
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "10914": {
+    "corners": [
+      {
+        "start": 370,
+        "length": 350
+      },
+      {
+        "start": 720,
+        "length": 350
+      },
+      {
+        "start": 1520,
+        "length": 190
+      },
+      {
+        "start": 1710,
+        "length": 190
+      },
+      {
+        "start": 2250,
+        "length": 300
+      },
+      {
+        "start": 2550,
+        "length": 300
+      }
+    ],
+    "course": 4,
+    "courseSetStatus": [],
+    "distance": 3200,
+    "distanceType": 4,
+    "raceTrackId": 10009,
+    "slopes": [
+      {
+        "start": 870,
+        "length": 400,
+        "slope": -10000
+      },
+      {
+        "start": 1325,
+        "length": 120,
+        "slope": 20000
+      },
+      {
+        "start": 2400,
+        "length": 595,
+        "slope": -10000
+      },
+      {
+        "start": 3000,
+        "length": 125,
+        "slope": 20000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 370
+      },
+      {
+        "start": 1070,
+        "end": 1520
+      },
+      {
+        "start": 1900,
+        "end": 2250
+      },
+      {
+        "start": 2850,
+        "end": 3200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "11001": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 205
+      },
+      {
+        "start": 705,
+        "length": 205
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10010,
+    "slopes": [
+      {
+        "start": 0,
+        "length": 60,
+        "slope": -15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 910,
+        "end": 1200
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "11002": {
+    "corners": [
+      {
+        "start": 290,
+        "length": 205
+      },
+      {
+        "start": 495,
+        "length": 205
+      },
+      {
+        "start": 1100,
+        "length": 205
+      },
+      {
+        "start": 1305,
+        "length": 205
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10010,
+    "slopes": [
+      {
+        "start": 280,
+        "length": 255,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 290
+      },
+      {
+        "start": 700,
+        "end": 1100
+      },
+      {
+        "start": 1510,
+        "end": 1800
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "11003": {
+    "corners": [
+      {
+        "start": 490,
+        "length": 205
+      },
+      {
+        "start": 695,
+        "length": 205
+      },
+      {
+        "start": 1300,
+        "length": 205
+      },
+      {
+        "start": 1505,
+        "length": 205
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      3
+    ],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10010,
+    "slopes": [
+      {
+        "start": 480,
+        "length": 255,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 490
+      },
+      {
+        "start": 900,
+        "end": 1300
+      },
+      {
+        "start": 1710,
+        "end": 2000
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "11004": {
+    "corners": [
+      {
+        "start": 309,
+        "length": 205
+      },
+      {
+        "start": 514,
+        "length": 205
+      },
+      {
+        "start": 1110,
+        "length": 205
+      },
+      {
+        "start": 1315,
+        "length": 205
+      },
+      {
+        "start": 1900,
+        "length": 205
+      },
+      {
+        "start": 2105,
+        "length": 205
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      2
+    ],
+    "distance": 2600,
+    "distanceType": 4,
+    "raceTrackId": 10010,
+    "slopes": [
+      {
+        "start": 1100,
+        "length": 255,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 309
+      },
+      {
+        "start": 719,
+        "end": 1110
+      },
+      {
+        "start": 1520,
+        "end": 1900
+      },
+      {
+        "start": 2310,
+        "end": 2600
+      }
+    ],
+    "surface": 1,
+    "turn": 1
+  },
+  "11005": {
+    "corners": [
+      {
+        "start": 360,
+        "length": 180
+      },
+      {
+        "start": 540,
+        "length": 180
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [
+      1
+    ],
+    "distance": 1000,
+    "distanceType": 1,
+    "raceTrackId": 10010,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 360
+      },
+      {
+        "start": 720,
+        "end": 1000
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "11006": {
+    "corners": [
+      {
+        "start": 340,
+        "length": 180
+      },
+      {
+        "start": 520,
+        "length": 180
+      },
+      {
+        "start": 1060,
+        "length": 180
+      },
+      {
+        "start": 1240,
+        "length": 180
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1700,
+    "distanceType": 2,
+    "raceTrackId": 10010,
+    "slopes": [
+      {
+        "start": 370,
+        "length": 150,
+        "slope": 15000
+      }
+    ],
+    "straights": [
+      {
+        "start": 0,
+        "end": 340
+      },
+      {
+        "start": 700,
+        "end": 1060
+      },
+      {
+        "start": 1420,
+        "end": 1700
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "11007": {
+    "corners": [
+      {
+        "start": 312,
+        "length": 180
+      },
+      {
+        "start": 492,
+        "length": 180
+      },
+      {
+        "start": 1040,
+        "length": 180
+      },
+      {
+        "start": 1220,
+        "length": 180
+      },
+      {
+        "start": 1760,
+        "length": 180
+      },
+      {
+        "start": 1940,
+        "length": 180
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2400,
+    "distanceType": 3,
+    "raceTrackId": 10010,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 312
+      },
+      {
+        "start": 672,
+        "end": 1040
+      },
+      {
+        "start": 1400,
+        "end": 1760
+      },
+      {
+        "start": 2120,
+        "end": 2400
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "11101": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 150
+      },
+      {
+        "start": 650,
+        "length": 150
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1200,
+    "distanceType": 1,
+    "raceTrackId": 10101,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 812,
+        "end": 1200
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "11102": {
+    "corners": [
+      {
+        "start": 300,
+        "length": 150
+      },
+      {
+        "start": 500,
+        "length": 150
+      },
+      {
+        "start": 1100,
+        "length": 150
+      },
+      {
+        "start": 1250,
+        "length": 150
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 1800,
+    "distanceType": 2,
+    "raceTrackId": 10101,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 301
+      },
+      {
+        "start": 600,
+        "end": 1100.23
+      },
+      {
+        "start": 1400,
+        "end": 1800
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  },
+  "11103": {
+    "corners": [
+      {
+        "start": 500,
+        "length": 150
+      },
+      {
+        "start": 650,
+        "length": 150
+      },
+      {
+        "start": 1300,
+        "length": 150
+      },
+      {
+        "start": 1450,
+        "length": 150
+      }
+    ],
+    "course": 1,
+    "courseSetStatus": [],
+    "distance": 2000,
+    "distanceType": 3,
+    "raceTrackId": 10101,
+    "slopes": [],
+    "straights": [
+      {
+        "start": 0,
+        "end": 500
+      },
+      {
+        "start": 800,
+        "end": 1300
+      },
+      {
+        "start": 1600,
+        "end": 2000
+      }
+    ],
+    "surface": 2,
+    "turn": 1
+  }
+}

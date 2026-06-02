@@ -100,6 +100,33 @@ LIVE_SHOW_CONTEXT_BY_ID = {
     40020: "支援卡事件 +1",
 }
 
+SCENARIO_SKILLS = {
+    210011,
+    210012,
+    210021,
+    210022,
+    210031,
+    210032,
+    210041,
+    210042,
+    210051,
+    210052,
+    210061,
+    210062,
+    210071,
+    210072,
+    210081,
+    210082,
+    210261,
+    210262,
+    210271,
+    210272,
+    210281,
+    210282,
+    210291,
+}
+SPLIT_ALTERNATIVE_SKILL_IDS = {100701, 900701}
+
 
 def open_db(path: str) -> sqlite3.Cursor:
     connection = sqlite3.connect(path)
@@ -351,6 +378,243 @@ def build_card_talent_rates(cursor: sqlite3.Cursor) -> dict:
     }
 
 
+def build_skill_data(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute(
+        """
+SELECT id, rarity,
+       condition_1,
+       float_ability_time_1, precondition_1,
+       ability_type_1_1, float_ability_value_1_1, target_type_1_1,
+       ability_type_1_2, float_ability_value_1_2, target_type_1_2,
+       ability_type_1_3, float_ability_value_1_3, target_type_1_3,
+       condition_2,
+       float_ability_time_2, precondition_2,
+       ability_type_2_1, float_ability_value_2_1, target_type_2_1,
+       ability_type_2_2, float_ability_value_2_2, target_type_2_2,
+       ability_type_2_3, float_ability_value_2_3, target_type_2_3
+  FROM skill_data;
+"""
+    )
+
+    def patch_modifier(skill_id: int, value, ability_type):
+        if value is None:
+            return value
+        try:
+            patched = float(value)
+        except Exception:
+            patched = value
+        if skill_id in SCENARIO_SKILLS:
+            try:
+                if skill_id == 210061 and ability_type in (31, 9):
+                    return patched
+                return patched * 1.2
+            except Exception:
+                return patched
+        return patched
+
+    def build_effects(skill_id: int, triplets) -> list:
+        effects = []
+        for ability_type, modifier, target_type in triplets:
+            if ability_type is None or ability_type == 0:
+                continue
+            effects.append(
+                {
+                    "type": ability_type,
+                    "modifier": patch_modifier(skill_id, modifier or 0, ability_type),
+                    "target": target_type,
+                }
+            )
+        return effects
+
+    skill_data = {}
+    for row in cursor.fetchall():
+        (
+            skill_id,
+            rarity,
+            condition_1,
+            float_ability_time_1,
+            precondition_1,
+            ability_type_1_1,
+            float_ability_value_1_1,
+            target_type_1_1,
+            ability_type_1_2,
+            float_ability_value_1_2,
+            target_type_1_2,
+            ability_type_1_3,
+            float_ability_value_1_3,
+            target_type_1_3,
+            condition_2,
+            float_ability_time_2,
+            precondition_2,
+            ability_type_2_1,
+            float_ability_value_2_1,
+            target_type_2_1,
+            ability_type_2_2,
+            float_ability_value_2_2,
+            target_type_2_2,
+            ability_type_2_3,
+            float_ability_value_2_3,
+            target_type_2_3,
+        ) = row
+
+        skill_id = int(skill_id)
+        rarity = int(rarity) if rarity is not None else 0
+
+        alternatives = [
+            {
+                "precondition": precondition_1 or "",
+                "condition": condition_1 or "",
+                "baseDuration": float_ability_time_1 or 0,
+                "effects": build_effects(
+                    skill_id,
+                    (
+                        (
+                            ability_type_1_1,
+                            float_ability_value_1_1,
+                            target_type_1_1,
+                        ),
+                        (
+                            ability_type_1_2,
+                            float_ability_value_1_2,
+                            target_type_1_2,
+                        ),
+                        (
+                            ability_type_1_3,
+                            float_ability_value_1_3,
+                            target_type_1_3,
+                        ),
+                    ),
+                ),
+            }
+        ]
+
+        if condition_2 is not None and str(condition_2) not in ("", "0"):
+            alternatives.append(
+                {
+                    "precondition": precondition_2 or "",
+                    "condition": condition_2,
+                    "baseDuration": float_ability_time_2 or 0,
+                    "effects": build_effects(
+                        skill_id,
+                        (
+                            (
+                                ability_type_2_1,
+                                float_ability_value_2_1,
+                                target_type_2_1,
+                            ),
+                            (
+                                ability_type_2_2,
+                                float_ability_value_2_2,
+                                target_type_2_2,
+                            ),
+                            (
+                                ability_type_2_3,
+                                float_ability_value_2_3,
+                                target_type_2_3,
+                            ),
+                        ),
+                    ),
+                }
+            )
+
+        if skill_id in SPLIT_ALTERNATIVE_SKILL_IDS:
+            discriminators = [""] + [f"-{i}" for i in range(1, len(alternatives))]
+            for discriminator, alternative in zip(discriminators, alternatives):
+                skill_data[f"{skill_id}{discriminator}"] = {
+                    "rarity": rarity,
+                    "alternatives": [alternative],
+                }
+        else:
+            skill_data[str(skill_id)] = {
+                "rarity": rarity,
+                "alternatives": alternatives,
+            }
+
+    return skill_data
+
+
+def analyze_permanent_skill_alternatives(skill_data: dict) -> dict:
+    report = {
+        "skillsWithPermanentAlternative": 0,
+        "skillsWithOnlyPermanentAlternatives": 0,
+        "skillsWithMixedPermanentAlternatives": [],
+        "skillsWithMultiplePermanentAlternatives": [],
+        "skillsWithAnyPermanentAndMultipleAlternatives": [],
+    }
+
+    for skill_id, entry in skill_data.items():
+        alternatives = entry.get("alternatives", [])
+        durations = [alternative.get("baseDuration") for alternative in alternatives]
+        permanent_count = sum(1 for duration in durations if duration == -1)
+
+        if permanent_count <= 0:
+            continue
+
+        report["skillsWithPermanentAlternative"] += 1
+
+        if durations and all(duration == -1 for duration in durations):
+            report["skillsWithOnlyPermanentAlternatives"] += 1
+
+        if len(alternatives) > 1:
+            report["skillsWithAnyPermanentAndMultipleAlternatives"].append(
+                {
+                    "skillId": skill_id,
+                    "baseDurations": durations,
+                }
+            )
+
+        if permanent_count > 1:
+            report["skillsWithMultiplePermanentAlternatives"].append(
+                {
+                    "skillId": skill_id,
+                    "baseDurations": durations,
+                }
+            )
+
+        if permanent_count > 0 and any(duration != -1 for duration in durations):
+            report["skillsWithMixedPermanentAlternatives"].append(
+                {
+                    "skillId": skill_id,
+                    "baseDurations": durations,
+                }
+            )
+
+    return report
+
+
+def print_permanent_skill_alternative_report(report: dict) -> None:
+    print(
+        "[skill_data] permanent alternative summary: total=%d, only_permanent=%d, mixed=%d, multi_permanent=%d, multi_alternative_with_permanent=%d"
+        % (
+            report["skillsWithPermanentAlternative"],
+            report["skillsWithOnlyPermanentAlternatives"],
+            len(report["skillsWithMixedPermanentAlternatives"]),
+            len(report["skillsWithMultiplePermanentAlternatives"]),
+            len(report["skillsWithAnyPermanentAndMultipleAlternatives"]),
+        )
+    )
+
+    if report["skillsWithMixedPermanentAlternatives"]:
+        print(
+            "[skill_data] WARNING: mixed permanent alternatives found: %s"
+            % ", ".join(
+                "%s %s"
+                % (item["skillId"], item["baseDurations"])
+                for item in report["skillsWithMixedPermanentAlternatives"]
+            )
+        )
+
+    if report["skillsWithMultiplePermanentAlternatives"]:
+        print(
+            "[skill_data] INFO: multiple permanent alternatives found: %s"
+            % ", ".join(
+                "%s %s"
+                % (item["skillId"], item["baseDurations"])
+                for item in report["skillsWithMultiplePermanentAlternatives"]
+            )
+        )
+
+
 def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     relations = {}
 
@@ -376,7 +640,7 @@ def populate_succession_relation(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor
 
 
 def populate_race_instance(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
-    cursor.execute("""SELECT ri.id, rcs.distance, rcs.ground, t.text
+    cursor.execute("""SELECT ri.id, ri.race_id, r.course_set, rcs.distance, rcs.ground, t.text
                       FROM race_instance AS ri
                       LEFT JOIN race AS r ON ri.race_id = r.id
                       LEFT JOIN race_course_set AS rcs ON r.course_set = rcs.id
@@ -385,9 +649,11 @@ def populate_race_instance(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     for row in rows:
         r = data_pb2.RaceInstance()
         r.id = row[0]
-        r.distance = row[1]
-        r.ground_type = row[2]
-        r.name = row[3] or "Unknown"
+        r.race_id = row[1]
+        r.course_set = row[2]
+        r.distance = row[3]
+        r.ground_type = row[4]
+        r.name = row[5] or "Unknown"
         pb.race_instance.append(r)
 
 
@@ -523,12 +789,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path", default="master.mdb")
     parser.add_argument("--version", default="test")
+    parser.add_argument("--skill_data_out", default="assets/data/skill_data.json")
+    parser.add_argument("--only_skill_data", action="store_true")
     args = parser.parse_args()
+
+    cursor = open_db(args.db_path)
+    skill_data = build_skill_data(cursor)
+    permanent_skill_report = analyze_permanent_skill_alternatives(skill_data)
+    print_permanent_skill_alternative_report(permanent_skill_report)
+    os.makedirs(os.path.dirname(args.skill_data_out) or ".", exist_ok=True)
+    with open(args.skill_data_out, "w", encoding="utf-8") as f:
+        json.dump(skill_data, f, ensure_ascii=False, indent=2)
+
+    if args.only_skill_data:
+        return
 
     pb = data_pb2.UMDatabase()
     pb.version = args.version
-
-    cursor = open_db(args.db_path)
 
     for p in (
         populate_charas,

@@ -19,8 +19,8 @@ export default function RacePageLayout({
   children,
 }: RacePageLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-gray-50 px-4 py-5 xl:px-6">
+      <div className="mx-auto w-full max-w-none">
         <div className="mb-6 flex min-h-[60px] items-end justify-between gap-4 border-b border-gray-200 pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
