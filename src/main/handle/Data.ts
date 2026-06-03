@@ -180,7 +180,9 @@ export function handleDataLoad(ipcMain: Electron.IpcMain) {
     const candidates = [
       path.join(ASSETS_PATH, normalizedRelativePath),
       path.join(APP_PATH, normalizedRelativePath),
+      path.join(APP_PATH, 'dist', normalizedRelativePath),
       path.join(APP_PATH, 'web-assets', normalizedRelativePath),
+      path.join(APP_PATH, 'dist', 'web-assets', normalizedRelativePath),
       path.join(process.cwd(), 'web-assets', normalizedRelativePath),
     ];
     const fullPath = candidates.find((candidate) => fs.existsSync(candidate));

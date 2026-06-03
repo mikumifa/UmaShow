@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Trash2,
   Square,
@@ -18,6 +18,7 @@ import RacePageLayout, {
   raceHeaderButtonClass,
 } from 'renderer/components/RacePageLayout';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
+import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 
 const fallbackArchives: RaceArchive[] = [
@@ -29,9 +30,37 @@ const fallbackArchives: RaceArchive[] = [
 ];
 
 function getHorseRank(horse: Record<string, unknown>, fallbackIndex: number) {
-  const rank = Number(horse.rank);
-  if (Number.isFinite(rank) && rank > 0) return rank;
+  const rankFields = [
+    horse.rank,
+    horse.result_rank,
+    horse.final_rank,
+    horse.frame_order,
+  ];
+  const rank = rankFields
+    .map((value) => Number(value))
+    .find((value) => Number.isFinite(value) && value > 0);
+  if (rank != null) return rank;
   return fallbackIndex + 1;
+}
+
+function getHorseFinishRank(
+  horse: Record<string, unknown>,
+  finishOrderByFrameOrder?: Map<number, number>,
+  fallbackIndex = 0,
+) {
+  const frameOrder = Number(horse.frame_order);
+  if (
+    finishOrderByFrameOrder &&
+    Number.isFinite(frameOrder) &&
+    frameOrder > 0
+  ) {
+    const finishOrder = finishOrderByFrameOrder.get(frameOrder - 1);
+    if (finishOrder != null && Number.isFinite(finishOrder) && finishOrder >= 0) {
+      return finishOrder + 1;
+    }
+  }
+
+  return getHorseRank(horse, fallbackIndex);
 }
 
 function getHorseIconPath(horse: Record<string, unknown>) {
@@ -254,6 +283,29 @@ export default function RaceList() {
   const archiveNameById = new Map(
     archives.map((archive) => [archive.id, archive.name]),
   );
+  const finishOrderMapByFilename = useMemo(() => {
+    const map = new Map<string, Map<number, number>>();
+
+    items.forEach((item) => {
+      if (!item.scenario) return;
+      try {
+        const raceData = deserializeFromBase64(item.scenario.trim());
+        map.set(
+          item.filename,
+          new Map(
+            raceData.horseResult.map((result, frameOrder) => [
+              frameOrder,
+              result.finishOrder ?? frameOrder,
+            ]),
+          ),
+        );
+      } catch {
+        // Ignore malformed scenario so the rest of the list still renders.
+      }
+    });
+
+    return map;
+  }, [items]);
 
   /** 加载比赛文件列表 */
   const loadFiles = useCallback(async () => {
@@ -560,10 +612,17 @@ export default function RaceList() {
         {items.map((item) => {
           const created = new Date(item.createdAt).toLocaleString();
           const isSelected = selected.has(item.filename);
+          const finishOrderByFrameOrder = finishOrderMapByFilename.get(
+            item.filename,
+          );
           const topHorses = (item.horses ?? [])
             .map((horse, index) => ({
               horse: horse as Record<string, unknown>,
-              rank: getHorseRank(horse as Record<string, unknown>, index),
+              rank: getHorseFinishRank(
+                horse as Record<string, unknown>,
+                finishOrderByFrameOrder,
+                index,
+              ),
             }))
             .sort((left, right) => left.rank - right.rank);
 
