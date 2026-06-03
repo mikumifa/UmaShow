@@ -767,7 +767,7 @@ export default function RaceTelemetryOverview({
       {
         key: 'phase-opening',
         startDistance: 0,
-        endDistance: distance / 3,
+        endDistance: distance / 6,
         label: '序盘',
         fill: 'rgba(125, 211, 252, 0.18)',
         stroke: 'rgba(14, 165, 233, 0.32)',
@@ -775,7 +775,7 @@ export default function RaceTelemetryOverview({
       },
       {
         key: 'phase-mid',
-        startDistance: distance / 3,
+        startDistance: distance / 6,
         endDistance: (distance * 2) / 3,
         label: '中盘',
         fill: 'rgba(196, 181, 253, 0.18)',
@@ -1040,8 +1040,7 @@ export default function RaceTelemetryOverview({
       const overflowRatio =
         (overflowIndex + 1) / (raceTrackOverflowOrder.length + 1);
       return (
-        raceTrackLeftPercent +
-        overflowRatio * raceTrackOverflowLeftWidthPercent
+        raceTrackLeftPercent + overflowRatio * raceTrackOverflowLeftWidthPercent
       );
     }
 
@@ -1049,8 +1048,7 @@ export default function RaceTelemetryOverview({
     const usableWidthPx =
       raceTrackViewportWidthPx * (raceTrackMainUsableWidthPercent / 100);
     const ratio = clamp(
-      (relativeDistance * raceTrackPixelsPerMeter) /
-        Math.max(usableWidthPx, 1),
+      (relativeDistance * raceTrackPixelsPerMeter) / Math.max(usableWidthPx, 1),
       0,
       1,
     );
@@ -1754,14 +1752,13 @@ export default function RaceTelemetryOverview({
                         点击可跳到这里
                       </div>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="max-h-96 space-y-1.5 overflow-y-auto pr-1">
                       {[...hoverDisplaySnapshot.horses]
                         .sort(
                           (left, right) =>
                             metricMeta[selectedMetric].getValue(right) -
                             metricMeta[selectedMetric].getValue(left),
                         )
-                        .slice(0, 6)
                         .map((horse) => (
                           <div
                             key={horse.frameOrder}
@@ -2025,7 +2022,8 @@ export default function RaceTelemetryOverview({
 
                     {currentSnapshot.horses.map((horse) => {
                       const finishOrder =
-                        raceData.horseResult[horse.frameOrder]?.finishOrder ?? 0;
+                        raceData.horseResult[horse.frameOrder]?.finishOrder ??
+                        0;
                       const finishTime =
                         raceData.horseResult[horse.frameOrder]?.finishTimeRaw ??
                         Number.POSITIVE_INFINITY;

@@ -24,6 +24,7 @@ import memoize from 'memoize-one';
 import React from 'react';
 import type { RaceMetaInfo } from 'types/gameTypes';
 import courseDataJson from '../../../assets/data/course_data.json';
+import skillDataJson from '../../../assets/data/skill_data.json';
 import { RaceInstance_GroundType } from '../../umdb/data_pb';
 import { Chara } from '../../umdb/data_pb';
 import {
@@ -45,6 +46,7 @@ import {
 } from '../../umdb/TrainedCharaData';
 import * as UMDatabaseUtils from '../../umdb/UMDatabaseUtils';
 import RaceTelemetryOverview from './RaceTelemetryOverview';
+import AssetIcon from './trainingHistory/AssetIcon';
 // import FoldCard from './FoldCard'; // Removed FoldCard
 import { UMDB } from '../utils/umdb';
 
@@ -106,6 +108,22 @@ const otherRaceEventLabels = new Map([
 ]);
 
 const courseData = courseDataJson as Record<string, CourseDataEntry>;
+const skillData = skillDataJson as Record<
+  string,
+  {
+    alternatives?: Array<{
+      effects?: Array<{ type?: number; modifier?: number }>;
+    }>;
+  }
+>;
+
+const passiveGreenSkillTypeToStatKey: Partial<Record<number, StatKey>> = {
+  1: 'speed',
+  2: 'stamina',
+  3: 'pow',
+  4: 'guts',
+  5: 'wiz',
+};
 
 const motivationMultipliers: Record<number, number> = {
   1: 0.96,
@@ -150,6 +168,25 @@ function toPanelStat(value: number): number {
 function formatStatValue(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+}
+
+function createEmptyGreenSkillBonuses(): GreenSkillBonuses {
+  return {
+    total: {
+      speed: 0,
+      stamina: 0,
+      pow: 0,
+      guts: 0,
+      wiz: 0,
+    },
+    details: {
+      speed: [],
+      stamina: [],
+      pow: [],
+      guts: [],
+      wiz: [],
+    },
+  };
 }
 
 function getCourseSpeedBonusRate(baseStat: number): number {
@@ -217,6 +254,38 @@ function resolveGroundType(
   return RaceInstance_GroundType.UNKNOWN_GROUND_TYPE;
 }
 
+function collectGreenSkillBonuses(
+  raceData: RaceSimulateData,
+  frameOrder: number,
+  umdb: typeof UMDB,
+): GreenSkillBonuses {
+  const bonuses = createEmptyGreenSkillBonuses();
+
+  filterCharaSkills(raceData, frameOrder)
+    .filter((event) => (event.frameTime ?? -1) === 0)
+    .forEach((event) => {
+      const skillId = Number(event.param[1]);
+      if (!Number.isFinite(skillId)) return;
+
+      const effects =
+        skillData[String(skillId)]?.alternatives?.[0]?.effects ?? [];
+      effects.forEach((effect) => {
+        const statKey = passiveGreenSkillTypeToStatKey[effect.type ?? -1];
+        if (!statKey) return;
+
+        const amount = Number(effect.modifier ?? 0) / 10000;
+        bonuses.total[statKey] += amount;
+        bonuses.details[statKey].push({
+          skillId,
+          skillName: umdb.skillName(skillId),
+          amount,
+        });
+      });
+    });
+
+  return bonuses;
+}
+
 function calculateAdjustedHorseStats(
   trainedChara: TrainedCharaData,
   motivation: number,
@@ -224,13 +293,21 @@ function calculateAdjustedHorseStats(
   groundType: RaceInstance_GroundType,
   groundCondition: number,
   course: CourseDataEntry | undefined,
+  greenSkillBonuses: GreenSkillBonuses,
 ): AdjustedHorseStats {
+  const rawWithGreen = {
+    speed: trainedChara.speed + greenSkillBonuses.total.speed,
+    stamina: trainedChara.stamina + greenSkillBonuses.total.stamina,
+    pow: trainedChara.pow + greenSkillBonuses.total.pow,
+    guts: trainedChara.guts + greenSkillBonuses.total.guts,
+    wiz: trainedChara.wiz + greenSkillBonuses.total.wiz,
+  };
   const panel = {
-    speed: toPanelStat(trainedChara.speed),
-    stamina: toPanelStat(trainedChara.stamina),
-    pow: toPanelStat(trainedChara.pow),
-    guts: toPanelStat(trainedChara.guts),
-    wiz: toPanelStat(trainedChara.wiz),
+    speed: toPanelStat(rawWithGreen.speed),
+    stamina: toPanelStat(rawWithGreen.stamina),
+    pow: toPanelStat(rawWithGreen.pow),
+    guts: toPanelStat(rawWithGreen.guts),
+    wiz: toPanelStat(rawWithGreen.wiz),
   };
   const motivationMultiplier = motivationMultipliers[motivation] ?? 1;
   const base = {
@@ -245,9 +322,9 @@ function calculateAdjustedHorseStats(
   );
   const speedCourseBonus =
     speedCourseStatuses.length > 0
-      ? _.meanBy(speedCourseStatuses, (statusId) =>
+      ? (_.meanBy(speedCourseStatuses, (statusId) =>
           getCourseSpeedBonusRate(base[courseStatusToStatKey[statusId]]),
-        ) ?? 0
+        ) ?? 0)
       : 0;
   const speedGroundAdjustment = getSpeedGroundAdjustment(
     groundType,
@@ -263,6 +340,7 @@ function calculateAdjustedHorseStats(
     runningStyleProperMultipliers[runningStyleProper] ?? 1;
 
   return {
+    rawWithGreen,
     panel,
     base,
     adjusted: {
@@ -272,6 +350,8 @@ function calculateAdjustedHorseStats(
       guts: base.guts,
       wiz: base.wiz * runningStyleCoefficient,
     },
+    motivationMultiplier,
+    greenSkillBonuses,
     speedCourseBonus,
     speedGroundAdjustment,
     powerGroundAdjustment,
@@ -283,6 +363,7 @@ function calculateAdjustedHorseStats(
 type CharaTableData = {
   trainedChara: TrainedCharaData;
   chara: Chara | undefined;
+  iconPath?: string;
   frameOrder: number;
   finishOrder: number;
   finalHp: number;
@@ -325,10 +406,24 @@ type CourseDataEntry = {
 
 type StatKey = 'speed' | 'stamina' | 'pow' | 'guts' | 'wiz';
 
+type GreenSkillBonusDetail = {
+  skillId: number;
+  skillName: string;
+  amount: number;
+};
+
+type GreenSkillBonuses = {
+  total: Record<StatKey, number>;
+  details: Record<StatKey, GreenSkillBonusDetail[]>;
+};
+
 type AdjustedHorseStats = {
+  rawWithGreen: Record<StatKey, number>;
   panel: Record<StatKey, number>;
   base: Record<StatKey, number>;
   adjusted: Record<StatKey, number>;
+  motivationMultiplier: number;
+  greenSkillBonuses: GreenSkillBonuses;
   speedCourseBonus: number;
   speedGroundAdjustment: number;
   powerGroundAdjustment: number;
@@ -360,6 +455,80 @@ class RaceDataPresenter extends React.PureComponent<
   RaceDataPresenterProps,
   RaceDataPresenterState
 > {
+  buildStatTooltipLines(
+    rawValue: number,
+    adjustedStats: AdjustedHorseStats,
+    statKey: StatKey,
+    extraLabel?: string,
+  ) {
+    const statLabel: Record<StatKey, string> = {
+      speed: '速度',
+      stamina: '耐力',
+      pow: '力量',
+      guts: '根性',
+      wiz: '智力',
+    };
+    const panelValue = adjustedStats.panel[statKey];
+    const baseValue = adjustedStats.base[statKey];
+    const adjustedValue = adjustedStats.adjusted[statKey];
+    const greenBonus = adjustedStats.greenSkillBonuses.total[statKey];
+    const greenBonusDetails = adjustedStats.greenSkillBonuses.details[statKey];
+    const rawWithGreen = adjustedStats.rawWithGreen[statKey];
+    const motivationPercent = Math.round(
+      adjustedStats.motivationMultiplier * 100,
+    );
+    const lines = [
+      `${statLabel[statKey]}计算`,
+      `1. 原始属性: ${rawValue}`,
+      `2. 计算起点属性: ${formatStatValue(rawWithGreen)}`,
+      rawWithGreen <= 1200
+        ? `3. 面板属性: ${formatStatValue(rawWithGreen)} (1200以下不衰减)`
+        : `3. 面板属性: 1200 + (${formatStatValue(rawWithGreen)} - 1200) / 2 = ${formatStatValue(panelValue)}`,
+      `4. 干劲修正: ${formatStatValue(panelValue)} x ${motivationPercent}% = ${formatStatValue(baseValue)}`,
+    ];
+
+    if (statKey === 'speed') {
+      const speedAfterCourse = baseValue * (1 + adjustedStats.speedCourseBonus);
+      lines.push(
+        `5. 赛场加成: ${formatStatValue(baseValue)} x (1 + ${(adjustedStats.speedCourseBonus * 100).toFixed(0)}%) = ${formatStatValue(speedAfterCourse)}`,
+      );
+      lines.push(
+        `6. 场地修正: ${formatStatValue(speedAfterCourse)} ${adjustedStats.speedGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.speedGroundAdjustment))} = ${formatStatValue(adjustedValue)}`,
+      );
+    } else if (statKey === 'pow') {
+      lines.push(
+        `5. 场地修正: ${formatStatValue(baseValue)} ${adjustedStats.powerGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.powerGroundAdjustment))} = ${formatStatValue(adjustedValue)}`,
+      );
+    } else if (statKey === 'wiz') {
+      lines.push(
+        `5. 跑法适性修正: ${formatStatValue(baseValue)} x ${formatStatValue(adjustedStats.runningStyleCoefficient)} = ${formatStatValue(adjustedValue)}`,
+      );
+    } else {
+      lines.push(`5. 最终值: ${formatStatValue(adjustedValue)}`);
+    }
+
+    if (greenBonusDetails.length > 0) {
+      lines.push(
+        `${lines.length}. 绿技能加成: ${greenBonusDetails
+          .map(
+            (detail) =>
+              `${detail.skillName} ${detail.amount >= 0 ? '+' : ''}${formatStatValue(detail.amount)}`,
+          )
+          .join(
+            '，',
+          )} = ${greenBonus >= 0 ? '+' : ''}${formatStatValue(greenBonus)}`,
+      );
+    } else {
+      lines.push(`${lines.length}. 绿技能加成: 无`);
+    }
+
+    if (extraLabel) {
+      lines.push(`备注: ${extraLabel}`);
+    }
+
+    return lines;
+  }
+
   constructor(props: RaceDataPresenterProps) {
     super(props);
     this.state = {
@@ -380,15 +549,12 @@ class RaceDataPresenter extends React.PureComponent<
     statKey: StatKey,
     extraLabel?: string,
   ) {
-    const tooltipLines = [
-      `原 ${rawValue}`,
-      `面 ${formatStatValue(adjustedStats.panel[statKey])}`,
-      `基 ${formatStatValue(adjustedStats.base[statKey])}`,
-      `调 ${formatStatValue(adjustedStats.adjusted[statKey])}`,
-    ];
-    if (extraLabel) {
-      tooltipLines.push(extraLabel);
-    }
+    const tooltipLines = this.buildStatTooltipLines(
+      rawValue,
+      adjustedStats,
+      statKey,
+      extraLabel,
+    );
 
     return (
       <div
@@ -924,11 +1090,19 @@ class RaceDataPresenter extends React.PureComponent<
         const trainedCharaData = fromRaceHorseData(data, UMDB.skills);
         const finalHp =
           _.last(this.props.raceData.frame)?.horseFrame?.[frameOrder]?.hp ?? 0;
+        const greenSkillBonuses = collectGreenSkillBonuses(
+          this.props.raceData,
+          frameOrder,
+          this.props.umdb,
+        );
 
         return [
           {
             trainedChara: trainedCharaData,
             chara: this.props.umdb.charas[trainedCharaData.charaId],
+            iconPath: this.telemetryIconPathByFrameOrder(
+              this.props.raceHorseInfo,
+            )[frameOrder],
             frameOrder: frameOrder + 1,
             finishOrder: horseResult.finishOrder! + 1,
             finalHp,
@@ -949,6 +1123,7 @@ class RaceDataPresenter extends React.PureComponent<
               groundType,
               groundCondition,
               course,
+              greenSkillBonuses,
             ),
           },
         ];
@@ -959,165 +1134,181 @@ class RaceDataPresenter extends React.PureComponent<
     return (
       <div className="mt-4">
         <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-gray-700">
-          <span className="font-medium text-gray-900">属性说明：</span>
-          表内主显示原始属性，下方蓝字为最终调整值；悬停可查看 原 / 面 / 基 / 调 的计算过程。
           当前赛道门槛属性：
           <span className="font-medium">{speedCourseText}</span>
         </div>
         <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                名次
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                马号
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                角色
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                训练者
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                Time
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                剩余HP
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                状态
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
-                人气
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                评分
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                速
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                耐
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                力
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                根
-              </th>
-              <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
-                智
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {rows.map((row, idx) => (
-              <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-2 font-medium text-gray-900">
-                  {row.finishOrder}
-                </td>
-                <td className="px-3 py-2 text-gray-500">{row.frameOrder}</td>
-                <td className="px-3 py-2 text-gray-900">
-                  {row.chara ? (
-                    <>
-                      <div className="font-medium">{row.chara.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {this.props.umdb.cards[row.trainedChara.cardId]?.name}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-gray-400 italic">
-                      {unknownCharaTag}
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  {row.trainedChara.viewerId
-                    ? row.trainedChara.viewerName
-                    : '-'}
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  <div className="font-mono">
-                    {UMDatabaseUtils.formatTime(
-                      row.horseResultData.finishTime!,
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-400 font-mono">
-                    {UMDatabaseUtils.formatTime(
-                      row.horseResultData.finishTimeRaw!,
-                    )}
-                  </div>
-                </td>
-                <td className="px-2 py-2 text-center text-gray-600 font-mono">
-                  {Math.round(row.finalHp)}
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  <div>
-                    {runningStyleLabel(
-                      row.horseResultData,
-                      row.activatedSkills,
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {UMDatabaseUtils.motivationLabels[row.motivation]}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  <span className="font-medium mr-1">{row.popularity}</span>
-                  <span className="text-xs text-gray-400">
-                    {row.popularityMarks
-                      .map(UMDatabaseUtils.getPopularityMark)
-                      .join(', ')}
-                  </span>
-                </td>
-                <td className="px-2 py-2 text-center text-gray-600">
-                  {row.trainedChara.rankScore}
-                </td>
-                <td className="px-2 py-2 text-gray-600">
-                  {this.renderStatCell(
-                    row.trainedChara.speed,
-                    row.adjustedStats,
-                    'speed',
-                    `赛 ${(row.adjustedStats.speedCourseBonus * 100).toFixed(0)}% / 场 ${row.adjustedStats.speedGroundAdjustment}`,
-                  )}
-                </td>
-                <td className="px-2 py-2 text-gray-600">
-                  {this.renderStatCell(
-                    row.trainedChara.stamina,
-                    row.adjustedStats,
-                    'stamina',
-                  )}
-                </td>
-                <td className="px-2 py-2 text-gray-600">
-                  {this.renderStatCell(
-                    row.trainedChara.pow,
-                    row.adjustedStats,
-                    'pow',
-                    `场 ${row.adjustedStats.powerGroundAdjustment}`,
-                  )}
-                </td>
-                <td className="px-2 py-2 text-gray-600">
-                  {this.renderStatCell(
-                    row.trainedChara.guts,
-                    row.adjustedStats,
-                    'guts',
-                  )}
-                </td>
-                <td className="px-2 py-2 text-gray-600">
-                  {this.renderStatCell(
-                    row.trainedChara.wiz,
-                    row.adjustedStats,
-                    'wiz',
-                    `跑法 x${formatStatValue(
-                      row.adjustedStats.runningStyleCoefficient,
-                    )}`,
-                  )}
-                </td>
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  名次
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  马号
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  角色
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  训练者
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  Time
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  剩余HP
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  状态
+                </th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 uppercase">
+                  人气
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  评分
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  速
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  耐
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  力
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  根
+                </th>
+                <th className="px-2 py-3 text-left font-medium text-gray-500 uppercase">
+                  智
+                </th>
               </tr>
-            ))}
-          </tbody>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {rows.map((row, idx) => (
+                <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-2 font-medium text-gray-900">
+                    {row.finishOrder}
+                  </td>
+                  <td className="px-3 py-2 text-gray-500">{row.frameOrder}</td>
+                  <td className="px-3 py-2 text-gray-900">
+                    {row.chara ? (
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-10 w-10 flex-none overflow-hidden rounded-full bg-gray-100">
+                          {row.iconPath ? (
+                            <AssetIcon
+                              path={row.iconPath}
+                              alt={row.chara.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full rounded-full bg-gray-200" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">
+                            {row.chara.name}
+                          </div>
+                          <div className="truncate text-xs text-gray-500">
+                            {
+                              this.props.umdb.cards[row.trainedChara.cardId]
+                                ?.name
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">
+                        {unknownCharaTag}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    {row.trainedChara.viewerId
+                      ? row.trainedChara.viewerName
+                      : '-'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    <div className="font-mono">
+                      {UMDatabaseUtils.formatTime(
+                        row.horseResultData.finishTime!,
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 font-mono">
+                      {UMDatabaseUtils.formatTime(
+                        row.horseResultData.finishTimeRaw!,
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-center text-gray-600 font-mono">
+                    {Math.round(row.finalHp)}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    <div>
+                      {runningStyleLabel(
+                        row.horseResultData,
+                        row.activatedSkills,
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {UMDatabaseUtils.motivationLabels[row.motivation]}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    <span className="font-medium mr-1">{row.popularity}</span>
+                    <span className="text-xs text-gray-400">
+                      {row.popularityMarks
+                        .map(UMDatabaseUtils.getPopularityMark)
+                        .join(', ')}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-center text-gray-600">
+                    {row.trainedChara.rankScore}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">
+                    {this.renderStatCell(
+                      row.trainedChara.speed,
+                      row.adjustedStats,
+                      'speed',
+                      `赛道加成 ${(row.adjustedStats.speedCourseBonus * 100).toFixed(0)}% / 场地修正 ${row.adjustedStats.speedGroundAdjustment}`,
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">
+                    {this.renderStatCell(
+                      row.trainedChara.stamina,
+                      row.adjustedStats,
+                      'stamina',
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">
+                    {this.renderStatCell(
+                      row.trainedChara.pow,
+                      row.adjustedStats,
+                      'pow',
+                      `场 ${row.adjustedStats.powerGroundAdjustment}`,
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">
+                    {this.renderStatCell(
+                      row.trainedChara.guts,
+                      row.adjustedStats,
+                      'guts',
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">
+                    {this.renderStatCell(
+                      row.trainedChara.wiz,
+                      row.adjustedStats,
+                      'wiz',
+                      `跑法 x${formatStatValue(
+                        row.adjustedStats.runningStyleCoefficient,
+                      )}`,
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </div>

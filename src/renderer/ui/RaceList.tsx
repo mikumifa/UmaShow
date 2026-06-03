@@ -13,9 +13,12 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RaceArchive, RaceRecord } from 'types/gameTypes';
 import RaceMetaTag from 'renderer/components/RaceMetaTag';
+import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import RacePageLayout, {
   raceHeaderButtonClass,
 } from 'renderer/components/RacePageLayout';
+import { loadUMDB, UMDB } from 'renderer/utils/umdb';
+import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 
 const fallbackArchives: RaceArchive[] = [
   {
@@ -24,6 +27,208 @@ const fallbackArchives: RaceArchive[] = [
     createdAt: 0,
   },
 ];
+
+function getHorseRank(horse: Record<string, unknown>, fallbackIndex: number) {
+  const rank = Number(horse.rank);
+  if (Number.isFinite(rank) && rank > 0) return rank;
+  return fallbackIndex + 1;
+}
+
+function getHorseIconPath(horse: Record<string, unknown>) {
+  const charaId = Number(horse.chara_id);
+  const raceDressId = Number(horse.race_dress_id);
+  if (!Number.isFinite(charaId) || !Number.isFinite(raceDressId)) return undefined;
+  return `trained_chr_icon/${charaId}_${raceDressId}.png`;
+}
+
+function getOrderIconPath(rank: number) {
+  if (!Number.isFinite(rank) || rank <= 0 || rank > 20) return undefined;
+  return `web-assets/icons/order/utx_txt_order_s_${String(rank - 1).padStart(2, '0')}.png`;
+}
+
+function getHorseDisplayName(horse: Record<string, unknown>) {
+  const charaId = Number(horse.chara_id);
+  const cardId = Number(horse.card_id);
+  const charaName = Number.isFinite(charaId) ? UMDB.charas[charaId]?.name : undefined;
+  const cardName = Number.isFinite(cardId) ? UMDB.cards[cardId]?.name : undefined;
+  return charaName ?? cardName ?? String(horse.owner_trainer_name ?? horse.trainer_name ?? horse.viewer_id ?? 'Unknown');
+}
+
+function getHorseOwnerName(horse: Record<string, unknown>) {
+  const ownerName = String(horse.owner_trainer_name ?? '').trim();
+  if (ownerName) return ownerName;
+
+  const trainerName = String(horse.trainer_name ?? '').trim();
+  if (trainerName) return trainerName;
+
+  return 'NPC';
+}
+
+function horseNumberField(horse: Record<string, unknown>, key: string) {
+  const value = Number(horse[key]);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function properRank(value: unknown) {
+  const rank = Number(value);
+  return Number.isFinite(rank)
+    ? (UMDatabaseUtils.charaProperLabels[rank] ?? '-')
+    : '-';
+}
+
+function valueTone(value: string | number) {
+  if (typeof value === 'number') {
+    if (value >= 1200) return 'text-blue-700';
+    if (value >= 1000) return 'text-indigo-700';
+    if (value >= 800) return 'text-emerald-700';
+    if (value >= 600) return 'text-amber-700';
+    return 'text-gray-700';
+  }
+
+  const properTone: Record<string, string> = {
+    S: 'text-yellow-700',
+    A: 'text-orange-600',
+    B: 'text-amber-600',
+    C: 'text-lime-700',
+    D: 'text-green-700',
+    E: 'text-teal-700',
+    F: 'text-sky-700',
+    G: 'text-gray-500',
+  };
+  return properTone[value] ?? 'text-gray-700';
+}
+
+function valueBadgeTone(value: string | number) {
+  if (value === 'S') return 'bg-yellow-50 ring-1 ring-yellow-200';
+  if (value === 'A') return 'bg-orange-50 ring-1 ring-orange-200';
+  if (value === 'B') return 'bg-amber-50 ring-1 ring-amber-200';
+  if (value === 'C') return 'bg-lime-50 ring-1 ring-lime-200';
+  if (value === 'D') return 'bg-green-50 ring-1 ring-green-200';
+  if (value === 'E') return 'bg-teal-50 ring-1 ring-teal-200';
+  if (value === 'F') return 'bg-sky-50 ring-1 ring-sky-200';
+  if (typeof value === 'number' && value >= 1000)
+    return 'bg-blue-50 ring-1 ring-blue-200';
+  return 'bg-white';
+}
+
+function HoverStatPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5">
+      <span className="text-gray-500">{label}</span>
+      <span
+        className={`rounded px-1 font-mono font-semibold ${valueTone(
+          value,
+        )} ${valueBadgeTone(value)}`}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}
+
+function HorseHoverCard({
+  horse,
+  iconPath,
+}: {
+  horse: Record<string, unknown>;
+  iconPath?: string;
+}) {
+  const title = getHorseDisplayName(horse);
+  const ownerName = getHorseOwnerName(horse);
+  const statusItems = [
+    { label: '速', value: horseNumberField(horse, 'speed') ?? '-' },
+    { label: '耐', value: horseNumberField(horse, 'stamina') ?? '-' },
+    {
+      label: '力',
+      value:
+        horseNumberField(horse, 'pow') ?? horseNumberField(horse, 'power') ?? '-',
+    },
+    { label: '根', value: horseNumberField(horse, 'guts') ?? '-' },
+    { label: '智', value: horseNumberField(horse, 'wiz') ?? '-' },
+  ];
+  const properGroups = [
+    {
+      label: '距',
+      items: [
+        { label: '短', value: properRank(horse.proper_distance_short) },
+        { label: '英', value: properRank(horse.proper_distance_mile) },
+        { label: '中', value: properRank(horse.proper_distance_middle) },
+        { label: '长', value: properRank(horse.proper_distance_long) },
+      ],
+    },
+    {
+      label: '脚',
+      items: [
+        { label: '逃', value: properRank(horse.proper_running_style_nige) },
+        { label: '先', value: properRank(horse.proper_running_style_senko) },
+        { label: '差', value: properRank(horse.proper_running_style_sashi) },
+        { label: '追', value: properRank(horse.proper_running_style_oikomi) },
+      ],
+    },
+    {
+      label: '场',
+      items: [
+        { label: '草', value: properRank(horse.proper_ground_turf) },
+        { label: '泥', value: properRank(horse.proper_ground_dirt) },
+      ],
+    },
+  ];
+
+  return (
+    <div className="w-[320px] rounded-md border border-gray-200 bg-white p-2 text-left shadow-xl">
+      <div className="flex gap-2">
+        <div className="h-11 w-11 flex-none overflow-hidden rounded-full bg-gray-100">
+          {iconPath ? (
+            <AssetIcon
+              path={iconPath}
+              alt={title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full rounded-full bg-gray-200" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-gray-900" title={title}>
+            {title}
+          </div>
+          <div className="truncate text-xs text-gray-500">{ownerName}</div>
+          <div className="mt-1 flex flex-wrap gap-1 text-xs">
+            {statusItems.map((item) => (
+              <HoverStatPill
+                key={item.label}
+                label={item.label}
+                value={item.value}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 space-y-1 text-xs">
+        {properGroups.map((group) => (
+          <div key={group.label} className="flex items-center gap-1.5">
+            <span className="w-4 text-gray-400">{group.label}</span>
+            <div className="flex flex-wrap gap-1">
+              {group.items.map((item) => (
+                <HoverStatPill
+                  key={`${group.label}-${item.label}`}
+                  label={item.label}
+                  value={item.value}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function RaceList() {
   const navigate = useNavigate();
@@ -38,6 +243,13 @@ export default function RaceList() {
   const [newArchiveName, setNewArchiveName] = useState('');
   const [showCreateArchive, setShowCreateArchive] = useState(false);
   const [showArchiveTarget, setShowArchiveTarget] = useState(false);
+  const [umdbReady, setUmdbReady] = useState(false);
+  const [hoveredHorsePreview, setHoveredHorsePreview] = useState<{
+    horse: Record<string, unknown>;
+    iconPath?: string;
+    left: number;
+    top: number;
+  } | null>(null);
 
   const archiveNameById = new Map(
     archives.map((archive) => [archive.id, archive.name]),
@@ -68,6 +280,12 @@ export default function RaceList() {
   useEffect(() => {
     loadArchives();
   }, [loadArchives]);
+
+  useEffect(() => {
+    loadUMDB()
+      .then(() => setUmdbReady(true))
+      .catch(() => setUmdbReady(false));
+  }, []);
 
   useEffect(() => {
     loadFiles();
@@ -342,13 +560,20 @@ export default function RaceList() {
         {items.map((item) => {
           const created = new Date(item.createdAt).toLocaleString();
           const isSelected = selected.has(item.filename);
+          const topHorses = (item.horses ?? [])
+            .map((horse, index) => ({
+              horse: horse as Record<string, unknown>,
+              rank: getHorseRank(horse as Record<string, unknown>, index),
+            }))
+            .sort((left, right) => left.rank - right.rank);
 
           return (
             <div
               key={item.filename}
-              className={`group relative bg-white border rounded-xl p-1.5 flex gap-4 transition-all duration-200 hover:shadow-md
+              className={`group relative bg-white border rounded-xl p-1.5 flex items-start gap-3 transition-all duration-200 hover:shadow-md
                   ${isSelected ? 'border-blue-400 ring-1 ring-blue-400 bg-blue-50/10' : 'border-gray-200'}
                 `}
+              onMouseLeave={() => setHoveredHorsePreview(null)}
             >
               {/* 勾选框 (绝对定位在右上角，稍微优化点击区域) */}
               <div
@@ -384,11 +609,70 @@ export default function RaceList() {
               </div>
 
               {/* 右侧：剩余信息区域 */}
-              <div className="flex-1 py-2 flex flex-col justify-between pr-10">
+              <div className="flex-1 self-start py-2 flex flex-col justify-between pr-10">
                 {/* 这里可以放备注、ID或者文件名等辅助信息 */}
                 <div className="text-sm font-medium text-gray-400 font-mono truncate">
                   {item.filename}
                 </div>
+
+                {topHorses.length > 0 && (
+                  <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2">
+                    <div className="flex max-h-[68px] flex-wrap gap-1.5 overflow-hidden">
+                      {topHorses.map(({ horse, rank }) => (
+                        <div
+                          key={`${item.filename}-${rank}-${String(horse.viewer_id ?? '')}-${String(horse.card_id ?? '')}`}
+                          className="group/horse relative flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-white/80 px-2 py-1"
+                          onMouseEnter={(event) => {
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            setHoveredHorsePreview({
+                              horse,
+                              iconPath: getHorseIconPath(horse),
+                              left: rect.left,
+                              top: rect.top - 8,
+                            });
+                          }}
+                          onMouseLeave={() => setHoveredHorsePreview(null)}
+                        >
+                          <div
+                            className={`flex-none ${
+                              rank <= 3 ? 'w-10' : 'w-8'
+                            }`}
+                          >
+                            {getOrderIconPath(rank) ? (
+                              <AssetIcon
+                                path={getOrderIconPath(rank)!}
+                                alt={`第${rank}名`}
+                                className={`object-contain ${
+                                  rank <= 3 ? 'h-5 w-10' : 'h-4 w-8'
+                                }`}
+                              />
+                            ) : (
+                              <div className="rounded bg-amber-100 px-1.5 py-0.5 text-center text-[10px] font-bold text-amber-700">
+                                #{rank}
+                              </div>
+                            )}
+                          </div>
+                          <div className="h-6 w-6 flex-none overflow-hidden rounded-full bg-gray-100">
+                            {getHorseIconPath(horse) ? (
+                              <AssetIcon
+                                path={getHorseIconPath(horse)!}
+                                alt={umdbReady ? getHorseDisplayName(horse) : getHorseOwnerName(horse)}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full rounded-full bg-gray-200" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-[11px] font-medium text-gray-800">
+                              {getHorseOwnerName(horse)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 底部信息：时间 */}
                 <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -406,6 +690,21 @@ export default function RaceList() {
           );
         })}
       </div>
+      {hoveredHorsePreview && (
+        <div
+          className="pointer-events-none fixed z-50"
+          style={{
+            left: hoveredHorsePreview.left,
+            top: hoveredHorsePreview.top,
+            transform: 'translateY(-100%)',
+          }}
+        >
+          <HorseHoverCard
+            horse={hoveredHorsePreview.horse}
+            iconPath={hoveredHorsePreview.iconPath}
+          />
+        </div>
+      )}
     </RacePageLayout>
   );
 }

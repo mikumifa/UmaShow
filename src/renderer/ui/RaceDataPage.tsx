@@ -40,7 +40,7 @@ class RaceDataPageClass extends React.Component<
       parsedHorseInfo: undefined,
       parsedRaceData: undefined,
       error: undefined,
-      showLegacyPage: false,
+      showLegacyPage: true,
     };
   }
 
@@ -105,14 +105,19 @@ class RaceDataPageClass extends React.Component<
 
   render() {
     const archiveId = this.props.initialValues?.archiveId ?? 'default';
+    const isDetailPage = this.state.showLegacyPage;
+    const pageTitle = isDetailPage ? '比赛详情' : '比赛回放';
+    const pageDescription = isDetailPage
+      ? '查看出赛表、曲线和事件分析'
+      : '查看比赛过程回放';
     const backToRaces = () =>
       this.props.navigate('/races', { state: { archiveId } });
 
     if (this.state.error) {
       return (
         <RacePageLayout
-          title="比赛详情"
-          description="查看出赛表、曲线和事件分析"
+          title={pageTitle}
+          description={pageDescription}
           icon={<FileText size={20} />}
           actions={
             <button
@@ -135,8 +140,8 @@ class RaceDataPageClass extends React.Component<
     if (this.state.parsedRaceData) {
       return (
         <RacePageLayout
-          title="比赛详情"
-          description="查看出赛表、曲线和事件分析"
+          title={pageTitle}
+          description={pageDescription}
           icon={<FileText size={20} />}
           actions={
             <>
@@ -158,7 +163,7 @@ class RaceDataPageClass extends React.Component<
                 className={raceHeaderButtonClass}
               >
                 <FileText size={16} />
-                {this.state.showLegacyPage ? '返回总览' : '详细页'}
+                {isDetailPage ? '回放' : '返回详细'}
               </button>
               <button
                 type="button"
@@ -184,8 +189,8 @@ class RaceDataPageClass extends React.Component<
 
     return (
       <RacePageLayout
-        title="比赛详情"
-        description="查看出赛表、曲线和事件分析"
+        title={pageTitle}
+        description={pageDescription}
         icon={<FileText size={20} />}
         actions={
           <button
