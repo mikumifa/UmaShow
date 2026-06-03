@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import {
   COMMAND_NAME_MAP,
+  COMMAND_TARGET_TYPE_MAP,
+  TARGET_TYPE,
   TrainingHistoryConfig,
   TrainingHistoryRecord,
   TrainingHistoryTurnDelta,
@@ -59,6 +61,48 @@ function getHistoryHorseName(cardId: number) {
   }
   return UMDB.charaName(charaId);
 }
+
+type TrainingAggregateRow = {
+  key: TARGET_TYPE;
+  label: string;
+  count: number;
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  skillPoint: number;
+  vital: number;
+  motivation: number;
+};
+
+type EventAggregateRow = {
+  key: string;
+  label: string;
+  count: number;
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  skillPoint: number;
+  vital: number;
+  motivation: number;
+};
+
+type GlobalAggregateTableRow = {
+  key: string;
+  category: '训练' | '事件' | '总计';
+  label: string;
+  count: number;
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  skillPoint: number;
+  vital: number;
+};
 
 function storyName(storyId?: number) {
   if (storyId == null) return '未知事件';
@@ -118,6 +162,190 @@ function formatVenusSpiritAssetId(spiritId: number) {
 
 function getVenusFragmentIconPath(spiritId: number) {
   return `./icons/venusCup/fragement/utx_ico_fragment_${formatVenusSpiritAssetId(spiritId)}.png`;
+}
+
+function trainingTypeLabel(targetType: TARGET_TYPE) {
+  switch (targetType) {
+    case TARGET_TYPE.SPEED:
+      return '速度训练';
+    case TARGET_TYPE.STAMINA:
+      return '耐力训练';
+    case TARGET_TYPE.POWER:
+      return '力量训练';
+    case TARGET_TYPE.GUTS:
+      return '毅力训练';
+    case TARGET_TYPE.WIZ:
+      return '智力训练';
+    case TARGET_TYPE.VITAL:
+      return '休息';
+    default:
+      return '未知训练';
+  }
+}
+
+function aggregateTrainingStats(record: TrainingHistoryRecord) {
+  const rows = new Map<TARGET_TYPE, TrainingAggregateRow>();
+
+  const ensureRow = (targetType: TARGET_TYPE) => {
+    const existing = rows.get(targetType);
+    if (existing) return existing;
+    const next: TrainingAggregateRow = {
+      key: targetType,
+      label: trainingTypeLabel(targetType),
+      count: 0,
+      speed: 0,
+      stamina: 0,
+      power: 0,
+      guts: 0,
+      wiz: 0,
+      skillPoint: 0,
+      vital: 0,
+      motivation: 0,
+    };
+    rows.set(targetType, next);
+    return next;
+  };
+
+  record.analysis.turns.forEach((turn) => {
+    turn.entries.forEach((entry) => {
+      if (entry.type !== 'command') return;
+
+      const commandResult = entry.commandResult as any;
+      const commandId = Number(commandResult?.command_id ?? 0);
+      let targetType = COMMAND_TARGET_TYPE_MAP[commandId] ?? TARGET_TYPE.UNKNOWN;
+      if (commandId === 302) {
+        targetType = TARGET_TYPE.UNKNOWN;
+      }
+      if (commandId === 390) {
+        targetType = TARGET_TYPE.UNKNOWN;
+      }
+      if (
+        targetType !== TARGET_TYPE.SPEED &&
+        targetType !== TARGET_TYPE.STAMINA &&
+        targetType !== TARGET_TYPE.POWER &&
+        targetType !== TARGET_TYPE.GUTS &&
+        targetType !== TARGET_TYPE.WIZ &&
+        targetType !== TARGET_TYPE.VITAL &&
+        commandId !== 302 &&
+        commandId !== 390
+      ) {
+        return;
+      }
+
+      const row = ensureRow(
+        commandId === 302 || commandId === 390
+          ? (commandId as TARGET_TYPE)
+          : targetType,
+      );
+      if (commandId === 302) {
+        row.label = '外出';
+      } else if (commandId === 390) {
+        row.label = '友人卡外出';
+      } else if (commandId === 701) {
+        row.label = '休息';
+      }
+      row.count += 1;
+
+      const delta = entry.delta;
+      if (!delta) return;
+      row.speed += delta.speed;
+      row.stamina += delta.stamina;
+      row.power += delta.power;
+      row.guts += delta.guts;
+      row.wiz += delta.wiz;
+      row.skillPoint += delta.skillPoint;
+      row.vital += delta.vital;
+      row.motivation += delta.motivation;
+    });
+  });
+
+  return [
+    TARGET_TYPE.SPEED,
+    TARGET_TYPE.STAMINA,
+    TARGET_TYPE.POWER,
+    TARGET_TYPE.GUTS,
+    TARGET_TYPE.WIZ,
+    TARGET_TYPE.VITAL,
+    302 as TARGET_TYPE,
+  ]
+    .map((targetType) => rows.get(targetType))
+    .filter((row): row is TrainingAggregateRow => row != null);
+}
+
+function aggregateEventStats(record: TrainingHistoryRecord) {
+  const rows = new Map<string, EventAggregateRow>();
+  const supportCardRows = record.summary.supportCards
+    .filter((card) => card.supportCardId > 0)
+    .map((card) => ({
+      key: `support-${card.position}-${card.supportCardId}`,
+      supportCardId: Number(card.supportCardId),
+      label: supportCardName(card.supportCardId),
+    }));
+
+  supportCardRows.forEach((row) => {
+    rows.set(row.key, {
+      key: row.key,
+      label: row.label,
+      count: 0,
+      speed: 0,
+      stamina: 0,
+      power: 0,
+      guts: 0,
+      wiz: 0,
+      skillPoint: 0,
+      vital: 0,
+      motivation: 0,
+    });
+  });
+
+  rows.set('other', {
+    key: 'other',
+    label: '其他事件',
+    count: 0,
+    speed: 0,
+    stamina: 0,
+    power: 0,
+    guts: 0,
+    wiz: 0,
+    skillPoint: 0,
+    vital: 0,
+    motivation: 0,
+  });
+
+  record.analysis.turns.forEach((turn) => {
+    turn.entries.forEach((entry) => {
+      if (entry.type !== 'event') return;
+
+      const event = entry.event as any;
+      const eventSupportCardId = Number(
+        event?.event_contents_info?.support_card_id ?? 0,
+      );
+      const matchedSupportCard = supportCardRows.find(
+        (row) => row.supportCardId > 0 && row.supportCardId === eventSupportCardId,
+      );
+      const row = rows.get(matchedSupportCard?.key ?? 'other');
+      if (!row) return;
+      row.count += 1;
+
+      const delta = entry.delta;
+      if (!delta) return;
+      row.speed += delta.speed;
+      row.stamina += delta.stamina;
+      row.power += delta.power;
+      row.guts += delta.guts;
+      row.wiz += delta.wiz;
+      row.skillPoint += delta.skillPoint;
+      row.vital += delta.vital;
+      row.motivation += delta.motivation;
+    });
+  });
+
+  return [
+    ...supportCardRows
+      .map((row) => rows.get(row.key))
+      .filter((row): row is EventAggregateRow => row != null),
+    rows.get('other'),
+  ].filter((row): row is EventAggregateRow => row != null);
 }
 
 function VenusFragmentIcon({
@@ -593,6 +821,74 @@ export default function TrainingHistory() {
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
   );
+  const selectedTrainingStats = useMemo(
+    () => (selected ? aggregateTrainingStats(selected) : []),
+    [selected],
+  );
+  const selectedTrainingSummary = useMemo(() => {
+    const countOf = (label: string) =>
+      selectedTrainingStats.find((row) => row.label === label)?.count ?? 0;
+    return {
+      restCount: countOf('休息'),
+      outingCount: countOf('外出'),
+    };
+  }, [selectedTrainingStats]);
+  const selectedEventStats = useMemo(
+    () => (selected ? aggregateEventStats(selected) : []),
+    [selected],
+  );
+  const selectedGlobalStats = useMemo<GlobalAggregateTableRow[]>(
+    () => [
+      ...selectedTrainingStats.map((row) => ({
+        key: `training-${row.key}`,
+        category: '训练' as const,
+        label: row.label,
+        count: row.count,
+        speed: row.speed,
+        stamina: row.stamina,
+        power: row.power,
+        guts: row.guts,
+        wiz: row.wiz,
+        skillPoint: row.skillPoint,
+        vital: row.vital,
+      })),
+      ...selectedEventStats.map((row) => ({
+        key: `event-${row.key}`,
+        category: '事件' as const,
+        label: row.label,
+        count: row.count,
+        speed: row.speed,
+        stamina: row.stamina,
+        power: row.power,
+        guts: row.guts,
+        wiz: row.wiz,
+        skillPoint: row.skillPoint,
+        vital: row.vital,
+      })),
+    ],
+    [selectedEventStats, selectedTrainingStats],
+  );
+  const selectedGlobalSummaryRow = useMemo<GlobalAggregateTableRow | null>(() => {
+    if (!selected || selected.analysis.turns.length === 0) return null;
+    const firstSnapshot = selected.analysis.turns[0]?.snapshot;
+    const lastSnapshot =
+      selected.analysis.turns[selected.analysis.turns.length - 1]?.snapshot;
+    if (!firstSnapshot || !lastSnapshot) return null;
+
+    return {
+      key: 'summary-total',
+      category: '总计',
+      label: '总和（相对首轮）',
+      count: selectedGlobalStats.reduce((sum, row) => sum + row.count, 0),
+      speed: lastSnapshot.speed - firstSnapshot.speed,
+      stamina: lastSnapshot.stamina - firstSnapshot.stamina,
+      power: lastSnapshot.power - firstSnapshot.power,
+      guts: lastSnapshot.guts - firstSnapshot.guts,
+      wiz: lastSnapshot.wiz - firstSnapshot.wiz,
+      skillPoint: lastSnapshot.skillPoint - firstSnapshot.skillPoint,
+      vital: lastSnapshot.vital - firstSnapshot.vital,
+    };
+  }, [selected, selectedGlobalStats]);
   const selectedMonthNav = useMemo(() => {
     if (!selected) {
       return {
@@ -757,6 +1053,116 @@ export default function TrainingHistory() {
           ))}
           </div>
         </div>
+
+        {selectedGlobalStats.length > 0 && (
+          <div className="mb-4 rounded-md border border-gray-200 bg-white p-3">
+            <div className="mb-2 text-xs font-semibold text-gray-500">
+              全局统计
+            </div>
+            <div className="mb-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
+                休息 {selectedTrainingSummary.restCount} 次
+              </span>
+              <span className="rounded bg-sky-100 px-2 py-1 text-sky-700">
+                外出 {selectedTrainingSummary.outingCount} 次
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="border-b border-gray-200 text-xs text-gray-500">
+                  <tr>
+                    <th className="px-2 py-2 text-left font-medium">分类</th>
+                    <th className="px-2 py-2 text-left font-medium">名称</th>
+                    <th className="px-2 py-2 text-right font-medium">次数</th>
+                    <th className="px-2 py-2 text-right font-medium">速</th>
+                    <th className="px-2 py-2 text-right font-medium">耐</th>
+                    <th className="px-2 py-2 text-right font-medium">力</th>
+                    <th className="px-2 py-2 text-right font-medium">根</th>
+                    <th className="px-2 py-2 text-right font-medium">智</th>
+                    <th className="px-2 py-2 text-right font-medium">PT</th>
+                    <th className="px-2 py-2 text-right font-medium">体</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {selectedGlobalStats.map((row) => (
+                    <tr key={row.key} className="hover:bg-gray-50">
+                      <td className="px-2 py-2">
+                        <span
+                          className={`rounded px-2 py-1 text-xs font-medium ${
+                            row.category === '训练'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {row.category}
+                        </span>
+                      </td>
+                      <td
+                        className="max-w-[320px] truncate px-2 py-2 font-medium text-gray-800"
+                        title={row.label}
+                      >
+                        {row.label}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-gray-700">
+                        {row.count}
+                      </td>
+                      {[
+                        row.speed,
+                        row.stamina,
+                        row.power,
+                        row.guts,
+                        row.wiz,
+                        row.skillPoint,
+                        row.vital,
+                      ].map((value, index) => (
+                        <td
+                          key={`${row.key}-${index}`}
+                          className={`px-2 py-2 text-right font-mono ${deltaTone(value)}`}
+                        >
+                          {formatSignedValue(value)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {selectedGlobalSummaryRow && (
+                    <tr className="bg-slate-50 font-medium">
+                      <td className="px-2 py-2">
+                        <span className="rounded bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700">
+                          {selectedGlobalSummaryRow.category}
+                        </span>
+                      </td>
+                      <td
+                        className="max-w-[320px] truncate px-2 py-2 font-semibold text-slate-900"
+                        title={selectedGlobalSummaryRow.label}
+                      >
+                        {selectedGlobalSummaryRow.label}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-slate-700">
+                        {selectedGlobalSummaryRow.count}
+                      </td>
+                      {[
+                        selectedGlobalSummaryRow.speed,
+                        selectedGlobalSummaryRow.stamina,
+                        selectedGlobalSummaryRow.power,
+                        selectedGlobalSummaryRow.guts,
+                        selectedGlobalSummaryRow.wiz,
+                        selectedGlobalSummaryRow.skillPoint,
+                        selectedGlobalSummaryRow.vital,
+                      ].map((value, index) => (
+                        <td
+                          key={`summary-${index}`}
+                          className={`px-2 py-2 text-right font-mono ${deltaTone(value)}`}
+                        >
+                          {formatSignedValue(value)}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {selectedMonthNav.anchors.length > 0 && (
           <div className="mb-4 rounded-md border border-gray-200 bg-white p-3">
