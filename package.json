@@ -203,6 +203,7 @@
     "files": [
       "dist",
       "assets/**/*",
+      "web-assets/**/*",
       "node_modules",
       "package.json"
     ],
@@ -253,7 +254,8 @@
       "output": "release/build"
     },
     "extraResources": [
-      "./assets/**"
+      "./assets/**",
+      "./web-assets/**"
     ],
     "publish": {
       "provider": "github",

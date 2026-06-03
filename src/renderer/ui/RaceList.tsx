@@ -43,7 +43,7 @@ function getHorseIconPath(horse: Record<string, unknown>) {
 
 function getOrderIconPath(rank: number) {
   if (!Number.isFinite(rank) || rank <= 0 || rank > 20) return undefined;
-  return `web-assets/icons/order/utx_txt_order_s_${String(rank - 1).padStart(2, '0')}.png`;
+  return `icons/order/utx_txt_order_s_${String(rank - 1).padStart(2, '0')}.png`;
 }
 
 function getHorseDisplayName(horse: Record<string, unknown>) {
