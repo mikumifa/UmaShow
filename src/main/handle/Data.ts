@@ -21,6 +21,7 @@ import type {
 export const UMDB = {
   charas: {} as Record<number, Chara>,
   cards: {} as Record<number, Card>,
+  cardRarityData: {} as Record<number, Record<number, number>>,
   cardTalentRates: {} as Record<
     number,
     {
@@ -67,11 +68,13 @@ export function UMDBload() {
     UMDB.supportCardEffectTypes = {};
     UMDB.charaEffectTexts = {};
     UMDB.skillTipNames = {};
+    UMDB.cardRarityData = {};
     UMDB.cardTalentRates = {};
     if (fs.existsSync(umdbJsonPath)) {
       const umdbJson = JSON.parse(fs.readFileSync(umdbJsonPath, 'utf-8')) as {
         charaEffectTexts?: Record<string, string>;
         skillTipNames?: Record<string, Record<string, string>>;
+        cardRarityData?: Record<string, Record<string, number>>;
         cardTalentRates?: Record<
           string,
           {
@@ -102,17 +105,32 @@ export function UMDBload() {
           ],
         ),
       );
+      UMDB.cardRarityData = Object.fromEntries(
+        Object.entries(umdbJson.cardRarityData ?? {}).map(
+          ([cardId, rarityMap]) => [
+            Number(cardId),
+            Object.fromEntries(
+              Object.entries(rarityMap).map(([rarity, raceDressId]) => [
+                Number(rarity),
+                Number(raceDressId),
+              ]),
+            ),
+          ],
+        ),
+      );
       UMDB.cardTalentRates = Object.fromEntries(
-        Object.entries(umdbJson.cardTalentRates ?? {}).map(([cardId, rates]) => [
-          Number(cardId),
-          {
-            speed: Number(rates.speed ?? 0),
-            stamina: Number(rates.stamina ?? 0),
-            power: Number(rates.power ?? 0),
-            guts: Number(rates.guts ?? 0),
-            wiz: Number(rates.wiz ?? 0),
-          },
-        ]),
+        Object.entries(umdbJson.cardTalentRates ?? {}).map(
+          ([cardId, rates]) => [
+            Number(cardId),
+            {
+              speed: Number(rates.speed ?? 0),
+              stamina: Number(rates.stamina ?? 0),
+              power: Number(rates.power ?? 0),
+              guts: Number(rates.guts ?? 0),
+              wiz: Number(rates.wiz ?? 0),
+            },
+          ],
+        ),
       );
     }
     if (supportCardMetaPath) {

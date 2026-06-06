@@ -20,7 +20,7 @@ import { TRAINING_HISTORY_DIR } from 'main/paths';
 import { buildTrainingEstimate } from './trainingHistory/trainingEstimate';
 
 const CONFIG_FILE = 'training_history.config.json';
-const ANALYSIS_VERSION = 6;
+const ANALYSIS_VERSION = 7;
 const DEFAULT_MAX_CACHED_RUNS = 50;
 
 function ensureTrainingHistoryDir() {
@@ -297,6 +297,7 @@ function buildAnalysis(
   let viewerId = 0;
   let singleModeCharaId = 0;
   let cardId = 0;
+  let rarity = 0;
   let startTime: string | number | Date | undefined;
   let supportCards: TrainingHistorySummary['supportCards'] = [];
   const packetSnapshots = new Map<number, TrainingHistoryTurnSnapshot>();
@@ -316,6 +317,7 @@ function buildAnalysis(
 
     singleModeCharaId = chara.single_mode_chara_id ?? singleModeCharaId;
     cardId = chara.card_id ?? cardId;
+    rarity = chara.rarity ?? rarity;
     startTime = chara.start_time ?? startTime;
     const snapshot = buildSnapshot(chara, data);
     packetSnapshots.set(packetIndex, snapshot);
@@ -404,6 +406,7 @@ function buildAnalysis(
     viewerId,
     singleModeCharaId,
     cardId,
+    rarity,
     startTime,
     updatedAt: record.updatedAt,
     packetCount: record.packets.length,
@@ -484,6 +487,7 @@ export function handleTrainingHistoryInfo(
       viewerId,
       singleModeCharaId,
       cardId: chara.card_id ?? 0,
+      rarity: chara.rarity ?? 0,
       startTime: chara.start_time,
       updatedAt: now,
       packetCount: 0,
@@ -496,6 +500,7 @@ export function handleTrainingHistoryInfo(
         viewerId,
         singleModeCharaId,
         cardId: chara.card_id ?? 0,
+        rarity: chara.rarity ?? 0,
         startTime: chara.start_time,
         updatedAt: now,
         packetCount: 0,

@@ -378,6 +378,18 @@ def build_card_talent_rates(cursor: sqlite3.Cursor) -> dict:
     }
 
 
+def build_card_rarity_data(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute(
+        """SELECT card_id, rarity, race_dress_id
+           FROM card_rarity_data
+           ORDER BY card_id, rarity;"""
+    )
+    result = defaultdict(dict)
+    for card_id, rarity, race_dress_id in cursor.fetchall():
+        result[str(card_id)][str(rarity)] = race_dress_id
+    return dict(result)
+
+
 def build_skill_data(cursor: sqlite3.Cursor) -> dict:
     cursor.execute(
         """
@@ -825,6 +837,7 @@ def main():
     chara_effect_texts = build_chara_effect_texts(cursor)
     skill_tip_names = build_skill_tip_names(cursor)
     card_talent_rates = build_card_talent_rates(cursor)
+    card_rarity_data = build_card_rarity_data(cursor)
     os.makedirs("assets/data", exist_ok=True)
     with open("assets/data/umdb.binarypb.gz", "wb") as f:
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))
@@ -855,6 +868,7 @@ def main():
     umdb_json["charaEffectTexts"] = chara_effect_texts
     umdb_json["skillTipNames"] = skill_tip_names
     umdb_json["cardTalentRates"] = card_talent_rates
+    umdb_json["cardRarityData"] = card_rarity_data
     with open("assets/data/umdb.json", "w", encoding="utf-8") as f:
         json.dump(umdb_json, f, ensure_ascii=False, indent=2)
     for support_card_meta_path in (

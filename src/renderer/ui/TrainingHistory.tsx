@@ -48,10 +48,17 @@ function getHistoryCharaId(cardId: number) {
   return Number(cardIdText.slice(0, 4));
 }
 
-function getHistoryHorseIconPath(cardId: number) {
+function getHistoryRaceDressId(cardId: number, rarity: number) {
+  if (!Number.isFinite(cardId) || cardId <= 0) return undefined;
+  if (!Number.isFinite(rarity) || rarity <= 0) return undefined;
+  return UMDB.cardRarityData[cardId]?.[rarity];
+}
+
+function getHistoryHorseIconPath(cardId: number, rarity: number) {
   const charaId = getHistoryCharaId(cardId);
-  if (charaId == null) return undefined;
-  return `trained_chr_icon/${charaId}_${cardId}.png`;
+  const raceDressId = getHistoryRaceDressId(cardId, rarity);
+  if (charaId == null || raceDressId == null) return undefined;
+  return `trained_chr_icon/${charaId}_${raceDressId}.png`;
 }
 
 function getHistoryHorseName(cardId: number) {
@@ -980,7 +987,10 @@ export default function TrainingHistory() {
 
   if (selected) {
     const horseName = getHistoryHorseName(selected.summary.cardId);
-    const horseIconPath = getHistoryHorseIconPath(selected.summary.cardId);
+    const horseIconPath = getHistoryHorseIconPath(
+      selected.summary.cardId,
+      selected.summary.rarity,
+    );
     return (
       <RacePageLayout
         title={horseName}
@@ -1278,7 +1288,10 @@ export default function TrainingHistory() {
 
         {items.map((item) => {
           const horseName = getHistoryHorseName(item.summary.cardId);
-          const horseIconPath = getHistoryHorseIconPath(item.summary.cardId);
+          const horseIconPath = getHistoryHorseIconPath(
+            item.summary.cardId,
+            item.summary.rarity,
+          );
           return (
             <div
               key={item.id}
@@ -1325,6 +1338,7 @@ export default function TrainingHistory() {
                       {formatDate(item.summary.startTime ?? item.createdAt)}
                     </span>
                     <span>card_id {item.summary.cardId}</span>
+                    <span>rarity {item.summary.rarity}</span>
                     <span>{item.summary.packetCount} 个包</span>
                     <span>{item.summary.turnCount} 个 turn</span>
                   </div>

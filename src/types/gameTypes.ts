@@ -243,6 +243,7 @@ export interface TrainingHistorySummary {
   viewerId: number;
   singleModeCharaId: number;
   cardId: number;
+  rarity: number;
   startTime?: string | number | Date;
   updatedAt: number;
   packetCount: number;

@@ -28,6 +28,9 @@ export const UMDB = {
   get supportCards(): Record<number, SupportCardWithMeta> {
     return umdbInstance?.supportCards ?? {};
   },
+  get cardRarityData(): Record<number, Record<number, number>> {
+    return umdbInstance?.cardRarityData ?? {};
+  },
   get cardTalentRates(): Record<
     number,
     { speed: number; stamina: number; power: number; guts: number; wiz: number }
