@@ -201,19 +201,19 @@
     "appId": "io.github.mikumifa.UmaShow",
     "asar": true,
     "afterSign": ".erb/scripts/notarize.js",
-    "asarUnpack": "**\\*.{node,dll,mdb}",
     "files": [
-      "dist",
+      "dist/**/*",
       "assets/**/*",
       "web-assets/**/*",
-      "node_modules",
-      "!../.editorconfig",
-      "!../../.editorconfig",
-      "!**/.editorconfig",
       "package.json",
+      "node_modules/**/*",
       "!**/*.map",
-      "!.codex-skills{,/**}",
-      "!**/.codex-skills{,/**}"
+      "!**/.editorconfig",
+      "!.codex-skills/**",
+      "!**/.codex-skills/**"
+    ],
+    "asarUnpack": [
+      "**/*.{node,dll,mdb}"
     ],
     "mac": {
       "icon": "assets/icon.icns",
