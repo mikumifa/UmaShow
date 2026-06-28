@@ -4,33 +4,33 @@ on:
   push:
     branches:
       - master
+
 permissions:
   contents: write
+
 jobs:
   publish:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [windows-latest]
+    runs-on: windows-latest
 
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node and NPM
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Install and build
+      - name: Remove root editorconfig
+        shell: pwsh
         run: |
-          npm install
-          npm run package
+          Remove-Item .editorconfig -Force -ErrorAction SilentlyContinue
 
-      - name: Publish releases
+      - name: Install dependencies
+        run: npm install
+
+      - name: Package and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm exec electron-builder -- --publish always --win
+        run: npx electron-builder --publish always --win
