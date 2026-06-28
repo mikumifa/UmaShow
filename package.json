@@ -207,7 +207,10 @@
       "assets/**/*",
       "web-assets/**/*",
       "node_modules",
-      "package.json"
+      "package.json",
+      "!**/*.map",
+      "!.codex-skills{,/**}",
+      "!**/.codex-skills{,/**}"
     ],
     "mac": {
       "icon": "assets/icon.icns",
