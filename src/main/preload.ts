@@ -47,11 +47,6 @@ const electronHandler = {
         };
       },
     },
-    windowControl: {
-      listWindows: () => ipcRenderer.invoke('window:list'),
-      setTopmost: (windowId: number, enabled: boolean) =>
-        ipcRenderer.invoke('window:set-topmost', { windowId, enabled }),
-    },
     navigation: {
       onNavigate: (callback: (data: { path: string; state: any }) => void) => {
         const subscription = (_event: IpcRendererEvent, data: any) =>

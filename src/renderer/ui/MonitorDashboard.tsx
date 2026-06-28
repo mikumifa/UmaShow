@@ -41,12 +41,6 @@ export default function MonitorDashboard() {
   const [autoPhonePanel, setAutoPhonePanel] = useState(false);
   const [phonePanelWidth, setPhonePanelWidth] = useState(360);
   const resizingRef = useRef(false);
-  const [windowList, setWindowList] = useState<
-    Array<{ id: number; title: string; pid: number }>
-  >([]);
-  const [selectedWindowId, setSelectedWindowId] = useState<number | ''>('');
-  const [pinEnabled, setPinEnabled] = useState(false);
-  const [windowLoading, setWindowLoading] = useState(false);
 
   useEffect(() => {
     const removeCharInfoListener = window.electron.packetListener.onCharInfo(
@@ -96,32 +90,6 @@ export default function MonitorDashboard() {
     }
   }, [charInfo]);
 
-  const refreshWindowList = () => {
-    setWindowLoading(true);
-    window.electron.utils.windowControl
-      .listWindows()
-      .then((list) => {
-        setWindowList(Array.isArray(list) ? list : []);
-      })
-      .finally(() => {
-        setWindowLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    if (showPhonePanel) {
-      refreshWindowList();
-    }
-  }, [showPhonePanel]);
-
-  useEffect(() => {
-    if (selectedWindowId === '') return;
-    window.electron.utils.windowControl.setTopmost(
-      Number(selectedWindowId),
-      pinEnabled,
-    );
-  }, [selectedWindowId, pinEnabled]);
-
   useEffect(() => {
     const handleMove = (event: MouseEvent) => {
       if (!resizingRef.current) return;
@@ -145,17 +113,9 @@ export default function MonitorDashboard() {
       if (!stored) return;
       const parsed = JSON.parse(stored) as {
         width?: number;
-        windowId?: number;
-        pinEnabled?: boolean;
       };
       if (typeof parsed.width === 'number') {
         setPhonePanelWidth(parsed.width);
-      }
-      if (typeof parsed.windowId === 'number') {
-        setSelectedWindowId(parsed.windowId);
-      }
-      if (typeof parsed.pinEnabled === 'boolean') {
-        setPinEnabled(parsed.pinEnabled);
       }
     } catch (err) {
       log.warn('Failed to load phone panel cache:', err);
@@ -168,14 +128,12 @@ export default function MonitorDashboard() {
         'monitorDashboard.phonePanel',
         JSON.stringify({
           width: phonePanelWidth,
-          windowId: selectedWindowId === '' ? undefined : selectedWindowId,
-          pinEnabled,
         }),
       );
     } catch (err) {
       log.warn('Failed to save phone panel cache:', err);
     }
-  }, [phonePanelWidth, selectedWindowId, pinEnabled]);
+  }, [phonePanelWidth]);
 
   return ready && charInfo ? (
     <div className="min-h-screen p-4">
@@ -193,47 +151,8 @@ export default function MonitorDashboard() {
                 <div className="px-3 py-2 text-sm font-semibold text-gray-500">
                   {'模拟器预留区'}
                 </div>
-                <div className="px-3 pb-3 text-xs text-gray-600 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="flex-1 max-w-[260px] rounded border border-gray-200 bg-white px-2 py-1 text-xs"
-                      value={selectedWindowId}
-                      onChange={(event) =>
-                        setSelectedWindowId(
-                          event.target.value === ''
-                            ? ''
-                            : Number(event.target.value),
-                        )
-                      }
-                    >
-                      <option value="">选择模拟器窗口...</option>
-                      {windowList.map((win) => (
-                        <option key={win.id} value={win.id}>
-                          {win.title} (PID {win.pid})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={refreshWindowList}
-                      className="rounded border border-gray-200 bg-white px-2 py-1 text-xs"
-                      disabled={windowLoading}
-                    >
-                      {windowLoading ? '加载中' : '刷新'}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPinEnabled((prev) => !prev)}
-                    className={`w-full rounded border px-2 py-1 text-xs font-semibold ${
-                      pinEnabled
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-gray-200 bg-white text-gray-600'
-                    }`}
-                    disabled={selectedWindowId === ''}
-                  >
-                    {pinEnabled ? '取消置顶所选窗口' : '置顶所选窗口'}
-                  </button>
+                <div className="px-3 pb-3 text-xs text-gray-600">
+                  {'用于在宽屏布局中预留模拟器显示区域。'}
                 </div>
               </div>
               <div

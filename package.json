@@ -33,7 +33,7 @@
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
-    "install:app-deps": "npm install --prefix release/app --ignore-scripts && node -r ts-node/register .erb/scripts/patch-app-deps.ts",
+    "install:app-deps": "npm install --prefix release/app --ignore-scripts",
     "link:app-modules": "node -r ts-node/register .erb/scripts/link-modules.ts",
     "postinstall": "npm run install:app-deps && npm run link:app-modules && ts-node .erb/scripts/check-native-dep.js && npm run build:dll",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",

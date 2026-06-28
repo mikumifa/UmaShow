@@ -6,7 +6,6 @@
 
 import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { execFile } from 'child_process';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
@@ -22,24 +21,8 @@ import { getServerPort, setServerPort } from './config';
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
 
-type OptionalWindowManager = typeof import('node-window-manager').windowManager;
-let cachedWindowManager: OptionalWindowManager | null | undefined;
-
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
-
-const getWindowManager = (): OptionalWindowManager | null => {
-  if (cachedWindowManager !== undefined) {
-    return cachedWindowManager;
-  }
-  try {
-    cachedWindowManager = require('node-window-manager').windowManager;
-  } catch (error) {
-    console.warn('node-window-manager is unavailable:', error);
-    cachedWindowManager = null;
-  }
-  return cachedWindowManager;
-};
 
 if (isDebug) {
   require('electron-debug').default();
@@ -142,74 +125,6 @@ handleRaceList(ipcMain);
 handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
-
-ipcMain.handle('window:list', () => {
-  const windowManager = getWindowManager();
-  if (!windowManager) {
-    return [];
-  }
-  return windowManager
-    .getWindows()
-    .filter((win) => win.isVisible())
-    .map((win) => ({
-      id: win.id,
-      title: win.getTitle(),
-      pid: win.processId,
-    }))
-    .filter((win) => win.title && win.title.trim().length > 0);
-});
-
-ipcMain.handle(
-  'window:set-topmost',
-  (_event, payload: { windowId: number; enabled: boolean }) => {
-    const windowManager = getWindowManager();
-    if (!windowManager) {
-      return { ok: false };
-    }
-    if (process.platform !== 'win32') {
-      return { ok: false };
-    }
-    const { windowId, enabled } = payload;
-    const win = windowManager.getWindows().find((w) => w.id === windowId);
-    if (!win) {
-      return { ok: false };
-    }
-    const insertAfter = enabled ? -1 : -2;
-    const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Win32 {
-  [DllImport("user32.dll")]
-  public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-}
-"@;
-$HWND = [IntPtr]${windowId};
-$HWND_INSERT = [IntPtr](${insertAfter});
-$SWP_NOSIZE = 0x0001;
-$SWP_NOMOVE = 0x0002;
-$SWP_NOACTIVATE = 0x0010;
-[Win32]::SetWindowPos($HWND, $HWND_INSERT, 0, 0, 0, 0, $SWP_NOMOVE -bor $SWP_NOSIZE -bor $SWP_NOACTIVATE) | Out-Null;
-`;
-    return new Promise((resolve) => {
-      execFile(
-        'powershell',
-        ['-NoProfile', '-Command', script],
-        { windowsHide: true },
-        (err) => {
-          if (err) {
-            resolve({ ok: false });
-            return;
-          }
-          if (mainWindow) {
-            mainWindow.setAlwaysOnTop(false);
-          }
-          resolve({ ok: true });
-        },
-      );
-    });
-  },
-);
 
 /**
  * App lifecycle
