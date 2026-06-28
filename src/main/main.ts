@@ -7,7 +7,6 @@
 import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { execFile } from 'child_process';
-import { windowManager } from 'node-window-manager';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
@@ -23,8 +22,24 @@ import { getServerPort, setServerPort } from './config';
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
 
+type OptionalWindowManager = typeof import('node-window-manager').windowManager;
+let cachedWindowManager: OptionalWindowManager | null | undefined;
+
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
+
+const getWindowManager = (): OptionalWindowManager | null => {
+  if (cachedWindowManager !== undefined) {
+    return cachedWindowManager;
+  }
+  try {
+    cachedWindowManager = require('node-window-manager').windowManager;
+  } catch (error) {
+    console.warn('node-window-manager is unavailable:', error);
+    cachedWindowManager = null;
+  }
+  return cachedWindowManager;
+};
 
 if (isDebug) {
   require('electron-debug').default();
@@ -129,6 +144,10 @@ handleDataLoad(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 ipcMain.handle('window:list', () => {
+  const windowManager = getWindowManager();
+  if (!windowManager) {
+    return [];
+  }
   return windowManager
     .getWindows()
     .filter((win) => win.isVisible())
@@ -143,6 +162,10 @@ ipcMain.handle('window:list', () => {
 ipcMain.handle(
   'window:set-topmost',
   (_event, payload: { windowId: number; enabled: boolean }) => {
+    const windowManager = getWindowManager();
+    if (!windowManager) {
+      return { ok: false };
+    }
     if (process.platform !== 'win32') {
       return { ok: false };
     }
