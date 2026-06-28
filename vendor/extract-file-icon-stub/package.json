@@ -1,7 +1,0 @@
-{
-  "name": "extract-file-icon",
-  "version": "0.3.2",
-  "description": "Stub for CI builds that do not use window icons",
-  "main": "index.js",
-  "license": "MIT"
-}
