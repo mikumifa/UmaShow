@@ -22,15 +22,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Remove root editorconfig
-        shell: pwsh
-        run: |
-          Remove-Item .editorconfig -Force -ErrorAction SilentlyContinue
-
       - name: Install dependencies
         run: npm install
 
       - name: Package and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --publish always --win
+        run: npm run package:publish
