@@ -295,19 +295,12 @@ function calculateAdjustedHorseStats(
   course: CourseDataEntry | undefined,
   greenSkillBonuses: GreenSkillBonuses,
 ): AdjustedHorseStats {
-  const rawWithGreen = {
-    speed: trainedChara.speed + greenSkillBonuses.total.speed,
-    stamina: trainedChara.stamina + greenSkillBonuses.total.stamina,
-    pow: trainedChara.pow + greenSkillBonuses.total.pow,
-    guts: trainedChara.guts + greenSkillBonuses.total.guts,
-    wiz: trainedChara.wiz + greenSkillBonuses.total.wiz,
-  };
   const panel = {
-    speed: toPanelStat(rawWithGreen.speed),
-    stamina: toPanelStat(rawWithGreen.stamina),
-    pow: toPanelStat(rawWithGreen.pow),
-    guts: toPanelStat(rawWithGreen.guts),
-    wiz: toPanelStat(rawWithGreen.wiz),
+    speed: toPanelStat(trainedChara.speed),
+    stamina: toPanelStat(trainedChara.stamina),
+    pow: toPanelStat(trainedChara.pow),
+    guts: toPanelStat(trainedChara.guts),
+    wiz: toPanelStat(trainedChara.wiz),
   };
   const motivationMultiplier = motivationMultipliers[motivation] ?? 1;
   const base = {
@@ -338,17 +331,24 @@ function calculateAdjustedHorseStats(
     runningStyle != null ? trainedChara.properRunningStyles[runningStyle] : 7;
   const runningStyleCoefficient =
     runningStyleProperMultipliers[runningStyleProper] ?? 1;
+  const adjustedBeforeGreen = {
+    speed: base.speed * (1 + speedCourseBonus) + speedGroundAdjustment,
+    stamina: base.stamina,
+    pow: base.pow + powerGroundAdjustment,
+    guts: base.guts,
+    wiz: base.wiz * runningStyleCoefficient,
+  };
 
   return {
-    rawWithGreen,
     panel,
     base,
+    adjustedBeforeGreen,
     adjusted: {
-      speed: base.speed * (1 + speedCourseBonus) + speedGroundAdjustment,
-      stamina: base.stamina,
-      pow: base.pow + powerGroundAdjustment,
-      guts: base.guts,
-      wiz: base.wiz * runningStyleCoefficient,
+      speed: adjustedBeforeGreen.speed + greenSkillBonuses.total.speed,
+      stamina: adjustedBeforeGreen.stamina + greenSkillBonuses.total.stamina,
+      pow: adjustedBeforeGreen.pow + greenSkillBonuses.total.pow,
+      guts: adjustedBeforeGreen.guts + greenSkillBonuses.total.guts,
+      wiz: adjustedBeforeGreen.wiz + greenSkillBonuses.total.wiz,
     },
     motivationMultiplier,
     greenSkillBonuses,
@@ -418,9 +418,9 @@ type GreenSkillBonuses = {
 };
 
 type AdjustedHorseStats = {
-  rawWithGreen: Record<StatKey, number>;
   panel: Record<StatKey, number>;
   base: Record<StatKey, number>;
+  adjustedBeforeGreen: Record<StatKey, number>;
   adjusted: Record<StatKey, number>;
   motivationMultiplier: number;
   greenSkillBonuses: GreenSkillBonuses;
@@ -470,41 +470,40 @@ class RaceDataPresenter extends React.PureComponent<
     };
     const panelValue = adjustedStats.panel[statKey];
     const baseValue = adjustedStats.base[statKey];
+    const adjustedBeforeGreen = adjustedStats.adjustedBeforeGreen[statKey];
     const adjustedValue = adjustedStats.adjusted[statKey];
     const greenBonus = adjustedStats.greenSkillBonuses.total[statKey];
     const greenBonusDetails = adjustedStats.greenSkillBonuses.details[statKey];
-    const rawWithGreen = adjustedStats.rawWithGreen[statKey];
     const motivationPercent = Math.round(
       adjustedStats.motivationMultiplier * 100,
     );
     const lines = [
       `${statLabel[statKey]}计算`,
       `1. 原始属性: ${rawValue}`,
-      `2. 计算起点属性: ${formatStatValue(rawWithGreen)}`,
-      rawWithGreen <= 1200
-        ? `3. 面板属性: ${formatStatValue(rawWithGreen)} (1200以下不衰减)`
-        : `3. 面板属性: 1200 + (${formatStatValue(rawWithGreen)} - 1200) / 2 = ${formatStatValue(panelValue)}`,
-      `4. 干劲修正: ${formatStatValue(panelValue)} x ${motivationPercent}% = ${formatStatValue(baseValue)}`,
+      rawValue <= 1200
+        ? `2. 面板属性: ${formatStatValue(rawValue)} (1200以下不衰减)`
+        : `2. 面板属性: 1200 + (${formatStatValue(rawValue)} - 1200) / 2 = ${formatStatValue(panelValue)}`,
+      `3. 干劲修正: ${formatStatValue(panelValue)} x ${motivationPercent}% = ${formatStatValue(baseValue)}`,
     ];
 
     if (statKey === 'speed') {
       const speedAfterCourse = baseValue * (1 + adjustedStats.speedCourseBonus);
       lines.push(
-        `5. 赛场加成: ${formatStatValue(baseValue)} x (1 + ${(adjustedStats.speedCourseBonus * 100).toFixed(0)}%) = ${formatStatValue(speedAfterCourse)}`,
+        `4. 赛场加成: ${formatStatValue(baseValue)} x (1 + ${(adjustedStats.speedCourseBonus * 100).toFixed(0)}%) = ${formatStatValue(speedAfterCourse)}`,
       );
       lines.push(
-        `6. 场地修正: ${formatStatValue(speedAfterCourse)} ${adjustedStats.speedGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.speedGroundAdjustment))} = ${formatStatValue(adjustedValue)}`,
+        `5. 场地修正: ${formatStatValue(speedAfterCourse)} ${adjustedStats.speedGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.speedGroundAdjustment))} = ${formatStatValue(adjustedBeforeGreen)}`,
       );
     } else if (statKey === 'pow') {
       lines.push(
-        `5. 场地修正: ${formatStatValue(baseValue)} ${adjustedStats.powerGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.powerGroundAdjustment))} = ${formatStatValue(adjustedValue)}`,
+        `4. 场地修正: ${formatStatValue(baseValue)} ${adjustedStats.powerGroundAdjustment >= 0 ? '+' : '-'} ${formatStatValue(Math.abs(adjustedStats.powerGroundAdjustment))} = ${formatStatValue(adjustedBeforeGreen)}`,
       );
     } else if (statKey === 'wiz') {
       lines.push(
-        `5. 跑法适性修正: ${formatStatValue(baseValue)} x ${formatStatValue(adjustedStats.runningStyleCoefficient)} = ${formatStatValue(adjustedValue)}`,
+        `4. 跑法适性修正: ${formatStatValue(baseValue)} x ${formatStatValue(adjustedStats.runningStyleCoefficient)} = ${formatStatValue(adjustedBeforeGreen)}`,
       );
     } else {
-      lines.push(`5. 最终值: ${formatStatValue(adjustedValue)}`);
+      lines.push(`4. 其他修正后: ${formatStatValue(adjustedBeforeGreen)}`);
     }
 
     if (greenBonusDetails.length > 0) {
@@ -521,6 +520,8 @@ class RaceDataPresenter extends React.PureComponent<
     } else {
       lines.push(`${lines.length}. 绿技能加成: 无`);
     }
+
+    lines.push(`${lines.length}. 最终值: ${formatStatValue(adjustedValue)}`);
 
     if (extraLabel) {
       lines.push(`备注: ${extraLabel}`);

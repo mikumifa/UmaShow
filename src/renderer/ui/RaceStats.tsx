@@ -140,7 +140,7 @@ const fallbackArchives: RaceArchive[] = [
   },
 ];
 
-const STATS_CACHE_VERSION = 3;
+const STATS_CACHE_VERSION = 5;
 
 const horseEventDefinitions: ProcStatDefinition[] = [
   {
@@ -152,12 +152,9 @@ const horseEventDefinitions: ProcStatDefinition[] = [
       ),
   },
   {
-    key: 'stamina-limit-break-buff',
+    key: 'final-hp-empty',
     label: '空耐',
-    matches: (entry) =>
-      entry.activatedEventTypes.has(
-        RaceSimulateEventData_SimulateEventType.STAMINA_LIMIT_BREAK_BUFF,
-      ),
+    matches: (entry) => entry.finalHp === 0,
   },
 ];
 
@@ -221,6 +218,14 @@ function getHorseLabel(horse: RaceHorseInfo) {
     horseField(horse, 'single_mode_chara_id'),
   );
   return `Unknown ${singleModeCharaId ?? cardId ?? charaId ?? '-'}`;
+}
+
+function shouldExcludeHorseFromStats(horse: RaceHorseInfo) {
+  const charaId = numberValue(horseField(horse, 'chara_id'));
+  const cardId = numberValue(horseField(horse, 'card_id'));
+  const charaName = charaId != null ? UMDB.charas[charaId]?.name : undefined;
+  const cardName = cardId != null ? UMDB.cards[cardId]?.name : undefined;
+  return !charaName && !cardName;
 }
 
 function properRank(value: unknown) {
@@ -560,6 +565,8 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
   }
 
   return item.horses.flatMap((horse, index) => {
+    if (shouldExcludeHorseFromStats(horse)) return [];
+
     const viewerId =
       numberValue(horseField(horse, 'viewer_id')) ??
       numberValue(horseField(horse, 'owner_viewer_id'));

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  CheckSquare,
   ChevronDown,
   Clock,
   Database,
   Heart,
   RotateCcw,
   Sparkles,
+  Square,
   Settings,
   Trash2,
 } from 'lucide-react';
@@ -817,6 +819,7 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
 export default function TrainingHistory() {
   const [items, setItems] = useState<TrainingHistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<TrainingHistoryConfig>({
     maxCachedRuns: 50,
   });
@@ -947,6 +950,15 @@ export default function TrainingHistory() {
     return () => unsubscribe?.();
   }, [load]);
 
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(
+        [...prev].filter((id) => items.some((item) => item.id === id)),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [items]);
+
   const saveConfig = async () => {
     const maxCachedRuns = Math.max(1, Math.floor(Number(draftMax) || 50));
     const next = await window.electron.trainingHistory.setConfig({
@@ -972,7 +984,40 @@ export default function TrainingHistory() {
     if (!confirm(`确定删除这局养成记录？`)) return;
     await window.electron.trainingHistory.delete([record.id]);
     setSelectedId(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(record.id);
+      return next;
+    });
     await load();
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllSelected = () => {
+    setSelectedIds((prev) => {
+      if (prev.size === items.length) return new Set();
+      return new Set(items.map((item) => item.id));
+    });
+  };
+
+  const deleteSelectedRecords = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`确定删除 ${selectedIds.size} 条养成记录？`)) return;
+    const ids = [...selectedIds];
+    await window.electron.trainingHistory.delete(ids);
+    if (selectedId && selectedIds.has(selectedId)) {
+      setSelectedId(null);
+    }
+    setItems((prev) => prev.filter((item) => !selectedIds.has(item.id)));
+    setSelectedIds(new Set());
   };
 
   const recalculateRecords = async (ids?: string[]) => {
@@ -1251,6 +1296,28 @@ export default function TrainingHistory() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={toggleAllSelected}
+            className={raceHeaderButtonClass}
+          >
+            {selectedIds.size === items.length && items.length > 0 ? (
+              <CheckSquare size={18} className="text-blue-600" />
+            ) : (
+              <Square size={18} />
+            )}
+            全选
+          </button>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={deleteSelectedRecords}
+              className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+            >
+              <Trash2 size={16} />
+              删除 ({selectedIds.size})
+            </button>
+          )}
+          <button
+            type="button"
             onClick={() => recalculateRecords()}
             className={raceHeaderButtonClass}
             disabled={recalculating}
@@ -1297,6 +1364,18 @@ export default function TrainingHistory() {
               key={item.id}
               className="group flex gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm"
             >
+              <button
+                type="button"
+                onClick={() => toggleSelected(item.id)}
+                className="mt-1 self-start rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                title={selectedIds.has(item.id) ? '取消选择' : '选择'}
+              >
+                {selectedIds.has(item.id) ? (
+                  <CheckSquare size={18} className="text-blue-600" />
+                ) : (
+                  <Square size={18} />
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedId(item.id)}
