@@ -10,9 +10,7 @@
   },
   "main": "./dist/main/main.js",
   "scripts": {
-    "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
-    "postinstall": "npm run link-modules",
-    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
+    "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0"
