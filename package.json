@@ -205,11 +205,10 @@
       "dist/**/*",
       "assets/**/*",
       "web-assets/**/*",
-      "package.json",
       "node_modules/**/*",
+      "package.json",
       "!**/*.map",
       "!**/.editorconfig",
-      "!.codex-skills/**",
       "!**/.codex-skills/**"
     ],
     "asarUnpack": [
