@@ -1,4 +1,4 @@
-import { BrowserWindow, IpcMain } from 'electron';
+import { BrowserWindow, IpcMain, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import log from 'electron-log';
@@ -566,6 +566,13 @@ export function handleTrainingHistoryList(ipcMain: IpcMain) {
       return toClientRecord(record);
     },
   );
+
+  ipcMain.handle('training-history:open-folder', async (_, id: string) => {
+    const file = recordPath(id);
+    if (!fs.existsSync(file)) return false;
+    shell.showItemInFolder(file);
+    return true;
+  });
 
   ipcMain.handle('training-history:delete', async (_, ids: string[]) => {
     ids.forEach((id) => {

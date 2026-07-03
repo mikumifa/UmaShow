@@ -86,6 +86,8 @@ const electronHandler = {
       ipcRenderer.invoke('training-history:favorite', id, favorite),
     recalculate: (ids?: string[]) =>
       ipcRenderer.invoke('training-history:recalculate', ids),
+    openFolder: (id: string) =>
+      ipcRenderer.invoke('training-history:open-folder', id),
     delete: (ids: string[]) =>
       ipcRenderer.invoke('training-history:delete', ids),
     onNew(callback: (data: any) => void) {

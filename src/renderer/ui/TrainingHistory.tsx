@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   ArrowLeft,
   CheckSquare,
   ChevronDown,
   Clock,
   Database,
+  FolderOpen,
   Heart,
   RotateCcw,
   Sparkles,
@@ -146,7 +153,9 @@ function effectName(effectId: number) {
   return UMDB.charaEffectTexts[effectId] ?? `effect_id=${effectId}`;
 }
 
-function trainingPeriodShortLabel(period: ReturnType<typeof getTrainingTurnInfo>['period']) {
+function trainingPeriodShortLabel(
+  period: ReturnType<typeof getTrainingTurnInfo>['period'],
+) {
   if (period === 'junior') return '初级';
   if (period === 'classic') return '经典';
   if (period === 'senior') return '高级';
@@ -221,7 +230,8 @@ function aggregateTrainingStats(record: TrainingHistoryRecord) {
 
       const commandResult = entry.commandResult as any;
       const commandId = Number(commandResult?.command_id ?? 0);
-      let targetType = COMMAND_TARGET_TYPE_MAP[commandId] ?? TARGET_TYPE.UNKNOWN;
+      let targetType =
+        COMMAND_TARGET_TYPE_MAP[commandId] ?? TARGET_TYPE.UNKNOWN;
       if (commandId === 302) {
         targetType = TARGET_TYPE.UNKNOWN;
       }
@@ -330,7 +340,8 @@ function aggregateEventStats(record: TrainingHistoryRecord) {
         event?.event_contents_info?.support_card_id ?? 0,
       );
       const matchedSupportCard = supportCardRows.find(
-        (row) => row.supportCardId > 0 && row.supportCardId === eventSupportCardId,
+        (row) =>
+          row.supportCardId > 0 && row.supportCardId === eventSupportCardId,
       );
       const row = rows.get(matchedSupportCard?.key ?? 'other');
       if (!row) return;
@@ -473,7 +484,8 @@ function DeltaSummary({ delta }: { delta?: TrainingHistoryTurnDelta | null }) {
           key={`venus-level-${item.charaId}`}
           className="rounded bg-amber-50 px-2 py-1 text-amber-700"
         >
-          {venusGoddessLabel(item.charaId)} Lv{item.beforeLevel}{'->'}
+          {venusGoddessLabel(item.charaId)} Lv{item.beforeLevel}
+          {'->'}
           {item.afterLevel}
         </span>
       ))}
@@ -609,8 +621,9 @@ function TurnSnapshotCard({
   const goddessLevels = [...venusGoddessLevels].sort(
     (left, right) => left.charaId - right.charaId,
   );
-  const spiritItems = [...venusSpirits]
-    .sort((left, right) => left.spiritNum - right.spiritNum);
+  const spiritItems = [...venusSpirits].sort(
+    (left, right) => left.spiritNum - right.spiritNum,
+  );
 
   return (
     <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
@@ -720,8 +733,8 @@ function TurnSnapshotCard({
                     key={`${tip.groupId}-${tip.rarity}-${tip.level}-${index}`}
                     className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700"
                   >
-                    {UMDB.skillTipName(tip.groupId, tip.rarity)} / R
-                    {tip.rarity} / Lv.{tip.level}
+                    {UMDB.skillTipName(tip.groupId, tip.rarity)} / R{tip.rarity}{' '}
+                    / Lv.{tip.level}
                   </span>
                 ))
               )}
@@ -825,6 +838,9 @@ export default function TrainingHistory() {
   });
   const [draftMax, setDraftMax] = useState('50');
   const [ready, setReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingLabel, setLoadingLabel] = useState('正在准备养成记录...');
   const [recalculating, setRecalculating] = useState(false);
 
   const selected = useMemo(
@@ -878,27 +894,28 @@ export default function TrainingHistory() {
     ],
     [selectedEventStats, selectedTrainingStats],
   );
-  const selectedGlobalSummaryRow = useMemo<GlobalAggregateTableRow | null>(() => {
-    if (!selected || selected.analysis.turns.length === 0) return null;
-    const firstSnapshot = selected.analysis.turns[0]?.snapshot;
-    const lastSnapshot =
-      selected.analysis.turns[selected.analysis.turns.length - 1]?.snapshot;
-    if (!firstSnapshot || !lastSnapshot) return null;
+  const selectedGlobalSummaryRow =
+    useMemo<GlobalAggregateTableRow | null>(() => {
+      if (!selected || selected.analysis.turns.length === 0) return null;
+      const firstSnapshot = selected.analysis.turns[0]?.snapshot;
+      const lastSnapshot =
+        selected.analysis.turns[selected.analysis.turns.length - 1]?.snapshot;
+      if (!firstSnapshot || !lastSnapshot) return null;
 
-    return {
-      key: 'summary-total',
-      category: '总计',
-      label: '总和（相对首轮）',
-      count: selectedGlobalStats.reduce((sum, row) => sum + row.count, 0),
-      speed: lastSnapshot.speed - firstSnapshot.speed,
-      stamina: lastSnapshot.stamina - firstSnapshot.stamina,
-      power: lastSnapshot.power - firstSnapshot.power,
-      guts: lastSnapshot.guts - firstSnapshot.guts,
-      wiz: lastSnapshot.wiz - firstSnapshot.wiz,
-      skillPoint: lastSnapshot.skillPoint - firstSnapshot.skillPoint,
-      vital: lastSnapshot.vital - firstSnapshot.vital,
-    };
-  }, [selected, selectedGlobalStats]);
+      return {
+        key: 'summary-total',
+        category: '总计',
+        label: '总和（相对首轮）',
+        count: selectedGlobalStats.reduce((sum, row) => sum + row.count, 0),
+        speed: lastSnapshot.speed - firstSnapshot.speed,
+        stamina: lastSnapshot.stamina - firstSnapshot.stamina,
+        power: lastSnapshot.power - firstSnapshot.power,
+        guts: lastSnapshot.guts - firstSnapshot.guts,
+        wiz: lastSnapshot.wiz - firstSnapshot.wiz,
+        skillPoint: lastSnapshot.skillPoint - firstSnapshot.skillPoint,
+        vital: lastSnapshot.vital - firstSnapshot.vital,
+      };
+    }, [selected, selectedGlobalStats]);
   const selectedMonthNav = useMemo(() => {
     if (!selected) {
       return {
@@ -933,15 +950,39 @@ export default function TrainingHistory() {
   }, [selected]);
 
   const load = useCallback(async () => {
-    const [list, nextConfig] = await Promise.all([
-      window.electron.trainingHistory.list(),
-      window.electron.trainingHistory.getConfig(),
-      loadUMDB(),
-    ]);
-    setItems((list ?? []) as TrainingHistoryRecord[]);
-    setConfig(nextConfig ?? { maxCachedRuns: 50 });
-    setDraftMax(String(nextConfig?.maxCachedRuns ?? 50));
-    setReady(true);
+    setIsLoading(true);
+    setLoadingProgress(8);
+    setLoadingLabel('正在读取养成记录...');
+
+    const configPromise = window.electron.trainingHistory.getConfig();
+    const list = await window.electron.trainingHistory.list();
+
+    setLoadingProgress(48);
+    setLoadingLabel('正在读取页面配置...');
+
+    const nextConfig = await configPromise;
+
+    setLoadingProgress(68);
+    setLoadingLabel('正在加载角色资料...');
+
+    await loadUMDB();
+
+    setLoadingProgress(88);
+    setLoadingLabel('正在渲染列表...');
+
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+
+    startTransition(() => {
+      setItems((list ?? []) as TrainingHistoryRecord[]);
+      setConfig(nextConfig ?? { maxCachedRuns: 50 });
+      setDraftMax(String(nextConfig?.maxCachedRuns ?? 50));
+      setReady(true);
+      setLoadingProgress(100);
+      setLoadingLabel('加载完成');
+      setIsLoading(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -978,6 +1019,13 @@ export default function TrainingHistory() {
     setItems((prev) =>
       prev.map((item) => (item.id === record.id ? updated : item)),
     );
+  };
+
+  const openRecordFolder = async (record: TrainingHistoryRecord) => {
+    const opened = await window.electron.trainingHistory.openFolder(record.id);
+    if (!opened) {
+      alert('养成记录文件不存在');
+    }
   };
 
   const deleteRecord = async (record: TrainingHistoryRecord) => {
@@ -1065,6 +1113,14 @@ export default function TrainingHistory() {
             </button>
             <button
               type="button"
+              onClick={() => openRecordFolder(selected)}
+              className={raceHeaderButtonClass}
+            >
+              <FolderOpen size={16} />
+              打开文件夹
+            </button>
+            <button
+              type="button"
               onClick={() => recalculateRecords([selected.id])}
               className={raceHeaderButtonClass}
               disabled={recalculating}
@@ -1094,18 +1150,16 @@ export default function TrainingHistory() {
         </div>
 
         <div className="mb-4 rounded-md border border-gray-200 bg-white p-3">
-          <div className="mb-2 text-xs font-semibold text-gray-500">
-            支援卡
-          </div>
+          <div className="mb-2 text-xs font-semibold text-gray-500">支援卡</div>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {selected.summary.supportCards.map((card) => (
-            <SupportCardDetail
-              key={`${card.position}-${card.supportCardId}`}
-              supportCardId={card.supportCardId}
-              limitBreak={card.limitBreak}
-              exp={card.exp}
-            />
-          ))}
+            {selected.summary.supportCards.map((card) => (
+              <SupportCardDetail
+                key={`${card.position}-${card.supportCardId}`}
+                supportCardId={card.supportCardId}
+                limitBreak={card.limitBreak}
+                exp={card.exp}
+              />
+            ))}
           </div>
         </div>
 
@@ -1290,7 +1344,7 @@ export default function TrainingHistory() {
   return (
     <RacePageLayout
       title="养成记录"
-      description={`最多缓存 ${config.maxCachedRuns} 局，收藏记录不会被自动清理`}
+      description={`记录你养成的每一局，最多缓存 ${config.maxCachedRuns} 局`}
       icon={<Database size={20} />}
       actions={
         <div className="flex items-center gap-2">
@@ -1344,6 +1398,25 @@ export default function TrainingHistory() {
       }
     >
       <div className="space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-sm font-medium text-sky-900">
+                {loadingLabel}
+              </div>
+              <div className="shrink-0 text-xs font-semibold text-sky-700">
+                {Math.max(0, Math.min(100, Math.round(loadingProgress)))}%
+              </div>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-sky-100">
+              <div
+                className="h-full rounded-full bg-sky-500 transition-all duration-300 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {ready && items.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-20">
             <Database size={44} className="mb-3 text-gray-300" />
