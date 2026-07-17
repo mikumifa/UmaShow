@@ -25,6 +25,7 @@ import {
   TARGET_TYPE,
   TrainingHistoryConfig,
   TrainingHistoryRecord,
+  TrainingHistoryTrainingEstimate,
   TrainingHistoryTurnDelta,
   TrainingHistoryTurnEntry,
   TrainingHistoryTurnSnapshot,
@@ -832,9 +833,13 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
 export default function TrainingHistory() {
   const [items, setItems] = useState<TrainingHistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedRecord, setSelectedRecord] =
+    useState<TrainingHistoryRecord | null>(null);
+  const [selectedLoading, setSelectedLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<TrainingHistoryConfig>({
     maxCachedRuns: 50,
+    favoriteIds: [],
   });
   const [draftMax, setDraftMax] = useState('50');
   const [ready, setReady] = useState(false);
@@ -843,9 +848,13 @@ export default function TrainingHistory() {
   const [loadingLabel, setLoadingLabel] = useState('正在准备养成记录...');
   const [recalculating, setRecalculating] = useState(false);
 
-  const selected = useMemo(
+  const selectedSummary = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
+  );
+  const selected = useMemo(
+    () => (selectedRecord?.id === selectedId ? selectedRecord : null),
+    [selectedId, selectedRecord],
   );
   const selectedTrainingStats = useMemo(
     () => (selected ? aggregateTrainingStats(selected) : []),
@@ -976,7 +985,7 @@ export default function TrainingHistory() {
 
     startTransition(() => {
       setItems((list ?? []) as TrainingHistoryRecord[]);
-      setConfig(nextConfig ?? { maxCachedRuns: 50 });
+      setConfig(nextConfig ?? { maxCachedRuns: 50, favoriteIds: [] });
       setDraftMax(String(nextConfig?.maxCachedRuns ?? 50));
       setReady(true);
       setLoadingProgress(100);
@@ -1000,6 +1009,41 @@ export default function TrainingHistory() {
     });
   }, [items]);
 
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedRecord(null);
+      setSelectedLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setSelectedLoading(true);
+    setSelectedRecord((prev) =>
+      prev?.id === selectedId ? prev : null,
+    );
+
+    const loadSelectedRecord = async () => {
+      try {
+        const record = await window.electron.trainingHistory.get(selectedId);
+        if (cancelled) return;
+        setSelectedRecord(record ?? null);
+      } catch {
+        if (cancelled) return;
+        setSelectedRecord(null);
+      } finally {
+        if (!cancelled) {
+          setSelectedLoading(false);
+        }
+      }
+    };
+
+    loadSelectedRecord();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
   const saveConfig = async () => {
     const maxCachedRuns = Math.max(1, Math.floor(Number(draftMax) || 50));
     const next = await window.electron.trainingHistory.setConfig({
@@ -1019,6 +1063,9 @@ export default function TrainingHistory() {
     setItems((prev) =>
       prev.map((item) => (item.id === record.id ? updated : item)),
     );
+    setSelectedRecord((prev) =>
+      prev?.id === record.id ? { ...prev, favorite: updated.favorite } : prev,
+    );
   };
 
   const openRecordFolder = async (record: TrainingHistoryRecord) => {
@@ -1032,6 +1079,7 @@ export default function TrainingHistory() {
     if (!confirm(`确定删除这局养成记录？`)) return;
     await window.electron.trainingHistory.delete([record.id]);
     setSelectedId(null);
+    setSelectedRecord(null);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(record.id);
@@ -1063,6 +1111,7 @@ export default function TrainingHistory() {
     await window.electron.trainingHistory.delete(ids);
     if (selectedId && selectedIds.has(selectedId)) {
       setSelectedId(null);
+      setSelectedRecord(null);
     }
     setItems((prev) => prev.filter((item) => !selectedIds.has(item.id)));
     setSelectedIds(new Set());
@@ -1073,10 +1122,93 @@ export default function TrainingHistory() {
     try {
       await window.electron.trainingHistory.recalculate(ids);
       await load();
+      if (selectedId && (!ids || ids.includes(selectedId))) {
+        const refreshed = await window.electron.trainingHistory.get(selectedId);
+        setSelectedRecord(refreshed ?? null);
+      }
     } finally {
       setRecalculating(false);
     }
   };
+
+  if (selectedId && (selectedLoading || !selected)) {
+    const previewRecord = selectedSummary ?? selectedRecord;
+    const horseName = previewRecord
+      ? getHistoryHorseName(previewRecord.summary.cardId)
+      : '养成记录';
+    const horseIconPath = previewRecord
+      ? getHistoryHorseIconPath(
+          previewRecord.summary.cardId,
+          previewRecord.summary.rarity,
+        )
+      : undefined;
+    const description = selectedLoading
+      ? '正在展开完整记录...'
+      : '未找到这局养成记录';
+
+    return (
+      <RacePageLayout
+        title={horseName}
+        description={description}
+        icon={<Database size={20} />}
+        actions={
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedId(null);
+              setSelectedRecord(null);
+            }}
+            className={raceHeaderButtonClass}
+          >
+            <ArrowLeft size={16} />
+            返回
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {previewRecord && (
+            <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-4">
+              {horseIconPath && (
+                <AssetIcon
+                  path={horseIconPath}
+                  alt={horseName}
+                  className="h-16 w-16 rounded-md object-cover ring-1 ring-gray-100"
+                />
+              )}
+              <div className="min-w-0">
+                <div className="truncate text-lg font-semibold text-gray-900">
+                  {horseName}
+                </div>
+                <div className="mt-1 text-sm text-gray-500">
+                  {previewRecord.summary.packetCount} 个包，
+                  {previewRecord.summary.turnCount} 个 turn
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-sm font-medium text-sky-900">
+                {selectedLoading
+                  ? '正在将增量记录展开为完整养成记录...'
+                  : '这局记录已经不存在或读取失败'}
+              </div>
+              <div className="shrink-0 text-xs font-semibold text-sky-700">
+                {selectedLoading ? '处理中' : '未找到'}
+              </div>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-sky-100">
+              <div
+                className={`h-full rounded-full bg-sky-500 transition-all duration-300 ease-out ${
+                  selectedLoading ? 'w-2/3' : 'w-full'
+                }`}
+              />
+            </div>
+          </div>
+        </div>
+      </RacePageLayout>
+    );
+  }
 
   if (selected) {
     const horseName = getHistoryHorseName(selected.summary.cardId);
@@ -1093,7 +1225,10 @@ export default function TrainingHistory() {
           <>
             <button
               type="button"
-              onClick={() => setSelectedId(null)}
+              onClick={() => {
+                setSelectedId(null);
+                setSelectedRecord(null);
+              }}
               className={raceHeaderButtonClass}
             >
               <ArrowLeft size={16} />

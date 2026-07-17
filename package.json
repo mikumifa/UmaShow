@@ -111,6 +111,7 @@
     "lucide-react": "^0.556.0",
     "memoize-one": "^6.0.0",
     "node-gyp": "^12.1.0",
+    "onnxruntime-node": "^1.27.0",
     "pako": "^2.1.0",
     "react": "^19.0.0",
     "react-activation": "^0.13.4",

@@ -53,20 +53,19 @@ export function getGameTimeByTurn(turn: number): GameTime {
 /**
  * 按育成流程翻译 turn。
  * 约定：
- * - 1 - 12   -> ジュニア级 7月前半 ~ 12月后半
- * - 13 - 36  -> クラシック级 1月前半 ~ 12月后半
- * - 37 - 60  -> シニア级 1月前半 ~ 12月后半
- * - 61 以后  -> URA 阶段
+ * - 1 - 24   -> ジュニア级 1月前半 ~ 12月后半
+ * - 25 - 48  -> クラシック级 1月前半 ~ 12月后半
+ * - 49 - 72  -> シニア级 1月前半 ~ 12月后半
+ * - 73 以后  -> URA 阶段
  */
 export function getTrainingTurnInfo(turn: number): TrainingTurnInfo {
   if (turn < 1) {
     throw new Error('turn must be >= 1');
   }
 
-  if (turn <= 12) {
-    const monthOffset = Math.floor((turn - 1) / 2);
-    const month = monthOffset + 7;
-    const half = turn % 2 === 1 ? 'upper' : 'lower';
+  const { year, month, half } = getGameTimeByTurn(turn);
+
+  if (year <= 1) {
     const timeLabel = buildMonthHalfLabel('junior', month, half);
 
     return {
@@ -79,10 +78,7 @@ export function getTrainingTurnInfo(turn: number): TrainingTurnInfo {
     };
   }
 
-  if (turn <= 36) {
-    const phaseTurn = turn - 13;
-    const month = Math.floor(phaseTurn / 2) + 1;
-    const half = phaseTurn % 2 === 0 ? 'upper' : 'lower';
+  if (year === 2) {
     const timeLabel = buildMonthHalfLabel('classic', month, half);
 
     return {
@@ -95,10 +91,7 @@ export function getTrainingTurnInfo(turn: number): TrainingTurnInfo {
     };
   }
 
-  if (turn <= 60) {
-    const phaseTurn = turn - 37;
-    const month = Math.floor(phaseTurn / 2) + 1;
-    const half = phaseTurn % 2 === 0 ? 'upper' : 'lower';
+  if (year === 3) {
     const timeLabel = buildMonthHalfLabel('senior', month, half);
 
     return {
@@ -111,7 +104,7 @@ export function getTrainingTurnInfo(turn: number): TrainingTurnInfo {
     };
   }
 
-  const uraPhase = turn - 60;
+  const uraPhase = turn - 72;
   const uraEventLabelMap: Record<number, string> = {
     1: 'URA总决赛预赛',
     2: 'URA总决赛预赛后',

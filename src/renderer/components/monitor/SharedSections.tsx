@@ -7,7 +7,13 @@ import EventDetailRow, {
 import type { CharInfo } from 'types/gameTypes';
 import type { NoteType } from 'renderer/components/scenarios/idolCup/NoteStyles';
 
-export function VitalPanel({ charInfo }: { charInfo: CharInfo }) {
+export function VitalPanel({
+  charInfo,
+  showEffects = true,
+}: {
+  charInfo: CharInfo;
+  showEffects?: boolean;
+}) {
   const vitalPercent =
     charInfo.stats.vital.max > 0
       ? (charInfo.stats.vital.value / charInfo.stats.vital.max) * 100
@@ -45,7 +51,9 @@ export function VitalPanel({ charInfo }: { charInfo: CharInfo }) {
           </div>
         </div>
 
-        {charInfo.charaEffects && charInfo.charaEffects.length > 0 ? (
+        {showEffects &&
+        charInfo.charaEffects &&
+        charInfo.charaEffects.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 pl-8">
             {charInfo.charaEffects.map((effect) => (
               <span

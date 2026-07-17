@@ -79,6 +79,7 @@ const electronHandler = {
   },
   trainingHistory: {
     list: () => ipcRenderer.invoke('training-history:list'),
+    get: (id: string) => ipcRenderer.invoke('training-history:get', id),
     getConfig: () => ipcRenderer.invoke('training-history:config-get'),
     setConfig: (payload: { maxCachedRuns: number }) =>
       ipcRenderer.invoke('training-history:config-set', payload),
@@ -100,6 +101,15 @@ const electronHandler = {
         ipcRenderer.removeListener('training-history:new', subscription);
       };
     },
+  },
+  venusModel: {
+    open: () => ipcRenderer.invoke('venus-model:open'),
+    loadPath: (manifestPath: string) =>
+      ipcRenderer.invoke('venus-model:load-path', manifestPath),
+    clear: () => ipcRenderer.invoke('venus-model:clear'),
+    info: () => ipcRenderer.invoke('venus-model:info'),
+    predict: (features: number[]) =>
+      ipcRenderer.invoke('venus-model:predict', features),
   },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),

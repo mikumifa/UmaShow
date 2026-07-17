@@ -16,6 +16,7 @@ import {
   ensureTrainingHistory,
   handleTrainingHistoryList,
 } from './handle/TrainingHistory';
+import { handleVenusModel } from './handle/VenusModel';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -124,6 +125,7 @@ const createWindow = async () => {
 handleRaceList(ipcMain);
 handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
+handleVenusModel(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**

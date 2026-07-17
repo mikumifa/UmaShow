@@ -123,6 +123,18 @@ const PERFORMANCE_TYPE_MAP: Record<number, NoteType> = {
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
+const getFiveStatStrength = (
+  params: Array<{ targetType: number; value: number }>,
+) =>
+  params
+    .filter(
+      (param) =>
+        param.targetType >= TARGET_TYPE.SPEED
+        && param.targetType <= TARGET_TYPE.WIZ
+        && param.value > 0,
+    )
+    .reduce((sum, param) => sum + param.value, 0);
+
 const getStatKeyNameByTarget = (targetType: number) => {
   switch (targetType) {
     case TARGET_TYPE.SPEED:
@@ -184,6 +196,7 @@ export default function TrainingCard({
   const recovery = command.params.filter(
     (p) => p.targetType === 10 && p.value > 0,
   );
+  const fiveStatStrength = getFiveStatStrength(command.params);
   const mainConfig = getStatConfig(COMMAND_TARGET_TYPE_MAP[command.commandId]);
 
   // live command info
@@ -258,7 +271,6 @@ export default function TrainingCard({
         <FailureRateBadge failureRate={command.failureRate} />
       )}
 
-      {/* Header Image Area (Abstract representation) */}
       <div
         className={`h-20 rounded-t-lg flex items-center justify-center overflow-hidden relative ${mainConfig.bg} bg-opacity-10`}
       >
@@ -287,9 +299,18 @@ export default function TrainingCard({
             className="mb-1"
             tooltipMode="training"
           />
+          {fiveStatStrength > 0 && (
+            <div className="flex items-center justify-between rounded-md border border-sky-100 bg-sky-50/70 px-2 py-1 text-sm">
+              <div className="flex items-center gap-1 text-sky-700">
+                <span className="text-xs font-semibold">总</span>
+              </div>
+              <span className="text-base font-black text-sky-700 tabular-nums">
+                {formatSigned(fiveStatStrength)}
+              </span>
+            </div>
+          )}
           {gains.map((p, idx) => {
             const conf = getStatConfig(p.targetType);
-            const Icon = conf.icon;
             const liveValue = liveParamsByTarget.get(p.targetType) ?? 0;
             const finalValue = p.value + liveValue;
             return (
@@ -297,8 +318,7 @@ export default function TrainingCard({
                 key={idx}
                 className="flex items-center justify-between text-sm"
               >
-                <div className="flex items-center gap-1 text-gray-600">
-                  <Icon size={18} className={conf.text} />
+                <div className="flex items-center text-gray-600">
                   <span className="text-xs">{conf.label}</span>
                 </div>
                 {liveValue !== 0 ? (

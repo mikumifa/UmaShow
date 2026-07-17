@@ -26,6 +26,7 @@ export interface NoteStat {
 export interface GameStats {
   turn: number;
   coinNum: number;
+  motivation?: number;
   startTime?: string | number | Date;
   liveMasterIds?: number[];
   nextLiveIds?: number[];
@@ -85,10 +86,22 @@ export interface VenusCommandInfo {
   params: CommandParam[];
 }
 
+export interface VenusGroupOutingInfo {
+  charaId: number;
+  isOuting: number;
+  storyStep: number;
+}
+
 export interface VenusEvaluationInfo {
   targetId: number;
+  trainingPartnerId: number;
+  evaluation: number;
   charaId: number;
   memberState: number;
+  isOuting: number;
+  storyStep: number;
+  isAppear: number;
+  groupOutingInfo: VenusGroupOutingInfo[];
 }
 
 export interface VenusSpiritInfo {
@@ -413,6 +426,7 @@ export interface TrainingHistoryRecord {
 
 export interface TrainingHistoryConfig {
   maxCachedRuns: number;
+  favoriteIds: string[];
 }
 
 export function isEmptyField(field: any): boolean {
@@ -437,7 +451,7 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     }
     return prevValue;
   };
-  let livePurchasedIds = prev.livePurchasedIds;
+  let { livePurchasedIds } = prev;
   if (incoming.livePurchasedIds != null) {
     livePurchasedIds = incoming.livePurchasedIds;
   } else if (scenarioChanged) {

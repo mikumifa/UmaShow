@@ -69,9 +69,12 @@ function TrainingEstimateTargetCard({
     <div className="rounded border border-sky-100 bg-white/80 px-2 py-1.5 text-[11px] text-sky-950">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-semibold text-sky-800">
-          {targetTypeLabel(target.targetType)} 目标值 {observed} / 推算 {estimated}
+          {targetTypeLabel(target.targetType)} 目标值 {observed} / 推算{' '}
+          {estimated}
         </span>
-        <span>基础训练值 {approxScenarioBase}+{supportBonus}</span>
+        <span>
+          基础训练值 {approxScenarioBase}+{supportBonus}
+        </span>
         <span>友情 ×{formatMultiplier(friendshipMultiplier)}</span>
         <span>训练效果 +{trainingEffectPercent}%</span>
         <span>干劲 ×{formatMultiplier(motivationMultiplier)}</span>
@@ -84,8 +87,8 @@ function TrainingEstimateTargetCard({
         {formatMultiplier(1 + trainingEffectPercent / 100)} ×{' '}
         {formatMultiplier(motivationMultiplier)} ×{' '}
         {formatMultiplier(growthMultiplier)} ×{' '}
-        {formatMultiplier(partnerMultiplier)} = {baseBeforeFloor.toFixed(3)} →
-        {' '}{estimated}
+        {formatMultiplier(partnerMultiplier)} = {baseBeforeFloor.toFixed(3)} →{' '}
+        {estimated}
       </div>
       <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-sky-700">
         {supportBonusSources.map((item, index) => (
@@ -127,7 +130,8 @@ function TrainingEstimateTargetCard({
         </summary>
         <div className="mt-1 space-y-1 rounded bg-white/90 p-2 text-[10px] leading-5 text-sky-950">
           <div>
-            基础训练值 = 表内基础值 {approxScenarioBase} + 支援卡属性加成 {supportBonus}
+            基础训练值 = 表内基础值 {approxScenarioBase} + 支援卡属性加成{' '}
+            {supportBonus}
           </div>
           <div>
             友情加成 ={' '}
@@ -135,7 +139,8 @@ function TrainingEstimateTargetCard({
               ? '1'
               : friendshipSources
                   .map((item) => `(1 + ${item.value}%)`)
-                  .join(' × ')} = {formatMultiplier(friendshipMultiplier)}
+                  .join(' × ')}{' '}
+            = {formatMultiplier(friendshipMultiplier)}
           </div>
           <div>
             训练效果提升 = 1 + {trainingEffectPercent}% ={' '}
@@ -172,6 +177,17 @@ export default function TrainingEstimateCard({
   const presentSupportCardIds = estimate.presentSupportCardIds ?? [];
   const targets = estimate.targets ?? [];
   const notes = estimate.notes ?? [];
+  const fiveStatTargets = targets.filter(
+    (target) => target.targetType >= 1 && target.targetType <= 5,
+  );
+  const observedFiveStatTotal = fiveStatTargets.reduce(
+    (sum, target) => sum + (target.observed ?? 0),
+    0,
+  );
+  const estimatedFiveStatTotal = fiveStatTargets.reduce(
+    (sum, target) => sum + (target.estimated ?? 0),
+    0,
+  );
 
   return (
     <div className="rounded-md border border-sky-200 bg-sky-50/80 p-2 text-xs">
@@ -180,6 +196,11 @@ export default function TrainingEstimateCard({
         <span>Lv {estimate.commandLevel}</span>
         <span>到场 {estimate.partnerCount}</span>
         <span>支援卡 {estimate.supportPartnerCount}</span>
+        {fiveStatTargets.length > 0 && (
+          <span className="rounded bg-white/80 px-2 py-0.5 font-medium text-sky-800">
+            5维强度 {observedFiveStatTotal} / 推算 {estimatedFiveStatTotal}
+          </span>
+        )}
       </div>
       {presentSupportCardIds.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-sky-800">

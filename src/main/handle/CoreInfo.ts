@@ -68,8 +68,20 @@ const extractVenusData = (
     evaluationInfo: (venusDataSet.evaluation_info_array ?? []).map(
       (item: any) => ({
         targetId: item.target_id,
+        trainingPartnerId: item.training_partner_id,
+        evaluation: item.evaluation,
         charaId: item.chara_id,
         memberState: item.member_state,
+        isOuting: item.is_outing,
+        storyStep: item.story_step,
+        isAppear: item.is_appear,
+        groupOutingInfo: (item.group_outing_info_array ?? []).map(
+          (groupItem: any) => ({
+            charaId: groupItem.chara_id,
+            isOuting: groupItem.is_outing,
+            storyStep: groupItem.story_step,
+          }),
+        ),
       }),
     ),
     spiritInfo: (venusDataSet.spirit_info_array ?? []).map((item: any) => ({
@@ -279,6 +291,7 @@ export async function extractCoreInfo(
   const gameStats: GameStats = {
     turn: chara.turn,
     coinNum: freeData?.coin_num ?? 0,
+    motivation: chara.motivation,
     startTime: chara.start_time,
     liveMasterIds: liveData?.master_live_id_array ?? [],
     nextLiveIds: liveData?.next_live_id_array ?? [],
@@ -417,13 +430,13 @@ export async function extractCoreInfo(
     const options = choiceArray.map((choice: any, position: number) => {
       const idx = choice.select_index;
       const matched = rule?.options?.[position]?.[idx];
-      return matched
-        ? matched
-        : {
-            desp: `选项结果id: ${choice.select_index}`,
-            detail: '相同选项id的具体效果相同，可以通过多次触发事件进行确认。',
-            type: 'unknown',
-          };
+      return (
+        matched ?? {
+          desp: `选项结果id: ${choice.select_index}`,
+          detail: '相同选项id的具体效果相同，可以通过多次触发事件进行确认。',
+          type: 'unknown',
+        }
+      );
     });
 
     return [

@@ -14,6 +14,7 @@ import { UMDB } from 'renderer/utils/umdb';
 import { getSupportCardSpecialtySummary } from 'utils/supportCardSpecialty';
 import FailureRateBadge from 'renderer/components/FailureRateBadge';
 import createImageIcon from 'renderer/components/Icon';
+import type { VenusModelAdvice } from 'renderer/utils/venusModel';
 
 interface TargetConfig {
   label: string;
@@ -115,6 +116,18 @@ const getStatConfig = (typeId: number): TargetConfig => {
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
+const getFiveStatStrength = (
+  params: Array<{ targetType: number; finalValue: number }>,
+) =>
+  params
+    .filter(
+      (param) =>
+        param.targetType >= TARGET_TYPE.SPEED &&
+        param.targetType <= TARGET_TYPE.WIZ &&
+        param.finalValue > 0,
+    )
+    .reduce((sum, param) => sum + param.finalValue, 0);
+
 const mergeParamsWithBonus = (
   baseParams: CommandParam[],
   bonusParams: CommandParam[],
@@ -160,6 +173,81 @@ const getStatKeyNameByTarget = (targetType: number) => {
   }
 };
 
+const getTrainingBonusByTarget = (
+  targetType: number,
+  activeModifierSummary: ReturnType<typeof getVenusTrainingModifierSummary>,
+) => {
+  switch (targetType) {
+    case TARGET_TYPE.SPEED:
+      return activeModifierSummary.speedBonus;
+    case TARGET_TYPE.STAMINA:
+      return activeModifierSummary.staminaBonus;
+    case TARGET_TYPE.POWER:
+      return activeModifierSummary.powerBonus;
+    case TARGET_TYPE.GUTS:
+      return activeModifierSummary.gutsBonus;
+    case TARGET_TYPE.WIZ:
+      return activeModifierSummary.wizBonus;
+    default:
+      return 0;
+  }
+};
+
+const getFragmentPreviewCount = (
+  spiritBinding?: VenusData['charaCommandInfo'][number],
+) => {
+  if (!spiritBinding?.spiritId) {
+    return 0;
+  }
+  return spiritBinding.isBoost === 1 ? 2 : 1;
+};
+
+const getProgressColor = (progress: number | null) => {
+  if (progress === null) {
+    return '';
+  }
+  if (progress >= 80) {
+    return 'bg-[#FFAD1E]';
+  }
+  if (progress >= 60) {
+    return 'bg-[#A2E61E]';
+  }
+  return 'bg-[#2AC0FF]';
+};
+
+const buildPartnerProbabilityLabel = ({
+  specialtySummary,
+  rainbowRate,
+  otherTrainingRate,
+  absentRate,
+  isVenusPassionShining,
+}: {
+  specialtySummary: ReturnType<typeof getSupportCardSpecialtySummary> | null;
+  rainbowRate: number | null;
+  otherTrainingRate: number | null;
+  absentRate: number | null;
+  isVenusPassionShining: boolean;
+}) => {
+  const lines: string[] = [];
+  if (
+    rainbowRate !== null &&
+    otherTrainingRate !== null &&
+    absentRate !== null &&
+    specialtySummary
+  ) {
+    lines.push(
+      `擅长率 ${specialtySummary.totalRate}`,
+      `彩圈概率 ${formatPercent(rainbowRate)}`,
+      `他训概率 ${formatPercent(otherTrainingRate)}`,
+      `外出概率 ${formatPercent(absentRate)}`,
+    );
+  }
+  if (isVenusPassionShining) {
+    lines.push('情热状态：女神支援卡强制彩圈');
+  }
+  return lines.length > 0 ? lines.join('\n') : null;
+};
+
 function StatTile({ value }: { value: number }) {
   return (
     <div className="flex min-w-[64px] flex-col">
@@ -173,6 +261,7 @@ function StatTile({ value }: { value: number }) {
 }
 
 const TOTAL_FRAGMENT_SLOTS = 8;
+const VENUS_SUPPORT_CARD_ID = 30137;
 
 const formatSpiritAssetId = (spiritId: number) =>
   String(spiritId).padStart(2, '0');
@@ -245,6 +334,40 @@ export function buildVenusFragmentSlots(
   return fragmentSlots;
 }
 
+function FragmentSlot({ slot }: { slot?: FragmentSlotData }) {
+  if (!slot?.spiritId) {
+    return (
+      <div className="aspect-[4/3.4] rounded-md border border-amber-100 bg-amber-50/70 shadow-inner" />
+    );
+  }
+
+  return (
+    <div
+      className={[
+        'relative aspect-[4/3.4] overflow-hidden rounded-md border bg-white shadow-sm',
+        slot.isPreview
+          ? 'border-2 border-fuchsia-500 bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 shadow-[0_0_0_2px_rgba(217,70,239,0.18),0_8px_18px_rgba(217,70,239,0.22)]'
+          : 'border-amber-200',
+        slot.isBoost ? 'ring-2 ring-orange-300' : '',
+      ].join(' ')}
+    >
+      {slot.isPreview ? (
+        <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-300/45 via-transparent to-pink-300/70" />
+      ) : null}
+      {slot.showDoubleBadge ? (
+        <div className="absolute right-0 top-0 z-10 rounded-bl-md bg-fuchsia-600 px-1 py-[1px] text-[9px] font-black leading-none text-white shadow-sm">
+          x2
+        </div>
+      ) : null}
+      <img
+        src={getSpiritIconPath(slot.spiritId)}
+        alt={`fragment-${slot.spiritId}`}
+        className={`h-full w-full object-contain p-1 ${slot.isPreview ? 'scale-105 opacity-95' : ''}`}
+      />
+    </div>
+  );
+}
+
 export function VenusFragmentGrid({ slots }: { slots: FragmentSlotData[] }) {
   return (
     <div className="grid w-[92px] shrink-0 grid-cols-2 gap-1.5 self-center rounded-lg border border-amber-200 bg-amber-50/70 p-1.5">
@@ -291,50 +414,20 @@ function TrainingFragmentPreview({
   );
 }
 
-function FragmentSlot({ slot }: { slot?: FragmentSlotData }) {
-  if (!slot?.spiritId) {
-    return (
-      <div className="aspect-[4/3.4] rounded-md border border-amber-100 bg-amber-50/70 shadow-inner" />
-    );
-  }
-
-  return (
-    <div
-      className={[
-        'relative aspect-[4/3.4] overflow-hidden rounded-md border bg-white shadow-sm',
-        slot.isPreview
-          ? 'border-2 border-fuchsia-500 bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 shadow-[0_0_0_2px_rgba(217,70,239,0.18),0_8px_18px_rgba(217,70,239,0.22)]'
-          : 'border-amber-200',
-        slot.isBoost ? 'ring-2 ring-orange-300' : '',
-      ].join(' ')}
-    >
-      {slot.isPreview ? (
-        <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-300/45 via-transparent to-pink-300/70" />
-      ) : null}
-      {slot.showDoubleBadge ? (
-        <div className="absolute right-0 top-0 z-10 rounded-bl-md bg-fuchsia-600 px-1 py-[1px] text-[9px] font-black leading-none text-white shadow-sm">
-          x2
-        </div>
-      ) : null}
-      <img
-        src={getSpiritIconPath(slot.spiritId)}
-        alt={`fragment-${slot.spiritId}`}
-        className={`h-full w-full object-contain p-1 ${slot.isPreview ? 'scale-105 opacity-95' : ''}`}
-      />
-    </div>
-  );
-}
-
 export default function VenusCupTrainingCard({
   command,
   venusData,
   partnerStats,
   currentStats,
+  venusPassionActive,
+  modelAdvice,
 }: {
   command: TrainingCommand;
   venusData?: VenusData;
   partnerStats: PartnerStats;
   currentStats?: CharStats;
+  venusPassionActive?: boolean;
+  modelAdvice?: VenusModelAdvice;
 }) {
   const isDisabled = command.isEnable === 0;
   const name =
@@ -366,20 +459,13 @@ export default function VenusCupTrainingCard({
   const recovery = mergedParams.filter(
     (param) => param.targetType === TARGET_TYPE.VITAL && param.finalValue > 0,
   );
+  const fiveStatStrength = getFiveStatStrength(mergedParams);
   const mainConfig = getStatConfig(COMMAND_TARGET_TYPE_MAP[command.commandId]);
   const currentTrainingTargetType = COMMAND_TARGET_TYPE_MAP[command.commandId];
-  const currentTrainingBonus =
-    currentTrainingTargetType === TARGET_TYPE.SPEED
-      ? activeModifierSummary.speedBonus
-      : currentTrainingTargetType === TARGET_TYPE.STAMINA
-        ? activeModifierSummary.staminaBonus
-        : currentTrainingTargetType === TARGET_TYPE.POWER
-          ? activeModifierSummary.powerBonus
-          : currentTrainingTargetType === TARGET_TYPE.GUTS
-            ? activeModifierSummary.gutsBonus
-            : currentTrainingTargetType === TARGET_TYPE.WIZ
-              ? activeModifierSummary.wizBonus
-              : 0;
+  const currentTrainingBonus = getTrainingBonusByTarget(
+    currentTrainingTargetType,
+    activeModifierSummary,
+  );
   const mainStatKey =
     getStatKeyNameByTarget(COMMAND_TARGET_TYPE_MAP[command.commandId]) ??
     getStatKeyNameByTarget(
@@ -400,11 +486,7 @@ export default function VenusCupTrainingCard({
     venusData?.charaCommandInfo,
     command,
   );
-  const fragmentPreviewCount = spiritBinding?.spiritId
-    ? spiritBinding.isBoost === 1
-      ? 2
-      : 1
-    : 0;
+  const fragmentPreviewCount = getFragmentPreviewCount(spiritBinding);
 
   return (
     <button
@@ -422,6 +504,13 @@ export default function VenusCupTrainingCard({
           Lv{command.level}
         </div>
       )}
+
+      {modelAdvice ? (
+        <div className="absolute -right-3 -top-3 z-20 flex min-w-[58px] flex-col items-center rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-black leading-tight text-indigo-700 shadow">
+          <span>#{modelAdvice.rank}</span>
+          <span>{Math.round(modelAdvice.normalizedProbability * 100)}%</span>
+        </div>
+      ) : null}
 
       {command.failureRate > 0 && (
         <FailureRateBadge failureRate={command.failureRate} />
@@ -468,16 +557,24 @@ export default function VenusCupTrainingCard({
       <div className="rounded-b-lg bg-white p-3">
         <div className="min-w-0 space-y-2">
           <div className="space-y-1">
+            {fiveStatStrength > 0 ? (
+              <div className="flex items-center justify-between rounded-md border border-sky-100 bg-sky-50/70 px-2 py-1 text-sm">
+                <div className="flex items-center gap-1 text-sky-700">
+                  <span className="text-xs font-semibold">总</span>
+                </div>
+                <span className="text-base font-black text-sky-700 tabular-nums">
+                  {formatSigned(fiveStatStrength)}
+                </span>
+              </div>
+            ) : null}
             {gains.map((param, index) => {
               const conf = getStatConfig(param.targetType);
-              const Icon = conf.icon;
               return (
                 <div
                   key={`gain-${index}`}
                   className="flex items-center justify-between text-sm"
                 >
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <Icon size={18} className={conf.text} />
+                  <div className="flex items-center text-gray-600">
                     <span className="text-xs">{conf.label}</span>
                   </div>
                   {param.bonusValue !== 0 ? (
@@ -597,33 +694,34 @@ export default function VenusCupTrainingCard({
           const isMatchingTraining =
             COMMAND_TARGET_TYPE_MAP[supportCard?.commandId ?? 0] ===
             COMMAND_TARGET_TYPE_MAP[command.commandId];
+          const isVenusSupport =
+            partner?.supportCardId === VENUS_SUPPORT_CARD_ID;
+          const isVenusPassionShining = !!venusPassionActive && isVenusSupport;
           const isMotivated =
-            progress !== null && progress >= 80 && isMatchingTraining;
-          const rainbowRate = specialtySummary
-            ? specialtySummary.targetAppearanceRate
-            : null;
+            isVenusPassionShining ||
+            (!isVenusSupport &&
+              progress !== null &&
+              progress >= 80 &&
+              isMatchingTraining);
+          const rainbowRate =
+            specialtySummary && !isVenusSupport
+              ? specialtySummary.targetAppearanceRate
+              : null;
           const otherTrainingRate = specialtySummary
             ? specialtySummary.otherAppearanceRate
             : null;
           const absentRate = specialtySummary
             ? specialtySummary.absentRate
             : null;
-          const partnerProbabilityLabel =
-            rainbowRate !== null &&
-            otherTrainingRate !== null &&
-            absentRate !== null &&
-            specialtySummary
-              ? `擅长率 ${specialtySummary.totalRate}\n彩圈概率 ${formatPercent(rainbowRate)}\n他训概率 ${formatPercent(otherTrainingRate)}\n外出概率 ${formatPercent(absentRate)}`
-              : null;
+          const partnerProbabilityLabel = buildPartnerProbabilityLabel({
+            specialtySummary,
+            rainbowRate,
+            otherTrainingRate,
+            absentRate,
+            isVenusPassionShining,
+          });
           const isTip = command.tipsPartners?.includes(position);
-          const progressColor =
-            progress !== null &&
-            // eslint-disable-next-line no-nested-ternary
-            (progress >= 80
-              ? 'bg-[#FFAD1E]'
-              : progress >= 60
-                ? 'bg-[#A2E61E]'
-                : 'bg-[#2AC0FF]');
+          const progressColor = getProgressColor(progress);
 
           return (
             <div

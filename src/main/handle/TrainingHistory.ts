@@ -22,6 +22,12 @@ import { buildTrainingEstimate } from './trainingHistory/trainingEstimate';
 const CONFIG_FILE = 'training_history.config.json';
 const ANALYSIS_VERSION = 7;
 const DEFAULT_MAX_CACHED_RUNS = 50;
+const RECORD_FILE_PREFIX = 'training_history_';
+const RECORD_FILE_SUFFIX = '.json';
+const RECORD_META_FILE_SUFFIX = '.meta.json';
+const RECORD_PACKET_LOG_SUFFIX = '.jsonl';
+
+const liveRecordCache = new Map<string, TrainingHistoryRecord>();
 
 function ensureTrainingHistoryDir() {
   if (!fs.existsSync(TRAINING_HISTORY_DIR)) {
@@ -37,17 +43,32 @@ function sanitizeRecordId(id: string) {
   return id.replace(/[^\w-]+/g, '_');
 }
 
+function recordBaseName(id: string) {
+  return `${RECORD_FILE_PREFIX}${sanitizeRecordId(id)}`;
+}
+
 function recordPath(id: string) {
+  return path.join(TRAINING_HISTORY_DIR, `${recordBaseName(id)}${RECORD_FILE_SUFFIX}`);
+}
+
+function recordMetaPath(id: string) {
   return path.join(
     TRAINING_HISTORY_DIR,
-    `training_history_${sanitizeRecordId(id)}.json`,
+    `${recordBaseName(id)}${RECORD_META_FILE_SUFFIX}`,
+  );
+}
+
+function recordPacketLogPath(id: string) {
+  return path.join(
+    TRAINING_HISTORY_DIR,
+    `${recordBaseName(id)}${RECORD_PACKET_LOG_SUFFIX}`,
   );
 }
 
 function readConfig(): TrainingHistoryConfig {
   ensureTrainingHistoryDir();
   if (!fs.existsSync(configPath())) {
-    return { maxCachedRuns: DEFAULT_MAX_CACHED_RUNS };
+    return { maxCachedRuns: DEFAULT_MAX_CACHED_RUNS, favoriteIds: [] };
   }
 
   try {
@@ -55,35 +76,93 @@ function readConfig(): TrainingHistoryConfig {
       fs.readFileSync(configPath(), 'utf-8'),
     ) as Partial<TrainingHistoryConfig>;
     const maxCachedRuns = Number(parsed.maxCachedRuns);
+    const favoriteIds = Array.isArray(parsed.favoriteIds)
+      ? parsed.favoriteIds
+          .map((id) => String(id ?? '').trim())
+          .filter((id, index, array) => id.length > 0 && array.indexOf(id) === index)
+      : [];
     return {
       maxCachedRuns:
         Number.isFinite(maxCachedRuns) && maxCachedRuns > 0
           ? Math.floor(maxCachedRuns)
           : DEFAULT_MAX_CACHED_RUNS,
+      favoriteIds,
     };
   } catch (error) {
     log.error('[TrainingHistory] Failed to read config:', error);
-    return { maxCachedRuns: DEFAULT_MAX_CACHED_RUNS };
+    return { maxCachedRuns: DEFAULT_MAX_CACHED_RUNS, favoriteIds: [] };
   }
 }
 
 function writeConfig(config: TrainingHistoryConfig) {
   ensureTrainingHistoryDir();
+  const normalizedConfig: TrainingHistoryConfig = {
+    maxCachedRuns: Math.max(
+      1,
+      Math.floor(Number(config.maxCachedRuns) || DEFAULT_MAX_CACHED_RUNS),
+    ),
+    favoriteIds: Array.isArray(config.favoriteIds)
+      ? config.favoriteIds
+          .map((id) => String(id ?? '').trim())
+          .filter((id, index, array) => id.length > 0 && array.indexOf(id) === index)
+      : [],
+  };
   fs.writeFileSync(
     configPath(),
-    JSON.stringify(config, jsonReplacer, 2),
+    JSON.stringify(normalizedConfig, jsonReplacer, 2),
     'utf-8',
   );
 }
 
-function recordFiles() {
+function getFavoriteIdSet(config = readConfig()) {
+  return new Set(config.favoriteIds);
+}
+
+function applyFavorite(
+  record: TrainingHistoryRecord | null,
+  favoriteIds = getFavoriteIdSet(),
+) {
+  if (!record) return null;
+  record.favorite = favoriteIds.has(record.id);
+  return record;
+}
+
+function legacyRecordFiles() {
   ensureTrainingHistoryDir();
-  return fs
-    .readdirSync(TRAINING_HISTORY_DIR)
+  const files = fs.readdirSync(TRAINING_HISTORY_DIR);
+  const metaBaseNames = new Set(
+    files
+      .filter(
+        (file) =>
+          file.startsWith(RECORD_FILE_PREFIX)
+          && file.endsWith(RECORD_META_FILE_SUFFIX),
+      )
+      .map((file) => path.basename(file, RECORD_META_FILE_SUFFIX)),
+  );
+
+  return files
     .filter(
-      (file) => file.startsWith('training_history_') && file.endsWith('.json'),
+      (file) =>
+        file.startsWith(RECORD_FILE_PREFIX)
+        && file.endsWith(RECORD_FILE_SUFFIX)
+        && !file.endsWith(RECORD_META_FILE_SUFFIX)
+        && !metaBaseNames.has(path.basename(file, RECORD_FILE_SUFFIX)),
     )
     .map((file) => path.join(TRAINING_HISTORY_DIR, file));
+}
+
+function recordFiles() {
+  ensureTrainingHistoryDir();
+  const files = fs.readdirSync(TRAINING_HISTORY_DIR);
+  const metaFiles = files
+    .filter(
+      (file) =>
+        file.startsWith(RECORD_FILE_PREFIX)
+        && file.endsWith(RECORD_META_FILE_SUFFIX),
+    )
+    .map((file) => path.join(TRAINING_HISTORY_DIR, file));
+
+  return [...metaFiles, ...legacyRecordFiles()];
 }
 
 function readRecord(file: string): TrainingHistoryRecord | null {
@@ -91,30 +170,23 @@ function readRecord(file: string): TrainingHistoryRecord | null {
     const record = JSON.parse(
       fs.readFileSync(file, 'utf-8'),
     ) as TrainingHistoryRecord;
-    record.fullPath = file;
+    record.fullPath = recordPath(record.id);
     if (
-      record.analysis?.version !== ANALYSIS_VERSION &&
-      Array.isArray(record.packets)
+      record.analysis?.version !== ANALYSIS_VERSION
+      && Array.isArray(record.packets)
     ) {
       record.analysis = buildAnalysis(record);
-      record.summary = record.analysis.summary;
+      record.summary = {
+        ...record.analysis.summary,
+        updatedAt: record.updatedAt,
+      };
       fs.writeFileSync(file, JSON.stringify(record, jsonReplacer, 2), 'utf-8');
     }
-    return record;
+    return applyFavorite(record);
   } catch (error) {
     log.error('[TrainingHistory] Failed to parse record:', file, error);
     return null;
   }
-}
-
-function recomputeRecord(record: TrainingHistoryRecord) {
-  record.analysis = buildAnalysis(record);
-  record.summary = {
-    ...record.analysis.summary,
-    updatedAt: record.updatedAt,
-  };
-  writeRecord(record);
-  return record;
 }
 
 function toClientRecord(record: TrainingHistoryRecord): TrainingHistoryRecord {
@@ -122,6 +194,170 @@ function toClientRecord(record: TrainingHistoryRecord): TrainingHistoryRecord {
     ...record,
     packets: [],
   };
+}
+
+function readRecordSummary(file: string): TrainingHistoryRecord | null {
+  if (file.endsWith(RECORD_META_FILE_SUFFIX)) {
+    try {
+      const record = JSON.parse(
+        fs.readFileSync(file, 'utf-8'),
+      ) as TrainingHistoryRecord;
+      record.fullPath = recordPath(record.id);
+      record.packets = [];
+      return applyFavorite(record);
+    } catch (error) {
+      log.error('[TrainingHistory] Failed to parse record summary:', file, error);
+      return null;
+    }
+  }
+
+  const record = readRecord(file);
+  if (!record) return null;
+  migrateLegacyRecord(record);
+  return toClientRecord(record);
+}
+
+function readSummaryRecordById(id: string) {
+  const metaFile = recordMetaPath(id);
+  if (fs.existsSync(metaFile)) {
+    return readRecordSummary(metaFile);
+  }
+
+  const fullFile = recordPath(id);
+  if (!fs.existsSync(fullFile)) return null;
+  const record = readRecord(fullFile);
+  if (!record) return null;
+  migrateLegacyRecord(record);
+  return toClientRecord(record);
+}
+
+function readPacketsFromJsonl(file: string): TrainingHistoryPacket[] {
+  if (!fs.existsSync(file)) return [];
+  try {
+    return fs
+      .readFileSync(file, 'utf-8')
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as TrainingHistoryPacket);
+  } catch (error) {
+    log.error('[TrainingHistory] Failed to parse packet log:', file, error);
+    return [];
+  }
+}
+
+function writePacketsToJsonl(file: string, packets: TrainingHistoryPacket[]) {
+  const content = packets
+    .map((packet) => JSON.stringify(packet, jsonReplacer))
+    .join('\n');
+  fs.writeFileSync(file, content.length > 0 ? `${content}\n` : '', 'utf-8');
+}
+
+function appendPacketToJsonl(file: string, packet: TrainingHistoryPacket) {
+  fs.appendFileSync(file, `${JSON.stringify(packet, jsonReplacer)}\n`, 'utf-8');
+}
+
+function writeRecord(record: TrainingHistoryRecord) {
+  fs.writeFileSync(
+    record.fullPath,
+    JSON.stringify(record, jsonReplacer, 2),
+    'utf-8',
+  );
+}
+
+function writeRecordSummary(record: TrainingHistoryRecord) {
+  const summaryRecord: TrainingHistoryRecord = {
+    ...record,
+    fullPath: recordPath(record.id),
+    packets: [],
+  };
+  fs.writeFileSync(
+    recordMetaPath(record.id),
+    JSON.stringify(summaryRecord, jsonReplacer, 2),
+    'utf-8',
+  );
+}
+
+function deleteMaterializedRecord(id: string) {
+  const file = recordPath(id);
+  if (fs.existsSync(file)) {
+    fs.unlinkSync(file);
+  }
+}
+
+function isMaterializedRecordFresh(id: string) {
+  const fullFile = recordPath(id);
+  if (!fs.existsSync(fullFile)) return false;
+
+  const fullStat = fs.statSync(fullFile);
+  const metaFile = recordMetaPath(id);
+  const packetFile = recordPacketLogPath(id);
+
+  const metaFresh = !fs.existsSync(metaFile)
+    || fullStat.mtimeMs >= fs.statSync(metaFile).mtimeMs;
+  const packetFresh = !fs.existsSync(packetFile)
+    || fullStat.mtimeMs >= fs.statSync(packetFile).mtimeMs;
+  return metaFresh && packetFresh;
+}
+
+function materializeRecord(id: string): TrainingHistoryRecord | null {
+  const cached = liveRecordCache.get(id);
+  if (cached) return applyFavorite(cached);
+
+  if (isMaterializedRecordFresh(id)) {
+    const freshRecord = readRecord(recordPath(id));
+    if (freshRecord) {
+      liveRecordCache.set(id, freshRecord);
+    }
+    return applyFavorite(freshRecord);
+  }
+
+  const summaryRecord = readSummaryRecordById(id);
+  if (!summaryRecord) return null;
+
+  const packets = readPacketsFromJsonl(recordPacketLogPath(id));
+  if (packets.length === 0) {
+    const fallback = readRecord(recordPath(id));
+    if (fallback) {
+      migrateLegacyRecord(fallback);
+      liveRecordCache.set(id, fallback);
+      return applyFavorite(fallback);
+    }
+    return null;
+  }
+
+  const record: TrainingHistoryRecord = {
+    ...summaryRecord,
+    fullPath: recordPath(id),
+    packets,
+  };
+  record.analysis = buildAnalysis(record);
+  record.summary = {
+    ...record.analysis.summary,
+    updatedAt: record.updatedAt,
+  };
+  writeRecord(record);
+  writeRecordSummary(record);
+  liveRecordCache.set(id, record);
+  return applyFavorite(record);
+}
+
+function migrateLegacyRecord(record: TrainingHistoryRecord) {
+  const metaFile = recordMetaPath(record.id);
+  const packetFile = recordPacketLogPath(record.id);
+  if (!fs.existsSync(metaFile)) {
+    writeRecordSummary(record);
+  }
+  if (!fs.existsSync(packetFile)) {
+    writePacketsToJsonl(packetFile, record.packets);
+  }
+}
+
+function migrateAllLegacyRecords() {
+  legacyRecordFiles().forEach((file) => {
+    const record = readRecord(file);
+    if (!record) return;
+    migrateLegacyRecord(record);
+  });
 }
 
 function normalizeSingleModeData(data: Record<string, any>) {
@@ -161,8 +397,8 @@ function hasUncheckedEvents(uncheckedEventArray: any) {
 
 function hasExplicitTurnEntry(data: any) {
   return (
-    hasCommandResult(data?.command_result) ||
-    hasUncheckedEvents(data?.unchecked_event_array)
+    hasCommandResult(data?.command_result)
+    || hasUncheckedEvents(data?.unchecked_event_array)
   );
 }
 
@@ -275,19 +511,19 @@ function buildDelta(
 function hasMeaningfulDelta(delta: TrainingHistoryTurnDelta | null) {
   if (!delta) return false;
   return (
-    delta.speed !== 0 ||
-    delta.stamina !== 0 ||
-    delta.power !== 0 ||
-    delta.guts !== 0 ||
-    delta.wiz !== 0 ||
-    delta.skillPoint !== 0 ||
-    delta.motivation !== 0 ||
-    delta.vital !== 0 ||
-    delta.addedEffectIds.length > 0 ||
-    delta.removedEffectIds.length > 0 ||
-    delta.addedVenusSpirits.length > 0 ||
-    delta.removedVenusSpirits.length > 0 ||
-    delta.venusLevelChanges.length > 0
+    delta.speed !== 0
+    || delta.stamina !== 0
+    || delta.power !== 0
+    || delta.guts !== 0
+    || delta.wiz !== 0
+    || delta.skillPoint !== 0
+    || delta.motivation !== 0
+    || delta.vital !== 0
+    || delta.addedEffectIds.length > 0
+    || delta.removedEffectIds.length > 0
+    || delta.addedVenusSpirits.length > 0
+    || delta.removedVenusSpirits.length > 0
+    || delta.venusLevelChanges.length > 0
   );
 }
 
@@ -421,25 +657,38 @@ function buildAnalysis(
   };
 }
 
-function writeRecord(record: TrainingHistoryRecord) {
-  fs.writeFileSync(
-    record.fullPath,
-    JSON.stringify(record, jsonReplacer, 2),
-    'utf-8',
-  );
+function recomputeRecord(record: TrainingHistoryRecord) {
+  record.analysis = buildAnalysis(record);
+  record.summary = {
+    ...record.analysis.summary,
+    updatedAt: record.updatedAt,
+  };
+  writeRecord(record);
+  writeRecordSummary(record);
+  liveRecordCache.set(record.id, record);
+  return record;
 }
 
 function trimRecords() {
   const config = readConfig();
+  const favoriteIds = getFavoriteIdSet(config);
   const records = recordFiles()
-    .map(readRecord)
+    .map(readRecordSummary)
+    .filter((record): record is TrainingHistoryRecord => !!record)
+    .map((record) => applyFavorite(record, favoriteIds))
     .filter((record): record is TrainingHistoryRecord => !!record)
     .filter((record) => !record.favorite)
     .sort((a, b) => b.updatedAt - a.updatedAt);
 
   records.slice(config.maxCachedRuns).forEach((record) => {
     try {
-      fs.unlinkSync(record.fullPath);
+      [recordMetaPath(record.id), recordPacketLogPath(record.id), recordPath(record.id)]
+        .forEach((file) => {
+          if (fs.existsSync(file)) {
+            fs.unlinkSync(file);
+          }
+        });
+      liveRecordCache.delete(record.id);
     } catch (error) {
       log.error(
         '[TrainingHistory] Failed to trim record:',
@@ -475,14 +724,14 @@ export function handleTrainingHistoryInfo(
     payload: decodedData,
   };
 
-  const existing = fs.existsSync(fullPath) ? readRecord(fullPath) : null;
+  const existing = liveRecordCache.get(id) ?? materializeRecord(id);
   const record: TrainingHistoryRecord = existing ?? {
     id,
     filename,
     fullPath,
     createdAt: now,
     updatedAt: now,
-    favorite: false,
+    favorite: getFavoriteIdSet().has(id),
     summary: {
       viewerId,
       singleModeCharaId,
@@ -516,11 +765,16 @@ export function handleTrainingHistoryInfo(
   record.updatedAt = now;
   record.packets.push(packet);
   record.analysis = buildAnalysis(record);
-  record.summary = record.analysis.summary;
-  record.summary.updatedAt = now;
+  record.summary = {
+    ...record.analysis.summary,
+    updatedAt: now,
+  };
 
   try {
-    writeRecord(record);
+    appendPacketToJsonl(recordPacketLogPath(id), packet);
+    writeRecordSummary(record);
+    deleteMaterializedRecord(id);
+    liveRecordCache.set(id, record);
     trimRecords();
     win.webContents.send('training-history:new', toClientRecord(record));
   } catch (error) {
@@ -530,12 +784,22 @@ export function handleTrainingHistoryInfo(
 
 export function handleTrainingHistoryList(ipcMain: IpcMain) {
   ipcMain.handle('training-history:list', async () => {
+    migrateAllLegacyRecords();
+    const favoriteIds = getFavoriteIdSet();
     const records = recordFiles()
-      .map(readRecord)
+      .map(readRecordSummary)
+      .filter((record): record is TrainingHistoryRecord => !!record)
+      .map((record) => applyFavorite(record, favoriteIds))
       .filter((record): record is TrainingHistoryRecord => !!record)
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .map(toClientRecord);
     return records;
+  });
+
+  ipcMain.handle('training-history:get', async (_, id: string) => {
+    migrateAllLegacyRecords();
+    const record = materializeRecord(id);
+    return record ? toClientRecord(record) : null;
   });
 
   ipcMain.handle('training-history:config-get', async () => readConfig());
@@ -547,7 +811,11 @@ export function handleTrainingHistoryList(ipcMain: IpcMain) {
         1,
         Math.floor(Number(incoming?.maxCachedRuns) || DEFAULT_MAX_CACHED_RUNS),
       );
-      const config = { maxCachedRuns };
+      const currentConfig = readConfig();
+      const config = {
+        maxCachedRuns,
+        favoriteIds: currentConfig.favoriteIds,
+      };
       writeConfig(config);
       trimRecords();
       return config;
@@ -557,41 +825,75 @@ export function handleTrainingHistoryList(ipcMain: IpcMain) {
   ipcMain.handle(
     'training-history:favorite',
     async (_, id: string, favorite: boolean) => {
-      const file = recordPath(id);
-      const record = fs.existsSync(file) ? readRecord(file) : null;
+      const config = readConfig();
+      const favoriteIds = getFavoriteIdSet(config);
+      if (favorite) favoriteIds.add(id);
+      else favoriteIds.delete(id);
+
+      writeConfig({
+        ...config,
+        favoriteIds: Array.from(favoriteIds),
+      });
+
+      const record = readSummaryRecordById(id) ?? materializeRecord(id);
       if (!record) return null;
-      record.favorite = !!favorite;
-      writeRecord(record);
+      record.favorite = favoriteIds.has(id);
+      liveRecordCache.set(id, record);
       trimRecords();
       return toClientRecord(record);
     },
   );
 
   ipcMain.handle('training-history:open-folder', async (_, id: string) => {
-    const file = recordPath(id);
-    if (!fs.existsSync(file)) return false;
-    shell.showItemInFolder(file);
-    return true;
+    const fullFile = recordPath(id);
+    const metaFile = recordMetaPath(id);
+    if (fs.existsSync(fullFile)) {
+      shell.showItemInFolder(fullFile);
+      return true;
+    }
+    if (fs.existsSync(metaFile)) {
+      shell.showItemInFolder(metaFile);
+      return true;
+    }
+    return false;
   });
 
   ipcMain.handle('training-history:delete', async (_, ids: string[]) => {
+    const config = readConfig();
+    const favoriteIds = getFavoriteIdSet(config);
+
     ids.forEach((id) => {
-      const file = recordPath(id);
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
-      }
+      favoriteIds.delete(id);
+      liveRecordCache.delete(id);
+      [recordPath(id), recordMetaPath(id), recordPacketLogPath(id)].forEach(
+        (file) => {
+          if (fs.existsSync(file)) {
+            fs.unlinkSync(file);
+          }
+        },
+      );
     });
+
+    if (favoriteIds.size !== config.favoriteIds.length) {
+      writeConfig({
+        ...config,
+        favoriteIds: Array.from(favoriteIds),
+      });
+    }
+
     return true;
   });
 
   ipcMain.handle('training-history:recalculate', async (_, ids?: string[]) => {
-    const targetFiles =
-      Array.isArray(ids) && ids.length > 0
-        ? ids.map((id) => recordPath(id)).filter((file) => fs.existsSync(file))
-        : recordFiles();
+    const targetIds = Array.isArray(ids) && ids.length > 0
+      ? ids
+      : recordFiles()
+          .map(readRecordSummary)
+          .filter((record): record is TrainingHistoryRecord => !!record)
+          .map((record) => record.id);
 
-    const updatedRecords = targetFiles
-      .map(readRecord)
+    const updatedRecords = targetIds
+      .map((id) => materializeRecord(id))
       .filter((record): record is TrainingHistoryRecord => !!record)
       .map(recomputeRecord)
       .map(toClientRecord);
@@ -603,6 +905,7 @@ export function handleTrainingHistoryList(ipcMain: IpcMain) {
 export function ensureTrainingHistory() {
   ensureTrainingHistoryDir();
   if (!fs.existsSync(configPath())) {
-    writeConfig({ maxCachedRuns: DEFAULT_MAX_CACHED_RUNS });
+    writeConfig({ maxCachedRuns: DEFAULT_MAX_CACHED_RUNS, favoriteIds: [] });
   }
+  migrateAllLegacyRecords();
 }

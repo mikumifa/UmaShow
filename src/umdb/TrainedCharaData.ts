@@ -49,8 +49,9 @@ function calcRankScore(
   properDistances: Record<number, number>,
   properGrounds: Record<number, number>,
 ): number {
-  if (raceHorseData['rank_score']) {
-    return raceHorseData['rank_score'];
+  const rawRankScore = Number(raceHorseData['rank_score']);
+  if (Number.isFinite(rawRankScore) && rawRankScore > 0) {
+    return rawRankScore;
   }
 
   let rankScore = _.sumBy(
@@ -156,8 +157,17 @@ export function fromRaceHorseData(
 
   const turf = raceHorseData['proper_ground_turf'] ?? 0;
   const dirt = raceHorseData['proper_ground_dirt'] ?? 0;
+  const calculatedRankScore = calcRankScore(
+    raceHorseData,
+    statusPoints,
+    charaSkills,
+    skills,
+    properRunningStyles,
+    properDistances,
+    { 1: turf, 2: dirt },
+  );
   const rankScoreFallback =
-    raceHorseData['rank_score'] ?? raceHorseData['final_grade'];
+    raceHorseData['rank_score'] ?? raceHorseData['final_grade'] ?? 0;
 
   return {
     viewerId: raceHorseData['viewer_id'] ?? 0,
@@ -179,18 +189,8 @@ export function fromRaceHorseData(
     properGroundTurf: turf,
     properGroundDirt: dirt,
 
-    rankScore: calcRankScore(
-      {
-        ...raceHorseData,
-        rank_score: rankScoreFallback,
-      },
-      statusPoints,
-      charaSkills,
-      skills,
-      properRunningStyles,
-      properDistances,
-      { 1: turf, 2: dirt },
-    ),
+    rankScore:
+      calculatedRankScore > 0 ? calculatedRankScore : rankScoreFallback,
 
     rawData: raceHorseData,
   };

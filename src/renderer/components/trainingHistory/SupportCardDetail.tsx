@@ -40,7 +40,9 @@ export default function SupportCardDetail({
             {supportCardName(supportCardId)}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-gray-500">
-            <span>Lv.{level}/{maxLevel}</span>
+            <span>
+              Lv.{level}/{maxLevel}
+            </span>
             <span>突破 {limitBreak}</span>
             <span>擅长 {specialtySummary.totalRate}%</span>
           </div>
