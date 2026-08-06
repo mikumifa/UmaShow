@@ -3,6 +3,8 @@ import { BrowserWindow } from 'electron';
 import express from 'express';
 import type { Server as HttpServer } from 'http';
 import { extractCoreInfo } from './CoreInfo';
+import { persistDebugPacket } from './DebugPackets';
+import { persistLeaderboardSnapshotFromPacket } from './LeaderboardRanking';
 import { handleRaceInfo } from './RaceInfo';
 import { handleTrainingHistoryInfo } from './TrainingHistory';
 
@@ -19,6 +21,8 @@ export async function startExpressServer(
   const serverApp = express();
   let server: HttpServer | null = null;
   let currentPort = initialPort;
+  const isDebug =
+    process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
   serverApp.use(express.raw({ type: '*/*', limit: '50mb' }));
 
@@ -42,6 +46,10 @@ export async function startExpressServer(
           type: 'Info',
           message: `收到 Response 包 (${buffer.length} bytes)`,
         });
+        if (isDebug) {
+          persistDebugPacket(decoded, buffer);
+        }
+        persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
         handleTrainingHistoryInfo(decoded, _mainWindow);
         await extractCoreInfo(decoded, _mainWindow);
         // handleUncheckedEventInfo(decoded, mainWindow);

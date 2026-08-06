@@ -7,6 +7,7 @@ import HiddenNavigator from 'renderer/components/HiddenNavigator';
 import RaceList from 'renderer/ui/RaceList';
 import RaceStats from 'renderer/ui/RaceStats';
 import TrainingHistory from 'renderer/ui/TrainingHistory';
+import LeaderboardAnalysis from 'renderer/ui/LeaderboardAnalysis';
 
 export default function App() {
   return (
@@ -54,6 +55,28 @@ export default function App() {
               element={
                 <KeepAlive name="RaceStats" cacheKey="RaceStats">
                   <RaceStats />
+                </KeepAlive>
+              }
+            />
+            <Route
+              path="/loh"
+              element={
+                <KeepAlive
+                  name="LeaderboardAnalysis"
+                  cacheKey="LeaderboardAnalysis"
+                >
+                  <LeaderboardAnalysis />
+                </KeepAlive>
+              }
+            />
+            <Route
+              path="/leaderboard-analysis"
+              element={
+                <KeepAlive
+                  name="LeaderboardAnalysis"
+                  cacheKey="LeaderboardAnalysis"
+                >
+                  <LeaderboardAnalysis />
                 </KeepAlive>
               }
             />

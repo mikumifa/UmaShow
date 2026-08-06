@@ -14,8 +14,11 @@ interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
 
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
+
   checkForUpdates?: () => void | Promise<void>;
+
   getServerPort?: () => number;
+
   onServerPortChange?: (port: number) => void | Promise<void>;
 
   constructor(
@@ -79,7 +82,7 @@ export default class MenuBuilder {
           type: 'radio',
           checked: currentPort === port,
           click: () => {
-            void this.handleServerPortChange(port);
+            this.handleServerPortChange(port);
           },
         })),
       ],
@@ -117,7 +120,7 @@ export default class MenuBuilder {
         {
           label: '检查更新...',
           click: () => {
-            void this.checkForUpdates?.();
+            this.checkForUpdates?.();
           },
         },
         { type: 'separator' },
@@ -173,6 +176,12 @@ export default class MenuBuilder {
           label: 'Races',
           click: () => {
             this.mainWindow.webContents.send('navigate-to', { path: '/races' });
+          },
+        },
+        {
+          label: 'LOH',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', { path: '/loh' });
           },
         },
         {
@@ -280,6 +289,12 @@ export default class MenuBuilder {
         },
       },
       {
+        label: 'LOH',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', { path: '/loh' });
+        },
+      },
+      {
         label: 'Training History',
         click: () => {
           this.mainWindow.webContents.send('navigate-to', {
@@ -353,7 +368,7 @@ export default class MenuBuilder {
           {
             label: '检查更新...',
             click: () => {
-              void this.checkForUpdates?.();
+              this.checkForUpdates?.();
             },
           },
         ],

@@ -111,6 +111,19 @@ const electronHandler = {
     predict: (features: number[]) =>
       ipcRenderer.invoke('venus-model:predict', features),
   },
+  leaderboardRanking: {
+    latest: () => ipcRenderer.invoke('leaderboard-ranking:latest'),
+    onNew(callback: (data: any) => void) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+
+      ipcRenderer.on('leaderboard-ranking:new', subscription);
+
+      return () => {
+        ipcRenderer.removeListener('leaderboard-ranking:new', subscription);
+      };
+    },
+  },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),
     onLog(callback: (data: any) => void) {

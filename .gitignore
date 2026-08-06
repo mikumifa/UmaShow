@@ -29,3 +29,5 @@ npm-debug.log.*
 *.scss.d.ts
 
 __pycache__
+tmp
+debug_packets

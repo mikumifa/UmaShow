@@ -17,6 +17,7 @@ import {
   handleTrainingHistoryList,
 } from './handle/TrainingHistory';
 import { handleVenusModel } from './handle/VenusModel';
+import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -29,11 +30,12 @@ if (isDebug) {
   require('electron-debug').default();
   let port = '9223';
   if (process.env.MAIN_ARGS) {
-    port = (
+    const [, parsedPort] = (
       [...process.env.MAIN_ARGS.matchAll(/"[^"]+"|[^\s"]+/g)]
         .flat()
         .filter((str) => str.includes('debugging-port'))[0] || '=9223'
-    ).split('=')[1];
+    ).split('=');
+    port = parsedPort ?? port;
   }
   app.commandLine.appendSwitch('remote-debugging-port', port);
 }
@@ -121,11 +123,12 @@ const createWindow = async () => {
   appUpdater.checkForUpdates();
 };
 
-//race
+// race
 handleRaceList(ipcMain);
 handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
 handleVenusModel(ipcMain);
+handleLeaderboardRanking(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**
