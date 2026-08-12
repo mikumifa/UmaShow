@@ -3,9 +3,13 @@ import type { RaceMetaInfo } from 'types/gameTypes';
 import courseDataJson from '../../../assets/data/course_data.json';
 import {
   RaceSimulateEventData_SimulateEventType,
+  type RaceSimulateEventData,
   type RaceSimulateData,
 } from 'umdb/race_data_pb';
-import { filterCharaSkills } from 'umdb/RaceDataUtils';
+import {
+  filterCharaSkills,
+  filterCharaTargetedSkills,
+} from 'umdb/RaceDataUtils';
 import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 import { UMDB } from 'renderer/utils/umdb';
 import { resolveRaceSkillDurationParam } from 'renderer/utils/skillConditionEvaluator';
@@ -69,6 +73,24 @@ type BackgroundBandSegment = {
   text: string;
 };
 
+type SkillLaneKind = 'activated' | 'targeted' | 'race-event' | 'finish';
+
+type SkillLaneRow = {
+  key: string;
+  skillId?: number;
+  time: number;
+  name: string;
+  durationLabel: string;
+  isPermanent: boolean;
+  inferredFromSkillData: boolean;
+  baseDurations: number[];
+  durationSeconds: number;
+  displayDurationSeconds: number;
+  kind: SkillLaneKind;
+  isRangeKnown: boolean;
+  sourceName?: string;
+};
+
 const chartWidth = 1120;
 const chartHeight = 390;
 const chartPadding = { top: 28, right: 72, bottom: 52, left: 72 };
@@ -90,6 +112,50 @@ const raceTrackMainUsableWidthPercent =
   raceTrackOverflowRightPercent - raceTrackZeroPercent;
 const playbackSpeedStorageKey = 'raceTelemetryOverview.playSpeed';
 const courseData = courseDataJson as Record<string, CourseDataEntry>;
+
+function getOrderIconPath(rank: number | string | undefined) {
+  const numericRank = Number(rank);
+  if (!Number.isFinite(numericRank) || numericRank < 1) return undefined;
+  return `order/utx_txt_order_s_${String(numericRank - 1).padStart(2, '0')}.png`;
+}
+
+function getSkillLaneClassName(kind: SkillLaneKind, activeNow: boolean) {
+  if (kind === 'targeted') {
+    return activeNow
+      ? 'bg-rose-600 shadow-[0_0_0_1px_rgba(225,29,72,0.35)]'
+      : 'bg-orange-600/85';
+  }
+
+  if (kind === 'race-event') {
+    return activeNow
+      ? 'bg-teal-600 shadow-[0_0_0_1px_rgba(13,148,136,0.35)]'
+      : 'bg-teal-700/80';
+  }
+
+  if (kind === 'finish') {
+    return 'bg-red-600';
+  }
+
+  return activeNow
+    ? 'bg-violet-600 shadow-[0_0_0_1px_rgba(139,92,246,0.35)]'
+    : 'bg-slate-600/85';
+}
+
+function getSkillLaneColor(kind: SkillLaneKind, activeNow: boolean) {
+  if (kind === 'targeted') return activeNow ? '#e11d48' : '#ea580c';
+  if (kind === 'race-event') return activeNow ? '#0d9488' : '#0f766e';
+  if (kind === 'finish') return '#dc2626';
+  return activeNow ? '#7c3aed' : '#475569';
+}
+
+function getSkillLaneDisplayName(skill: SkillLaneRow) {
+  if (skill.kind === 'targeted') return `被${skill.name}`;
+  if (skill.kind === 'race-event' && !skill.isRangeKnown) {
+    return `开始${skill.name}`;
+  }
+  if (skill.kind === 'finish') return '有人完赛';
+  return skill.name;
+}
 
 const metricMeta: Record<
   MetricKey,
@@ -313,6 +379,8 @@ export default function RaceTelemetryOverview({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(() => readCachedPlaybackSpeed());
   const [showPermanentSkills, setShowPermanentSkills] = useState(false);
+  const [visibleRaceTrackFrameOrders, setVisibleRaceTrackFrameOrders] =
+    useState<Set<number> | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverLeft, setHoverLeft] = useState<number | null>(null);
   const [raceTrackViewportWidthPx, setRaceTrackViewportWidthPx] = useState(960);
@@ -534,6 +602,14 @@ export default function RaceTelemetryOverview({
     [raceData, selectedHorse],
   );
 
+  const targetedSkills = useMemo(
+    () =>
+      filterCharaTargetedSkills(raceData, selectedHorse).sort(
+        (left, right) => (left.frameTime ?? 0) - (right.frameTime ?? 0),
+      ),
+    [raceData, selectedHorse],
+  );
+
   const activeOtherRaceEvents = useMemo(
     () =>
       raceData.event
@@ -549,6 +625,28 @@ export default function RaceTelemetryOverview({
         ),
     [raceData.event, selectedHorse],
   );
+
+  const selectedHorseFinishRow = useMemo(() => {
+    const horseResult = raceData.horseResult[selectedHorse];
+    const finishTime = horseResult?.finishTimeRaw;
+    if (finishTime == null || !Number.isFinite(finishTime)) {
+      return null;
+    }
+
+    return {
+      key: `finish-${selectedHorse}-${finishTime}`,
+      time: finishTime,
+      name: '完赛',
+      durationLabel: `${finishTime.toFixed(2)}s`,
+      isPermanent: false,
+      inferredFromSkillData: false,
+      baseDurations: [],
+      durationSeconds: 0.6,
+      displayDurationSeconds: 0.6,
+      kind: 'finish' as const,
+      isRangeKnown: false,
+    };
+  }, [raceData.horseResult, selectedHorse]);
 
   const rankingRows = useMemo(
     () =>
@@ -979,12 +1077,31 @@ export default function RaceTelemetryOverview({
       }));
   }, [currentSnapshot.horses]);
 
+  const liveRankByFrameOrder = useMemo(
+    () =>
+      new Map(currentRanks.map((horse) => [horse.frameOrder, horse.liveRank])),
+    [currentRanks],
+  );
+
+  const visibleRaceTrackFrameOrderSet = useMemo(() => {
+    if (visibleRaceTrackFrameOrders != null) return visibleRaceTrackFrameOrders;
+    return new Set(currentSnapshot.horses.map((horse) => horse.frameOrder));
+  }, [currentSnapshot.horses, visibleRaceTrackFrameOrders]);
+
+  const displayedRaceTrackHorses = useMemo(
+    () =>
+      currentSnapshot.horses.filter((horse) =>
+        visibleRaceTrackFrameOrderSet.has(horse.frameOrder),
+      ),
+    [currentSnapshot.horses, visibleRaceTrackFrameOrderSet],
+  );
+
   const raceTrackTrailingDistance = useMemo(
     () =>
-      currentSnapshot.horses.length > 0
-        ? Math.min(...currentSnapshot.horses.map((horse) => horse.distance))
+      displayedRaceTrackHorses.length > 0
+        ? Math.min(...displayedRaceTrackHorses.map((horse) => horse.distance))
         : 0,
-    [currentSnapshot.horses],
+    [displayedRaceTrackHorses],
   );
 
   const raceTrackVisibleMeters = useMemo(() => {
@@ -995,10 +1112,10 @@ export default function RaceTelemetryOverview({
 
   const raceTrackLeadingDistance = useMemo(
     () =>
-      currentSnapshot.horses.length > 0
-        ? Math.max(...currentSnapshot.horses.map((horse) => horse.distance))
+      displayedRaceTrackHorses.length > 0
+        ? Math.max(...displayedRaceTrackHorses.map((horse) => horse.distance))
         : 0,
-    [currentSnapshot.horses],
+    [displayedRaceTrackHorses],
   );
 
   const raceTrackZeroDistance = useMemo(() => {
@@ -1011,11 +1128,11 @@ export default function RaceTelemetryOverview({
   ]);
 
   const raceTrackOverflowOrder = useMemo(() => {
-    return currentSnapshot.horses
+    return displayedRaceTrackHorses
       .filter((horse) => horse.distance < raceTrackZeroDistance)
       .sort((left, right) => left.distance - right.distance)
       .map((horse) => horse.frameOrder);
-  }, [currentSnapshot.horses, raceTrackZeroDistance]);
+  }, [displayedRaceTrackHorses, raceTrackZeroDistance]);
 
   const raceTrackOverflowIndexByFrameOrder = useMemo(
     () =>
@@ -1059,43 +1176,120 @@ export default function RaceTelemetryOverview({
     );
   };
 
-  const skillRows = useMemo(
-    () =>
-      activeSkills.map((skillEvent) => {
-        const resolvedDuration = resolveRaceSkillDurationParam(
-          skillEvent.param[1],
-          skillEvent.frameTime,
-          skillEvent.param[2],
-          inferredDistance,
-        );
-        const effectiveDurationParam = resolvedDuration.durationParam;
-        const durationSeconds =
-          resolvedDuration.isPermanent || effectiveDurationParam === -1
-            ? Math.max(maxTime - (skillEvent.frameTime ?? 0), 0.6)
-            : Math.max((effectiveDurationParam ?? 0) / 10000, 0.6);
-        const minimumDisplaySeconds =
-          (minimumSkillBarWidthPx / skillTimelineWidth) * Math.max(maxTime, 1);
+  const toggleRaceTrackFrameOrderVisibility = (frameOrder: number) => {
+    setVisibleRaceTrackFrameOrders((previous) => {
+      const next = new Set(
+        previous ?? currentSnapshot.horses.map((horse) => horse.frameOrder),
+      );
+      if (next.has(frameOrder)) {
+        next.delete(frameOrder);
+      } else {
+        next.add(frameOrder);
+      }
+      return next;
+    });
+  };
 
+  const skillRows = useMemo<SkillLaneRow[]>(() => {
+    const minimumDisplaySeconds =
+      (minimumSkillBarWidthPx / skillTimelineWidth) * Math.max(maxTime, 1);
+    const buildSkillRow = (
+      skillEvent: RaceSimulateEventData,
+      kind: Extract<SkillLaneKind, 'activated' | 'targeted'>,
+      index: number,
+    ): SkillLaneRow => {
+      const resolvedDuration = resolveRaceSkillDurationParam(
+        skillEvent.param[1],
+        skillEvent.frameTime,
+        skillEvent.param[2],
+        inferredDistance,
+      );
+      const effectiveDurationParam = resolvedDuration.durationParam;
+      const durationSeconds =
+        resolvedDuration.isPermanent || effectiveDurationParam === -1
+          ? Math.max(maxTime - (skillEvent.frameTime ?? 0), 0.6)
+          : Math.max((effectiveDurationParam ?? 0) / 10000, 0.6);
+      const sourceFrameOrder = skillEvent.param[0];
+
+      return {
+        key: `${kind}-${skillEvent.frameTime ?? 0}-${sourceFrameOrder}-${skillEvent.param[1]}-${skillEvent.param[2]}-${index}`,
+        skillId: skillEvent.param[1],
+        time: skillEvent.frameTime ?? 0,
+        name:
+          umdb.skillName(skillEvent.param[1]) ||
+          `Skill ${skillEvent.param[1]}`,
+        durationLabel: formatSkillDuration(effectiveDurationParam),
+        isPermanent: resolvedDuration.isPermanent,
+        inferredFromSkillData: resolvedDuration.inferredFromSkillData,
+        baseDurations: resolvedDuration.baseDurations,
+        durationSeconds,
+        displayDurationSeconds: Math.max(durationSeconds, minimumDisplaySeconds),
+        kind,
+        isRangeKnown: true,
+        sourceName:
+          kind === 'targeted'
+            ? buildHorseName(
+                displayNames[sourceFrameOrder] ?? '',
+                sourceFrameOrder,
+              )
+            : undefined,
+      };
+    };
+
+    const activatedRows = activeSkills.map((skillEvent, index) =>
+      buildSkillRow(skillEvent, 'activated', index),
+    );
+    const targetedRows = targetedSkills.map((skillEvent, index) =>
+      buildSkillRow(skillEvent, 'targeted', index),
+    );
+    const raceEventRows: SkillLaneRow[] = activeOtherRaceEvents.map(
+      (event, index) => {
+        const time = event?.frameTime ?? 0;
+        const label = otherRaceEventLabels.get(event?.type!) ?? '事件';
+        const durationSeconds = Math.max(1.2, minimumDisplaySeconds);
         return {
-          key: `${skillEvent.frameTime ?? 0}-${skillEvent.param[1]}-${skillEvent.param[2]}`,
-          skillId: skillEvent.param[1],
-          time: skillEvent.frameTime ?? 0,
-          name:
-            umdb.skillName(skillEvent.param[1]) ||
-            `Skill ${skillEvent.param[1]}`,
-          durationLabel: formatSkillDuration(effectiveDurationParam),
-          isPermanent: resolvedDuration.isPermanent,
-          inferredFromSkillData: resolvedDuration.inferredFromSkillData,
-          baseDurations: resolvedDuration.baseDurations,
+          key: `race-event-${event?.type}-${time}-${index}`,
+          time,
+          name: label,
+          durationLabel: `${time.toFixed(2)}s`,
+          isPermanent: false,
+          inferredFromSkillData: false,
+          baseDurations: [],
           durationSeconds,
-          displayDurationSeconds: Math.max(
-            durationSeconds,
-            minimumDisplaySeconds,
-          ),
+          displayDurationSeconds: durationSeconds,
+          kind: 'race-event',
+          isRangeKnown: false,
         };
-      }),
-    [activeSkills, inferredDistance, maxTime, umdb],
-  );
+      },
+    );
+    const finishRows: SkillLaneRow[] = selectedHorseFinishRow
+      ? [
+          {
+            ...selectedHorseFinishRow,
+            displayDurationSeconds: Math.max(
+              selectedHorseFinishRow.displayDurationSeconds,
+              minimumDisplaySeconds,
+            ),
+          },
+        ]
+      : [];
+
+    return [
+      ...activatedRows,
+      ...targetedRows,
+      ...raceEventRows,
+      ...finishRows,
+    ].sort((left, right) => left.time - right.time);
+  }, [
+    activeOtherRaceEvents,
+    activeSkills,
+    displayNames,
+    inferredDistance,
+    maxTime,
+    selectedHorseFinishRow,
+    targetedSkills,
+    umdb,
+  ]);
 
   const timedSkillRows = useMemo(
     () => skillRows.filter((skill) => !skill.isPermanent),
@@ -1260,8 +1454,8 @@ export default function RaceTelemetryOverview({
   return (
     <div className="w-full px-1 xl:px-2">
       <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(15,118,110,0.10),_transparent_28%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)]">
-        <div className="grid items-start gap-6 px-5 py-5 2xl:grid-cols-[340px_minmax(0,1fr)] 2xl:px-6 2xl:py-6">
-          <aside className="sticky top-4 flex max-h-[calc(100vh-3rem)] min-h-0 flex-col gap-5 self-start">
+        <div className="grid items-stretch gap-6 px-5 py-5 2xl:grid-cols-[340px_minmax(0,1fr)] 2xl:px-6 2xl:py-6">
+          <aside className="sticky top-4 flex max-h-[calc(100vh-3rem)] min-h-0 flex-col gap-5 self-stretch">
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <div>
@@ -1402,8 +1596,8 @@ export default function RaceTelemetryOverview({
               ) : null}
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
+            <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-semibold text-slate-900">赛道</h4>
                   <p className="text-xs text-slate-500">
@@ -1412,60 +1606,98 @@ export default function RaceTelemetryOverview({
                 </div>
                 <div className="text-xs text-slate-500">{horseCount} 人</div>
               </div>
-              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                {rankingRows.map((row) => (
-                  <button
-                    key={row.frameOrder}
-                    type="button"
-                    onClick={() => setSelectedHorse(row.frameOrder)}
-                    className={`w-full rounded-2xl border px-3 py-2.5 text-left transition shadow-sm ${
-                      selectedHorse === row.frameOrder
-                        ? 'text-white'
-                        : 'text-slate-800'
-                    }`}
-                    style={{
-                      backgroundColor:
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                {rankingRows.map((row) => {
+                  const liveRank = liveRankByFrameOrder.get(row.frameOrder);
+                  const orderIconPath = getOrderIconPath(liveRank);
+                  const visible = visibleRaceTrackFrameOrderSet.has(
+                    row.frameOrder,
+                  );
+                  return (
+                    <div
+                      key={row.frameOrder}
+                      className={`flex w-full items-center gap-2 rounded-2xl border px-3 py-2.5 text-left transition shadow-sm ${
                         selectedHorse === row.frameOrder
-                          ? `${row.color}E6`
-                          : `${row.color}1A`,
-                      borderColor:
-                        selectedHorse === row.frameOrder
-                          ? row.color
-                          : `${row.color}55`,
-                    }}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="relative h-9 w-9 flex-none overflow-hidden rounded-full">
-                        {iconPathByFrameOrder[row.frameOrder] ? (
-                          <AssetIcon
-                            path={iconPathByFrameOrder[row.frameOrder]!}
-                            alt={row.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="h-full w-full rounded-full"
-                            style={{ backgroundColor: row.color }}
-                          />
-                        )}
-                        <span
-                          className="absolute left-1/2 top-1/2 inline-flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full px-1.5 text-xs font-black leading-none text-white"
-                          style={{
-                            backgroundColor:
-                              selectedHorse === row.frameOrder
-                                ? '#dc2626'
-                                : raceNumberAccent,
-                          }}
-                        >
-                          {row.frameOrder + 1}
-                        </span>
-                      </div>
-                      <div className="truncate text-sm font-semibold">
-                        {row.name}
-                      </div>
+                          ? 'text-white'
+                          : 'text-slate-800'
+                      }`}
+                      style={{
+                        backgroundColor:
+                          selectedHorse === row.frameOrder
+                            ? `${row.color}E6`
+                            : `${row.color}1A`,
+                        borderColor:
+                          selectedHorse === row.frameOrder
+                            ? row.color
+                            : `${row.color}55`,
+                        opacity: visible ? 1 : 0.48,
+                      }}
+                    >
+                      <button
+                        key={row.frameOrder}
+                        type="button"
+                        onClick={() => setSelectedHorse(row.frameOrder)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="relative h-9 w-9 flex-none overflow-hidden rounded-full">
+                            {iconPathByFrameOrder[row.frameOrder] ? (
+                              <AssetIcon
+                                path={iconPathByFrameOrder[row.frameOrder]!}
+                                alt={row.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div
+                                className="h-full w-full rounded-full"
+                                style={{ backgroundColor: row.color }}
+                              />
+                            )}
+                            <span
+                              className="absolute left-1/2 top-1/2 inline-flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full px-1.5 text-xs font-black leading-none text-white"
+                              style={{
+                                backgroundColor:
+                                  selectedHorse === row.frameOrder
+                                    ? '#dc2626'
+                                    : raceNumberAccent,
+                              }}
+                            >
+                              {row.frameOrder + 1}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1 truncate text-sm font-semibold">
+                            {row.name}
+                          </div>
+                          <div className="h-5 w-8 flex-none">
+                            {orderIconPath ? (
+                              <AssetIcon
+                                path={orderIconPath}
+                                alt={`${liveRank}名`}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <div className="h-full w-full" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleRaceTrackFrameOrderVisibility(row.frameOrder)
+                        }
+                        className={`flex-none rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                          visible
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
+                        }`}
+                        title="控制是否显示在下方具体位置图"
+                      >
+                        {visible ? '显示' : '隐藏'}
+                      </button>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </aside>
@@ -1567,7 +1799,11 @@ export default function RaceTelemetryOverview({
                     strokeWidth="1"
                   />
 
-                  {linePaths.map((line) => {
+                  {linePaths
+                    .filter((line) =>
+                      visibleRaceTrackFrameOrderSet.has(line.frameOrder),
+                    )
+                    .map((line) => {
                     const selected = line.frameOrder === selectedHorse;
                     return (
                       <path
@@ -1606,6 +1842,16 @@ export default function RaceTelemetryOverview({
                           strokeDasharray="4 4"
                           strokeWidth="1.6"
                         />
+                        <text
+                          x={getX(finishTime)}
+                          y={chartPadding.top + 26}
+                          textAnchor="middle"
+                          fontSize="9"
+                          fontWeight="700"
+                          fill="#dc2626"
+                        >
+                          有人完赛
+                        </text>
                         <title>
                           {`${buildHorseName(
                             displayNames[frameOrder] ?? '',
@@ -1754,6 +2000,9 @@ export default function RaceTelemetryOverview({
                     </div>
                     <div className="max-h-96 space-y-1.5 overflow-y-auto pr-1">
                       {[...hoverDisplaySnapshot.horses]
+                        .filter((horse) =>
+                          visibleRaceTrackFrameOrderSet.has(horse.frameOrder),
+                        )
                         .sort(
                           (left, right) =>
                             metricMeta[selectedMetric].getValue(right) -
@@ -1890,14 +2139,33 @@ export default function RaceTelemetryOverview({
                                   currentTime >= skill.time &&
                                   currentTime <=
                                     skill.time + skill.durationSeconds;
+                                const displayName =
+                                  getSkillLaneDisplayName(skill);
+                                const laneColor = getSkillLaneColor(
+                                  skill.kind,
+                                  activeNow,
+                                );
+                                const title = [
+                                  displayName,
+                                  skill.sourceName
+                                    ? `来自 ${skill.sourceName}`
+                                    : null,
+                                  `${skill.time.toFixed(2)}s`,
+                                  skill.durationLabel,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' | ');
 
                                 return (
                                   <div
                                     key={skill.key}
-                                    className={`absolute top-0.5 h-4 overflow-hidden rounded px-1 text-[10px] font-medium leading-4 text-white ${
-                                      activeNow
-                                        ? 'bg-violet-600 shadow-[0_0_0_1px_rgba(139,92,246,0.35)]'
-                                        : 'bg-slate-600/85'
+                                    className={`absolute top-0.5 h-4 overflow-hidden rounded-r px-1 text-[10px] font-medium leading-4 text-white ${
+                                      skill.isRangeKnown
+                                        ? getSkillLaneClassName(
+                                            skill.kind,
+                                            activeNow,
+                                          )
+                                        : ''
                                     }`}
                                     style={{
                                       left: `${left}%`,
@@ -1905,10 +2173,16 @@ export default function RaceTelemetryOverview({
                                         Math.max(width, 0),
                                         100 - left,
                                       )}%`,
+                                      borderLeft: skill.isRangeKnown
+                                        ? undefined
+                                        : `3px solid ${laneColor}`,
+                                      background: skill.isRangeKnown
+                                        ? undefined
+                                        : `linear-gradient(90deg, ${laneColor}E6 0%, ${laneColor}99 42%, ${laneColor}00 100%)`,
                                     }}
-                                    title={`${skill.name} | ${skill.time.toFixed(2)}s | ${skill.durationLabel}`}
+                                    title={title}
                                   >
-                                    <div className="truncate">{skill.name}</div>
+                                    <div className="truncate">{displayName}</div>
                                   </div>
                                 );
                               })}
@@ -2020,7 +2294,7 @@ export default function RaceTelemetryOverview({
                       />
                     ))}
 
-                    {currentSnapshot.horses.map((horse) => {
+                    {displayedRaceTrackHorses.map((horse) => {
                       const finishOrder =
                         raceData.horseResult[horse.frameOrder]?.finishOrder ??
                         0;
@@ -2038,11 +2312,6 @@ export default function RaceTelemetryOverview({
                           : 12 +
                             (finishOrder / Math.max(horseCount - 1, 1)) * 76
                         : clamp((horse.lanePosition / 5500) * 100, 4, 96);
-                      const liveRank =
-                        currentRanks.find(
-                          (rankedHorse) =>
-                            rankedHorse.frameOrder === horse.frameOrder,
-                        )?.liveRank ?? '-';
                       const selected = horse.frameOrder === selectedHorse;
 
                       return (
@@ -2098,7 +2367,7 @@ export default function RaceTelemetryOverview({
                                     palette[horse.frameOrder % palette.length],
                                 }}
                               >
-                                {liveRank}
+                                {horse.frameOrder + 1}
                               </div>
                             )}
                             <div
