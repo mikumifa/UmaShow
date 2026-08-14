@@ -3,7 +3,7 @@ const { spawnSync } = require('child_process');
 
 const electronPath = require('electron');
 const rebuildEntry = require.resolve('@electron/rebuild');
-const rebuildCli = path.join(path.dirname(rebuildEntry), '..', 'cli.js');
+const rebuildCli = path.join(path.dirname(rebuildEntry), 'cli.js');
 const appDir = path.resolve('release/app');
 
 const result = spawnSync(
