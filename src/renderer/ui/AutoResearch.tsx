@@ -415,6 +415,38 @@ const LOCAL_PRESETS_KEY = 'autoResearch.presets';
 const DELETED_PRESETS_KEY = 'autoResearch.deletedPresets';
 const CAREER_SETTINGS_KEY = 'autoResearch.careerSettings';
 const LAST_ACCOUNT_KEY = 'autoResearch.lastLoggedInAccount';
+
+function getSharedStorageItem(key: string) {
+  const legacyValue = localStorage.getItem(key);
+  try {
+    const value = window.electron.autoResearch.getUiSetting(
+      key,
+      legacyValue,
+      window.location.origin,
+    );
+    if (value === null) {
+      localStorage.removeItem(key);
+    } else if (value !== legacyValue) {
+      localStorage.setItem(key, value);
+    }
+    return value;
+  } catch (error) {
+    console.error('Failed to read shared auto research setting:', error);
+    return legacyValue;
+  }
+}
+
+function setSharedStorageItem(key: string, value: string) {
+  localStorage.setItem(key, value);
+  try {
+    if (!window.electron.autoResearch.setUiSetting(key, value)) {
+      console.error('Failed to save shared auto research setting');
+    }
+  } catch (error) {
+    console.error('Failed to save shared auto research setting:', error);
+  }
+}
+
 const STAT_LABELS = ['速度', '耐力', '力量', '毅力', '智力'];
 const PERIOD_LABELS = [
   '初级年',
@@ -1822,7 +1854,7 @@ export default function AutoResearch() {
     loadUMDB().catch(() => undefined);
     try {
       const stored = JSON.parse(
-        localStorage.getItem(CAREER_SETTINGS_KEY) || '[]',
+        getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
       );
       if (Array.isArray(stored)) setCareerSettings(stored);
     } catch {
@@ -1859,11 +1891,11 @@ export default function AutoResearch() {
         let deletedPresetNames: string[] = [];
         try {
           const stored = JSON.parse(
-            localStorage.getItem(LOCAL_PRESETS_KEY) || '[]',
+            getSharedStorageItem(LOCAL_PRESETS_KEY) || '[]',
           );
           if (Array.isArray(stored)) localPresets = stored;
           const deleted = JSON.parse(
-            localStorage.getItem(DELETED_PRESETS_KEY) || '[]',
+            getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
           );
           if (Array.isArray(deleted)) deletedPresetNames = deleted;
         } catch {
@@ -1889,7 +1921,7 @@ export default function AutoResearch() {
             (preset) => preset.name !== DEFAULT_PRESET_NAME,
           ),
         ];
-        localStorage.setItem(
+        setSharedStorageItem(
           DELETED_PRESETS_KEY,
           JSON.stringify(
             deletedPresetNames.filter((name) => name !== DEFAULT_PRESET_NAME),
@@ -2876,11 +2908,11 @@ export default function AutoResearch() {
         item.name === preset.name ? preset : item,
       );
       setPresets(nextPresets);
-      localStorage.setItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+      setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
       const deletedPresetNames = JSON.parse(
-        localStorage.getItem(DELETED_PRESETS_KEY) || '[]',
+        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
       ) as string[];
-      localStorage.setItem(
+      setSharedStorageItem(
         DELETED_PRESETS_KEY,
         JSON.stringify(
           deletedPresetNames.filter((name) => name !== preset.name),
@@ -2953,7 +2985,7 @@ export default function AutoResearch() {
       };
       const nextPresets = [...presets, importedPreset];
       setPresets(nextPresets);
-      localStorage.setItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+      setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
       setPresetName(name);
       setPresetEditorOpen(true);
       setPresetSaved(false);
@@ -3009,17 +3041,17 @@ export default function AutoResearch() {
     }
     const nextPresets = [...presets, createDefaultPreset(name)];
     setPresets(nextPresets);
-    localStorage.setItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+    setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
     let deletedPresetNames: string[] = [];
     try {
       const stored = JSON.parse(
-        localStorage.getItem(DELETED_PRESETS_KEY) || '[]',
+        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
       );
       if (Array.isArray(stored)) deletedPresetNames = stored;
     } catch {
       deletedPresetNames = [];
     }
-    localStorage.setItem(
+    setSharedStorageItem(
       DELETED_PRESETS_KEY,
       JSON.stringify(deletedPresetNames.filter((item) => item !== name)),
     );
@@ -3046,7 +3078,7 @@ export default function AutoResearch() {
       preset.name === currentName ? { ...preset, name } : preset,
     );
     setPresets(nextPresets);
-    localStorage.setItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+    setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
 
     const nextCareerSettings = careerSettings.map((setting) =>
       setting.preset_name === currentName
@@ -3054,7 +3086,7 @@ export default function AutoResearch() {
         : setting,
     );
     setCareerSettings(nextCareerSettings);
-    localStorage.setItem(
+    setSharedStorageItem(
       CAREER_SETTINGS_KEY,
       JSON.stringify(nextCareerSettings),
     );
@@ -3062,13 +3094,13 @@ export default function AutoResearch() {
     let deletedPresetNames: string[] = [];
     try {
       const stored = JSON.parse(
-        localStorage.getItem(DELETED_PRESETS_KEY) || '[]',
+        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
       );
       if (Array.isArray(stored)) deletedPresetNames = stored;
     } catch {
       deletedPresetNames = [];
     }
-    localStorage.setItem(
+    setSharedStorageItem(
       DELETED_PRESETS_KEY,
       JSON.stringify(
         Array.from(
@@ -3103,17 +3135,17 @@ export default function AutoResearch() {
     if (!window.confirm(`确定删除预设“${name}”吗？`)) return;
     const nextPresets = presets.filter((preset) => preset.name !== name);
     setPresets(nextPresets);
-    localStorage.setItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+    setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
     let deletedPresetNames: string[] = [];
     try {
       const stored = JSON.parse(
-        localStorage.getItem(DELETED_PRESETS_KEY) || '[]',
+        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
       );
       if (Array.isArray(stored)) deletedPresetNames = stored;
     } catch {
       deletedPresetNames = [];
     }
-    localStorage.setItem(
+    setSharedStorageItem(
       DELETED_PRESETS_KEY,
       JSON.stringify(Array.from(new Set([...deletedPresetNames, name]))),
     );
@@ -3124,7 +3156,7 @@ export default function AutoResearch() {
 
   const persistCareerSettings = (nextSettings: CareerSetting[]) => {
     setCareerSettings(nextSettings);
-    localStorage.setItem(CAREER_SETTINGS_KEY, JSON.stringify(nextSettings));
+    setSharedStorageItem(CAREER_SETTINGS_KEY, JSON.stringify(nextSettings));
   };
 
   const applyCareerSetting = (settingId: string) => {

@@ -19,6 +19,7 @@ import {
 import { handleVenusModel } from './handle/VenusModel';
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
+import { handleAutoResearchUiSettings } from './handle/AutoResearchUiSettings';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -131,6 +132,7 @@ handleDataLoad(ipcMain);
 handleVenusModel(ipcMain);
 handleLeaderboardRanking(ipcMain);
 handleAutoResearchCredentials(ipcMain);
+handleAutoResearchUiSettings(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**

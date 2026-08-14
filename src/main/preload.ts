@@ -125,6 +125,19 @@ const electronHandler = {
     },
   },
   autoResearch: {
+    getUiSetting: (key: string, legacyValue: string | null, source: string) =>
+      ipcRenderer.sendSync(
+        'autoresearch:ui-setting-get',
+        key,
+        legacyValue,
+        source,
+      ) as string | null,
+    setUiSetting: (key: string, value: string) =>
+      ipcRenderer.sendSync(
+        'autoresearch:ui-setting-set',
+        key,
+        value,
+      ) as boolean,
     credentials: () => ipcRenderer.invoke('autoresearch:credentials-list'),
     accounts: () => ipcRenderer.invoke('autoresearch:accounts-list'),
     saveAccounts: (
