@@ -100,6 +100,16 @@ type Runner = {
     daily_completed_runs: number;
     stop_reason: string;
   };
+  daily_jewel_schedule?: {
+    enabled: boolean;
+    target: number;
+    start_time: string;
+    end_time: string;
+    status: string;
+    last_error: string;
+    daily_jewel_drop_count: number;
+    updated_at: string;
+  };
   jewel_history?: Array<{
     turn: number;
     program_id: number;
@@ -308,7 +318,12 @@ type CareerSetting = {
   updated_at: string;
 };
 
-type RunMode = 'single' | 'continuous' | 'daily_count' | 'jewel_drops';
+type RunMode =
+  | 'single'
+  | 'continuous'
+  | 'daily_count'
+  | 'jewel_drops'
+  | 'daily_jewel_schedule';
 
 type PendingRun = { type: 'current' } | { type: 'saved'; settingId: string };
 
@@ -1128,8 +1143,24 @@ function runModeLabel(mode?: RunMode) {
     continuous: '持续运行',
     daily_count: '每日运行次数',
     jewel_drops: '宝石掉落目标',
+    daily_jewel_schedule: '每日宝石计划',
   };
   return labels[mode || 'single'];
+}
+
+function dailyJewelScheduleStatusLabel(status?: string) {
+  const labels: Record<string, string> = {
+    waiting: '等待启动时间',
+    waiting_login: '等待账号登录',
+    starting: '正在启动',
+    running: '运行中',
+    occupied: '等待当前操作结束',
+    retry_wait: '稍后重试',
+    completed: '今日已完成',
+    disabled: '已停止',
+    invalid: '时间设置无效',
+  };
+  return labels[String(status || '')] || '等待启动时间';
 }
 
 function careerReportStatusLabel(status?: string) {
@@ -1273,6 +1304,7 @@ export default function AutoResearch() {
   const sessionTokens = useRef(new Map<string, string>());
   const autoConnectAttempted = useRef(false);
   const autoLoginAttempted = useRef('');
+  const activeLoginOperation = useRef('');
   const accountActionRef = useRef<
     | ((
         accountId: string,
@@ -1302,6 +1334,8 @@ export default function AutoResearch() {
   const [runMode, setRunMode] = useState<RunMode>('single');
   const [dailyRunTarget, setDailyRunTarget] = useState(3);
   const [jewelDropTarget, setJewelDropTarget] = useState(20);
+  const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
+  const [scheduleEndTime, setScheduleEndTime] = useState('23:59');
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [skillSelections, setSkillSelections] = useState<SkillSelectionEntry[]>(
     [],
@@ -1370,7 +1404,10 @@ export default function AutoResearch() {
     runner?.stopping || stoppingAccountId === selectedAccountId,
   );
   const runnerSessionWaiting = Boolean(runner?.session_waiting);
-  const automationActive = Boolean(runner?.running || runner?.run_plan?.active);
+  const dailyJewelSchedule = runner?.daily_jewel_schedule;
+  const automationActive = Boolean(
+    runner?.running || runner?.run_plan?.active || dailyJewelSchedule?.enabled,
+  );
   const dailyRunCount = runner?.run_plan?.daily_completed_runs || 0;
   const hasRunPlan = Boolean(
     runner?.run_plan?.active ||
@@ -2183,12 +2220,23 @@ export default function AutoResearch() {
     accountId: string,
     action: 'login' | 'logout' | 'refresh',
   ) => {
+    if (
+      (action === 'login' || action === 'refresh') &&
+      activeLoginOperation.current
+    ) {
+      setError('另一个账号正在登录或刷新，请等待当前操作完成');
+      return;
+    }
     setBusy(`${action}-${accountId}`);
     setError('');
     try {
       let result: SessionResponse | null = null;
       const authenticate = async (forceLogin = false, recoveryDetail = '') => {
         const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        if (activeLoginOperation.current) {
+          throw new Error('另一个账号正在登录，请等待当前登录完成');
+        }
+        activeLoginOperation.current = loginId;
         const startedAt = Date.now();
         let polling = true;
         setSelectedAccountId(accountId);
@@ -2250,6 +2298,9 @@ export default function AutoResearch() {
         } finally {
           polling = false;
           window.clearInterval(progressTimer);
+          if (activeLoginOperation.current === loginId) {
+            activeLoginOperation.current = '';
+          }
           setLoginProgress((current) =>
             current?.loginId === loginId ? null : current,
           );
@@ -2414,7 +2465,13 @@ export default function AutoResearch() {
   accountActionRef.current = accountAction;
 
   useEffect(() => {
-    if (!server || !accounts.length || loginProgress) return;
+    if (
+      !server ||
+      !accounts.length ||
+      loginProgress ||
+      activeLoginOperation.current
+    )
+      return;
     const accountId = localStorage.getItem(LAST_ACCOUNT_KEY) || '';
     if (!accountId) return;
     const account = accounts.find((item) => item.id === accountId);
@@ -2697,6 +2754,8 @@ export default function AutoResearch() {
             recover_tp_with_jewels: recoverTpWithJewels,
             run_mode: mode,
             run_target: target,
+            schedule_start_time: scheduleStartTime,
+            schedule_end_time: scheduleEndTime,
             preset_name: presetName,
             preset: draftPreset(),
             max_steps: maxSteps,
@@ -2768,6 +2827,8 @@ export default function AutoResearch() {
             recover_tp_with_jewels: setting.recover_tp_with_jewels,
             run_mode: mode,
             run_target: target,
+            schedule_start_time: scheduleStartTime,
+            schedule_end_time: scheduleEndTime,
             preset_name: setting.preset_name,
             preset,
             max_steps: setting.max_steps || 2500,
@@ -3296,11 +3357,15 @@ export default function AutoResearch() {
 
   const saveAndRunCareer = () => {
     if (!saveCareerSetting()) return;
+    setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
+    setScheduleEndTime(dailyJewelSchedule?.end_time || '23:59');
     setPendingRun({ type: 'current' });
     setRunDialogOpen(true);
   };
 
   const openSavedRunDialog = (settingId: string) => {
+    setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
+    setScheduleEndTime(dailyJewelSchedule?.end_time || '23:59');
     setPendingRun({ type: 'saved', settingId });
     setRunDialogOpen(true);
     setError('');
@@ -3308,10 +3373,17 @@ export default function AutoResearch() {
 
   const confirmRunPlan = async () => {
     if (!pendingRun) return;
+    if (
+      runMode === 'daily_jewel_schedule' &&
+      scheduleStartTime >= scheduleEndTime
+    ) {
+      setError('每日结束时间必须晚于启动时间');
+      return;
+    }
     const target =
       runMode === 'daily_count'
         ? Math.max(1, dailyRunTarget)
-        : runMode === 'jewel_drops'
+        : runMode === 'jewel_drops' || runMode === 'daily_jewel_schedule'
           ? Math.max(1, jewelDropTarget)
           : 1;
     let started = false;
@@ -3659,6 +3731,13 @@ export default function AutoResearch() {
                     detail: `从现在起累计指定次数的宝石掉落；本周期还可掉落 ${remainingJewelDrops} 次。`,
                     icon: Gem,
                   },
+                  {
+                    id: 'daily_jewel_schedule' as const,
+                    title: '每日宝石计划',
+                    detail:
+                      '每天在指定时间段内自动运行，达到每日目标或结束时间后停止。',
+                    icon: Gem,
+                  },
                 ].map((option) => {
                   const IconComponent = option.icon;
                   const disabled =
@@ -3679,6 +3758,8 @@ export default function AutoResearch() {
                           setJewelDropTarget(
                             Math.max(1, Math.min(20, remainingJewelDrops)),
                           );
+                        } else if (option.id === 'daily_jewel_schedule') {
+                          setJewelDropTarget(dailyJewelSchedule?.target || 20);
                         }
                       }}
                       className={`flex items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -3758,6 +3839,61 @@ export default function AutoResearch() {
                     达到目标后会在当前比赛结束处停止，未完成的育成之后可以继续。
                   </span>
                 </label>
+              ) : null}
+
+              {runMode === 'daily_jewel_schedule' ? (
+                <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-sm">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label>
+                      每日掉落目标
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={jewelDropTarget}
+                          onChange={(event) =>
+                            setJewelDropTarget(
+                              Math.max(
+                                1,
+                                Math.min(20, Number(event.target.value)),
+                              ),
+                            )
+                          }
+                          className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
+                        />
+                        <span className="whitespace-nowrap text-violet-700">
+                          次
+                        </span>
+                      </div>
+                    </label>
+                    <label>
+                      每日启动时间
+                      <input
+                        type="time"
+                        value={scheduleStartTime}
+                        onChange={(event) =>
+                          setScheduleStartTime(event.target.value)
+                        }
+                        className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
+                      />
+                    </label>
+                    <label>
+                      每日结束时间
+                      <input
+                        type="time"
+                        value={scheduleEndTime}
+                        onChange={(event) =>
+                          setScheduleEndTime(event.target.value)
+                        }
+                        className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-violet-700">
+                    时间使用北京时间。位于时间段内会立即开始；到达结束时间会停止当前自动操作，第二天到启动时间后继续。
+                  </p>
+                </section>
               ) : null}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
@@ -4060,7 +4196,10 @@ export default function AutoResearch() {
                           <button
                             type="button"
                             onClick={() => accountAction(account.id, 'refresh')}
-                            disabled={busy === `refresh-${account.id}`}
+                            disabled={
+                              Boolean(loginProgress) ||
+                              busy === `refresh-${account.id}`
+                            }
                             className="rounded-lg bg-white px-2 py-1 text-xs disabled:opacity-50"
                           >
                             <RefreshCw
@@ -4084,13 +4223,15 @@ export default function AutoResearch() {
                         <button
                           type="button"
                           onClick={() => accountAction(account.id, 'login')}
-                          disabled={loginProgress?.accountId === account.id}
+                          disabled={Boolean(loginProgress)}
                           className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                         >
                           <LogIn className="mr-1 inline" size={12} />
                           {loginProgress?.accountId === account.id
                             ? `登录中 ${loginProgress.elapsed}s`
-                            : '登录'}
+                            : loginProgress
+                              ? '等待登录'
+                              : '登录'}
                         </button>
                       )}
                       <button
@@ -4133,12 +4274,14 @@ export default function AutoResearch() {
                       selectedAccount &&
                       accountAction(selectedAccount.id, 'login')
                     }
-                    disabled={loginProgress?.accountId === selectedAccount?.id}
+                    disabled={Boolean(loginProgress)}
                     className="rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
                   >
                     {loginProgress?.accountId === selectedAccount?.id
                       ? `登录中 ${loginProgress?.elapsed || 0}s · ${loginProgress?.detail || '正在连接登录服务'}`
-                      : '登录账号'}
+                      : loginProgress
+                        ? '请等待其他账号登录完成'
+                        : '登录账号'}
                   </button>
                   <button
                     type="button"
@@ -6475,6 +6618,27 @@ export default function AutoResearch() {
                           ))}
                         </div>
 
+                        {dailyJewelSchedule?.enabled ? (
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
+                            <div>
+                              <span className="font-semibold text-violet-800">
+                                每日宝石计划
+                              </span>
+                              <span className="ml-2 text-xs text-violet-600">
+                                {dailyJewelSchedule.start_time}–
+                                {dailyJewelSchedule.end_time} · 今日{' '}
+                                {dailyJewelSchedule.daily_jewel_drop_count}/
+                                {dailyJewelSchedule.target} 次
+                              </span>
+                            </div>
+                            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
+                              {dailyJewelScheduleStatusLabel(
+                                dailyJewelSchedule.status,
+                              )}
+                            </span>
+                          </div>
+                        ) : null}
+
                         {runner?.run_plan && hasRunPlan ? (
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-sm">
                             <div>
@@ -6594,18 +6758,46 @@ export default function AutoResearch() {
                       <div>
                         <Activity
                           size={38}
-                          className={`mx-auto ${runner?.run_plan?.active ? 'animate-pulse text-indigo-300' : 'text-slate-300'}`}
+                          className={`mx-auto ${automationActive ? 'animate-pulse text-indigo-300' : 'text-slate-300'}`}
                         />
                         <h2 className="mt-4 font-bold text-slate-700">
-                          {runner?.run_plan?.active
-                            ? '正在准备下一次育成'
-                            : '当前没有进行中的养马'}
+                          {dailyJewelSchedule?.enabled
+                            ? dailyJewelSchedule.status === 'completed'
+                              ? '今日宝石目标已完成'
+                              : `每日宝石计划：${dailyJewelScheduleStatusLabel(
+                                  dailyJewelSchedule.status,
+                                )}`
+                            : runner?.run_plan?.active
+                              ? '正在准备下一次育成'
+                              : '当前没有进行中的养马'}
                         </h2>
                         <p className="mt-1 text-sm text-slate-400">
-                          {runner?.run_plan?.active
-                            ? '新的育成开始后，这里会显示实时状态。'
-                            : '开始或继续育成后，这里会显示当前属性和流程。'}
+                          {dailyJewelSchedule?.enabled
+                            ? `每日 ${dailyJewelSchedule.start_time}–${dailyJewelSchedule.end_time} 运行，今天 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次掉落。`
+                            : runner?.run_plan?.active
+                              ? '新的育成开始后，这里会显示实时状态。'
+                              : '开始或继续育成后，这里会显示当前属性和流程。'}
                         </p>
+                        {dailyJewelSchedule?.last_error ? (
+                          <p className="mt-2 text-xs text-red-500">
+                            {dailyJewelSchedule.last_error}
+                          </p>
+                        ) : null}
+                        {dailyJewelSchedule?.enabled ? (
+                          <button
+                            type="button"
+                            onClick={stopCareer}
+                            disabled={runnerStopping || busy === 'stop'}
+                            className="mt-5 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {runnerStopping ? (
+                              <RefreshCw size={16} className="animate-spin" />
+                            ) : (
+                              <CircleStop size={16} />
+                            )}
+                            {runnerStopping ? '正在停止…' : '停止每日计划'}
+                          </button>
+                        ) : null}
                       </div>
                     </section>
                   )
