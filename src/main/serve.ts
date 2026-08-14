@@ -25,37 +25,42 @@ function resolvePort() {
 const serverApp = express();
 const port = resolvePort();
 
-serverApp.use(express.raw({ type: '*/*', limit: '50mb' }));
+serverApp.use(express.raw({ type: () => true, limit: '50mb' }));
 
-serverApp.post('/notify/response', async (req, res) => {
-  try {
-    const buffer = req.body;
+const handleNotifyPacket =
+  (packetType: 'request' | 'response'): express.RequestHandler =>
+  async (req, res) => {
+    try {
+      const buffer = req.body;
 
-    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
-      res.json({ status: 'ok', saved: false });
-      return;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.json({ status: 'ok', saved: false });
+        return;
+      }
+
+      const decoded = decode(buffer, {
+        mapKeyConverter: (key) => {
+          if (key === null) {
+            return '__null__';
+          }
+          if (typeof key === 'string' || typeof key === 'number') {
+            return key;
+          }
+          return String(key);
+        },
+      });
+
+      persistDebugPacket(decoded, packetType);
+      console.log(`Saved ${packetType} packet (${buffer.length} bytes)`);
+      res.json({ status: 'ok', saved: true });
+    } catch (error: any) {
+      console.error(`Failed to save ${packetType} packet:`, error);
+      res.status(500).json({ status: 'error', message: error.message });
     }
+  };
 
-    const decoded = decode(buffer, {
-      mapKeyConverter: (key) => {
-        if (key === null) {
-          return '__null__';
-        }
-        if (typeof key === 'string' || typeof key === 'number') {
-          return key;
-        }
-        return String(key);
-      },
-    });
-
-    persistDebugPacket(decoded, buffer);
-    console.log(`Saved response packet (${buffer.length} bytes)`);
-    res.json({ status: 'ok', saved: true });
-  } catch (error: any) {
-    console.error('Failed to save response packet:', error);
-    res.status(500).json({ status: 'error', message: error.message });
-  }
-});
+serverApp.post('/notify/response', handleNotifyPacket('response'));
+serverApp.post('/notify/request', handleNotifyPacket('request'));
 
 serverApp.listen(port, '0.0.0.0', () => {
   console.log(`Packet serve listening on port ${port}`);

@@ -7,6 +7,7 @@ import { persistDebugPacket } from './DebugPackets';
 import { persistLeaderboardSnapshotFromPacket } from './LeaderboardRanking';
 import { handleRaceInfo } from './RaceInfo';
 import { handleTrainingHistoryInfo } from './TrainingHistory';
+import { captureAutoResearchCredentials } from './AutoResearchCredentials';
 
 export interface ExpressServerController {
   getPort: () => number;
@@ -24,47 +25,57 @@ export async function startExpressServer(
   const isDebug =
     process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
-  serverApp.use(express.raw({ type: '*/*', limit: '50mb' }));
+  serverApp.use(express.raw({ type: () => true, limit: '50mb' }));
 
-  serverApp.post('/notify/response', async (req, res) => {
-    try {
-      const buffer = req.body;
+  const handleNotifyPacket =
+    (packetType: 'request' | 'response'): express.RequestHandler =>
+    async (req, res) => {
+      try {
+        const buffer = req.body;
 
-      if (buffer && buffer.length > 0) {
-        const decoded: any = decode(buffer, {
-          mapKeyConverter: (key) => {
-            if (key === null) {
-              return '__null__';
-            }
-            if (typeof key === 'string' || typeof key === 'number') {
-              return key;
-            }
-            return String(key);
-          },
-        });
-        _mainWindow.webContents.send('server-log', {
-          type: 'Info',
-          message: `收到 Response 包 (${buffer.length} bytes)`,
-        });
-        if (isDebug) {
-          persistDebugPacket(decoded, buffer);
+        if (Buffer.isBuffer(buffer) && buffer.length > 0) {
+          const decoded: any = decode(buffer, {
+            mapKeyConverter: (key) => {
+              if (key === null) {
+                return '__null__';
+              }
+              if (typeof key === 'string' || typeof key === 'number') {
+                return key;
+              }
+              return String(key);
+            },
+          });
+          _mainWindow.webContents.send('server-log', {
+            type: 'Info',
+            message: `收到 ${
+              packetType === 'request' ? 'Request' : 'Response'
+            } 包 (${buffer.length} bytes)`,
+          });
+          if (isDebug) {
+            persistDebugPacket(decoded, packetType);
+          }
+          if (packetType === 'request') {
+            captureAutoResearchCredentials(decoded, _mainWindow);
+          }
+          persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
+          handleTrainingHistoryInfo(decoded, _mainWindow);
+          await extractCoreInfo(decoded, _mainWindow);
+          // handleUncheckedEventInfo(decoded, mainWindow);
+          handleRaceInfo(decoded, _mainWindow);
         }
-        persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
-        handleTrainingHistoryInfo(decoded, _mainWindow);
-        await extractCoreInfo(decoded, _mainWindow);
-        // handleUncheckedEventInfo(decoded, mainWindow);
-        handleRaceInfo(decoded, _mainWindow);
+      } catch (e: any) {
+        console.error(e);
+        _mainWindow.webContents.send('server-log', {
+          type: 'Error',
+          message: e.message,
+        });
       }
-    } catch (e: any) {
-      console.error(e);
-      _mainWindow.webContents.send('server-log', {
-        type: 'Error',
-        message: e.message,
-      });
-    }
 
-    res.json({ status: 'ok' });
-  });
+      res.json({ status: 'ok' });
+    };
+
+  serverApp.post('/notify/response', handleNotifyPacket('response'));
+  serverApp.post('/notify/request', handleNotifyPacket('request'));
 
   const stop = () =>
     new Promise<void>((resolve, reject) => {

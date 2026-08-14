@@ -124,6 +124,46 @@ const electronHandler = {
       };
     },
   },
+  autoResearch: {
+    credentials: () => ipcRenderer.invoke('autoresearch:credentials-list'),
+    accounts: () => ipcRenderer.invoke('autoresearch:accounts-list'),
+    saveAccounts: (
+      credentials: Array<{
+        uid: string;
+        accessKey: string;
+        capturedAt: string;
+        source: string;
+        label?: string;
+      }>,
+    ) => ipcRenderer.invoke('autoresearch:accounts-save', credentials),
+    deleteAccount: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-delete', id),
+    credential: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-credential', id),
+    importUsersDb: (contentBase64: string) =>
+      ipcRenderer.invoke(
+        'autoresearch:accounts-import-users-db',
+        contentBase64,
+      ),
+    onCredentialCaptured(
+      callback: (data: {
+        uid: string;
+        accessKey: string;
+        capturedAt: string;
+        source: string;
+      }) => void,
+    ) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('autoresearch:credential-captured', subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          'autoresearch:credential-captured',
+          subscription,
+        );
+      };
+    },
+  },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),
     onLog(callback: (data: any) => void) {

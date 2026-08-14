@@ -5,8 +5,13 @@ import log from 'electron-log';
 import { jsonReplacer } from '../util';
 
 const MAX_DEBUG_PACKET_FILES = 50;
-const DEBUG_PACKET_FILE_PREFIX = 'response_packet_';
+const DEBUG_PACKET_FILE_PREFIXES = ['request_packet_', 'response_packet_'];
 const DEBUG_PACKET_FILE_SUFFIX = '.json';
+const COMMON_HEADER =
+  '5ccdf6135f246a2238161c64cad86ee00f1f2d90033e1f0aa7a9554f4cc06e6f';
+const COMMON_HEADER2 = '97054987b32d477f6d24a1631329765f9fc43a57';
+
+type DebugPacketType = 'request' | 'response';
 
 let packetSequence = 0;
 
@@ -49,8 +54,9 @@ function debugPacketFiles() {
     .readdirSync(debugPacketDir)
     .filter(
       (filename) =>
-        filename.startsWith(DEBUG_PACKET_FILE_PREFIX) &&
-        filename.endsWith(DEBUG_PACKET_FILE_SUFFIX),
+        DEBUG_PACKET_FILE_PREFIXES.some((prefix) =>
+          filename.startsWith(prefix),
+        ) && filename.endsWith(DEBUG_PACKET_FILE_SUFFIX),
     )
     .map((filename) => {
       const fullPath = path.join(debugPacketDir, filename);
@@ -81,12 +87,15 @@ function pruneDebugPackets() {
   });
 }
 
-export function persistDebugPacket(decodedData: unknown, rawBody: Buffer) {
+export function persistDebugPacket(
+  decodedData: unknown,
+  packetType: DebugPacketType,
+) {
   try {
     ensureDebugPacketDir();
     const receivedAt = new Date();
     packetSequence += 1;
-    const filename = `${DEBUG_PACKET_FILE_PREFIX}${safeTimestamp(
+    const filename = `${packetType}_packet_${safeTimestamp(
       receivedAt,
     )}_${process.pid}_${packetSequence}${DEBUG_PACKET_FILE_SUFFIX}`;
     const filepath = path.join(getDebugPacketDir(), filename);
@@ -96,8 +105,9 @@ export function persistDebugPacket(decodedData: unknown, rawBody: Buffer) {
       JSON.stringify(
         {
           receivedAt: receivedAt.toISOString(),
-          byteLength: rawBody.length,
-          rawBodyBase64: rawBody.toString('base64'),
+          ...(packetType === 'request'
+            ? { COMMON_HEADER, COMMON_HEADER2 }
+            : {}),
           data: decodedData,
         },
         jsonReplacer,

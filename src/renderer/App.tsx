@@ -8,6 +8,7 @@ import RaceList from 'renderer/ui/RaceList';
 import RaceStats from 'renderer/ui/RaceStats';
 import TrainingHistory from 'renderer/ui/TrainingHistory';
 import LeaderboardAnalysis from 'renderer/ui/LeaderboardAnalysis';
+import AutoResearch from 'renderer/ui/AutoResearch';
 
 export default function App() {
   return (
@@ -66,6 +67,14 @@ export default function App() {
                   cacheKey="LeaderboardAnalysis"
                 >
                   <LeaderboardAnalysis />
+                </KeepAlive>
+              }
+            />
+            <Route
+              path="/auto-research"
+              element={
+                <KeepAlive name="AutoResearch" cacheKey="AutoResearch">
+                  <AutoResearch />
                 </KeepAlive>
               }
             />

@@ -35,6 +35,16 @@
 
 - **育成信息展示**：在训练界面随时查看体力与事件提示。
 - **复盘**： 分析比赛结果。
+- **自动育成**：连接 UmaAutoResearch 后端，通过 `uid + access_key` 管理多个账号的 URA 任务，并显示登录接口进度。
+
+## 自动育成
+
+1. 在 `UmaAutoResearch` 目录运行 `uv sync` 和 `uv run python main.py`。
+2. 从 UmaShow 菜单打开“自动育成”，首次填写后端地址（本机默认 `http://127.0.0.1:18765`）。
+3. 保持 UmaShow 开启并重新登录游戏，页面会捕获 `buma_uid/buma_access_token`；如果没有捕获，请重新登录一次。
+4. 也可以从手机 `/data/user/0/com.bilibili.umamusu/databases/users.db` 导出文件并拖入页面。
+
+凭据分别对应 `uid/access_key`。自动化游戏可能违反服务条款并导致账号受限，请自行评估风险。
 
 ## Development
 

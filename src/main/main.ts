@@ -18,6 +18,7 @@ import {
 } from './handle/TrainingHistory';
 import { handleVenusModel } from './handle/VenusModel';
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
+import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -129,6 +130,7 @@ handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
 handleVenusModel(ipcMain);
 handleLeaderboardRanking(ipcMain);
+handleAutoResearchCredentials(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**

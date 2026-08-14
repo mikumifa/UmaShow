@@ -185,6 +185,14 @@ export default class MenuBuilder {
           },
         },
         {
+          label: 'AutoUma',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', {
+              path: '/auto-research',
+            });
+          },
+        },
+        {
           label: 'Training History',
           click: () => {
             this.mainWindow.webContents.send('navigate-to', {
@@ -292,6 +300,14 @@ export default class MenuBuilder {
         label: 'LOH',
         click: () => {
           this.mainWindow.webContents.send('navigate-to', { path: '/loh' });
+        },
+      },
+      {
+        label: 'AutoUma',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', {
+            path: '/auto-research',
+          });
         },
       },
       {
