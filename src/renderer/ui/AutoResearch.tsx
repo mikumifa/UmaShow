@@ -2220,12 +2220,16 @@ export default function AutoResearch() {
     accountId: string,
     action: 'login' | 'logout' | 'refresh',
   ) => {
-    if (
-      (action === 'login' || action === 'refresh') &&
-      activeLoginOperation.current
-    ) {
+    const connectionOperationId =
+      action === 'login' || action === 'refresh'
+        ? `${action}-${accountId}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        : '';
+    if (connectionOperationId && activeLoginOperation.current) {
       setError('另一个账号正在登录或刷新，请等待当前操作完成');
       return;
+    }
+    if (connectionOperationId) {
+      activeLoginOperation.current = connectionOperationId;
     }
     setBusy(`${action}-${accountId}`);
     setError('');
@@ -2233,10 +2237,9 @@ export default function AutoResearch() {
       let result: SessionResponse | null = null;
       const authenticate = async (forceLogin = false, recoveryDetail = '') => {
         const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        if (activeLoginOperation.current) {
+        if (activeLoginOperation.current !== connectionOperationId) {
           throw new Error('另一个账号正在登录，请等待当前登录完成');
         }
-        activeLoginOperation.current = loginId;
         const startedAt = Date.now();
         let polling = true;
         setSelectedAccountId(accountId);
@@ -2298,9 +2301,6 @@ export default function AutoResearch() {
         } finally {
           polling = false;
           window.clearInterval(progressTimer);
-          if (activeLoginOperation.current === loginId) {
-            activeLoginOperation.current = '';
-          }
           setLoginProgress((current) =>
             current?.loginId === loginId ? null : current,
           );
@@ -2458,6 +2458,9 @@ export default function AutoResearch() {
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
+      if (activeLoginOperation.current === connectionOperationId) {
+        activeLoginOperation.current = '';
+      }
       setBusy('');
     }
   };
