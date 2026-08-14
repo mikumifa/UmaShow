@@ -10,30 +10,34 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [windows-latest]
+    runs-on: windows-2022
+    env:
+      npm_config_msvs_version: '2022'
 
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node and NPM
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.x
           cache: npm
 
-      - name: Install and build
-        run: |
-          npm install
-          npm run postinstall
-          npm run build
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
-      - name: Publish releases
+      - name: Prepare Electron native dependencies
+        run: npm run prepare:app-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm exec electron-builder -- --publish always --win
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node ./.erb/scripts/verify-packaged-deps.js
