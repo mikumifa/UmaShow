@@ -5,7 +5,18 @@ const iconUrlCache = new Map<string, Promise<string | null>>();
 function getIconUrl(path: string) {
   const cached = iconUrlCache.get(path);
   if (cached) return cached;
-  const promise = window.electron.utils.getFile(path) as Promise<string | null>;
+  const promise = (
+    window.electron.utils.getFile(path) as Promise<string | null>
+  ).then(
+    (url) => {
+      if (!url) iconUrlCache.delete(path);
+      return url;
+    },
+    (error) => {
+      iconUrlCache.delete(path);
+      throw error;
+    },
+  );
   iconUrlCache.set(path, promise);
   return promise;
 }
@@ -23,9 +34,16 @@ export default function AssetIcon({
 
   useEffect(() => {
     let mounted = true;
-    getIconUrl(path).then((url) => {
-      if (mounted) setSrc(url);
-    });
+    setSrc(null);
+    getIconUrl(path)
+      .then((url) => {
+        if (mounted) setSrc(url);
+        return url;
+      })
+      .catch(() => {
+        if (mounted) setSrc(null);
+        return null;
+      });
     return () => {
       mounted = false;
     };
