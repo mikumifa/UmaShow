@@ -1,6 +1,6 @@
 {
   "name": "uma-show",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "赛马娘国服事件查看",
   "license": "MIT",
   "author": {
@@ -10,7 +10,7 @@
   },
   "main": "./dist/main/main.js",
   "scripts": {
-    "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
+    "rebuild": "node ../../.erb/scripts/rebuild-app-deps.js",
     "postinstall": "npm run rebuild && npm run link-modules",
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
