@@ -6,6 +6,7 @@ import {
   describeLogAction,
   describeLogDetail,
   describeRunnerAction,
+  formatDailyJewelScheduleWindow,
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
   runModeLabel,
@@ -187,9 +188,10 @@ export default function ProgressTab({
                 每日宝石计划
               </span>
               <span className="ml-2 text-xs text-violet-600">
-                {dailyJewelSchedule.start_time}–{dailyJewelSchedule.end_time} ·
-                今日 {dailyJewelSchedule.daily_jewel_drop_count}/
-                {dailyJewelSchedule.target} 次
+                {`${formatDailyJewelScheduleWindow(
+                  dailyJewelSchedule.start_time,
+                  dailyJewelSchedule.end_time,
+                )} · 今日 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次`}
               </span>
             </div>
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
@@ -320,7 +322,10 @@ export default function ProgressTab({
         </h2>
         <p className="mt-1 text-sm text-slate-400">
           {dailyJewelSchedule?.enabled
-            ? `每日 ${dailyJewelSchedule.start_time}–${dailyJewelSchedule.end_time} 运行，今天 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次掉落。`
+            ? `每日 ${formatDailyJewelScheduleWindow(
+                dailyJewelSchedule.start_time,
+                dailyJewelSchedule.end_time,
+              )} 运行，今天 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次掉落。`
             : runner?.run_plan?.active
               ? '新的育成开始后，这里会显示实时状态。'
               : '开始或继续育成后，这里会显示当前属性和流程。'}

@@ -165,7 +165,7 @@ export default function AutoResearch() {
   const [dailyRunTarget, setDailyRunTarget] = useState(3);
   const [jewelDropTarget, setJewelDropTarget] = useState(20);
   const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
-  const [scheduleEndTime, setScheduleEndTime] = useState('23:59');
+  const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [skillSelections, setSkillSelections] = useState<SkillSelectionEntry[]>(
     [],
@@ -2722,14 +2722,14 @@ export default function AutoResearch() {
   const saveAndRunCareer = () => {
     if (!saveCareerSetting()) return;
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
-    setScheduleEndTime(dailyJewelSchedule?.end_time || '23:59');
+    setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'current' });
     setRunDialogOpen(true);
   };
 
   const openSavedRunDialog = (settingId: string) => {
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
-    setScheduleEndTime(dailyJewelSchedule?.end_time || '23:59');
+    setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'saved', settingId });
     setRunDialogOpen(true);
     setError('');
@@ -2737,13 +2737,6 @@ export default function AutoResearch() {
 
   const confirmRunPlan = async () => {
     if (!pendingRun) return;
-    if (
-      runMode === 'daily_jewel_schedule' &&
-      scheduleStartTime >= scheduleEndTime
-    ) {
-      setError('每日结束时间必须晚于启动时间');
-      return;
-    }
     const target =
       runMode === 'daily_count'
         ? Math.max(1, dailyRunTarget)
@@ -3236,9 +3229,10 @@ export default function AutoResearch() {
                       <input
                         type="time"
                         value={scheduleStartTime}
-                        onChange={(event) =>
-                          setScheduleStartTime(event.target.value)
-                        }
+                        onChange={(event) => {
+                          setScheduleStartTime(event.target.value);
+                          setError('');
+                        }}
                         className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
                       />
                     </label>
@@ -3247,15 +3241,17 @@ export default function AutoResearch() {
                       <input
                         type="time"
                         value={scheduleEndTime}
-                        onChange={(event) =>
-                          setScheduleEndTime(event.target.value)
-                        }
+                        onChange={(event) => {
+                          setScheduleEndTime(event.target.value);
+                          setError('');
+                        }}
                         className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
                       />
                     </label>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-violet-700">
-                    时间使用北京时间。位于时间段内会立即开始；到达结束时间会停止当前自动操作，第二天到启动时间后继续。
+                    时间使用北京时间并支持跨午夜。开始和结束都设为 05:00
+                    时，表示完整宝石周期：当天 05:00 至次日 04:59。
                   </p>
                 </section>
               ) : null}

@@ -429,6 +429,23 @@ export function dailyJewelScheduleStatusLabel(status?: string) {
   return labels[String(status || '')] || '等待启动时间';
 }
 
+export function formatDailyJewelScheduleWindow(start?: string, end?: string) {
+  const normalizedStart = String(start || '05:00');
+  const normalizedEnd = String(end || '05:00');
+  if (normalizedStart === normalizedEnd) {
+    const [hour, minute] = normalizedEnd.split(':').map(Number);
+    const endMinutes = (hour * 60 + minute + 24 * 60 - 1) % (24 * 60);
+    const inclusiveEnd = `${String(Math.floor(endMinutes / 60)).padStart(
+      2,
+      '0',
+    )}:${String(endMinutes % 60).padStart(2, '0')}`;
+    return `${normalizedStart}–次日${inclusiveEnd}`;
+  }
+  return normalizedStart > normalizedEnd
+    ? `${normalizedStart}–次日${normalizedEnd}`
+    : `${normalizedStart}–${normalizedEnd}`;
+}
+
 export function careerReportStatusLabel(status?: string) {
   const labels: Record<string, string> = {
     finished: '已完成',
