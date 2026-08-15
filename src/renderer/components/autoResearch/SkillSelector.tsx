@@ -29,108 +29,118 @@ type EffectFilter = {
   matches: (skill: AutoResearchSkill) => boolean;
 };
 
+export function matchesSkillIconFamily(
+  skill: AutoResearchSkill,
+  representativeIconId: number,
+) {
+  return (
+    skill.icon_id === representativeIconId ||
+    skill.icon_id === representativeIconId + 1
+  );
+}
+
 const EFFECT_FILTERS: EffectFilter[] = [
   {
     id: 'passive_speed',
     label: '被动·速度',
     iconId: 10011,
-    matches: (skill) => skill.icon_id === 10011,
+    matches: (skill) => matchesSkillIconFamily(skill, 10011),
   },
   {
     id: 'passive_stamina',
     label: '被动·耐力',
     iconId: 10021,
-    matches: (skill) => skill.icon_id === 10021,
+    matches: (skill) => matchesSkillIconFamily(skill, 10021),
   },
   {
     id: 'passive_power',
     label: '被动·力量',
     iconId: 10031,
-    matches: (skill) => skill.icon_id === 10031,
+    matches: (skill) => matchesSkillIconFamily(skill, 10031),
   },
   {
     id: 'passive_guts',
     label: '被动·毅力',
     iconId: 10041,
-    matches: (skill) => skill.icon_id === 10041,
+    matches: (skill) => matchesSkillIconFamily(skill, 10041),
   },
   {
     id: 'passive_wit',
     label: '被动·智力',
     iconId: 10051,
-    matches: (skill) => skill.icon_id === 10051,
+    matches: (skill) => matchesSkillIconFamily(skill, 10051),
   },
   {
     id: 'passive_all',
     label: '被动·综合',
     iconId: 10061,
-    matches: (skill) => skill.icon_id === 10061,
+    matches: (skill) => matchesSkillIconFamily(skill, 10061),
   },
   {
     id: 'speed',
     label: '速度',
     iconId: 20011,
-    matches: (skill) => skill.icon_id === 20011,
+    matches: (skill) => matchesSkillIconFamily(skill, 20011),
   },
   {
     id: 'recovery',
     label: '回复',
     iconId: 20021,
-    matches: (skill) => skill.icon_id === 20021,
+    matches: (skill) => matchesSkillIconFamily(skill, 20021),
   },
   {
     id: 'acceleration',
     label: '加速度',
     iconId: 20041,
-    matches: (skill) => skill.icon_id === 20041,
+    matches: (skill) => matchesSkillIconFamily(skill, 20041),
   },
   {
     id: 'position',
     label: '位置',
     iconId: 20051,
-    matches: (skill) => skill.icon_id === 20051,
+    matches: (skill) => matchesSkillIconFamily(skill, 20051),
   },
   {
     id: 'start',
     label: '起跑',
     iconId: 20061,
-    matches: (skill) => skill.icon_id === 20061,
+    matches: (skill) => matchesSkillIconFamily(skill, 20061),
   },
   {
     id: 'vision',
     label: '视野',
     iconId: 20091,
-    matches: (skill) => skill.icon_id === 20091,
+    matches: (skill) => matchesSkillIconFamily(skill, 20091),
   },
   {
     id: 'hindrance_speed',
     label: '妨碍·速度',
     iconId: 30011,
-    matches: (skill) => skill.icon_id === 30011,
+    matches: (skill) => matchesSkillIconFamily(skill, 30011),
   },
   {
     id: 'hindrance_stamina',
     label: '妨碍·耐力',
     iconId: 30021,
-    matches: (skill) => skill.icon_id === 30021,
+    matches: (skill) => matchesSkillIconFamily(skill, 30021),
   },
   {
     id: 'hindrance_acceleration',
     label: '妨碍·加速度',
     iconId: 30041,
-    matches: (skill) => skill.icon_id === 30041,
+    matches: (skill) => matchesSkillIconFamily(skill, 30041),
   },
   {
     id: 'hindrance_position',
     label: '妨碍·位置',
     iconId: 30051,
-    matches: (skill) => skill.icon_id === 30051,
+    matches: (skill) => matchesSkillIconFamily(skill, 30051),
   },
   {
     id: 'hindrance_vision',
     label: '妨碍·视野',
     iconId: 30071,
-    matches: (skill) => skill.icon_id === 30071,
+    matches: (skill) => matchesSkillIconFamily(skill, 30071),
   },
   {
     id: 'special',
@@ -139,7 +149,9 @@ const EFFECT_FILTERS: EffectFilter[] = [
     matches: (skill) =>
       skill.icon_id >= 20000 &&
       skill.icon_id < 30000 &&
-      ![20011, 20021, 20041, 20051, 20061, 20091].includes(skill.icon_id),
+      ![20011, 20021, 20041, 20051, 20061, 20091].some((iconId) =>
+        matchesSkillIconFamily(skill, iconId),
+      ),
   },
 ];
 
