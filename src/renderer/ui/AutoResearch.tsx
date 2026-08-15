@@ -1408,6 +1408,8 @@ export default function AutoResearch() {
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   );
+  const loggedInAccount = accounts.find((account) => account.runtime.logged_in);
+  const loggedInAccountId = loggedInAccount?.id || '';
   const runner = session?.runtime?.runner || selectedAccount?.runtime.runner;
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
@@ -2253,6 +2255,21 @@ export default function AutoResearch() {
     accountId: string,
     action: 'login' | 'logout' | 'refresh',
   ) => {
+    const otherLoggedInAccount = accounts.find(
+      (account) => account.runtime.logged_in && account.id !== accountId,
+    );
+    const otherConnectedAccountId = Array.from(
+      sessionTokens.current.keys(),
+    ).find((connectedAccountId) => connectedAccountId !== accountId);
+    if (
+      (action === 'login' || action === 'refresh') &&
+      (otherLoggedInAccount || otherConnectedAccountId)
+    ) {
+      setError(
+        `请先退出账号 ${otherLoggedInAccount?.label || (otherLoggedInAccount ? `UID ${otherLoggedInAccount.uid}` : '当前账号')}，前端同时只能登录一个账号`,
+      );
+      return;
+    }
     const connectionOperationId =
       action === 'login' || action === 'refresh'
         ? `${action}-${accountId}-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -2546,6 +2563,11 @@ export default function AutoResearch() {
       !accounts.length ||
       loginProgress ||
       activeLoginOperation.current
+    )
+      return;
+    if (
+      accounts.some((account) => account.runtime.logged_in) ||
+      sessionTokens.current.size
     )
       return;
     const accountId = localStorage.getItem(LAST_ACCOUNT_KEY) || '';
@@ -4033,6 +4055,9 @@ export default function AutoResearch() {
               disabled={
                 !selectedAccountId ||
                 Boolean(disconnectingAccountId) ||
+                Boolean(
+                  loggedInAccountId && loggedInAccountId !== selectedAccountId,
+                ) ||
                 busy === `refresh-${selectedAccountId}`
               }
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -4337,7 +4362,10 @@ export default function AutoResearch() {
                           type="button"
                           onClick={() => accountAction(account.id, 'login')}
                           disabled={Boolean(
-                            loginProgress || disconnectingAccountId,
+                            loginProgress ||
+                              disconnectingAccountId ||
+                              (loggedInAccountId &&
+                                loggedInAccountId !== account.id),
                           )}
                           className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                         >
@@ -4346,7 +4374,10 @@ export default function AutoResearch() {
                             ? `登录中 ${loginProgress.elapsed}s`
                             : loginProgress
                               ? '等待登录'
-                              : '登录'}
+                              : loggedInAccountId &&
+                                  loggedInAccountId !== account.id
+                                ? '已有账号登录'
+                                : '登录'}
                         </button>
                       )}
                       <button
@@ -4440,7 +4471,12 @@ export default function AutoResearch() {
                       selectedAccount &&
                       accountAction(selectedAccount.id, 'login')
                     }
-                    disabled={Boolean(loginProgress || disconnectingAccountId)}
+                    disabled={Boolean(
+                      loginProgress ||
+                        disconnectingAccountId ||
+                        (loggedInAccountId &&
+                          loggedInAccountId !== selectedAccount?.id),
+                    )}
                     className="rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
                   >
                     {loginProgress?.accountId === selectedAccount?.id
@@ -4449,7 +4485,10 @@ export default function AutoResearch() {
                         ? '请等待其他账号登录完成'
                         : disconnectingAccountId
                           ? '请等待账号退出完成'
-                          : '登录账号'}
+                          : loggedInAccountId &&
+                              loggedInAccountId !== selectedAccount?.id
+                            ? '请先退出当前账号'
+                            : '登录账号'}
                   </button>
                   <button
                     type="button"
