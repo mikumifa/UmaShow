@@ -32,6 +32,7 @@ type HistoryTabProps = {
   selectedCareerReport: CareerReport | null;
   setSelectedCareerReport: Dispatch<SetStateAction<CareerReport | null>>;
   health: HealthStatus | null;
+  showUmaRlTraining: boolean;
   umarlTraining: UmaRlTrainingStatus | null;
   startUmaRlTraining: (reportIds: string[]) => Promise<void>;
   busy: string;
@@ -43,14 +44,21 @@ type HistoryTabProps = {
   accountCareerSettings: CareerSetting[];
   umarlSettingModelAvailable: boolean | null;
   cancelUmaRlTraining: () => Promise<void>;
+  refreshUmaRlTraining: () => Promise<void>;
   selectedTrainingReportIds: string[];
   setSelectedTrainingReportIds: Dispatch<SetStateAction<string[]>>;
-  umarlTrainRollouts: number;
-  setUmaRlTrainRollouts: Dispatch<SetStateAction<number>>;
+  umarlTrainEpisodes: number;
+  setUmaRlTrainEpisodes: Dispatch<SetStateAction<number>>;
+  umarlTrainGenerations: number;
+  setUmaRlTrainGenerations: Dispatch<SetStateAction<number>>;
   umarlTrainEpochs: number;
   setUmaRlTrainEpochs: Dispatch<SetStateAction<number>>;
+  umarlTrainBatchSize: number;
+  setUmaRlTrainBatchSize: Dispatch<SetStateAction<number>>;
   umarlTrainMaxStates: number;
   setUmaRlTrainMaxStates: Dispatch<SetStateAction<number>>;
+  umarlTrainRolloutWorkers: number;
+  setUmaRlTrainRolloutWorkers: Dispatch<SetStateAction<number>>;
   historyCareerReports: CareerReportSummary[];
   openCareerReport: (reportId: string) => Promise<void>;
 };
@@ -60,6 +68,7 @@ export default function HistoryTab({
   selectedCareerReport,
   setSelectedCareerReport,
   health,
+  showUmaRlTraining,
   umarlTraining,
   startUmaRlTraining,
   busy,
@@ -71,14 +80,21 @@ export default function HistoryTab({
   accountCareerSettings,
   umarlSettingModelAvailable,
   cancelUmaRlTraining,
+  refreshUmaRlTraining,
   selectedTrainingReportIds,
   setSelectedTrainingReportIds,
-  umarlTrainRollouts,
-  setUmaRlTrainRollouts,
+  umarlTrainEpisodes,
+  setUmaRlTrainEpisodes,
+  umarlTrainGenerations,
+  setUmaRlTrainGenerations,
   umarlTrainEpochs,
   setUmaRlTrainEpochs,
+  umarlTrainBatchSize,
+  setUmaRlTrainBatchSize,
   umarlTrainMaxStates,
   setUmaRlTrainMaxStates,
+  umarlTrainRolloutWorkers,
+  setUmaRlTrainRolloutWorkers,
   historyCareerReports,
   openCareerReport,
 }: HistoryTabProps) {
@@ -105,7 +121,8 @@ export default function HistoryTab({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {health?.umarl?.installed &&
+            {showUmaRlTraining &&
+            health?.umarl?.installed &&
             !['queued', 'running'].includes(umarlTraining?.state || '') ? (
               <button
                 type="button"
@@ -252,11 +269,11 @@ export default function HistoryTab({
       </label>
       {!historyCareerSetting ? (
         <p className="py-14 text-center text-sm text-slate-400">
-          选择养马详设后，才会显示该详设的记录和 UmaRL 训练入口
+          选择养马详设后，才会显示该详设的养马记录
         </p>
       ) : (
         <>
-          {health?.umarl?.installed ? (
+          {showUmaRlTraining && health?.umarl?.installed ? (
             <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -264,7 +281,8 @@ export default function HistoryTab({
                     使用养马记录训练 UmaRL
                   </h3>
                   <p className="mt-1 text-xs text-violet-700">
-                    只使用当前详设中勾选的记录。训练期间继续使用原模型；候选模型通过配对续育评测后才会晋级。
+                    训练会从所选记录提取局面；没有模型时先用手写策略冷启动，
+                    随后进行多代 on-policy PPO。每代更新退化时会自动回滚。
                   </p>
                   <p className="mt-1 text-xs text-violet-600">
                     当前模型：
@@ -275,50 +293,82 @@ export default function HistoryTab({
                         : '正在读取'}
                   </p>
                 </div>
-                {['queued', 'running'].includes(umarlTraining?.state || '') ? (
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={cancelUmaRlTraining}
-                    disabled={busy === 'umarl-cancel'}
-                    className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                    onClick={refreshUmaRlTraining}
+                    disabled={busy === 'umarl-refresh'}
+                    className="flex items-center gap-2 rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
                   >
-                    请求取消
+                    <RefreshCw
+                      size={14}
+                      className={busy === 'umarl-refresh' ? 'animate-spin' : ''}
+                    />
+                    刷新训练进度
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      startUmaRlTraining(selectedTrainingReportIds)
-                    }
-                    disabled={
-                      !selectedTrainingReportIds.length ||
-                      busy === 'umarl-train' ||
-                      !health.umarl.training_available
-                    }
-                    className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                  >
-                    {busy === 'umarl-train'
-                      ? '正在提交…'
-                      : `开始训练（${selectedTrainingReportIds.length} 份）`}
-                  </button>
-                )}
+                  {['queued', 'running'].includes(
+                    umarlTraining?.state || '',
+                  ) ? (
+                    <button
+                      type="button"
+                      onClick={cancelUmaRlTraining}
+                      disabled={busy === 'umarl-cancel'}
+                      className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                    >
+                      请求取消
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        startUmaRlTraining(selectedTrainingReportIds)
+                      }
+                      disabled={
+                        !selectedTrainingReportIds.length ||
+                        busy === 'umarl-train' ||
+                        !health.umarl.training_available
+                      }
+                      className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {busy === 'umarl-train'
+                        ? '正在提交…'
+                        : `开始训练（${selectedTrainingReportIds.length} 份）`}
+                    </button>
+                  )}
+                </div>
               </div>
+              <p className="mt-2 text-xs text-violet-600">
+                训练状态不会自动刷新；需要查看进度时请点击“刷新训练进度”。
+              </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <label className="text-xs text-violet-800">
-                  每个局面 rollout
+                  每代探索轨迹
                   <input
                     type="number"
-                    min={8}
-                    max={10000}
-                    value={umarlTrainRollouts}
+                    min={1}
+                    max={100000}
+                    value={umarlTrainEpisodes}
                     onChange={(event) =>
-                      setUmaRlTrainRollouts(Number(event.target.value))
+                      setUmaRlTrainEpisodes(Number(event.target.value))
                     }
                     className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
                   />
                 </label>
                 <label className="text-xs text-violet-800">
-                  训练轮数
+                  训练代数
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={umarlTrainGenerations}
+                    onChange={(event) =>
+                      setUmaRlTrainGenerations(Number(event.target.value))
+                    }
+                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                  />
+                </label>
+                <label className="text-xs text-violet-800">
+                  每代 Epoch
                   <input
                     type="number"
                     min={1}
@@ -331,7 +381,20 @@ export default function HistoryTab({
                   />
                 </label>
                 <label className="text-xs text-violet-800">
-                  最多训练局面
+                  Batch Size
+                  <input
+                    type="number"
+                    min={1}
+                    max={8192}
+                    value={umarlTrainBatchSize}
+                    onChange={(event) =>
+                      setUmaRlTrainBatchSize(Number(event.target.value))
+                    }
+                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                  />
+                </label>
+                <label className="text-xs text-violet-800">
+                  最多历史局面
                   <input
                     type="number"
                     min={1}
@@ -339,6 +402,19 @@ export default function HistoryTab({
                     value={umarlTrainMaxStates}
                     onChange={(event) =>
                       setUmaRlTrainMaxStates(Number(event.target.value))
+                    }
+                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                  />
+                </label>
+                <label className="text-xs text-violet-800">
+                  Rollout Workers
+                  <input
+                    type="number"
+                    min={0}
+                    max={64}
+                    value={umarlTrainRolloutWorkers}
+                    onChange={(event) =>
+                      setUmaRlTrainRolloutWorkers(Number(event.target.value))
                     }
                     className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
                   />
@@ -363,33 +439,57 @@ export default function HistoryTab({
                       {umarlTraining.error}
                     </p>
                   ) : null}
-                  {(umarlTraining.metrics?.promotion_pairs || 0) > 0 ? (
+                  {(umarlTraining.metrics?.actor_eval_pairs || 0) > 0 ? (
                     <p className="mt-2 text-xs text-violet-700">
-                      晋级评测：候选模型平均{' '}
+                      最近一代评测：新策略平均{' '}
                       {Math.round(
-                        umarlTraining.metrics?.promotion_candidate_mean || 0,
+                        umarlTraining.metrics?.actor_candidate_mean || 0,
                       )}
-                      ，当前模型平均{' '}
+                      ，旧策略平均{' '}
                       {Math.round(
-                        umarlTraining.metrics?.promotion_incumbent_mean || 0,
+                        umarlTraining.metrics?.actor_incumbent_mean || 0,
                       )}
                       ，提升{' '}
-                      {(umarlTraining.metrics?.promotion_mean_improvement ||
-                        0) >= 0
+                      {(umarlTraining.metrics?.actor_mean_improvement || 0) >= 0
                         ? '+'
                         : ''}
                       {Math.round(
-                        umarlTraining.metrics?.promotion_mean_improvement || 0,
+                        umarlTraining.metrics?.actor_mean_improvement || 0,
                       )}
                       ，胜率{' '}
                       {(
-                        (umarlTraining.metrics?.promotion_win_rate || 0) * 100
+                        (umarlTraining.metrics?.actor_win_rate || 0) * 100
                       ).toFixed(1)}
                       %，
-                      {umarlTraining.metrics?.promotion_passed
-                        ? '已晋级'
-                        : '未晋级'}
+                      {umarlTraining.metrics?.actor_update_accepted
+                        ? '接受更新'
+                        : '已回滚'}
                     </p>
+                  ) : null}
+                  {(umarlTraining.logs || []).length ? (
+                    <div className="mt-3 overflow-hidden rounded-lg border border-violet-200 bg-slate-950 text-slate-200">
+                      <div className="border-b border-slate-800 px-3 py-2 text-xs font-medium text-violet-300">
+                        训练日志
+                      </div>
+                      <div className="max-h-64 overflow-auto px-3 py-2 font-mono text-[11px] leading-5">
+                        {(umarlTraining.logs || [])
+                          .slice()
+                          .reverse()
+                          .map((row) => (
+                            <div key={row.id} className="flex gap-2">
+                              <span className="flex-none text-slate-500">
+                                {row.time}
+                              </span>
+                              <span className="flex-none text-violet-400">
+                                [{row.stage}]
+                              </span>
+                              <span className="min-w-0 break-words">
+                                {row.message}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
                   ) : null}
                 </div>
               ) : null}

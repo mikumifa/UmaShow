@@ -94,7 +94,10 @@ import {
   SupportInfo,
   UmaRlTrainingStatus,
 } from 'renderer/components/autoResearch/types';
+
 import { loadUMDB } from 'renderer/utils/umdb';
+
+const SHOW_UMARL_TRAINING = false;
 
 export default function AutoResearch() {
   const [activeTab, setActiveTab] = useState<AutoResearchTab>('accounts');
@@ -201,9 +204,6 @@ export default function AutoResearch() {
   const [palCardMultiplier, setPalCardMultiplier] = useState(0.1);
   const [restThreshold, setRestThreshold] = useState(48);
   const [uraAiEnabled, setUraAiEnabled] = useState(true);
-  const [uraAiDecisionMode, setUraAiDecisionMode] = useState<
-    'search' | 'model'
-  >('search');
   const [uraAiTimeBudget, setUraAiTimeBudget] = useState(10);
   const [uraAiMinRollouts, setUraAiMinRollouts] = useState(3000);
   const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(10000);
@@ -242,9 +242,12 @@ export default function AutoResearch() {
   const [umarlSettingModelAvailable, setUmaRlSettingModelAvailable] = useState<
     boolean | null
   >(null);
-  const [umarlTrainRollouts, setUmaRlTrainRollouts] = useState(512);
-  const [umarlTrainEpochs, setUmaRlTrainEpochs] = useState(10);
-  const [umarlTrainMaxStates, setUmaRlTrainMaxStates] = useState(32);
+  const [umarlTrainEpisodes, setUmaRlTrainEpisodes] = useState(2048);
+  const [umarlTrainGenerations, setUmaRlTrainGenerations] = useState(10);
+  const [umarlTrainEpochs, setUmaRlTrainEpochs] = useState(6);
+  const [umarlTrainBatchSize, setUmaRlTrainBatchSize] = useState(512);
+  const [umarlTrainMaxStates, setUmaRlTrainMaxStates] = useState(160);
+  const [umarlTrainRolloutWorkers, setUmaRlTrainRolloutWorkers] = useState(4);
 
   const skillPriorityNames = useMemo(
     () => skillSelections.flatMap((entry) => entry.skill_names),
@@ -887,8 +890,11 @@ export default function AutoResearch() {
           preset_name: historyCareerSetting.preset_name,
           card_id: historyCareerSetting.card_id,
           report_ids: reportIds,
-          rollouts: umarlTrainRollouts,
+          episodes: umarlTrainEpisodes,
+          generations: umarlTrainGenerations,
           epochs: umarlTrainEpochs,
+          batch_size: umarlTrainBatchSize,
+          rollout_workers: umarlTrainRolloutWorkers,
           max_states: umarlTrainMaxStates,
         }),
       });
@@ -925,6 +931,17 @@ export default function AutoResearch() {
       }
     } catch (caught) {
       setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const refreshUmaRlTraining = async () => {
+    if (!historyCareerSettingId) return;
+    setBusy('umarl-refresh');
+    setError('');
+    try {
+      await loadUmaRlTraining(historyCareerSettingId);
     } finally {
       setBusy('');
     }
@@ -1154,7 +1171,6 @@ export default function AutoResearch() {
     setRestThreshold(Number(preset.rest_threshold ?? 48));
     const uraAi = preset.ura_ai || {};
     setUraAiEnabled(uraAi.enabled !== false);
-    setUraAiDecisionMode(uraAi.decision_mode === 'model' ? 'model' : 'search');
     setUraAiTimeBudget(Number(uraAi.time_budget_s ?? 10));
     setUraAiMinRollouts(Number(uraAi.min_rollouts ?? 3000));
     setUraAiMaxRollouts(Number(uraAi.max_rollouts ?? 10000));
@@ -1241,6 +1257,7 @@ export default function AutoResearch() {
   useEffect(() => {
     if (
       activeTab !== 'history' ||
+      !SHOW_UMARL_TRAINING ||
       !health?.umarl?.installed ||
       !selectedAccountId ||
       !historyCareerSettingId ||
@@ -1248,25 +1265,8 @@ export default function AutoResearch() {
     ) {
       return undefined;
     }
-    let cancelled = false;
-    let timer: number | undefined;
-    const running = ['queued', 'running'].includes(umarlTraining?.state || '');
-    const poll = async () => {
-      await loadUmaRlTraining(historyCareerSettingId);
-      if (!cancelled && running) {
-        timer = window.setTimeout(poll, 2000);
-      }
-    };
-    poll().catch(() => undefined);
-    if (!running) {
-      return undefined;
-    }
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) {
-        window.clearTimeout(timer);
-      }
-    };
+    loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
+    return undefined;
   }, [
     activeTab,
     health?.umarl?.installed,
@@ -1274,7 +1274,6 @@ export default function AutoResearch() {
     loadUmaRlTraining,
     selectedAccount?.runtime.logged_in,
     selectedAccountId,
-    umarlTraining?.state,
   ]);
 
   useEffect(() => {
@@ -2039,7 +2038,7 @@ export default function AutoResearch() {
     rest_threshold: restThreshold,
     ura_ai: {
       enabled: uraAiEnabled,
-      decision_mode: uraAiDecisionMode,
+      decision_mode: 'search',
       model_path: 'uma_runtime/umarl/models/current.pt',
       time_budget_s: Math.max(1, uraAiTimeBudget),
       min_rollouts: Math.max(1, uraAiMinRollouts),
@@ -3921,8 +3920,6 @@ export default function AutoResearch() {
                     setSkillLearningSettings={setSkillLearningSettings}
                     uraAiEnabled={uraAiEnabled}
                     setUraAiEnabled={setUraAiEnabled}
-                    uraAiDecisionMode={uraAiDecisionMode}
-                    setUraAiDecisionMode={setUraAiDecisionMode}
                     health={health}
                     uraAiTargetAttributes={uraAiTargetAttributes}
                     setUraAiTargetAttributes={setUraAiTargetAttributes}
@@ -4072,6 +4069,7 @@ export default function AutoResearch() {
                     selectedCareerReport={selectedCareerReport}
                     setSelectedCareerReport={setSelectedCareerReport}
                     health={health}
+                    showUmaRlTraining={SHOW_UMARL_TRAINING}
                     umarlTraining={umarlTraining}
                     startUmaRlTraining={startUmaRlTraining}
                     busy={busy}
@@ -4083,14 +4081,21 @@ export default function AutoResearch() {
                     accountCareerSettings={accountCareerSettings}
                     umarlSettingModelAvailable={umarlSettingModelAvailable}
                     cancelUmaRlTraining={cancelUmaRlTraining}
+                    refreshUmaRlTraining={refreshUmaRlTraining}
                     selectedTrainingReportIds={selectedTrainingReportIds}
                     setSelectedTrainingReportIds={setSelectedTrainingReportIds}
-                    umarlTrainRollouts={umarlTrainRollouts}
-                    setUmaRlTrainRollouts={setUmaRlTrainRollouts}
+                    umarlTrainEpisodes={umarlTrainEpisodes}
+                    setUmaRlTrainEpisodes={setUmaRlTrainEpisodes}
+                    umarlTrainGenerations={umarlTrainGenerations}
+                    setUmaRlTrainGenerations={setUmaRlTrainGenerations}
                     umarlTrainEpochs={umarlTrainEpochs}
                     setUmaRlTrainEpochs={setUmaRlTrainEpochs}
+                    umarlTrainBatchSize={umarlTrainBatchSize}
+                    setUmaRlTrainBatchSize={setUmaRlTrainBatchSize}
                     umarlTrainMaxStates={umarlTrainMaxStates}
                     setUmaRlTrainMaxStates={setUmaRlTrainMaxStates}
+                    umarlTrainRolloutWorkers={umarlTrainRolloutWorkers}
+                    setUmaRlTrainRolloutWorkers={setUmaRlTrainRolloutWorkers}
                     historyCareerReports={historyCareerReports}
                     openCareerReport={openCareerReport}
                   />

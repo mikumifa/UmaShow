@@ -404,6 +404,8 @@ export interface TrainingHistoryPacket {
   sequence: number;
   receivedAt: number;
   payload: unknown;
+  endpoint?: string;
+  request?: Record<string, unknown>;
 }
 
 export interface TrainingHistoryAnalysis {

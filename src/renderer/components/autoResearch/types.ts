@@ -379,6 +379,13 @@ export type UmaRlTrainingStatus = {
   progress?: number;
   error?: string;
   metrics?: Record<string, number>;
+  logs?: Array<{
+    id: number;
+    time: string;
+    stage: string;
+    message: string;
+    data?: Record<string, unknown>;
+  }>;
   state_count?: number;
   model_updated?: boolean;
   setting_id?: string;
