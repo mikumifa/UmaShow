@@ -22,6 +22,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Search,
   Server,
@@ -2635,6 +2636,56 @@ export default function AutoResearch() {
     }
   };
 
+  const resetAccount = async (accountId: string) => {
+    if (
+      !window.confirm(
+        '确定强制重置当前账号吗？这会停止自动操作，清除等待、运行计划、每日计划和服务端登录，但不会向游戏发送放弃育成请求。',
+      )
+    )
+      return;
+    if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
+      setError('账号连接操作正在进行，请等待完成后再重置');
+      return;
+    }
+    const resetOperationId = `reset-${accountId}-${Date.now()}`;
+    activeLoginOperation.current = resetOperationId;
+    activeConnectionAccountIdRef.current = accountId;
+    sessionRequestVersions.current.set(
+      accountId,
+      (sessionRequestVersions.current.get(accountId) || 0) + 1,
+    );
+    setBusy(`reset-${accountId}`);
+    setError('');
+    try {
+      await accountRequest<{ success: boolean; reset: boolean }>(
+        accountId,
+        '/api/account/reset',
+        { method: 'POST', body: '{}' },
+      );
+      sessionTokens.current.delete(accountId);
+      setSession(null);
+      updateRuntime(accountId, null);
+      if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
+        localStorage.removeItem(LAST_ACCOUNT_KEY);
+      }
+      autoLoginAttempted.current = `${server}|${accountId}`;
+      setActiveTab('accounts');
+    } catch (caught) {
+      if (needsRelogin(caught)) {
+        sessionTokens.current.delete(accountId);
+        setSession(null);
+        updateRuntime(accountId, null);
+      }
+      setError((caught as Error).message);
+    } finally {
+      if (activeLoginOperation.current === resetOperationId) {
+        activeLoginOperation.current = '';
+        activeConnectionAccountIdRef.current = '';
+      }
+      setBusy('');
+    }
+  };
+
   const togglePrioritySkill = (skill: AutoResearchSkill) => {
     const removing = skillPriorityNames.includes(skill.name);
     setSkillSelections((current) => {
@@ -4342,6 +4393,26 @@ export default function AutoResearch() {
                             {busy === `refresh-${account.id}`
                               ? '刷新中'
                               : '刷新状态'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => resetAccount(account.id)}
+                            disabled={Boolean(
+                              busy || loginProgress || disconnectingAccountId,
+                            )}
+                            className="rounded-lg bg-white px-2 py-1 text-xs text-amber-700 disabled:opacity-50"
+                          >
+                            {busy === `reset-${account.id}` ? (
+                              <RefreshCw
+                                className="mr-1 inline animate-spin"
+                                size={12}
+                              />
+                            ) : (
+                              <RotateCcw className="mr-1 inline" size={12} />
+                            )}
+                            {busy === `reset-${account.id}`
+                              ? '重置中'
+                              : '强制重置'}
                           </button>
                           <button
                             type="button"
