@@ -127,7 +127,10 @@ export default function AutoResearch() {
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
+  const selectedAccountIdRef = useRef(selectedAccountId);
+  selectedAccountIdRef.current = selectedAccountId;
   const sessionRequestVersions = useRef(new Map<string, number>());
+  const sessionResponseOrders = useRef(new Map<string, number>());
   const accountActionRef = useRef<
     | ((
         accountId: string,
@@ -637,6 +640,28 @@ export default function AutoResearch() {
     [],
   );
 
+  const invalidateSessionResponses = useCallback((accountId: string) => {
+    const nextOrder = (sessionResponseOrders.current.get(accountId) || 0) + 1;
+    sessionResponseOrders.current.set(accountId, nextOrder);
+    return nextOrder;
+  }, []);
+
+  const commitSessionResponse = useCallback(
+    (accountId: string, response: SessionResponse, requestOrder?: number) => {
+      if (requestOrder !== undefined) {
+        if (sessionResponseOrders.current.get(accountId) !== requestOrder) {
+          return false;
+        }
+      } else {
+        invalidateSessionResponses(accountId);
+      }
+      setSession(response);
+      updateRuntime(accountId, response);
+      return true;
+    },
+    [invalidateSessionResponses, updateRuntime],
+  );
+
   const accountRequest = useCallback(
     async <T,>(
       accountId: string,
@@ -671,6 +696,7 @@ export default function AutoResearch() {
         return;
       }
       const requestVersion = sessionRequestVersions.current.get(accountId) || 0;
+      const requestOrder = invalidateSessionResponses(accountId);
       let result: SessionResponse;
       try {
         result = await accountRequest<SessionResponse>(
@@ -681,6 +707,7 @@ export default function AutoResearch() {
         if (
           disconnectingAccountIdRef.current === accountId ||
           activeConnectionAccountIdRef.current === accountId ||
+          selectedAccountIdRef.current !== accountId ||
           (sessionRequestVersions.current.get(accountId) || 0) !==
             requestVersion
         )
@@ -690,13 +717,13 @@ export default function AutoResearch() {
       if (
         disconnectingAccountIdRef.current === accountId ||
         activeConnectionAccountIdRef.current === accountId ||
+        selectedAccountIdRef.current !== accountId ||
         (sessionRequestVersions.current.get(accountId) || 0) !== requestVersion
       )
         return;
-      setSession(result);
-      updateRuntime(accountId, result);
+      commitSessionResponse(accountId, result, requestOrder);
     },
-    [accountRequest, updateRuntime],
+    [accountRequest, commitSessionResponse, invalidateSessionResponses],
   );
 
   const loadCareerHistory = useCallback(
@@ -1537,8 +1564,7 @@ export default function AutoResearch() {
         });
         sessionTokens.current.delete(accountId);
       }
-      setSession(result);
-      updateRuntime(accountId, result);
+      commitSessionResponse(accountId, result);
       setSelectedAccountId(accountId);
       if (action === 'logout') {
         if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
@@ -1607,8 +1633,7 @@ export default function AutoResearch() {
         '/api/account/options/refresh',
         { method: 'POST', body: '{}' },
       );
-      setSession(result);
-      updateRuntime(selectedAccountId, result);
+      commitSessionResponse(selectedAccountId, result);
     } catch (caught) {
       setError(
         needsRelogin(caught)
@@ -1939,8 +1964,7 @@ export default function AutoResearch() {
           }),
         },
       );
-      setSession(result);
-      updateRuntime(selectedAccountId, result);
+      commitSessionResponse(selectedAccountId, result);
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -2016,8 +2040,7 @@ export default function AutoResearch() {
       );
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
-      setSession(result);
-      updateRuntime(selectedAccountId, result);
+      commitSessionResponse(selectedAccountId, result);
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -2042,6 +2065,7 @@ export default function AutoResearch() {
           body: '{}',
         },
       );
+      invalidateSessionResponses(accountId);
       setSession((current) =>
         current
           ? {
@@ -2077,6 +2101,7 @@ export default function AutoResearch() {
         '/api/account/career/runner/release-wait',
         { method: 'POST', body: '{}' },
       );
+      invalidateSessionResponses(accountId);
       setSession((current) =>
         current
           ? {
