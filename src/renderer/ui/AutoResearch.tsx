@@ -385,6 +385,27 @@ type Preset = {
   pal_friendship_score?: number[];
   pal_card_multiplier?: number;
   rest_threshold?: number;
+  ura_ai?: {
+    enabled?: boolean;
+    model_path?: string;
+    time_budget_s?: number;
+    min_rollouts?: number;
+    max_rollouts?: number;
+    workers?: number;
+    risk_factor?: number;
+  };
+};
+
+type UmaRlTrainingStatus = {
+  state: 'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  job_id?: string;
+  stage?: string;
+  detail?: string;
+  progress?: number;
+  error?: string;
+  metrics?: Record<string, number>;
+  state_count?: number;
+  promoted?: boolean;
 };
 
 type SkillOption = Partial<Omit<AutoResearchSkill, 'id'>> & {
@@ -537,6 +558,15 @@ function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
     pal_friendship_score: [0.08, 0.057, 0.018],
     pal_card_multiplier: 0.1,
     rest_threshold: 48,
+    ura_ai: {
+      enabled: true,
+      model_path: 'uma_runtime/umarl/models/current.pt',
+      time_budget_s: 10,
+      min_rollouts: 3000,
+      max_rollouts: 10000,
+      workers: 0,
+      risk_factor: 0,
+    },
   };
 }
 
@@ -1379,6 +1409,12 @@ export default function AutoResearch() {
   ]);
   const [palCardMultiplier, setPalCardMultiplier] = useState(0.1);
   const [restThreshold, setRestThreshold] = useState(48);
+  const [uraAiEnabled, setUraAiEnabled] = useState(true);
+  const [uraAiTimeBudget, setUraAiTimeBudget] = useState(10);
+  const [uraAiMinRollouts, setUraAiMinRollouts] = useState(3000);
+  const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(10000);
+  const [uraAiWorkers, setUraAiWorkers] = useState(0);
+  const [uraAiRiskFactor, setUraAiRiskFactor] = useState(0);
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
   const [raceSearch, setRaceSearch] = useState('');
   const [umaSearch, setUmaSearch] = useState('');
@@ -1393,6 +1429,11 @@ export default function AutoResearch() {
   const [careerHistory, setCareerHistory] = useState<CareerReportSummary[]>([]);
   const [selectedCareerReport, setSelectedCareerReport] =
     useState<CareerReport | null>(null);
+  const [umarlTraining, setUmaRlTraining] =
+    useState<UmaRlTrainingStatus | null>(null);
+  const [umarlTrainRollouts, setUmaRlTrainRollouts] = useState(512);
+  const [umarlTrainEpochs, setUmaRlTrainEpochs] = useState(10);
+  const [umarlTrainMaxStates, setUmaRlTrainMaxStates] = useState(32);
 
   const skillPriorityNames = useMemo(
     () => skillSelections.flatMap((entry) => entry.skill_names),
@@ -1878,6 +1919,78 @@ export default function AutoResearch() {
     }
   };
 
+  const loadUmaRlTraining = useCallback(async () => {
+    if (!selectedAccountId || !sessionTokens.current.has(selectedAccountId)) {
+      return;
+    }
+    try {
+      const result = await accountRequest<{
+        success: boolean;
+        training: UmaRlTrainingStatus;
+        umarl?: Record<string, unknown>;
+      }>(selectedAccountId, '/api/account/umarl/training');
+      setUmaRlTraining(result.training);
+      if (result.umarl) {
+        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+      }
+    } catch (caught) {
+      setError((caught as Error).message);
+    }
+  }, [accountRequest, selectedAccountId]);
+
+  const startUmaRlTraining = async (reportIds: string[]) => {
+    if (!selectedAccountId || !reportIds.length) return;
+    setBusy('umarl-train');
+    setError('');
+    try {
+      const result = await accountRequest<{
+        success: boolean;
+        training: UmaRlTrainingStatus;
+        umarl?: Record<string, unknown>;
+      }>(selectedAccountId, '/api/account/umarl/training', {
+        method: 'POST',
+        body: JSON.stringify({
+          report_ids: reportIds,
+          rollouts: umarlTrainRollouts,
+          epochs: umarlTrainEpochs,
+          max_states: umarlTrainMaxStates,
+          promote: true,
+        }),
+      });
+      setUmaRlTraining(result.training);
+      if (result.umarl) {
+        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+      }
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const cancelUmaRlTraining = async () => {
+    if (!selectedAccountId) return;
+    setBusy('umarl-cancel');
+    try {
+      const result = await accountRequest<{
+        success: boolean;
+        training: UmaRlTrainingStatus;
+        umarl?: Record<string, unknown>;
+      }>(selectedAccountId, '/api/account/umarl/training/cancel', {
+        method: 'POST',
+        body: '{}',
+      });
+      setUmaRlTraining(result.training);
+      if (result.umarl) {
+        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+      }
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
   const connect = useCallback(
     async (address?: string) => {
       const nextServer = normalizeServer(address ?? serverAddress);
@@ -2099,6 +2212,13 @@ export default function AutoResearch() {
     );
     setPalCardMultiplier(Number(preset.pal_card_multiplier ?? 0.1));
     setRestThreshold(Number(preset.rest_threshold ?? 48));
+    const uraAi = preset.ura_ai || {};
+    setUraAiEnabled(uraAi.enabled !== false);
+    setUraAiTimeBudget(Number(uraAi.time_budget_s ?? 10));
+    setUraAiMinRollouts(Number(uraAi.min_rollouts ?? 3000));
+    setUraAiMaxRollouts(Number(uraAi.max_rollouts ?? 10000));
+    setUraAiWorkers(Number(uraAi.workers ?? 0));
+    setUraAiRiskFactor(Number(uraAi.risk_factor ?? 0));
     setScenarioId(1);
     setSelectedRaceIds((preset.extra_race_list || []).map(Number));
   }, [presetName, presets]);
@@ -2134,6 +2254,7 @@ export default function AutoResearch() {
     setNewCareerSaveName('');
     setCareerHistory([]);
     setSelectedCareerReport(null);
+    setUmaRlTraining(null);
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -2150,6 +2271,32 @@ export default function AutoResearch() {
     loadCareerHistory,
     selectedAccount?.runtime.logged_in,
     selectedAccountId,
+  ]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'history' ||
+      !health?.umarl?.installed ||
+      !selectedAccountId ||
+      !selectedAccount?.runtime.logged_in
+    ) {
+      return undefined;
+    }
+    loadUmaRlTraining().catch(() => undefined);
+    if (!['queued', 'running'].includes(umarlTraining?.state || '')) {
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      loadUmaRlTraining().catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [
+    activeTab,
+    health?.umarl?.installed,
+    loadUmaRlTraining,
+    selectedAccount?.runtime.logged_in,
+    selectedAccountId,
+    umarlTraining?.state,
   ]);
 
   useEffect(() => {
@@ -2839,6 +2986,15 @@ export default function AutoResearch() {
     pal_friendship_score: palFriendshipScore,
     pal_card_multiplier: palCardMultiplier,
     rest_threshold: restThreshold,
+    ura_ai: {
+      enabled: uraAiEnabled,
+      model_path: 'uma_runtime/umarl/models/current.pt',
+      time_budget_s: Math.max(1, uraAiTimeBudget),
+      min_rollouts: Math.max(1, uraAiMinRollouts),
+      max_rollouts: Math.max(1, uraAiMaxRollouts),
+      workers: Math.max(0, uraAiWorkers),
+      risk_factor: uraAiRiskFactor,
+    },
     extra_race_list: [...selectedRaceIds].sort((leftId, rightId) => {
       const left = races.find((race) => race.id === leftId);
       const right = races.find((race) => race.id === rightId);
@@ -5281,6 +5437,100 @@ export default function AutoResearch() {
                             这些数值会直接影响训练、休息、外出和属性目标的选择。不了解评分逻辑时建议保留默认值。
                           </p>
 
+                          {health?.umarl?.installed ? (
+                            <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <label className="flex items-start gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={uraAiEnabled}
+                                    onChange={(event) =>
+                                      setUraAiEnabled(event.target.checked)
+                                    }
+                                    className="mt-1"
+                                  />
+                                  <span>
+                                    <strong className="block text-sm text-violet-950">
+                                      使用 UmaRL 蒙特卡洛育成决策
+                                    </strong>
+                                    <span className="mt-1 block text-xs text-violet-700">
+                                      当前模型：
+                                      {health.umarl.model_available
+                                        ? 'policy/value 网络'
+                                        : '手写 rollout'}
+                                      {' · '}
+                                      {health.umarl.cuda_available
+                                        ? health.umarl.cuda_device
+                                        : '未检测到 CUDA'}
+                                    </span>
+                                  </span>
+                                </label>
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-violet-700">
+                                  UmaRL {health.umarl.version || '-'}
+                                </span>
+                              </div>
+                              {uraAiEnabled ? (
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                                  {[
+                                    [
+                                      '每回合秒数',
+                                      uraAiTimeBudget,
+                                      setUraAiTimeBudget,
+                                      1,
+                                    ],
+                                    [
+                                      '最少 rollout',
+                                      uraAiMinRollouts,
+                                      setUraAiMinRollouts,
+                                      1,
+                                    ],
+                                    [
+                                      '最多 rollout',
+                                      uraAiMaxRollouts,
+                                      setUraAiMaxRollouts,
+                                      1,
+                                    ],
+                                    [
+                                      'CPU worker（0 自动）',
+                                      uraAiWorkers,
+                                      setUraAiWorkers,
+                                      1,
+                                    ],
+                                    [
+                                      '高分偏好',
+                                      uraAiRiskFactor,
+                                      setUraAiRiskFactor,
+                                      0.1,
+                                    ],
+                                  ].map(([label, value, setter, step]) => (
+                                    <label
+                                      key={String(label)}
+                                      className="text-xs text-violet-800"
+                                    >
+                                      {String(label)}
+                                      <input
+                                        type="number"
+                                        step={Number(step)}
+                                        min={
+                                          String(label).includes('高分')
+                                            ? undefined
+                                            : 0
+                                        }
+                                        value={Number(value)}
+                                        onChange={(event) =>
+                                          (setter as (next: number) => void)(
+                                            Number(event.target.value),
+                                          )
+                                        }
+                                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+
                           <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-4 text-xs text-slate-600">
                             <p className="text-sm font-semibold text-slate-800">
                               训练评分公式
@@ -7109,13 +7359,30 @@ export default function AutoResearch() {
                               {selectedCareerReport.preset_name || '未命名预设'}
                             </p>
                           </div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-medium ${selectedCareerReport.status === 'error' ? 'bg-red-100 text-red-700' : selectedCareerReport.status === 'finished' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
-                          >
-                            {careerReportStatusLabel(
-                              selectedCareerReport.status,
-                            )}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {health?.umarl?.installed &&
+                            !['queued', 'running'].includes(
+                              umarlTraining?.state || '',
+                            ) ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startUmaRlTraining([selectedCareerReport.id])
+                                }
+                                disabled={busy === 'umarl-train'}
+                                className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                              >
+                                用此记录训练 UmaRL
+                              </button>
+                            ) : null}
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${selectedCareerReport.status === 'error' ? 'bg-red-100 text-red-700' : selectedCareerReport.status === 'finished' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
+                            >
+                              {careerReportStatusLabel(
+                                selectedCareerReport.status,
+                              )}
+                            </span>
+                          </div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
                           <span>
@@ -7245,6 +7512,122 @@ export default function AutoResearch() {
                           刷新记录
                         </button>
                       </div>
+                      {health?.umarl?.installed ? (
+                        <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <h3 className="font-semibold text-violet-950">
+                                使用养马记录训练 UmaRL
+                              </h3>
+                              <p className="mt-1 text-xs text-violet-700">
+                                从当前账号保留的记录生成搜索标签，使用 CUDA
+                                训练，并在成功后自动晋级为实时育成模型。
+                              </p>
+                            </div>
+                            {['queued', 'running'].includes(
+                              umarlTraining?.state || '',
+                            ) ? (
+                              <button
+                                type="button"
+                                onClick={cancelUmaRlTraining}
+                                disabled={busy === 'umarl-cancel'}
+                                className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                              >
+                                请求取消
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startUmaRlTraining(
+                                    careerHistory.map((report) => report.id),
+                                  )
+                                }
+                                disabled={
+                                  !careerHistory.length ||
+                                  busy === 'umarl-train' ||
+                                  !health.umarl.training_available
+                                }
+                                className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                              >
+                                {busy === 'umarl-train'
+                                  ? '正在提交…'
+                                  : '使用全部记录训练'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <label className="text-xs text-violet-800">
+                              每个局面 rollout
+                              <input
+                                type="number"
+                                min={8}
+                                max={10000}
+                                value={umarlTrainRollouts}
+                                onChange={(event) =>
+                                  setUmaRlTrainRollouts(
+                                    Number(event.target.value),
+                                  )
+                                }
+                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                              />
+                            </label>
+                            <label className="text-xs text-violet-800">
+                              训练轮数
+                              <input
+                                type="number"
+                                min={1}
+                                max={200}
+                                value={umarlTrainEpochs}
+                                onChange={(event) =>
+                                  setUmaRlTrainEpochs(
+                                    Number(event.target.value),
+                                  )
+                                }
+                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                              />
+                            </label>
+                            <label className="text-xs text-violet-800">
+                              最多训练局面
+                              <input
+                                type="number"
+                                min={1}
+                                max={2048}
+                                value={umarlTrainMaxStates}
+                                onChange={(event) =>
+                                  setUmaRlTrainMaxStates(
+                                    Number(event.target.value),
+                                  )
+                                }
+                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                              />
+                            </label>
+                          </div>
+                          {umarlTraining ? (
+                            <div className="mt-4">
+                              <div className="flex justify-between text-xs text-violet-800">
+                                <span>
+                                  {umarlTraining.detail || umarlTraining.state}
+                                </span>
+                                <span>{umarlTraining.progress || 0}%</span>
+                              </div>
+                              <div className="mt-1 h-2 overflow-hidden rounded-full bg-violet-100">
+                                <div
+                                  className="h-full bg-violet-500 transition-all"
+                                  style={{
+                                    width: `${Math.max(0, Math.min(100, umarlTraining.progress || 0))}%`,
+                                  }}
+                                />
+                              </div>
+                              {umarlTraining.error ? (
+                                <p className="mt-2 text-xs text-red-600">
+                                  {umarlTraining.error}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {careerHistory.map((report) => {
                           const reportUma = dashboard.umas.find(
