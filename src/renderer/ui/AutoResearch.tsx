@@ -412,6 +412,8 @@ type LoginProgress = {
   detail: string;
   delay: number;
   elapsed: number;
+  done?: boolean;
+  error?: string;
 };
 
 type LoginProgressResponse = {
@@ -1301,10 +1303,14 @@ export default function AutoResearch() {
   const [loginProgress, setLoginProgress] = useState<LoginProgress | null>(
     null,
   );
+  const [disconnectingAccountId, setDisconnectingAccountId] = useState('');
   const sessionTokens = useRef(new Map<string, string>());
   const autoConnectAttempted = useRef(false);
   const autoLoginAttempted = useRef('');
   const activeLoginOperation = useRef('');
+  const activeConnectionAccountIdRef = useRef('');
+  const disconnectingAccountIdRef = useRef('');
+  const sessionRequestVersions = useRef(new Map<string, number>());
   const accountActionRef = useRef<
     | ((
         accountId: string,
@@ -1396,6 +1402,9 @@ export default function AutoResearch() {
   );
 
   const dashboard = session?.dashboard;
+  const loginProgressComplete = Boolean(
+    loginProgress?.done && !loginProgress.error,
+  );
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   );
@@ -1789,14 +1798,38 @@ export default function AutoResearch() {
   const loadSession = useCallback(
     async (accountId: string) => {
       if (!accountId) return;
+      if (
+        disconnectingAccountIdRef.current === accountId ||
+        activeConnectionAccountIdRef.current === accountId
+      )
+        return;
       if (!sessionTokens.current.has(accountId)) {
         setSession(null);
         return;
       }
-      const result = await accountRequest<SessionResponse>(
-        accountId,
-        '/api/account/session',
-      );
+      const requestVersion = sessionRequestVersions.current.get(accountId) || 0;
+      let result: SessionResponse;
+      try {
+        result = await accountRequest<SessionResponse>(
+          accountId,
+          '/api/account/session',
+        );
+      } catch (caught) {
+        if (
+          disconnectingAccountIdRef.current === accountId ||
+          activeConnectionAccountIdRef.current === accountId ||
+          (sessionRequestVersions.current.get(accountId) || 0) !==
+            requestVersion
+        )
+          return;
+        throw caught;
+      }
+      if (
+        disconnectingAccountIdRef.current === accountId ||
+        activeConnectionAccountIdRef.current === accountId ||
+        (sessionRequestVersions.current.get(accountId) || 0) !== requestVersion
+      )
+        return;
       setSession(result);
       updateRuntime(accountId, result);
     },
@@ -2224,12 +2257,33 @@ export default function AutoResearch() {
       action === 'login' || action === 'refresh'
         ? `${action}-${accountId}-${Date.now()}-${Math.random().toString(36).slice(2)}`
         : '';
-    if (connectionOperationId && activeLoginOperation.current) {
-      setError('另一个账号正在登录或刷新，请等待当前操作完成');
+    if (
+      connectionOperationId &&
+      (activeLoginOperation.current || disconnectingAccountIdRef.current)
+    ) {
+      setError('另一个账号正在登录、刷新或退出，请等待当前操作完成');
+      return;
+    }
+    if (
+      action === 'logout' &&
+      (activeLoginOperation.current || disconnectingAccountIdRef.current)
+    ) {
+      setError('另一个账号操作正在进行，请等待完成后再退出');
       return;
     }
     if (connectionOperationId) {
       activeLoginOperation.current = connectionOperationId;
+      activeConnectionAccountIdRef.current = accountId;
+    }
+    if (action === 'logout') {
+      disconnectingAccountIdRef.current = accountId;
+      setDisconnectingAccountId(accountId);
+    }
+    if (connectionOperationId || action === 'logout') {
+      sessionRequestVersions.current.set(
+        accountId,
+        (sessionRequestVersions.current.get(accountId) || 0) + 1,
+      );
     }
     setBusy(`${action}-${accountId}`);
     setError('');
@@ -2254,6 +2308,8 @@ export default function AutoResearch() {
             (forceLogin ? '登录已过期，正在重新登录' : '正在连接登录服务'),
           delay: 0,
           elapsed: 0,
+          done: false,
+          error: '',
         });
         const progressTimer = window.setInterval(() => {
           const elapsed = Math.max(
@@ -2268,6 +2324,10 @@ export default function AutoResearch() {
           )
             .then((progress) => {
               if (!polling || !progress.found) return;
+              if (progress.done) {
+                polling = false;
+                window.clearInterval(progressTimer);
+              }
               setLoginProgress((current) =>
                 current?.loginId === loginId
                   ? {
@@ -2277,6 +2337,8 @@ export default function AutoResearch() {
                       detail: progress.detail || current.detail,
                       delay: Number(progress.delay || 0),
                       elapsed,
+                      done: Boolean(progress.done),
+                      error: String(progress.error || ''),
                     }
                   : current,
               );
@@ -2301,9 +2363,6 @@ export default function AutoResearch() {
         } finally {
           polling = false;
           window.clearInterval(progressTimer);
-          setLoginProgress((current) =>
-            current?.loginId === loginId ? null : current,
-          );
         }
       };
       if (action === 'login') {
@@ -2347,6 +2406,8 @@ export default function AutoResearch() {
             detail: '准备刷新当前账号',
             delay: 0,
             elapsed: 0,
+            done: false,
+            error: '',
           });
           const progressTimer = window.setInterval(() => {
             const elapsed = Math.max(
@@ -2363,6 +2424,10 @@ export default function AutoResearch() {
             )
               .then((progress) => {
                 if (!polling || !progress.found) return;
+                if (progress.done) {
+                  polling = false;
+                  window.clearInterval(progressTimer);
+                }
                 setLoginProgress((current) =>
                   current?.loginId === refreshId
                     ? {
@@ -2372,6 +2437,8 @@ export default function AutoResearch() {
                         detail: progress.detail || current.detail,
                         delay: Number(progress.delay || 0),
                         elapsed,
+                        done: Boolean(progress.done),
+                        error: String(progress.error || ''),
                       }
                     : current,
                 );
@@ -2390,9 +2457,6 @@ export default function AutoResearch() {
           } finally {
             polling = false;
             window.clearInterval(progressTimer);
-            setLoginProgress((current) =>
-              current?.loginId === refreshId ? null : current,
-            );
           }
         };
         if (!sessionTokens.current.has(accountId)) {
@@ -2460,6 +2524,15 @@ export default function AutoResearch() {
     } finally {
       if (activeLoginOperation.current === connectionOperationId) {
         activeLoginOperation.current = '';
+        activeConnectionAccountIdRef.current = '';
+        setLoginProgress(null);
+      }
+      if (
+        action === 'logout' &&
+        disconnectingAccountIdRef.current === accountId
+      ) {
+        disconnectingAccountIdRef.current = '';
+        setDisconnectingAccountId('');
       }
       setBusy('');
     }
@@ -3958,7 +4031,9 @@ export default function AutoResearch() {
                 selectedAccountId && accountAction(selectedAccountId, 'refresh')
               }
               disabled={
-                !selectedAccountId || busy === `refresh-${selectedAccountId}`
+                !selectedAccountId ||
+                Boolean(disconnectingAccountId) ||
+                busy === `refresh-${selectedAccountId}`
               }
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -3978,7 +4053,8 @@ export default function AutoResearch() {
                 setServer('');
                 setHealth(null);
               }}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              disabled={Boolean(loginProgress || disconnectingAccountId)}
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
             >
               更换服务器
             </button>
@@ -4025,10 +4101,18 @@ export default function AutoResearch() {
         {loginProgress ? (
           <div className="rounded-md border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
             <div className="flex items-center gap-2 font-semibold">
-              <RefreshCw className="animate-spin" size={15} />
-              {loginProgress.action === 'refresh'
-                ? '正在刷新当前账号'
-                : '登录中'}{' '}
+              {loginProgressComplete ? (
+                <Check size={15} />
+              ) : (
+                <RefreshCw className="animate-spin" size={15} />
+              )}
+              {loginProgressComplete
+                ? loginProgress.action === 'refresh'
+                  ? '刷新完成，正在更新界面'
+                  : '登录完成，正在打开账号'
+                : loginProgress.action === 'refresh'
+                  ? '正在刷新当前账号'
+                  : '登录中'}{' '}
               · {loginProgress.elapsed}s
             </div>
             <p className="mt-1">
@@ -4046,8 +4130,23 @@ export default function AutoResearch() {
             </div>
             <p className="mt-1 text-xs text-cyan-700">
               {loginProgress.action === 'refresh'
-                ? '等待全部账号接口完成后才会更新页面，请勿重复点击刷新。'
-                : '接口包含模拟操作间隔，请勿重复点击登录。'}
+                ? loginProgressComplete
+                  ? '账号数据已经返回，正在完成界面切换。'
+                  : '等待全部账号接口完成后才会更新页面，请勿重复点击刷新。'
+                : loginProgressComplete
+                  ? '登录已经完成，正在载入账号数据。'
+                  : '接口包含模拟操作间隔，请勿重复点击登录。'}
+            </p>
+          </div>
+        ) : null}
+        {disconnectingAccountId ? (
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <div className="flex items-center gap-2 font-semibold">
+              <RefreshCw className="animate-spin" size={15} />
+              正在退出账号
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              正在断开当前前端会话，账号在后端的登录与养马状态会继续保留。
             </p>
           </div>
         ) : null}
@@ -4163,7 +4262,10 @@ export default function AutoResearch() {
                     <button
                       type="button"
                       onClick={() => setSelectedAccountId(account.id)}
-                      className="flex w-full items-start justify-between gap-2 text-left"
+                      disabled={Boolean(
+                        loginProgress || disconnectingAccountId,
+                      )}
+                      className="flex w-full items-start justify-between gap-2 text-left disabled:cursor-wait"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
@@ -4182,15 +4284,17 @@ export default function AutoResearch() {
                         ) : null}
                       </div>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${account.runtime.logged_in ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                        className={`rounded-full px-2 py-0.5 text-xs ${disconnectingAccountId === account.id ? 'bg-amber-100 text-amber-700' : account.runtime.logged_in ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                       >
-                        {loginProgress?.accountId === account.id
-                          ? loginProgress.action === 'refresh'
-                            ? '刷新中'
-                            : '登录中'
-                          : account.runtime.logged_in
-                            ? '已登录'
-                            : '离线'}
+                        {disconnectingAccountId === account.id
+                          ? '退出中'
+                          : loginProgress?.accountId === account.id
+                            ? loginProgress.action === 'refresh'
+                              ? '刷新中'
+                              : '登录中'
+                            : account.runtime.logged_in
+                              ? '已登录'
+                              : '离线'}
                       </span>
                     </button>
                     <div className="mt-3 flex gap-1">
@@ -4201,6 +4305,7 @@ export default function AutoResearch() {
                             onClick={() => accountAction(account.id, 'refresh')}
                             disabled={
                               Boolean(loginProgress) ||
+                              Boolean(disconnectingAccountId) ||
                               busy === `refresh-${account.id}`
                             }
                             className="rounded-lg bg-white px-2 py-1 text-xs disabled:opacity-50"
@@ -4216,17 +4321,24 @@ export default function AutoResearch() {
                           <button
                             type="button"
                             onClick={() => accountAction(account.id, 'logout')}
-                            className="rounded-lg bg-white px-2 py-1 text-xs"
+                            disabled={Boolean(
+                              busy || loginProgress || disconnectingAccountId,
+                            )}
+                            className="rounded-lg bg-white px-2 py-1 text-xs disabled:opacity-50"
                           >
                             <LogOut className="mr-1 inline" size={12} />
-                            退出
+                            {disconnectingAccountId === account.id
+                              ? '退出中'
+                              : '退出'}
                           </button>
                         </>
                       ) : (
                         <button
                           type="button"
                           onClick={() => accountAction(account.id, 'login')}
-                          disabled={Boolean(loginProgress)}
+                          disabled={Boolean(
+                            loginProgress || disconnectingAccountId,
+                          )}
                           className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                         >
                           <LogIn className="mr-1 inline" size={12} />
@@ -4240,7 +4352,10 @@ export default function AutoResearch() {
                       <button
                         type="button"
                         onClick={() => deleteAccount(account.id)}
-                        className="ml-auto rounded-lg bg-white px-2 py-1 text-xs text-red-600"
+                        disabled={Boolean(
+                          loginProgress || disconnectingAccountId,
+                        )}
+                        className="ml-auto rounded-lg bg-white px-2 py-1 text-xs text-red-600 disabled:opacity-50"
                       >
                         <Trash2 className="inline" size={12} />
                       </button>
@@ -4264,6 +4379,54 @@ export default function AutoResearch() {
                 <p>请先选择要使用的账号。</p>
               </section>
             ) : activeTab !== 'presets' &&
+              disconnectingAccountId === selectedAccount.id ? (
+              <section
+                className={panelClass(
+                  'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
+                )}
+              >
+                <div>
+                  <RefreshCw
+                    className="mx-auto animate-spin text-slate-400"
+                    size={42}
+                  />
+                  <p className="mt-4 font-semibold text-slate-700">
+                    正在退出账号
+                  </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    仅断开当前前端连接，后端登录和养马状态不会被清除。
+                  </p>
+                </div>
+              </section>
+            ) : activeTab !== 'presets' &&
+              loginProgress?.accountId === selectedAccount.id ? (
+              <section
+                className={panelClass(
+                  'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
+                )}
+              >
+                <div>
+                  {loginProgressComplete ? (
+                    <Check className="mx-auto text-emerald-500" size={42} />
+                  ) : (
+                    <RefreshCw
+                      className="mx-auto animate-spin text-cyan-500"
+                      size={42}
+                    />
+                  )}
+                  <p className="mt-4 font-semibold text-slate-700">
+                    {loginProgressComplete
+                      ? '登录完成，正在载入账号界面'
+                      : loginProgress.action === 'refresh'
+                        ? '正在刷新当前账号'
+                        : '正在登录账号'}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {loginProgress.detail}
+                  </p>
+                </div>
+              </section>
+            ) : activeTab !== 'presets' &&
               (!selectedAccount?.runtime.logged_in || !dashboard) ? (
               <section className={panelClass('p-12 text-center')}>
                 <LogIn className="mx-auto text-slate-300" size={42} />
@@ -4277,14 +4440,16 @@ export default function AutoResearch() {
                       selectedAccount &&
                       accountAction(selectedAccount.id, 'login')
                     }
-                    disabled={Boolean(loginProgress)}
+                    disabled={Boolean(loginProgress || disconnectingAccountId)}
                     className="rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
                   >
                     {loginProgress?.accountId === selectedAccount?.id
                       ? `登录中 ${loginProgress?.elapsed || 0}s · ${loginProgress?.detail || '正在连接登录服务'}`
                       : loginProgress
                         ? '请等待其他账号登录完成'
-                        : '登录账号'}
+                        : disconnectingAccountId
+                          ? '请等待账号退出完成'
+                          : '登录账号'}
                   </button>
                   <button
                     type="button"
