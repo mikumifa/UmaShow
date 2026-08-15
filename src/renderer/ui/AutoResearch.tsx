@@ -10,11 +10,8 @@ import {
 import {
   Activity,
   Check,
-  CircleStop,
   Database,
-  Download,
   Gem,
-  GripVertical,
   History,
   ListChecks,
   LogIn,
@@ -23,1291 +20,80 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Save,
-  Search,
   Server,
   Settings2,
   Trash2,
-  Trophy,
   Upload,
   Users,
 } from 'lucide-react';
-import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
+import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
+import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import SkillSelector, {
   AutoResearchSkill,
-  skillIconPath,
 } from 'renderer/components/autoResearch/SkillSelector';
-import { loadUMDB, UMDB } from 'renderer/utils/umdb';
-
-type CapturedCredential = {
-  uid: string;
-  accessKey: string;
-  capturedAt: string;
-  source: string;
-};
-
-type RunnerStats = {
-  hp?: number;
-  max_hp?: number;
-  motivation?: number;
-  speed?: number;
-  stamina?: number;
-  power?: number;
-  guts?: number;
-  wit?: number;
-  skill_point?: number;
-};
-
-type Runner = {
-  running?: boolean;
-  stopping?: boolean;
-  session_waiting?: boolean;
-  session_wait_until?: number;
-  session_wait_seconds?: number;
-  session_wait_reason?: string;
-  turn?: number;
-  steps?: number;
-  last_action?: string;
-  last_error?: string;
-  finished?: boolean;
-  log?: Array<{
-    id: number;
-    action: string;
-    turn: number | string;
-    detail: string;
-    time: string;
-  }>;
-  action_history?: Array<{
-    turn: number;
-    action: string;
-    facility: string;
-    detail: string;
-    stats?: RunnerStats;
-  }>;
-  card_id?: number;
-  current_stats?: RunnerStats;
-  jewels_earned?: number;
-  jewel_drop_count?: number;
-  daily_jewel_drop_count?: number;
-  daily_jewels_earned?: number;
-  daily_jewel_drop_limit?: number;
-  daily_jewel_reset_time?: string;
-  run_plan?: {
-    active: boolean;
-    mode: 'single' | 'continuous' | 'daily_count' | 'jewel_drops';
-    target: number;
-    completed_runs: number;
-    completed_jewel_drops: number;
-    daily_completed_runs: number;
-    stop_reason: string;
-  };
-  daily_jewel_schedule?: {
-    enabled: boolean;
-    target: number;
-    start_time: string;
-    end_time: string;
-    status: string;
-    last_error: string;
-    daily_jewel_drop_count: number;
-    updated_at: string;
-  };
-  jewel_history?: Array<{
-    turn: number;
-    program_id: number;
-    race_name: string;
-    rank: number;
-    amount: number;
-    time: string;
-  }>;
-};
-
-type SessionAccount = {
-  tp: { current: number; max: number };
-  carrots: { total: number };
-  gold: number;
-  clocks: number;
-  energy_drinks: number;
-  career?: {
-    active: boolean;
-    card_id?: number | string;
-    name: string;
-    turn: number;
-    scenario_id: number;
-    vital: number;
-    max_vital: number;
-    support_card_ids?: number[];
-    friend_viewer_id?: number;
-    friend_card_id?: number;
-    parent_id_1?: number;
-    parent_id_2?: number;
-  } | null;
-};
-
-type Account = {
-  id: string;
-  uid: string;
-  label: string;
-  source: string;
-  accessKeyPreview: string;
-  updatedAt: string;
-  runtime: {
-    logged_in: boolean;
-    last_error: string;
-    last_refreshed_at?: string;
-    runner: Runner;
-    account?: SessionAccount | null;
-  };
-};
-
-type FactorInfo = {
-  id: number;
-  name: string;
-  stars: number;
-  category: string;
-  factor_type: number;
-  factor_group_id: number;
-};
-
-type FactorSummary = {
-  stat: FactorInfo | null;
-  distance: FactorInfo | null;
-  unique: FactorInfo | null;
-  white_count: number;
-};
-
-type SupportInfo = {
-  id: number;
-  chara_id: number;
-  name: string;
-  rarity: string;
-  type: string;
-  max_level: number;
-  max_exp: number;
-  owned: boolean;
-  exp: number;
-  limit_break_count: number;
-};
-
-type Dashboard = {
-  account: SessionAccount;
-  umas: Array<{
-    id: number;
-    chara_id: number;
-    name: string;
-    rarity: number;
-    talent_level: number;
-    race_cloth_id: number;
-  }>;
-  supports: SupportInfo[];
-  decks: Array<{
-    id: number;
-    name: string;
-    support_card_ids: number[];
-    cards: SupportInfo[];
-  }>;
-  parents: Array<{
-    selection_id: string;
-    source: 'own' | 'rental';
-    viewer_id: number;
-    owner_name: string;
-    instance_id: number;
-    card_id: number;
-    chara_id: number;
-    name: string;
-    rank: number;
-    rank_score: number;
-    rarity: number;
-    talent_level: number;
-    race_cloth_id: number;
-    scenario_id: number;
-    running_style: number;
-    stats: {
-      speed: number;
-      stamina: number;
-      power: number;
-      guts: number;
-      wiz: number;
-    };
-    factors: FactorInfo[];
-    factor_summary: FactorSummary;
-    ancestors: Array<{
-      position_id: number;
-      card_id: number;
-      chara_id: number;
-      race_cloth_id: number;
-      rarity: number;
-      name: string;
-      factors: FactorInfo[];
-      factor_summary: FactorSummary;
-    }>;
-  }>;
-  friends: Array<{
-    viewer_id: number;
-    name: string;
-    support_card_id: number;
-    support_name: string;
-    rarity: string;
-    type: string;
-    chara_id: number;
-    exp: number;
-    limit_break_count: number;
-  }>;
-  friend_exclude_ids: number[];
-};
-
-type AutoResearchTab =
-  | 'accounts'
-  | 'presets'
-  | 'career'
-  | 'progress'
-  | 'history';
-
-type CareerReportSummary = {
-  id: string;
-  started_at?: string;
-  ended_at?: string;
-  preset_name: string;
-  scenario_id: number;
-  status: string;
-  final_turn: number;
-  card_id: number;
-  race_count: number;
-  jewel_drop_count: number;
-  jewels_earned: number;
-  final_stats?: RunnerStats;
-  error_message?: string;
-};
-
-type CareerReport = CareerReportSummary & {
-  turns?: Array<{
-    turn: number;
-    selected_action?: string;
-    decision_reason?: string;
-    events?: Array<{
-      event?: string;
-      action?: string;
-      detail?: string;
-      time?: string;
-    }>;
-    api_calls?: Array<{
-      direction?: string;
-      endpoint?: string;
-      result_code?: number;
-    }>;
-  }>;
-};
-
-type CareerSetting = {
-  id: string;
-  name: string;
-  account_uid: string;
-  preset_name: string;
-  card_id: number;
-  deck_id: number;
-  support_card_ids: number[];
-  friend_card_id: number;
-  friend_key?: string;
-  parent_id_1: number;
-  parent_id_2: number;
-  parent_key_1?: string;
-  parent_key_2?: string;
-  scenario_id?: number;
-  max_steps: number;
-  burn_clocks: boolean;
-  recover_tp_with_item: boolean;
-  recover_tp_with_jewels: boolean;
-  updated_at: string;
-};
-
-type RunMode =
-  | 'single'
-  | 'continuous'
-  | 'daily_count'
-  | 'jewel_drops'
-  | 'daily_jewel_schedule';
-
-type PendingRun = { type: 'current' } | { type: 'saved'; settingId: string };
-
-type SessionResponse = {
-  success: boolean;
-  dashboard?: Dashboard;
-  runtime?: Partial<Account['runtime']>;
-  runner?: Runner;
-  relogged_in?: boolean;
-};
-
-type AuthResponse = SessionResponse & {
-  token: string;
-  expires_at: number;
-};
-
-type SkillLearningSetting = {
-  min_hint_level: number;
-  learn_when_affordable: boolean;
-  purchase_turns: number[];
-};
-
-type SkillSelectionEntry = {
-  id: string;
-  label: string;
-  skill_names: string[];
-};
-
-type Preset = {
-  name: string;
-  scenario_id?: number;
-  running_style?: number;
-  recover_tp_with_item?: boolean;
-  recover_tp_with_jewels?: boolean;
-  learn_skill_list?: string[][];
-  learn_skill_group_labels?: string[];
-  learn_skill_settings?: Record<string, SkillLearningSetting>;
-  learn_skill_blacklist?: string[];
-  learn_skill_threshold?: number;
-  learn_skill_only_user_provided?: boolean;
-  skip_double_circle_unless_high_hint?: boolean;
-  skill_purchase_turns?: number[];
-  extra_race_list?: number[];
-  cure_asap_conditions?: string[];
-  expect_attribute?: number[];
-  score_value?: number[][];
-  base_score?: number[];
-  stat_value_multiplier?: number[];
-  extra_weight?: number[][];
-  npc_score_value?: number[][];
-  compensate_failure?: boolean;
-  summer_score_threshold?: number;
-  motivation_threshold_year1?: number;
-  motivation_threshold_year2?: number;
-  motivation_threshold_year3?: number;
-  prioritize_recreation?: boolean;
-  pal_thresholds?: number[][];
-  pal_friendship_score?: number[];
-  pal_card_multiplier?: number;
-  rest_threshold?: number;
-  ura_ai?: {
-    enabled?: boolean;
-    model_path?: string;
-    time_budget_s?: number;
-    min_rollouts?: number;
-    max_rollouts?: number;
-    workers?: number;
-    risk_factor?: number;
-  };
-};
-
-type UmaRlTrainingStatus = {
-  state: 'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-  job_id?: string;
-  stage?: string;
-  detail?: string;
-  progress?: number;
-  error?: string;
-  metrics?: Record<string, number>;
-  state_count?: number;
-  promoted?: boolean;
-};
-
-type SkillOption = Partial<Omit<AutoResearchSkill, 'id'>> & {
-  name?: string;
-};
-
-type RaceOption = {
-  id: number;
-  program_id: number;
-  turn: number;
-  name: string;
-  date: string;
-  type: string;
-  terrain: string;
-  distance: string;
-  venue: string;
-  thumbnail_id: number;
-};
-
-type LoginProgress = {
-  accountId: string;
-  loginId: string;
-  action: 'login' | 'refresh';
-  stage: string;
-  endpoint: string;
-  detail: string;
-  delay: number;
-  elapsed: number;
-  done?: boolean;
-  error?: string;
-};
-
-type LoginProgressResponse = {
-  found: boolean;
-  stage?: string;
-  endpoint?: string;
-  detail?: string;
-  delay?: number;
-  done?: boolean;
-  error?: string;
-};
-
-const DEFAULT_SERVER = 'http://127.0.0.1:18765';
-const DEFAULT_PRESET_NAME = 'URA 默认';
-const LOCAL_PRESETS_KEY = 'autoResearch.presets';
-const DELETED_PRESETS_KEY = 'autoResearch.deletedPresets';
-const CAREER_SETTINGS_KEY = 'autoResearch.careerSettings';
-const LAST_ACCOUNT_KEY = 'autoResearch.lastLoggedInAccount';
-
-function getSharedStorageItem(key: string) {
-  const legacyValue = localStorage.getItem(key);
-  try {
-    const value = window.electron.autoResearch.getUiSetting(
-      key,
-      legacyValue,
-      window.location.origin,
-    );
-    if (value === null) {
-      localStorage.removeItem(key);
-    } else if (value !== legacyValue) {
-      localStorage.setItem(key, value);
-    }
-    return value;
-  } catch (error) {
-    console.error('Failed to read shared auto research setting:', error);
-    return legacyValue;
-  }
-}
-
-function setSharedStorageItem(key: string, value: string) {
-  localStorage.setItem(key, value);
-  try {
-    if (!window.electron.autoResearch.setUiSetting(key, value)) {
-      console.error('Failed to save shared auto research setting');
-    }
-  } catch (error) {
-    console.error('Failed to save shared auto research setting:', error);
-  }
-}
-
-const STAT_LABELS = ['速度', '耐力', '力量', '毅力', '智力'];
-const PERIOD_LABELS = [
-  '初级年',
-  '经典年',
-  '高级年前半',
-  '高级年后半',
-  'URA 决赛阶段',
-];
-const SKILL_PURCHASE_YEAR_OPTIONS = [
-  { offset: 0, label: '初级年' },
-  { offset: 24, label: '经典年' },
-  { offset: 48, label: '高级年' },
-];
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
-const CONDITION_OPTIONS = [
-  { value: 'Migraine', label: '偏头痛' },
-  { value: 'Night Owl', label: '熬夜' },
-  { value: 'Skin Outbreak', label: '皮肤粗糙' },
-  { value: 'Slacker', label: '偷懒癖' },
-  { value: 'Slow Metabolism', label: '发胖' },
-];
-
-const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
-const DEFAULT_BASE_SCORE = [0, 0, 0, 0, 0];
-const DEFAULT_STAT_MULTIPLIER = [0.01, 0.01, 0.01, 0.01, 0.01, 0.005];
-const DEFAULT_SCORE_VALUE = [
-  [0.11, 0.1, 0.006, 0.09],
-  [0.11, 0.1, 0.006, 0.09],
-  [0.11, 0.1, 0.006, 0.09],
-  [0.03, 0.05, 0.006, 0.09],
-  [0, 0, 0.006, 0],
-];
-const DEFAULT_EXTRA_WEIGHT = Array.from({ length: 4 }, () => [0, 0, 0, 0, 0]);
-const DEFAULT_NPC_SCORE = [
-  [0.05, 0.05, 0.05],
-  [0.05, 0.05, 0.05],
-  [0.05, 0.05, 0.05],
-  [0.03, 0.05, 0.05],
-  [0, 0, 0.05],
-];
-
-function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
-  return {
-    name,
-    scenario_id: 1,
-    running_style: 0,
-    learn_skill_list: [],
-    learn_skill_group_labels: [],
-    learn_skill_settings: {},
-    learn_skill_blacklist: [],
-    learn_skill_threshold: 888,
-    learn_skill_only_user_provided: true,
-    skip_double_circle_unless_high_hint: false,
-    skill_purchase_turns: [],
-    extra_race_list: [],
-    cure_asap_conditions: CONDITION_OPTIONS.map((item) => item.value),
-    expect_attribute: [...DEFAULT_EXPECT_ATTRIBUTE],
-    score_value: DEFAULT_SCORE_VALUE.map((row) => [...row]),
-    base_score: [...DEFAULT_BASE_SCORE],
-    stat_value_multiplier: [...DEFAULT_STAT_MULTIPLIER],
-    extra_weight: DEFAULT_EXTRA_WEIGHT.map((row) => [...row]),
-    npc_score_value: DEFAULT_NPC_SCORE.map((row) => [...row]),
-    compensate_failure: true,
-    summer_score_threshold: 0.34,
-    motivation_threshold_year1: 3,
-    motivation_threshold_year2: 4,
-    motivation_threshold_year3: 4,
-    prioritize_recreation: false,
-    pal_thresholds: [],
-    pal_friendship_score: [0.08, 0.057, 0.018],
-    pal_card_multiplier: 0.1,
-    rest_threshold: 48,
-    ura_ai: {
-      enabled: true,
-      model_path: 'uma_runtime/umarl/models/current.pt',
-      time_budget_s: 10,
-      min_rollouts: 3000,
-      max_rollouts: 10000,
-      workers: 0,
-      risk_factor: 0,
-    },
-  };
-}
-
-class AutoResearchRequestError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'AutoResearchRequestError';
-    this.status = status;
-  }
-}
-
-function needsRelogin(error: unknown) {
-  if (error instanceof AutoResearchRequestError && error.status === 401) {
-    return true;
-  }
-  const detail = String((error as Error)?.message || error || '').toLowerCase();
-  if (detail.includes('刷新当前账号')) {
-    return false;
-  }
-  return [
-    '登录会话',
-    '登录失效',
-    '重新登录',
-    'session',
-    'sid',
-    '401',
-    '403',
-    'api error',
-    '网络请求失败',
-  ].some((marker) => detail.includes(marker));
-}
-
-function accountProgressPercent(progress: LoginProgress) {
-  if (progress.action === 'login') {
-    const stages: Record<string, number> = {
-      queued: 5,
-      validate: 10,
-      oauth: 20,
-      prepare: 30,
-      delay: 45,
-      request: 55,
-      options: 72,
-      career: 86,
-      dashboard: 95,
-      complete: 100,
-    };
-    return stages[progress.stage] ?? 35;
-  }
-  if (progress.stage === 'complete') return 100;
-  if (progress.stage === 'dashboard') return 95;
-  if (progress.stage.startsWith('career')) return 86;
-  if (
-    progress.stage.startsWith('options') ||
-    progress.endpoint.includes('pre_single_mode')
-  ) {
-    return progress.stage === 'options_done' ? 78 : 62;
-  }
-  if (
-    progress.stage.startsWith('account') ||
-    progress.endpoint.includes('load/index') ||
-    progress.endpoint === 'load_index'
-  ) {
-    return progress.stage === 'account_done' ? 45 : 25;
-  }
-  return 10;
-}
-
-function waitTimeLabel(seconds?: number) {
-  const total = Math.max(0, Math.ceil(Number(seconds || 0)));
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return minutes > 0 ? `${minutes}分${rest}秒` : `${rest}秒`;
-}
-
-function parentViewerIdFromSelection(value?: string) {
-  const [source, viewerId] = String(value || '').split(':');
-  return source === 'rental' ? Number(viewerId || 0) : 0;
-}
-
-function careerSettingMatchesCurrent(
-  setting: CareerSetting,
-  career: NonNullable<SessionAccount['career']>,
-) {
-  return Number(setting.card_id || 0) === Number(career.card_id || 0);
-}
-
-function normalizeServer(value: string) {
-  const trimmed = value.trim().replace(/\/+$/, '');
-  if (!trimmed) return DEFAULT_SERVER;
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
-}
-
-async function fileToBase64(file: File) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(offset, offset + chunkSize),
-    );
-  }
-  return btoa(binary);
-}
-
-function panelClass(extra = '') {
-  return `rounded-lg border border-gray-200 bg-white ${extra}`;
-}
-
-function scrollToSection(target: string) {
-  const element = document.getElementById(target);
-  if (!element) return;
-  if (element instanceof HTMLDetailsElement) element.open = true;
-  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function horseIconPath(cardId: number, rarity: number, raceClothId = 0) {
-  if (!cardId) return undefined;
-  const charaId = Number(String(cardId).slice(0, 4));
-  const mappedDressId = UMDB.cardRarityData[cardId]?.[rarity];
-  const dressId =
-    raceClothId && raceClothId !== cardId
-      ? raceClothId
-      : mappedDressId || raceClothId || cardId;
-  if (!charaId || !dressId) return undefined;
-  return `trained_chr_icon/${charaId}_${String(dressId).padStart(6, '0')}.png`;
-}
-
-function supportIconPath(supportCardId: number) {
-  return `support_card_s/${supportCardId}.png`;
-}
-
-function UmaChoiceCard({
-  uma,
-  selected,
-  onSelect,
-}: {
-  uma: Dashboard['umas'][number];
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const iconPath = horseIconPath(uma.id, uma.rarity, uma.race_cloth_id);
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      title={uma.name}
-      aria-label={`选择${uma.name}`}
-      aria-pressed={selected}
-      className={`relative h-16 w-16 flex-none overflow-hidden rounded-md border bg-gray-100 transition-all ${
-        selected
-          ? 'border-indigo-500 ring-2 ring-indigo-200'
-          : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
-      }`}
-    >
-      {iconPath ? (
-        <AssetIcon
-          path={iconPath}
-          alt={uma.name}
-          className="h-full w-full object-cover"
-        />
-      ) : null}
-      {selected ? (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm">
-          <Check size={13} strokeWidth={3} />
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-const FACTOR_COLORS: Record<string, string> = {
-  stat: 'border-blue-200 bg-blue-50 text-blue-700',
-  distance: 'border-pink-200 bg-pink-50 text-pink-700',
-  unique: 'border-amber-200 bg-amber-50 text-amber-800',
-  white: 'border-gray-200 bg-white text-gray-600',
-};
-
-function factorSummary(
-  factors: FactorInfo[],
-  summary?: FactorSummary,
-): FactorSummary {
-  return (
-    summary || {
-      stat: factors.find((factor) => factor.category === 'stat') || null,
-      distance:
-        factors.find((factor) => factor.category === 'distance') || null,
-      unique:
-        [...factors].reverse().find((factor) => factor.category === 'unique') ||
-        null,
-      white_count: factors.filter((factor) => factor.category === 'white')
-        .length,
-    }
-  );
-}
-
-function FactorSummaryView({
-  factors,
-  summary,
-}: {
-  factors: FactorInfo[];
-  summary?: FactorSummary;
-}) {
-  const current = factorSummary(factors, summary);
-  const featured = [current.stat, current.distance, current.unique].filter(
-    Boolean,
-  ) as FactorInfo[];
-  return (
-    <div className="flex flex-wrap gap-1">
-      {featured.map((factor) => (
-        <span
-          key={factor.id}
-          className={`rounded border px-1.5 py-0.5 text-[11px] ${FACTOR_COLORS[factor.category] || FACTOR_COLORS.white}`}
-        >
-          {factor.name} {'★'.repeat(Math.max(1, factor.stars))}
-        </span>
-      ))}
-      <span className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] text-gray-500">
-        白因子 ×{current.white_count}
-      </span>
-    </div>
-  );
-}
-
-function FactorDetailList({ factors }: { factors: FactorInfo[] }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {factors.map((factor) => (
-        <span
-          key={factor.id}
-          className={`rounded border px-1.5 py-0.5 text-[11px] ${FACTOR_COLORS[factor.category] || FACTOR_COLORS.white}`}
-          title={`因子 ID ${factor.id}`}
-        >
-          {factor.name} {'★'.repeat(Math.max(1, factor.stars))}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function ParentChoiceCard({
-  parent,
-  selected,
-  disabled,
-  onSelect,
-}: {
-  parent: Dashboard['parents'][number];
-  selected: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const iconPath = horseIconPath(
-    parent.card_id,
-    parent.rarity,
-    parent.race_cloth_id,
-  );
-  return (
-    <div
-      className={`rounded-lg border bg-white p-3 transition-all ${
-        selected
-          ? 'border-indigo-500 ring-2 ring-indigo-100'
-          : 'border-gray-200'
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onSelect}
-        disabled={disabled}
-        aria-label={`选择继承马娘${parent.name}`}
-        aria-pressed={selected}
-        className="flex w-full items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        <span className="relative h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
-          {iconPath ? (
-            <AssetIcon
-              path={iconPath}
-              alt={parent.name}
-              className="h-full w-full object-cover"
-            />
-          ) : null}
-          {selected ? (
-            <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm">
-              <Check size={13} strokeWidth={3} />
-            </span>
-          ) : null}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="mb-1 flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-semibold text-gray-800">
-              {parent.name}
-            </span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] ${
-                parent.source === 'rental'
-                  ? 'bg-violet-100 text-violet-700'
-                  : 'bg-sky-100 text-sky-700'
-              }`}
-            >
-              {parent.source === 'rental' ? '借用' : '自己的'}
-            </span>
-          </span>
-          <FactorSummaryView
-            factors={parent.factors || []}
-            summary={parent.factor_summary}
-          />
-        </span>
-      </button>
-
-      <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-        {parent.ancestors.map((ancestor) => {
-          const ancestorIcon = horseIconPath(
-            ancestor.card_id,
-            ancestor.rarity,
-            ancestor.race_cloth_id,
-          );
-          return (
-            <div
-              key={ancestor.position_id}
-              className="flex min-w-0 items-center gap-2 rounded-md bg-gray-50 p-1.5"
-            >
-              <span className="h-9 w-9 flex-none overflow-hidden rounded bg-gray-100">
-                {ancestorIcon ? (
-                  <AssetIcon
-                    path={ancestorIcon}
-                    alt={ancestor.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <FactorSummaryView
-                  factors={ancestor.factors || []}
-                  summary={ancestor.factor_summary}
-                />
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
-      >
-        {expanded ? '收起详细因子' : '查看详细因子'}
-      </button>
-      {expanded ? (
-        <div className="mt-2 space-y-2 border-t border-gray-100 pt-2">
-          <div>
-            <div className="mb-1 text-[11px] font-medium text-gray-500">
-              本体因子
-            </div>
-            <FactorDetailList factors={parent.factors || []} />
-          </div>
-          {parent.ancestors.map((ancestor) => (
-            <div key={`detail-${ancestor.position_id}`}>
-              <div className="mb-1 text-[11px] font-medium text-gray-500">
-                祖辈 {ancestor.position_id === 10 ? '1' : '2'} · {ancestor.name}
-              </div>
-              <FactorDetailList factors={ancestor.factors || []} />
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SupportChoiceCard({
-  support,
-  selected,
-  disabled,
-  onSelect,
-}: {
-  support: SupportInfo;
-  selected: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      title={support.name}
-      aria-label={`选择好友支援卡${support.name}`}
-      aria-pressed={selected}
-      className={`relative h-14 w-14 flex-none overflow-hidden rounded-md border bg-gray-100 transition-all disabled:cursor-not-allowed disabled:opacity-25 ${
-        selected
-          ? 'border-indigo-500 ring-2 ring-indigo-200'
-          : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
-      }`}
-    >
-      <AssetIcon
-        path={supportIconPath(support.id)}
-        alt={support.name}
-        className="h-full w-full object-cover"
-      />
-      {selected ? (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm">
-          <Check size={13} strokeWidth={3} />
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-function DeckChoiceCard({
-  deck,
-  selected,
-  disabled,
-  onSelect,
-}: {
-  deck: Dashboard['decks'][number];
-  selected: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      aria-pressed={selected}
-      className={`w-fit max-w-full flex-none rounded-lg border p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
-        selected
-          ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100'
-          : 'border-gray-200 bg-white hover:border-gray-400'
-      }`}
-    >
-      <span className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-medium text-gray-700">
-          {deck.name}
-        </span>
-        {selected ? <Check size={16} className="text-indigo-600" /> : null}
-      </span>
-      <span className="flex flex-nowrap gap-1">
-        {deck.cards.map((support) => (
-          <span
-            key={support.id}
-            className="h-12 w-12 flex-none overflow-hidden rounded bg-gray-100"
-            title={support.name}
-          >
-            <AssetIcon
-              path={supportIconPath(support.id)}
-              alt={support.name}
-              className="h-full w-full object-cover"
-            />
-          </span>
-        ))}
-      </span>
-    </button>
-  );
-}
-
-function numberArray(
-  value: number[] | undefined,
-  fallback: number[],
-): number[] {
-  return fallback.map((defaultValue, index) => {
-    const candidate = Number(value?.[index]);
-    return Number.isFinite(candidate) ? candidate : defaultValue;
-  });
-}
-
-function numberMatrix(
-  value: number[][] | undefined,
-  fallback: number[][],
-): number[][] {
-  return fallback.map((row, index) => numberArray(value?.[index], row));
-}
-
-function normalizeTurnList(value: string | number[] | undefined) {
-  const rows = Array.isArray(value)
-    ? value
-    : String(value || '').split(/[,，\s]+/);
-  return Array.from(
-    new Set(
-      rows
-        .map(Number)
-        .filter((turn) => Number.isInteger(turn) && turn >= 1 && turn <= 76),
-    ),
-  ).sort((left, right) => left - right);
-}
-
-function normalizeSkillLearningSettings(
-  value: Record<string, Partial<SkillLearningSetting>> | undefined,
-) {
-  const result: Record<string, SkillLearningSetting> = {};
-  Object.entries(value || {}).forEach(([rawName, rawSetting]) => {
-    const name = String(rawName || '').trim();
-    if (!name || !rawSetting || typeof rawSetting !== 'object') return;
-    result[name] = {
-      min_hint_level: Math.max(
-        0,
-        Math.min(5, Math.trunc(Number(rawSetting.min_hint_level) || 0)),
-      ),
-      learn_when_affordable: Boolean(rawSetting.learn_when_affordable),
-      purchase_turns: normalizeTurnList(rawSetting.purchase_turns),
-    };
-  });
-  return result;
-}
-
-let skillSelectionSequence = 0;
-
-function createSkillSelectionId() {
-  skillSelectionSequence += 1;
-  return `skill-selection-${Date.now()}-${skillSelectionSequence}`;
-}
-
-function normalizeSkillSelections(
-  rows: string[][] | undefined,
-  labels: string[] | undefined,
-) {
-  const selected = new Set<string>();
-  const result: SkillSelectionEntry[] = [];
-  (rows || []).forEach((row, index) => {
-    const names = Array.from(
-      new Set(
-        row
-          .map((name) => String(name || '').trim())
-          .filter((name) => name && !selected.has(name)),
-      ),
-    );
-    names.forEach((name) => selected.add(name));
-    if (!names.length) return;
-    result.push({
-      id: createSkillSelectionId(),
-      label:
-        names.length > 1
-          ? String(labels?.[index] || '').trim() ||
-            `技能组 ${result.length + 1}`
-          : '',
-      skill_names: names,
-    });
-  });
-  return result;
-}
-
-function skillPurchaseTurn(yearOffset: number, month: number, half: 1 | 2) {
-  return yearOffset + (month - 1) * 2 + half;
-}
-
-function skillPurchaseTurnLabel(turn: number) {
-  const year = SKILL_PURCHASE_YEAR_OPTIONS.find(
-    (option) => turn > option.offset && turn <= option.offset + 24,
-  );
-  if (!year) return `URA 决赛阶段 · 第 ${turn} 回合`;
-  const yearTurn = turn - year.offset;
-  const month = Math.ceil(yearTurn / 2);
-  const half = yearTurn % 2 === 1 ? '上半' : '下半';
-  return `${year.label} ${month}月${half}`;
-}
-
-function turnDateLabel(value: number | string | undefined) {
-  const turn = Number(value);
-  if (!Number.isInteger(turn) || turn <= 0) return '-';
-  return skillPurchaseTurnLabel(turn);
-}
-
-const RACE_GRADE_ORDER: Record<string, number> = {
-  G1: 1,
-  G2: 2,
-  G3: 3,
-  OP: 4,
-  'PRE-OP': 5,
-};
-
-function compareRaces(left: RaceOption, right: RaceOption) {
-  return (
-    Number(left.turn || 0) - Number(right.turn || 0) ||
-    (RACE_GRADE_ORDER[left.type] || 99) -
-      (RACE_GRADE_ORDER[right.type] || 99) ||
-    left.name.localeCompare(right.name, 'zh-CN') ||
-    left.id - right.id
-  );
-}
-
-function describeRunnerAction(value?: string) {
-  const action = String(value || '').trim();
-  if (!action) return '等待开始';
-  if (action === 'started') return '正在准备养马';
-  if (action === 'command') return '正在选择训练、休息或外出';
-  if (action === 'event') return '正在处理育成事件';
-  if (action === 'race') return '正在参加比赛';
-  if (action === 'race_progress') return '正在完成比赛流程';
-  if (action === 'finish') return '正在完成本次养马';
-  if (action === 'idle') return '正在等待游戏进入下一状态';
-  if (action.startsWith('skills:')) {
-    return `刚刚学习了：${action.slice('skills:'.length)}`;
-  }
-  if (action.startsWith('skills ')) {
-    return `刚刚学习了 ${action.slice('skills '.length)} 个技能`;
-  }
-  if (action.startsWith('blocked state')) return '游戏状态异常，正在尝试恢复';
-  if (action.startsWith('items')) return '正在整理和使用道具';
-  return action;
-}
-
-function runModeLabel(mode?: RunMode) {
-  const labels: Record<RunMode, string> = {
-    single: '单次运行',
-    continuous: '持续运行',
-    daily_count: '每日运行次数',
-    jewel_drops: '宝石掉落目标',
-    daily_jewel_schedule: '每日宝石计划',
-  };
-  return labels[mode || 'single'];
-}
-
-function dailyJewelScheduleStatusLabel(status?: string) {
-  const labels: Record<string, string> = {
-    waiting: '等待启动时间',
-    waiting_login: '等待账号登录',
-    starting: '正在启动',
-    running: '运行中',
-    occupied: '等待当前操作结束',
-    retry_wait: '稍后重试',
-    completed: '今日已完成',
-    disabled: '已停止',
-    invalid: '时间设置无效',
-  };
-  return labels[String(status || '')] || '等待启动时间';
-}
-
-function careerReportStatusLabel(status?: string) {
-  const labels: Record<string, string> = {
-    finished: '已完成',
-    stopped: '已停止',
-    error: '异常结束',
-    running: '运行中',
-  };
-  return labels[String(status || '')] || '状态未知';
-}
-
-function formatReportTime(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function describeLogAction(value: string) {
-  const labels: Record<string, string> = {
-    started: '开始养马',
-    command: '选择行动',
-    event: '育成事件',
-    event_choice: '事件选择',
-    race_entry: '报名比赛',
-    race_end: '比赛结束',
-    race_out: '离开比赛',
-    race_rank: '比赛结果',
-    race_rank_retry: '再次比赛',
-    race_clock: '使用闹钟',
-    race_clock_failed: '闹钟使用失败',
-    race_reject: '无法报名比赛',
-    race_skip: '跳过比赛流程',
-    race_end_skip: '比赛已经结束',
-    race_end_reconciled: '比赛状态已恢复',
-    race_out_reconciled: '比赛状态已恢复',
-    daily_jewel_limit: '达到本周期上限',
-    finish_reconciled: '结束状态已恢复',
-    skills: '学习技能',
-    skill_purchase_time: '按计划学习技能',
-    items_buy: '购买道具',
-    items_use: '使用道具',
-    update_setting: '更新设置',
-    recover: '恢复养马状态',
-    finish: '完成养马',
-    stop: '停止养马',
-    error: '需要处理',
-    session_recovery: '恢复登录',
-    session_recovered: '登录已恢复',
-    session_wait: '等待重新登录',
-    session_wait_released: '提前结束等待',
-    relogin: '重新登录',
-    relogin_ok: '登录成功',
-  };
-  return labels[value] || value;
-}
-
-function describeLogDetail(value: string) {
-  const detail = String(value || '');
-  const trainingMatch = detail.match(
-    /^training (Speed|Stamina|Power|Guts|Wit)/,
-  );
-  if (trainingMatch) {
-    const labels: Record<string, string> = {
-      Speed: '速度训练',
-      Stamina: '耐力训练',
-      Power: '力量训练',
-      Guts: '毅力训练',
-      Wit: '智力训练',
-    };
-    return labels[trainingMatch[1]];
-  }
-  if (detail.startsWith('rest ')) return '休息恢复体力';
-  if (detail.startsWith('recreation ')) return '外出调整状态';
-  if (/^rank \d+/.test(detail)) {
-    const rank = detail.match(/^rank (\d+)/)?.[1];
-    const margin = detail.match(/margin_lengths ([\d.]+)/)?.[1];
-    if (rank === '1' && margin) {
-      return `第一名 ${margin} 马身`;
-    }
-    return rank ? `第 ${rank} 名` : '比赛结果已确认';
-  }
-  const eventChoiceMatch = detail.match(/^(\d+) -> (\d+)$/);
-  if (eventChoiceMatch) {
-    const storyId = Number(eventChoiceMatch[1]);
-    const story = UMDB.stories.find((item: any) => item.id === storyId);
-    const eventName = story?.name || `事件 ${storyId}`;
-    return `${eventName} · 选择第 ${eventChoiceMatch[2]} 项`;
-  }
-  const singleEventMatch = detail.match(/^event (\d+)$/);
-  if (singleEventMatch) {
-    const storyId = Number(singleEventMatch[1]);
-    const story = UMDB.stories.find((item: any) => item.id === storyId);
-    return story?.name || `事件 ${storyId}`;
-  }
-  if (detail === 'short 1') return '正在快速完成比赛';
-  if (detail === 'resume') return '继续处理尚未结束的比赛';
-  if (/^\d+$/.test(detail)) return `${detail} 个`;
-  if (detail === 'event') return '选择育成事件选项';
-  if (detail === 'finished' || detail === 'ready to finish') {
-    return '本次养马已到结束阶段';
-  }
-  if (detail.startsWith('preset ')) return '已加载养马预设';
-  return detail || '-';
-}
-
-const HIDDEN_RUNNER_LOG_ACTIONS = new Set([
-  'command_exec',
-  'race',
-  'race_start',
-  'race_end',
-  'race_end_skip',
-  'race_end_reconciled',
-]);
+import { horseIconPath } from 'renderer/components/autoResearch/SelectionCards';
+import {
+  accountProgressPercent,
+  AutoResearchRequestError,
+  CAREER_SETTINGS_KEY,
+  careerSettingMatchesCurrent,
+  compareRaces,
+  CONDITION_OPTIONS,
+  createDefaultPreset,
+  createSkillSelectionId,
+  DEFAULT_BASE_SCORE,
+  DEFAULT_EXPECT_ATTRIBUTE,
+  DEFAULT_EXTRA_WEIGHT,
+  DEFAULT_NPC_SCORE,
+  DEFAULT_PRESET_NAME,
+  DEFAULT_SCORE_VALUE,
+  DEFAULT_SERVER,
+  DEFAULT_STAT_MULTIPLIER,
+  DELETED_PRESETS_KEY,
+  fileToBase64,
+  getSharedStorageItem,
+  LAST_ACCOUNT_KEY,
+  LOCAL_PRESETS_KEY,
+  MONTH_OPTIONS,
+  needsRelogin,
+  normalizeServer,
+  normalizeSkillLearningSettings,
+  normalizeSkillSelections,
+  normalizeTurnList,
+  numberArray,
+  numberMatrix,
+  panelClass,
+  parentViewerIdFromSelection,
+  scrollToSection,
+  setSharedStorageItem,
+  skillPurchaseTurn,
+  skillPurchaseTurnLabel,
+  SKILL_PURCHASE_YEAR_OPTIONS,
+} from 'renderer/components/autoResearch/shared';
+import {
+  Account,
+  AuthResponse,
+  AutoResearchTab,
+  CapturedCredential,
+  CareerReport,
+  CareerReportSummary,
+  CareerSetting,
+  LoginProgress,
+  LoginProgressResponse,
+  PendingRun,
+  Preset,
+  RaceOption,
+  RunMode,
+  SessionResponse,
+  SkillLearningSetting,
+  SkillOption,
+  SkillSelectionEntry,
+  SupportInfo,
+  UmaRlTrainingStatus,
+} from 'renderer/components/autoResearch/types';
+import { loadUMDB } from 'renderer/utils/umdb';
 
 export default function AutoResearch() {
   const [activeTab, setActiveTab] = useState<AutoResearchTab>('accounts');
@@ -1386,6 +172,7 @@ export default function AutoResearch() {
   const [draggedPrioritySkill, setDraggedPrioritySkill] = useState('');
   const [skillThreshold, setSkillThreshold] = useState(888);
   const [skipDoubleCircle, setSkipDoubleCircle] = useState(false);
+  const [maximizeSkillScoreAtEnd, setMaximizeSkillScoreAtEnd] = useState(false);
   const [skillPurchaseTurns, setSkillPurchaseTurns] = useState<number[]>([]);
   const [skillPurchaseYearOffset, setSkillPurchaseYearOffset] = useState(0);
   const [cureConditions, setCureConditions] = useState<string[]>(
@@ -1415,6 +202,9 @@ export default function AutoResearch() {
   const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(10000);
   const [uraAiWorkers, setUraAiWorkers] = useState(0);
   const [uraAiRiskFactor, setUraAiRiskFactor] = useState(0);
+  const [uraAiTargetAttributes, setUraAiTargetAttributes] = useState(
+    DEFAULT_EXPECT_ATTRIBUTE,
+  );
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
   const [raceSearch, setRaceSearch] = useState('');
   const [umaSearch, setUmaSearch] = useState('');
@@ -1427,10 +217,17 @@ export default function AutoResearch() {
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
   const [careerHistory, setCareerHistory] = useState<CareerReportSummary[]>([]);
+  const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
+  const [selectedTrainingReportIds, setSelectedTrainingReportIds] = useState<
+    string[]
+  >([]);
   const [selectedCareerReport, setSelectedCareerReport] =
     useState<CareerReport | null>(null);
   const [umarlTraining, setUmaRlTraining] =
     useState<UmaRlTrainingStatus | null>(null);
+  const [umarlSettingModelAvailable, setUmaRlSettingModelAvailable] = useState<
+    boolean | null
+  >(null);
   const [umarlTrainRollouts, setUmaRlTrainRollouts] = useState(512);
   const [umarlTrainEpochs, setUmaRlTrainEpochs] = useState(10);
   const [umarlTrainMaxStates, setUmaRlTrainMaxStates] = useState(32);
@@ -1530,6 +327,25 @@ export default function AutoResearch() {
       careerSettings.find((setting) => setting.id === selectedCareerSettingId),
     [careerSettings, selectedCareerSettingId],
   );
+  const historyCareerSetting = useMemo(
+    () =>
+      accountCareerSettings.find(
+        (setting) => setting.id === historyCareerSettingId,
+      ),
+    [accountCareerSettings, historyCareerSettingId],
+  );
+  const historyCareerReports = useMemo(() => {
+    if (!historyCareerSetting) return [];
+    return careerHistory.filter((report) => {
+      if (report.career_setting_id) {
+        return report.career_setting_id === historyCareerSetting.id;
+      }
+      return (
+        report.preset_name === historyCareerSetting.preset_name &&
+        report.card_id === historyCareerSetting.card_id
+      );
+    });
+  }, [careerHistory, historyCareerSetting]);
   const continuingCurrentCareer = Boolean(activeCareer?.active);
   const effectiveCardId =
     cardId ||
@@ -1919,27 +735,40 @@ export default function AutoResearch() {
     }
   };
 
-  const loadUmaRlTraining = useCallback(async () => {
-    if (!selectedAccountId || !sessionTokens.current.has(selectedAccountId)) {
-      return;
-    }
-    try {
-      const result = await accountRequest<{
-        success: boolean;
-        training: UmaRlTrainingStatus;
-        umarl?: Record<string, unknown>;
-      }>(selectedAccountId, '/api/account/umarl/training');
-      setUmaRlTraining(result.training);
-      if (result.umarl) {
-        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+  const loadUmaRlTraining = useCallback(
+    async (careerSettingId: string) => {
+      if (
+        !selectedAccountId ||
+        !careerSettingId ||
+        !sessionTokens.current.has(selectedAccountId)
+      ) {
+        return;
       }
-    } catch (caught) {
-      setError((caught as Error).message);
-    }
-  }, [accountRequest, selectedAccountId]);
+      try {
+        const result = await accountRequest<{
+          success: boolean;
+          training: UmaRlTrainingStatus;
+          umarl?: Record<string, unknown>;
+        }>(
+          selectedAccountId,
+          `/api/account/umarl/training?career_setting_id=${encodeURIComponent(careerSettingId)}`,
+        );
+        setUmaRlTraining(result.training);
+        if (result.umarl) {
+          setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
+          setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+        }
+      } catch (caught) {
+        setError((caught as Error).message);
+      }
+    },
+    [accountRequest, selectedAccountId],
+  );
 
   const startUmaRlTraining = async (reportIds: string[]) => {
-    if (!selectedAccountId || !reportIds.length) return;
+    if (!selectedAccountId || !historyCareerSetting || !reportIds.length) {
+      return;
+    }
     setBusy('umarl-train');
     setError('');
     try {
@@ -1950,15 +779,19 @@ export default function AutoResearch() {
       }>(selectedAccountId, '/api/account/umarl/training', {
         method: 'POST',
         body: JSON.stringify({
+          career_setting_id: historyCareerSetting.id,
+          career_setting_name: historyCareerSetting.name,
+          preset_name: historyCareerSetting.preset_name,
+          card_id: historyCareerSetting.card_id,
           report_ids: reportIds,
           rollouts: umarlTrainRollouts,
           epochs: umarlTrainEpochs,
           max_states: umarlTrainMaxStates,
-          promote: true,
         }),
       });
       setUmaRlTraining(result.training);
       if (result.umarl) {
+        setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
         setHealth((current: any) => ({ ...current, umarl: result.umarl }));
       }
     } catch (caught) {
@@ -1969,7 +802,7 @@ export default function AutoResearch() {
   };
 
   const cancelUmaRlTraining = async () => {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId || !historyCareerSettingId) return;
     setBusy('umarl-cancel');
     try {
       const result = await accountRequest<{
@@ -1978,10 +811,13 @@ export default function AutoResearch() {
         umarl?: Record<string, unknown>;
       }>(selectedAccountId, '/api/account/umarl/training/cancel', {
         method: 'POST',
-        body: '{}',
+        body: JSON.stringify({
+          career_setting_id: historyCareerSettingId,
+        }),
       });
       setUmaRlTraining(result.training);
       if (result.umarl) {
+        setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
         setHealth((current: any) => ({ ...current, umarl: result.umarl }));
       }
     } catch (caught) {
@@ -2176,6 +1012,7 @@ export default function AutoResearch() {
     );
     setSkillThreshold(Number(preset.learn_skill_threshold || 888));
     setSkipDoubleCircle(Boolean(preset.skip_double_circle_unless_high_hint));
+    setMaximizeSkillScoreAtEnd(Boolean(preset.maximize_skill_score_at_end));
     setSkillPurchaseTurns(normalizeTurnList(preset.skill_purchase_turns));
     setCureConditions(
       preset.cure_asap_conditions ||
@@ -2219,6 +1056,9 @@ export default function AutoResearch() {
     setUraAiMaxRollouts(Number(uraAi.max_rollouts ?? 10000));
     setUraAiWorkers(Number(uraAi.workers ?? 0));
     setUraAiRiskFactor(Number(uraAi.risk_factor ?? 0));
+    setUraAiTargetAttributes(
+      numberArray(uraAi.target_attributes, DEFAULT_EXPECT_ATTRIBUTE),
+    );
     setScenarioId(1);
     setSelectedRaceIds((preset.extra_race_list || []).map(Number));
   }, [presetName, presets]);
@@ -2253,9 +1093,26 @@ export default function AutoResearch() {
     setCareerSaveOpen(false);
     setNewCareerSaveName('');
     setCareerHistory([]);
+    setHistoryCareerSettingId('');
+    setSelectedTrainingReportIds([]);
     setSelectedCareerReport(null);
     setUmaRlTraining(null);
+    setUmaRlSettingModelAvailable(null);
   }, [selectedAccountId]);
+
+  useEffect(() => {
+    setSelectedCareerReport(null);
+    setSelectedTrainingReportIds([]);
+    setUmaRlTraining(null);
+    setUmaRlSettingModelAvailable(null);
+  }, [historyCareerSettingId]);
+
+  useEffect(() => {
+    const available = new Set(historyCareerReports.map((report) => report.id));
+    setSelectedTrainingReportIds((current) =>
+      current.filter((reportId) => available.has(reportId)),
+    );
+  }, [historyCareerReports]);
 
   useEffect(() => {
     if (
@@ -2278,21 +1135,23 @@ export default function AutoResearch() {
       activeTab !== 'history' ||
       !health?.umarl?.installed ||
       !selectedAccountId ||
+      !historyCareerSettingId ||
       !selectedAccount?.runtime.logged_in
     ) {
       return undefined;
     }
-    loadUmaRlTraining().catch(() => undefined);
+    loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
     if (!['queued', 'running'].includes(umarlTraining?.state || '')) {
       return undefined;
     }
     const timer = window.setInterval(() => {
-      loadUmaRlTraining().catch(() => undefined);
+      loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
     }, 2000);
     return () => window.clearInterval(timer);
   }, [
     activeTab,
     health?.umarl?.installed,
+    historyCareerSettingId,
     loadUmaRlTraining,
     selectedAccount?.runtime.logged_in,
     selectedAccountId,
@@ -2892,8 +1751,8 @@ export default function AutoResearch() {
       const sourceIndex = next.findIndex((entry) => entry.id === source);
       const targetIndex = next.findIndex((entry) => entry.id === target);
       if (sourceIndex < 0 || targetIndex < 0) return current;
-      next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, source);
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
       return next;
     });
   };
@@ -2968,6 +1827,7 @@ export default function AutoResearch() {
     learn_skill_threshold: skillThreshold,
     learn_skill_only_user_provided: true,
     skip_double_circle_unless_high_hint: skipDoubleCircle,
+    maximize_skill_score_at_end: maximizeSkillScoreAtEnd,
     skill_purchase_turns: normalizeTurnList(skillPurchaseTurns),
     cure_asap_conditions: cureConditions,
     expect_attribute: expectAttribute,
@@ -2994,6 +1854,9 @@ export default function AutoResearch() {
       max_rollouts: Math.max(1, uraAiMaxRollouts),
       workers: Math.max(0, uraAiWorkers),
       risk_factor: uraAiRiskFactor,
+      target_attributes: uraAiTargetAttributes.map((value) =>
+        Math.max(0, Math.trunc(value)),
+      ),
     },
     extra_race_list: [...selectedRaceIds].sort((leftId, rightId) => {
       const left = races.find((race) => race.id === leftId);
@@ -3061,6 +1924,9 @@ export default function AutoResearch() {
             run_target: target,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            career_setting_id: selectedCareerSetting?.id || '',
+            career_setting_name:
+              selectedCareerSetting?.name || careerSettingName,
             preset_name: presetName,
             preset: draftPreset(),
             max_steps: maxSteps,
@@ -3134,6 +2000,8 @@ export default function AutoResearch() {
             run_target: target,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            career_setting_id: setting.id,
+            career_setting_name: setting.name,
             preset_name: setting.preset_name,
             preset,
             max_steps: setting.max_steps || 2500,
@@ -4814,2907 +3682,224 @@ export default function AutoResearch() {
                 ) : null}
 
                 {activeTab === 'presets' ? (
-                  !presetEditorOpen ? (
-                    <section className={panelClass('p-5')}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h2 className="flex items-center gap-2 text-lg font-bold">
-                            <Settings2 size={19} className="text-indigo-600" />
-                            选择预设槽位
-                          </h2>
-                          <p className="mt-1 text-sm text-gray-500">
-                            选择已有预设后才能编辑，也可以导入其他玩家分享的预设。
-                          </p>
-                        </div>
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                          <Upload size={15} />
-                          导入预设
-                          <input
-                            type="file"
-                            accept=".json,application/json"
-                            className="hidden"
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              if (file) importPreset(file);
-                              event.target.value = '';
-                            }}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {presets.map((preset) => {
-                          const isDefault = preset.name === DEFAULT_PRESET_NAME;
-                          const referencedCount = careerSettings.filter(
-                            (setting) => setting.preset_name === preset.name,
-                          ).length;
-                          const skillCount = (
-                            preset.learn_skill_list || []
-                          ).flat().length;
-                          return (
-                            <article
-                              key={preset.name}
-                              className="rounded-lg border border-gray-200 bg-gray-50/60 p-3"
-                            >
-                              <div className="flex items-start gap-3">
-                                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                                  <Settings2 size={22} />
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  {isDefault ? (
-                                    <div>
-                                      <p className="truncate font-semibold text-gray-800">
-                                        {preset.name}
-                                      </p>
-                                      <span className="mt-1 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-                                        默认预设
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <label className="block text-xs text-gray-500">
-                                      预设名称
-                                      <input
-                                        key={preset.name}
-                                        defaultValue={preset.name}
-                                        onBlur={(event) => {
-                                          if (
-                                            !renamePreset(
-                                              preset.name,
-                                              event.target.value,
-                                            )
-                                          ) {
-                                            event.currentTarget.value =
-                                              preset.name;
-                                          }
-                                        }}
-                                        onKeyDown={(event) => {
-                                          if (event.key === 'Enter') {
-                                            event.currentTarget.blur();
-                                          }
-                                        }}
-                                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
-                                      />
-                                    </label>
-                                  )}
-                                  <p className="mt-2 text-xs text-gray-500">
-                                    URA · {skillCount} 个优先技能 ·{' '}
-                                    {(preset.extra_race_list || []).length}{' '}
-                                    场额外赛事
-                                  </p>
-                                  {referencedCount ? (
-                                    <p className="mt-1 text-xs text-slate-400">
-                                      被 {referencedCount} 个养马详设使用
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-                              <div className="mt-3 flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openPresetEditor(preset.name)}
-                                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                                >
-                                  进入预设
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => exportPreset(preset)}
-                                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-600 hover:bg-gray-50"
-                                  aria-label={`导出预设${preset.name}`}
-                                  title="导出预设"
-                                >
-                                  <Download size={15} />
-                                </button>
-                                {!isDefault ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => deletePreset(preset.name)}
-                                    className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                                    aria-label={`删除预设${preset.name}`}
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
-                                ) : null}
-                              </div>
-                            </article>
-                          );
-                        })}
-
-                        <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
-                          <h3 className="font-semibold text-indigo-950">
-                            新建预设槽位
-                          </h3>
-                          <p className="mt-1 text-xs text-indigo-700">
-                            新预设会使用默认配置，进入后再调整技能、训练和赛事策略。
-                          </p>
-                          <input
-                            value={newPresetName}
-                            onChange={(event) =>
-                              setNewPresetName(event.target.value)
-                            }
-                            onKeyDown={(event) =>
-                              event.key === 'Enter' && createPresetSlot()
-                            }
-                            placeholder={`例如：URA 预设 ${presets.length}`}
-                            className="mt-4 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={createPresetSlot}
-                            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-                          >
-                            <Plus size={15} className="mr-1 inline" />
-                            新建并进入
-                          </button>
-                        </article>
-                      </div>
-                    </section>
-                  ) : (
-                    <>
-                      <nav className="sticky top-[52px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-                        {[
-                          ['preset-basic', '基础设置'],
-                          ['preset-skills', '技能设置'],
-                          ['preset-training', '训练策略'],
-                          ['preset-races', '额外赛事'],
-                        ].map(([target, label]) => (
-                          <button
-                            key={target}
-                            type="button"
-                            onClick={() => scrollToSection(target)}
-                            className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </nav>
-                      <section
-                        id="preset-basic"
-                        className={`${panelClass('p-5')} scroll-mt-28`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <h2 className="text-lg font-bold">
-                              预设编辑 · {presetName}
-                            </h2>
-                            <p className="text-sm text-slate-400">
-                              技能和赛事数据来自当前 master.mdb。
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPresetEditorOpen(false)}
-                              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                            >
-                              返回预设槽位
-                            </button>
-                            <button
-                              type="button"
-                              onClick={savePreset}
-                              disabled={busy === 'preset'}
-                              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
-                                presetSaved
-                                  ? 'bg-emerald-600 hover:bg-emerald-600'
-                                  : 'bg-indigo-600 hover:bg-indigo-700'
-                              }`}
-                            >
-                              {presetSaved ? (
-                                <Check size={15} />
-                              ) : (
-                                <Save size={15} />
-                              )}
-                              {busy === 'preset'
-                                ? '保存中…'
-                                : presetSaved
-                                  ? '已保存'
-                                  : '保存预设'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={savePresetAndContinue}
-                              disabled={busy === 'preset'}
-                              className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-                            >
-                              保存并前往养马详设 →
-                            </button>
-                          </div>
-                        </div>
-                        <p className="mt-2 text-xs text-gray-500">
-                          预设的改名和删除只能在预设槽位界面操作。
-                        </p>
-
-                        <div className="mt-4 grid gap-4 md:grid-cols-2">
-                          <label className="text-sm">
-                            剧本
-                            <select
-                              value={scenarioId}
-                              onChange={(event) =>
-                                setScenarioId(Number(event.target.value))
-                              }
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                            >
-                              <option value={1}>URA</option>
-                            </select>
-                          </label>
-                          <label className="text-sm">
-                            跑法
-                            <select
-                              value={runningStyle}
-                              onChange={(event) =>
-                                setRunningStyle(Number(event.target.value))
-                              }
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                            >
-                              <option value={0}>
-                                默认（使用游戏当前跑法）
-                              </option>
-                              <option value={1}>逃</option>
-                              <option value={2}>先行</option>
-                              <option value={3}>差</option>
-                              <option value={4}>追</option>
-                            </select>
-                          </label>
-                          <label className="text-sm">
-                            学技能最低技能点
-                            <input
-                              type="number"
-                              value={skillThreshold}
-                              onChange={(event) =>
-                                setSkillThreshold(Number(event.target.value))
-                              }
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                            />
-                          </label>
-                          <label className="text-sm">
-                            休息体力阈值
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={restThreshold}
-                              onChange={(event) =>
-                                setRestThreshold(Number(event.target.value))
-                              }
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                            />
-                          </label>
-                        </div>
-
-                        <div id="preset-skills" className="mt-4 scroll-mt-28">
-                          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
-                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                              <div>
-                                <p className="font-semibold text-slate-800">
-                                  育成中技能选择
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  只会学习这里选择的技能；越靠上越优先，可拖动调整顺序。
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setSkillPickerOpen(true)}
-                                className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
-                              >
-                                <Plus size={14} />
-                                添加技能
-                              </button>
-                            </div>
-                            <div className="grid max-h-[260px] min-h-[104px] auto-rows-max content-start gap-2 overflow-y-auto bg-slate-50/60 p-3 2xl:grid-cols-2">
-                              {skillSelections.map((entry, index) => {
-                                const isGroup = entry.skill_names.length > 1;
-                                const primaryName = entry.skill_names[0];
-                                const skill = skillByName.get(primaryName);
-                                return (
-                                  <div
-                                    key={entry.id}
-                                    draggable
-                                    onDragStart={(event) => {
-                                      setDraggedPrioritySkill(entry.id);
-                                      event.dataTransfer.effectAllowed = 'move';
-                                      event.dataTransfer.setData(
-                                        'text/plain',
-                                        entry.id,
-                                      );
-                                    }}
-                                    onDragOver={(event) => {
-                                      event.preventDefault();
-                                      event.dataTransfer.dropEffect = 'move';
-                                    }}
-                                    onDrop={(event) => {
-                                      event.preventDefault();
-                                      reorderPrioritySkill(
-                                        event.dataTransfer.getData(
-                                          'text/plain',
-                                        ) || draggedPrioritySkill,
-                                        entry.id,
-                                      );
-                                      setDraggedPrioritySkill('');
-                                    }}
-                                    onDragEnd={() =>
-                                      setDraggedPrioritySkill('')
-                                    }
-                                    className={`flex cursor-grab items-center gap-2 rounded-lg border bg-white p-1.5 shadow-sm active:cursor-grabbing ${
-                                      draggedPrioritySkill === entry.id
-                                        ? 'border-indigo-300 opacity-45'
-                                        : 'border-slate-200'
-                                    }`}
-                                  >
-                                    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">
-                                      {index + 1}
-                                    </span>
-                                    <span className="relative h-9 w-12 flex-none">
-                                      {entry.skill_names
-                                        .slice(0, isGroup ? 3 : 1)
-                                        .map((name, iconIndex) => {
-                                          const memberSkill =
-                                            skillByName.get(name);
-                                          const memberIconPath =
-                                            skillIconPath(memberSkill);
-                                          return (
-                                            <span
-                                              key={name}
-                                              className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
-                                              style={{
-                                                left: `${iconIndex * 7}px`,
-                                                zIndex: 3 - iconIndex,
-                                              }}
-                                            >
-                                              {memberSkill && memberIconPath ? (
-                                                <AssetIcon
-                                                  path={memberIconPath}
-                                                  alt={name}
-                                                  className="h-full w-full object-cover"
-                                                />
-                                              ) : (
-                                                <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
-                                                  ?
-                                                </span>
-                                              )}
-                                            </span>
-                                          );
-                                        })}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block truncate font-semibold text-slate-800">
-                                        {isGroup
-                                          ? entry.label || '技能组'
-                                          : primaryName}
-                                      </span>
-                                      <span
-                                        className="mt-0.5 block truncate text-xs text-slate-500"
-                                        title={`${entry.skill_names.join('、')} · ${skillLearningConditionLabel(entry)}`}
-                                      >
-                                        {isGroup
-                                          ? `包含 ${entry.skill_names.length} 个技能 · ${skillLearningConditionLabel(entry)}`
-                                          : skill
-                                            ? skillLearningConditionLabel(entry)
-                                            : '当前技能数据中未找到'}
-                                      </span>
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSkillSettingYearOffset(0);
-                                        setEditingSkillSelectionId(entry.id);
-                                      }}
-                                      title="设置学习条件"
-                                      className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                                    >
-                                      <Settings2 size={13} />
-                                      设置
-                                    </button>
-                                    <GripVertical
-                                      size={18}
-                                      className="flex-none text-slate-300"
-                                      aria-label="拖动调整顺序"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSkillSelections((current) =>
-                                          current.filter(
-                                            (currentEntry) =>
-                                              currentEntry.id !== entry.id,
-                                          ),
-                                        );
-                                        setSkillLearningSettings((current) => {
-                                          const next = { ...current };
-                                          entry.skill_names.forEach(
-                                            (name) => delete next[name],
-                                          );
-                                          return next;
-                                        });
-                                        if (
-                                          editingSkillSelectionId === entry.id
-                                        ) {
-                                          setEditingSkillSelectionId('');
-                                        }
-                                      }}
-                                      title="移除技能"
-                                      className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                              {!skillSelections.length ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setSkillPickerOpen(true)}
-                                  className="flex min-h-[80px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-400 hover:border-indigo-300 hover:bg-indigo-50/40 hover:text-indigo-600 2xl:col-span-2"
-                                >
-                                  <Plus size={16} className="mr-1" />
-                                  添加育成中学习的技能
-                                </button>
-                              ) : null}
-                            </div>
-                          </section>
-                        </div>
-
-                        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,2fr)]">
-                          <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                            <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={skipDoubleCircle}
-                                onChange={(event) =>
-                                  setSkipDoubleCircle(event.target.checked)
-                                }
-                                className="mt-1"
-                              />
-                              <span>
-                                <strong className="block font-medium text-slate-800">
-                                  技能 Hit 等级不足 4 时跳过 ◎ 技能
-                                </strong>
-                                <span className="mt-0.5 block text-xs text-slate-500">
-                                  避免过早购买折扣不足的双圈技能
-                                </span>
-                              </span>
-                            </label>
-                            <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={compensateFailure}
-                                onChange={(event) =>
-                                  setCompensateFailure(event.target.checked)
-                                }
-                                className="mt-1"
-                              />
-                              <span>
-                                <strong className="block font-medium text-slate-800">
-                                  训练评分考虑失败率
-                                </strong>
-                                <span className="mt-0.5 block text-xs text-slate-500">
-                                  使用失败率系数降低高风险训练的优先度
-                                </span>
-                              </span>
-                            </label>
-                          </div>
-
-                          <section className="rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">
-                                  统一购买技能时间
-                                </p>
-                                <p className="mt-0.5 text-xs text-slate-500">
-                                  育成中到达选中日期时统一检查所选技能；不选择则只在育成结束前检查
-                                </p>
-                              </div>
-                              {skillPurchaseTurns.length ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setSkillPurchaseTurns([])}
-                                  className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
-                                >
-                                  清空
-                                </button>
-                              ) : null}
-                            </div>
-                            <div className="mt-3 flex gap-1 rounded-lg bg-slate-100 p-1">
-                              {SKILL_PURCHASE_YEAR_OPTIONS.map((year) => (
-                                <button
-                                  key={year.offset}
-                                  type="button"
-                                  onClick={() =>
-                                    setSkillPurchaseYearOffset(year.offset)
-                                  }
-                                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                                    skillPurchaseYearOffset === year.offset
-                                      ? 'bg-white text-indigo-700 shadow-sm'
-                                      : 'text-slate-500 hover:text-slate-700'
-                                  }`}
-                                >
-                                  {year.label}
-                                </button>
-                              ))}
-                            </div>
-                            <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-4 2xl:grid-cols-6">
-                              {MONTH_OPTIONS.map((month) => (
-                                <div
-                                  key={month}
-                                  className="rounded-lg border border-slate-200 bg-slate-50 p-1.5"
-                                >
-                                  <p className="mb-1 text-center text-[11px] font-medium text-slate-500">
-                                    {month}月
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-1">
-                                    {([1, 2] as const).map((half) => {
-                                      const turn = skillPurchaseTurn(
-                                        skillPurchaseYearOffset,
-                                        month,
-                                        half,
-                                      );
-                                      const selected =
-                                        skillPurchaseTurns.includes(turn);
-                                      return (
-                                        <button
-                                          key={half}
-                                          type="button"
-                                          aria-pressed={selected}
-                                          onClick={() =>
-                                            setSkillPurchaseTurns((current) =>
-                                              current.includes(turn)
-                                                ? current.filter(
-                                                    (value) => value !== turn,
-                                                  )
-                                                : [...current, turn].sort(
-                                                    (left, right) =>
-                                                      left - right,
-                                                  ),
-                                            )
-                                          }
-                                          className={`rounded px-1 py-1 text-[11px] font-medium ${
-                                            selected
-                                              ? 'bg-indigo-600 text-white'
-                                              : 'bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700'
-                                          }`}
-                                        >
-                                          {half === 1 ? '上' : '下'}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-3 flex min-h-7 flex-wrap gap-1.5">
-                              {skillPurchaseTurns.map((turn) => (
-                                <button
-                                  key={turn}
-                                  type="button"
-                                  onClick={() =>
-                                    setSkillPurchaseTurns((current) =>
-                                      current.filter((value) => value !== turn),
-                                    )
-                                  }
-                                  title="点击移除"
-                                  className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] text-indigo-700 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                >
-                                  {skillPurchaseTurnLabel(turn)} ×
-                                </button>
-                              ))}
-                              {!skillPurchaseTurns.length ? (
-                                <span className="py-1 text-xs text-slate-400">
-                                  尚未设置额外购买时间
-                                </span>
-                              ) : null}
-                            </div>
-                          </section>
-                        </div>
-
-                        <details
-                          id="preset-training"
-                          className="mt-4 scroll-mt-28 rounded-xl border border-slate-200 bg-slate-50/60 p-4"
-                        >
-                          <summary className="cursor-pointer font-semibold">
-                            高级训练决策设置
-                          </summary>
-                          <p className="mt-2 text-xs text-slate-500">
-                            这些数值会直接影响训练、休息、外出和属性目标的选择。不了解评分逻辑时建议保留默认值。
-                          </p>
-
-                          {health?.umarl?.installed ? (
-                            <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 p-4">
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <label className="flex items-start gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={uraAiEnabled}
-                                    onChange={(event) =>
-                                      setUraAiEnabled(event.target.checked)
-                                    }
-                                    className="mt-1"
-                                  />
-                                  <span>
-                                    <strong className="block text-sm text-violet-950">
-                                      使用 UmaRL 蒙特卡洛育成决策
-                                    </strong>
-                                    <span className="mt-1 block text-xs text-violet-700">
-                                      当前模型：
-                                      {health.umarl.model_available
-                                        ? 'policy/value 网络'
-                                        : '手写 rollout'}
-                                      {' · '}
-                                      {health.umarl.cuda_available
-                                        ? health.umarl.cuda_device
-                                        : '未检测到 CUDA'}
-                                    </span>
-                                  </span>
-                                </label>
-                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-violet-700">
-                                  UmaRL {health.umarl.version || '-'}
-                                </span>
-                              </div>
-                              {uraAiEnabled ? (
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                  {[
-                                    [
-                                      '每回合秒数',
-                                      uraAiTimeBudget,
-                                      setUraAiTimeBudget,
-                                      1,
-                                    ],
-                                    [
-                                      '最少 rollout',
-                                      uraAiMinRollouts,
-                                      setUraAiMinRollouts,
-                                      1,
-                                    ],
-                                    [
-                                      '最多 rollout',
-                                      uraAiMaxRollouts,
-                                      setUraAiMaxRollouts,
-                                      1,
-                                    ],
-                                    [
-                                      'CPU worker（0 自动）',
-                                      uraAiWorkers,
-                                      setUraAiWorkers,
-                                      1,
-                                    ],
-                                    [
-                                      '高分偏好',
-                                      uraAiRiskFactor,
-                                      setUraAiRiskFactor,
-                                      0.1,
-                                    ],
-                                  ].map(([label, value, setter, step]) => (
-                                    <label
-                                      key={String(label)}
-                                      className="text-xs text-violet-800"
-                                    >
-                                      {String(label)}
-                                      <input
-                                        type="number"
-                                        step={Number(step)}
-                                        min={
-                                          String(label).includes('高分')
-                                            ? undefined
-                                            : 0
-                                        }
-                                        value={Number(value)}
-                                        onChange={(event) =>
-                                          (setter as (next: number) => void)(
-                                            Number(event.target.value),
-                                          )
-                                        }
-                                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-
-                          <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-4 text-xs text-slate-600">
-                            <p className="text-sm font-semibold text-slate-800">
-                              训练评分公式
-                            </p>
-                            <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] leading-5 text-slate-700">
-                              <p>
-                                初始分 = 训练基础分 + 羁绊收益 + 技能 Hit 权重 +
-                                属性收益 + 体力收益
-                              </p>
-                              <p>
-                                最终分 = 初始分 × 友人卡倍率 × 失败率系数 ×
-                                训练类型额外权重
-                              </p>
-                            </div>
-                            <div className="mt-3 grid gap-x-6 gap-y-2 md:grid-cols-2">
-                              <p>
-                                <strong className="text-slate-700">
-                                  属性收益：
-                                </strong>
-                                属性增加值 × 属性收益倍率 ×
-                                目标衰减。当前属性达到目标的 70%
-                                后会逐步降权，达到目标后该属性收益记为 0。
-                              </p>
-                              <p>
-                                <strong className="text-slate-700">
-                                  羁绊收益：
-                                </strong>
-                                在低羁绊与高羁绊评分间按当前羁绊线性计算，再乘
-                                max(0, (72 - 当前回合) / 72)；羁绊达到 60
-                                后还会获得最多 1.5 倍的效率修正。
-                              </p>
-                              <p>
-                                <strong className="text-slate-700">
-                                  技能 Hit：
-                                </strong>
-                                本次训练存在至少一个技能提示时，增加一次对应阶段的技能
-                                Hit 权重，不按提示人数重复叠加。
-                              </p>
-                              <p>
-                                <strong className="text-slate-700">
-                                  失败率系数：
-                                </strong>
-                                max(0, 1 - 失败率 / 50)。例如失败率 10%
-                                时，训练分乘 0.8；关闭“考虑失败率”后不应用此项。
-                              </p>
-                              <p>
-                                <strong className="text-slate-700">
-                                  额外权重：
-                                </strong>
-                                最终乘数为 clamp(1 + 权重, 0, 2)。0
-                                表示不调整，0.2 表示乘 1.2，-1
-                                表示直接排除该训练。
-                              </p>
-                              <p>
-                                <strong className="text-slate-700">
-                                  休息判断：
-                                </strong>
-                                体力低于休息阈值、最佳训练失败率达到
-                                35%，或最佳训练分低于 0
-                                时，会优先休息；夏合宿期间会改为外出恢复。
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4">
-                            <p className="text-sm font-semibold">
-                              需要立即治疗的负面状态
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {CONDITION_OPTIONS.map((condition) => (
-                                <label
-                                  key={condition.value}
-                                  className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={cureConditions.includes(
-                                      condition.value,
-                                    )}
-                                    onChange={(event) =>
-                                      setCureConditions((current) =>
-                                        event.target.checked
-                                          ? [...current, condition.value]
-                                          : current.filter(
-                                              (item) =>
-                                                item !== condition.value,
-                                            ),
-                                      )
-                                    }
-                                  />
-                                  {condition.label}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                            <div>
-                              <p className="text-sm font-semibold">属性目标</p>
-                              <p className="mt-1 text-xs text-slate-400">
-                                达到目标后会降低对应属性训练的优先度，默认采用
-                                URA 的通用推荐值
-                              </p>
-                              <div className="mt-2 grid grid-cols-5 gap-2">
-                                {STAT_LABELS.map((label, index) => (
-                                  <label
-                                    key={label}
-                                    className="text-xs text-slate-500"
-                                  >
-                                    {label}
-                                    <input
-                                      type="number"
-                                      value={expectAttribute[index]}
-                                      onChange={(event) =>
-                                        setExpectAttribute((current) =>
-                                          current.map((value, valueIndex) =>
-                                            valueIndex === index
-                                              ? Number(event.target.value)
-                                              : value,
-                                          ),
-                                        )
-                                      }
-                                      className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                    />
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">
-                                训练基础分
-                              </p>
-                              <p className="mt-1 text-xs text-slate-400">
-                                0 表示不额外偏爱该训练，是正常的中立默认值
-                              </p>
-                              <div className="mt-2 grid grid-cols-5 gap-2">
-                                {STAT_LABELS.map((label, index) => (
-                                  <label
-                                    key={label}
-                                    className="text-xs text-slate-500"
-                                  >
-                                    {label}
-                                    <input
-                                      type="number"
-                                      step="0.01"
-                                      value={baseScore[index]}
-                                      onChange={(event) =>
-                                        setBaseScore((current) =>
-                                          current.map((value, valueIndex) =>
-                                            valueIndex === index
-                                              ? Number(event.target.value)
-                                              : value,
-                                          ),
-                                        )
-                                      }
-                                      className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                    />
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <label className="text-sm">
-                              夏合宿保留训练分阈值
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={summerScoreThreshold}
-                                onChange={(event) =>
-                                  setSummerScoreThreshold(
-                                    Number(event.target.value),
-                                  )
-                                }
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
-                              />
-                            </label>
-                            {[
-                              '初级年心情阈值',
-                              '经典年心情阈值',
-                              '高级年心情阈值',
-                            ].map((label, index) => (
-                              <label key={label} className="text-sm">
-                                {label}
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={5}
-                                  value={motivationThresholds[index]}
-                                  onChange={(event) =>
-                                    setMotivationThresholds((current) =>
-                                      current.map((value, valueIndex) =>
-                                        valueIndex === index
-                                          ? Number(event.target.value)
-                                          : value,
-                                      ),
-                                    )
-                                  }
-                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
-                                />
-                              </label>
-                            ))}
-                          </div>
-
-                          <div className="mt-4">
-                            <p className="text-sm font-semibold">
-                              属性收益倍率（速度、耐力、力量、毅力、智力、技能点）
-                            </p>
-                            <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
-                              {[
-                                '速度',
-                                '耐力',
-                                '力量',
-                                '毅力',
-                                '智力',
-                                '技能点',
-                              ].map((label, index) => (
-                                <label
-                                  key={label}
-                                  className="text-xs text-slate-500"
-                                >
-                                  {label}
-                                  <input
-                                    type="number"
-                                    step="0.001"
-                                    value={statMultiplier[index]}
-                                    onChange={(event) =>
-                                      setStatMultiplier((current) =>
-                                        current.map((value, valueIndex) =>
-                                          valueIndex === index
-                                            ? Number(event.target.value)
-                                            : value,
-                                        ),
-                                      )
-                                    }
-                                    className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                  />
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 overflow-x-auto">
-                            <p className="text-sm font-semibold">
-                              分期评分参数（低羁绊、高羁绊、体力、技能 Hit）
-                            </p>
-                            <div className="mt-2 min-w-[620px] space-y-2">
-                              {scoreValue.map((row, rowIndex) => (
-                                <div
-                                  key={PERIOD_LABELS[rowIndex]}
-                                  className="grid grid-cols-[120px_repeat(4,1fr)] gap-2"
-                                >
-                                  <span className="py-2 text-xs text-slate-500">
-                                    {PERIOD_LABELS[rowIndex]}
-                                  </span>
-                                  {row.map((value, columnIndex) => (
-                                    <input
-                                      key={`${rowIndex}-${columnIndex}`}
-                                      type="number"
-                                      step="0.001"
-                                      value={value}
-                                      aria-label={`${PERIOD_LABELS[rowIndex]} 参数 ${columnIndex + 1}`}
-                                      onChange={(event) =>
-                                        setScoreValue((current) =>
-                                          current.map(
-                                            (currentRow, currentRowIndex) =>
-                                              currentRowIndex === rowIndex
-                                                ? currentRow.map(
-                                                    (
-                                                      currentValue,
-                                                      currentColumnIndex,
-                                                    ) =>
-                                                      currentColumnIndex ===
-                                                      columnIndex
-                                                        ? Number(
-                                                            event.target.value,
-                                                          )
-                                                        : currentValue,
-                                                  )
-                                                : currentRow,
-                                          ),
-                                        )
-                                      }
-                                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                    />
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 overflow-x-auto">
-                            <p className="text-sm font-semibold">
-                              各阶段训练类型额外权重
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              0
-                              表示该阶段不额外调整；正数提高优先度，负数降低优先度
-                            </p>
-                            <div className="mt-2 min-w-[700px] space-y-2">
-                              {extraWeight.map((row, rowIndex) => (
-                                <div
-                                  key={rowIndex}
-                                  className="grid grid-cols-[120px_repeat(5,1fr)] gap-2"
-                                >
-                                  <span className="py-2 text-xs text-slate-500">
-                                    {
-                                      [
-                                        '初级年',
-                                        '经典年',
-                                        '高级年普通阶段',
-                                        '夏合宿',
-                                      ][rowIndex]
-                                    }
-                                  </span>
-                                  {row.map((value, columnIndex) => (
-                                    <label
-                                      key={`${rowIndex}-${columnIndex}`}
-                                      className="text-xs text-slate-500"
-                                    >
-                                      {STAT_LABELS[columnIndex]}
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        value={value}
-                                        onChange={(event) =>
-                                          setExtraWeight((current) =>
-                                            current.map(
-                                              (currentRow, currentRowIndex) =>
-                                                currentRowIndex === rowIndex
-                                                  ? currentRow.map(
-                                                      (
-                                                        currentValue,
-                                                        currentColumnIndex,
-                                                      ) =>
-                                                        currentColumnIndex ===
-                                                        columnIndex
-                                                          ? Number(
-                                                              event.target
-                                                                .value,
-                                                            )
-                                                          : currentValue,
-                                                    )
-                                                  : currentRow,
-                                            ),
-                                          )
-                                        }
-                                        className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                            <div className="overflow-x-auto">
-                              <p className="text-sm font-semibold">
-                                分期非卡组角色羁绊评分
-                              </p>
-                              <div className="mt-2 min-w-[360px] space-y-2">
-                                {npcScoreValue.map((row, rowIndex) => (
-                                  <div
-                                    key={PERIOD_LABELS[rowIndex]}
-                                    className="grid grid-cols-[120px_repeat(2,1fr)] gap-2"
-                                  >
-                                    <span className="py-2 text-xs text-slate-500">
-                                      {PERIOD_LABELS[rowIndex]}
-                                    </span>
-                                    {row
-                                      .slice(0, 2)
-                                      .map((value, columnIndex) => (
-                                        <label
-                                          key={`${rowIndex}-${columnIndex}`}
-                                          className="text-xs text-slate-500"
-                                        >
-                                          {columnIndex === 0
-                                            ? '低羁绊'
-                                            : '高羁绊'}
-                                          <input
-                                            type="number"
-                                            step="0.001"
-                                            value={value}
-                                            onChange={(event) =>
-                                              setNpcScoreValue((current) =>
-                                                current.map(
-                                                  (
-                                                    currentRow,
-                                                    currentRowIndex,
-                                                  ) =>
-                                                    currentRowIndex === rowIndex
-                                                      ? currentRow.map(
-                                                          (
-                                                            currentValue,
-                                                            currentColumnIndex,
-                                                          ) =>
-                                                            currentColumnIndex ===
-                                                            columnIndex
-                                                              ? Number(
-                                                                  event.target
-                                                                    .value,
-                                                                )
-                                                              : currentValue,
-                                                        )
-                                                      : currentRow,
-                                                ),
-                                              )
-                                            }
-                                            className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                          />
-                                        </label>
-                                      ))}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">
-                                友人卡羁绊评分
-                              </p>
-                              <div className="mt-2 grid grid-cols-3 gap-2">
-                                {['低羁绊', '高羁绊', '友人卡倍率'].map(
-                                  (label, index) => (
-                                    <label
-                                      key={label}
-                                      className="text-xs text-slate-500"
-                                    >
-                                      {label}
-                                      <input
-                                        type="number"
-                                        step="0.001"
-                                        value={
-                                          index < 2
-                                            ? palFriendshipScore[index]
-                                            : palCardMultiplier
-                                        }
-                                        onChange={(event) => {
-                                          const value = Number(
-                                            event.target.value,
-                                          );
-                                          if (index < 2) {
-                                            setPalFriendshipScore((current) =>
-                                              current.map(
-                                                (currentValue, currentIndex) =>
-                                                  currentIndex === index
-                                                    ? value
-                                                    : currentValue,
-                                              ),
-                                            );
-                                          } else {
-                                            setPalCardMultiplier(value);
-                                          }
-                                        }}
-                                        className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                      />
-                                    </label>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 rounded-xl bg-white p-3">
-                            <label className="flex items-center gap-2 text-sm font-semibold">
-                              <input
-                                type="checkbox"
-                                checked={prioritizeRecreation}
-                                onChange={(event) =>
-                                  setPrioritizeRecreation(event.target.checked)
-                                }
-                              />
-                              按条件优先外出
-                            </label>
-                            <label className="mt-3 block text-xs text-slate-500">
-                              外出条件：每行填写“心情, 体力, 最高训练评分”
-                              <textarea
-                                value={palThresholds
-                                  .map((row) => row.join(', '))
-                                  .join('\n')}
-                                onChange={(event) =>
-                                  setPalThresholds(
-                                    event.target.value
-                                      .split(/\r?\n/)
-                                      .map((line) =>
-                                        line
-                                          .split(/[,，]/)
-                                          .map((value) => Number(value.trim())),
-                                      )
-                                      .filter(
-                                        (row) =>
-                                          row.length >= 2 &&
-                                          row.every((value) =>
-                                            Number.isFinite(value),
-                                          ),
-                                      ),
-                                  )
-                                }
-                                rows={3}
-                                placeholder={'3, 60, 0.30\n4, 45, 0.20'}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-                              />
-                            </label>
-                          </div>
-                        </details>
-
-                        <div
-                          id="preset-races"
-                          className="mt-5 flex scroll-mt-28 flex-wrap items-end justify-between gap-3"
-                        >
-                          <label className="min-w-[260px] flex-1 text-sm">
-                            搜索额外赛事
-                            <input
-                              value={raceSearch}
-                              onChange={(event) =>
-                                setRaceSearch(event.target.value)
-                              }
-                              placeholder="赛事名、日期、赛场或等级"
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                            />
-                          </label>
-                          <p className="text-sm text-slate-400">
-                            已选择 {selectedRaceIds.length} 场
-                          </p>
-                        </div>
-                        <div className="mt-3 grid max-h-[440px] gap-2 overflow-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                          {filteredRaces.map((race) => {
-                            const checked = selectedRaceIds.includes(race.id);
-                            return (
-                              <label
-                                key={race.id}
-                                className={`flex cursor-pointer gap-3 rounded-xl border p-2 ${
-                                  checked
-                                    ? 'border-indigo-400 bg-indigo-50'
-                                    : 'border-slate-100 bg-white'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() =>
-                                    setSelectedRaceIds((current) =>
-                                      checked
-                                        ? current.filter((id) => id !== race.id)
-                                        : [...current, race.id],
-                                    )
-                                  }
-                                  className="mt-1"
-                                />
-                                <AssetIcon
-                                  path={`race_thumb/${race.thumbnail_id}.png`}
-                                  alt={race.name}
-                                  className="h-14 w-20 rounded-lg bg-slate-100 object-cover"
-                                />
-                                <span className="min-w-0 text-xs">
-                                  <strong className="block truncate text-sm">
-                                    {race.name}
-                                  </strong>
-                                  <span className="block text-slate-500">
-                                    {race.date} · {race.type} · {race.venue}
-                                  </span>
-                                  <span className="text-slate-400">
-                                    {race.terrain} · {race.distance}
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
-                          <div>
-                            <h3 className="font-semibold text-indigo-950">
-                              预设配置完成后
-                            </h3>
-                            <p className="mt-1 text-sm text-indigo-700">
-                              前往养马详设，为账号选择育成马娘、继承马娘和支援卡。
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => scrollToSection('preset-basic')}
-                              className="rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
-                            >
-                              返回顶部检查
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigateToTab('career', 'career-task')
-                              }
-                              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                            >
-                              前往养马详设 →
-                            </button>
-                          </div>
-                        </div>
-                      </section>
-                    </>
-                  )
+                  <PresetsTab
+                    presetEditorOpen={presetEditorOpen}
+                    presets={presets}
+                    presetName={presetName}
+                    newPresetName={newPresetName}
+                    setNewPresetName={setNewPresetName}
+                    createPresetSlot={createPresetSlot}
+                    openPresetEditor={openPresetEditor}
+                    renamePreset={renamePreset}
+                    careerSettings={careerSettings}
+                    exportPreset={exportPreset}
+                    deletePreset={deletePreset}
+                    importPreset={importPreset}
+                    setPresetEditorOpen={setPresetEditorOpen}
+                    navigateToTab={navigateToTab}
+                    savePreset={savePreset}
+                    busy={busy}
+                    presetSaved={presetSaved}
+                    savePresetAndContinue={savePresetAndContinue}
+                    scenarioId={scenarioId}
+                    setScenarioId={setScenarioId}
+                    runningStyle={runningStyle}
+                    setRunningStyle={setRunningStyle}
+                    skillSelections={skillSelections}
+                    draggedPrioritySkill={draggedPrioritySkill}
+                    setDraggedPrioritySkill={setDraggedPrioritySkill}
+                    reorderPrioritySkill={reorderPrioritySkill}
+                    setEditingSkillSelectionId={setEditingSkillSelectionId}
+                    setSkillSettingYearOffset={setSkillSettingYearOffset}
+                    setSkillPickerOpen={setSkillPickerOpen}
+                    skillByName={skillByName}
+                    skillLearningConditionLabel={skillLearningConditionLabel}
+                    setSkillSelections={setSkillSelections}
+                    skillThreshold={skillThreshold}
+                    setSkillThreshold={setSkillThreshold}
+                    skipDoubleCircle={skipDoubleCircle}
+                    setSkipDoubleCircle={setSkipDoubleCircle}
+                    maximizeSkillScoreAtEnd={maximizeSkillScoreAtEnd}
+                    setMaximizeSkillScoreAtEnd={setMaximizeSkillScoreAtEnd}
+                    skillPurchaseYearOffset={skillPurchaseYearOffset}
+                    setSkillPurchaseYearOffset={setSkillPurchaseYearOffset}
+                    skillPurchaseTurns={skillPurchaseTurns}
+                    setSkillPurchaseTurns={setSkillPurchaseTurns}
+                    editingSkillSelectionId={editingSkillSelectionId}
+                    setSkillLearningSettings={setSkillLearningSettings}
+                    uraAiEnabled={uraAiEnabled}
+                    setUraAiEnabled={setUraAiEnabled}
+                    health={health}
+                    uraAiTargetAttributes={uraAiTargetAttributes}
+                    setUraAiTargetAttributes={setUraAiTargetAttributes}
+                    uraAiTimeBudget={uraAiTimeBudget}
+                    setUraAiTimeBudget={setUraAiTimeBudget}
+                    uraAiMinRollouts={uraAiMinRollouts}
+                    setUraAiMinRollouts={setUraAiMinRollouts}
+                    uraAiMaxRollouts={uraAiMaxRollouts}
+                    setUraAiMaxRollouts={setUraAiMaxRollouts}
+                    uraAiWorkers={uraAiWorkers}
+                    setUraAiWorkers={setUraAiWorkers}
+                    uraAiRiskFactor={uraAiRiskFactor}
+                    setUraAiRiskFactor={setUraAiRiskFactor}
+                    expectAttribute={expectAttribute}
+                    setExpectAttribute={setExpectAttribute}
+                    baseScore={baseScore}
+                    setBaseScore={setBaseScore}
+                    statMultiplier={statMultiplier}
+                    setStatMultiplier={setStatMultiplier}
+                    scoreValue={scoreValue}
+                    setScoreValue={setScoreValue}
+                    extraWeight={extraWeight}
+                    setExtraWeight={setExtraWeight}
+                    npcScoreValue={npcScoreValue}
+                    setNpcScoreValue={setNpcScoreValue}
+                    compensateFailure={compensateFailure}
+                    setCompensateFailure={setCompensateFailure}
+                    summerScoreThreshold={summerScoreThreshold}
+                    setSummerScoreThreshold={setSummerScoreThreshold}
+                    motivationThresholds={motivationThresholds}
+                    setMotivationThresholds={setMotivationThresholds}
+                    prioritizeRecreation={prioritizeRecreation}
+                    setPrioritizeRecreation={setPrioritizeRecreation}
+                    palThresholds={palThresholds}
+                    setPalThresholds={setPalThresholds}
+                    palFriendshipScore={palFriendshipScore}
+                    setPalFriendshipScore={setPalFriendshipScore}
+                    palCardMultiplier={palCardMultiplier}
+                    setPalCardMultiplier={setPalCardMultiplier}
+                    restThreshold={restThreshold}
+                    setRestThreshold={setRestThreshold}
+                    cureConditions={cureConditions}
+                    setCureConditions={setCureConditions}
+                    raceSearch={raceSearch}
+                    setRaceSearch={setRaceSearch}
+                    filteredRaces={filteredRaces}
+                    selectedRaceIds={selectedRaceIds}
+                    setSelectedRaceIds={setSelectedRaceIds}
+                  />
                 ) : null}
 
                 {dashboard && activeTab === 'career' ? (
-                  activeCareer?.active ? (
-                    <section className={panelClass('p-5')}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
-                            {activeCareerIconPath ? (
-                              <AssetIcon
-                                path={activeCareerIconPath}
-                                alt={activeCareer.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <Database
-                                size={28}
-                                className="m-6 text-gray-300"
-                              />
-                            )}
-                          </span>
-                          <div>
-                            <h2 className="text-lg font-bold">
-                              当前已有进行中的育成
-                            </h2>
-                            <p className="mt-1 font-medium text-gray-800">
-                              {activeCareer.name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              第 {activeCareer.turn || 0} 回合
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {automationActive ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => navigateToTab('progress')}
-                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                              >
-                                查看养马进度
-                              </button>
-                              <button
-                                type="button"
-                                onClick={stopCareer}
-                                disabled={runnerStopping || busy === 'stop'}
-                                className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                              >
-                                {runnerStopping ? (
-                                  <RefreshCw
-                                    size={16}
-                                    className="animate-spin"
-                                  />
-                                ) : (
-                                  <CircleStop size={16} />
-                                )}
-                                {runnerStopping ? '正在停止…' : '停止自动操作'}
-                              </button>
-                            </>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={abandonCareer}
-                            disabled={busy === 'abandon'}
-                            className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <Trash2 size={16} />
-                            {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {automationActive ? (
-                        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                          自动育成正在接管本次育成。需要查看回合、行动和错误时，请前往“养马进度”。
-                        </div>
-                      ) : matchingCareerSettings.length ? (
-                        <div className="mt-5 border-t border-slate-200 pt-5">
-                          <h3 className="font-semibold text-gray-800">
-                            可以继续使用的养马详设
-                          </h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            以下详设选择了相同的育成马娘，可以直接继续当前育成。
-                          </p>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {matchingCareerSettings.map((setting) => (
-                              <article
-                                key={setting.id}
-                                className="rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="h-14 w-14 flex-none overflow-hidden rounded-md bg-gray-100">
-                                    {activeCareerIconPath ? (
-                                      <AssetIcon
-                                        path={activeCareerIconPath}
-                                        alt={activeCareer.name}
-                                        className="h-full w-full object-cover"
-                                      />
-                                    ) : (
-                                      <Database
-                                        size={20}
-                                        className="m-4 text-gray-300"
-                                      />
-                                    )}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <h4 className="truncate font-semibold text-gray-900">
-                                      {setting.name}
-                                    </h4>
-                                    <p className="mt-1 truncate text-xs text-gray-500">
-                                      {activeCareer.name} ·{' '}
-                                      {setting.preset_name}
-                                    </p>
-                                    <p className="mt-1 text-xs text-emerald-700">
-                                      育成马娘一致
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => openSavedRunDialog(setting.id)}
-                                  disabled={Boolean(busy)}
-                                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                  <Play size={16} />
-                                  继续自动育成
-                                </button>
-                              </article>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-                          <h3 className="font-semibold text-slate-800">
-                            没有找到可继续使用的养马详设
-                          </h3>
-                          <p className="mt-1 text-sm text-slate-500">
-                            当前账号没有选择相同育成马娘的可用详设。若要重新开始养马，请先放弃本次育成。
-                          </p>
-                          {!accountCareerSettings.length ? (
-                            <p className="mt-3 text-xs text-slate-500">
-                              这个账号还没有保存过养马详设。
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-                    </section>
-                  ) : !careerSaveOpen && !automationActive ? (
-                    <section className={panelClass('p-5')}>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h2 className="flex items-center gap-2 text-lg font-bold">
-                            <Database size={19} className="text-indigo-600" />
-                            选择养马详设
-                          </h2>
-                          <p className="mt-1 text-sm text-gray-500">
-                            选择已有详设继续配置，或者创建一个新的详设。
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {accountCareerSettings.map((setting) => {
-                          const uma = dashboard.umas.find(
-                            (item) => item.id === setting.card_id,
-                          );
-                          const iconPath = uma
-                            ? horseIconPath(
-                                uma.id,
-                                uma.rarity,
-                                uma.race_cloth_id,
-                              )
-                            : undefined;
-                          return (
-                            <article
-                              key={setting.id}
-                              className="rounded-lg border border-gray-200 bg-gray-50/60 p-3"
-                            >
-                              <div className="flex items-start gap-3">
-                                <span className="h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
-                                  {iconPath ? (
-                                    <AssetIcon
-                                      path={iconPath}
-                                      alt={uma?.name || setting.name}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <Database
-                                      size={24}
-                                      className="m-5 text-gray-300"
-                                    />
-                                  )}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <label className="block text-xs text-gray-500">
-                                    详设名称
-                                    <input
-                                      key={`${setting.id}-${setting.name}`}
-                                      defaultValue={setting.name}
-                                      onBlur={(event) =>
-                                        renameCareerSetting(
-                                          setting.id,
-                                          event.target.value,
-                                        )
-                                      }
-                                      onKeyDown={(event) => {
-                                        if (event.key === 'Enter') {
-                                          event.currentTarget.blur();
-                                        }
-                                      }}
-                                      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
-                                    />
-                                  </label>
-                                  <p className="mt-1 truncate text-xs text-gray-500">
-                                    {uma?.name || '尚未选择育成马娘'} ·{' '}
-                                    {setting.preset_name}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="mt-3 flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => applyCareerSetting(setting.id)}
-                                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                                >
-                                  进入详设
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    deleteCareerSetting(setting.id)
-                                  }
-                                  className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                                  aria-label={`删除详设${setting.name}`}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </div>
-                            </article>
-                          );
-                        })}
-
-                        <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
-                          <h3 className="font-semibold text-indigo-950">
-                            新建养马详设
-                          </h3>
-                          <p className="mt-1 text-xs text-indigo-700">
-                            创建后再选择马娘、继承马娘和支援卡。
-                          </p>
-                          <input
-                            value={newCareerSaveName}
-                            onChange={(event) =>
-                              setNewCareerSaveName(event.target.value)
-                            }
-                            onKeyDown={(event) =>
-                              event.key === 'Enter' && createCareerSave()
-                            }
-                            placeholder={`例如：URA 详设 ${accountCareerSettings.length + 1}`}
-                            className="mt-4 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={createCareerSave}
-                            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-                          >
-                            <Plus size={15} className="mr-1 inline" />
-                            新建并进入
-                          </button>
-                        </article>
-                      </div>
-                    </section>
-                  ) : (
-                    <>
-                      <nav className="sticky top-[52px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-                        {[
-                          ['career-task', '任务配置'],
-                          ['career-selection', '选择阵容'],
-                          ['career-options', '其他设置'],
-                        ].map(([target, label]) => (
-                          <button
-                            key={target}
-                            type="button"
-                            onClick={() => scrollToSection(target)}
-                            className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </nav>
-
-                      <section
-                        id="career-task"
-                        className={`${panelClass('p-5')} scroll-mt-28`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <h2 className="text-lg font-bold">
-                              育成任务配置 · {careerSettingName}
-                            </h2>
-                            <p className="text-sm text-gray-500">
-                              依次选择育成马娘、继承马娘、支援卡组和好友支援。当前仅支持
-                              URA。
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setCareerSaveOpen(false)}
-                              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                            >
-                              返回详设选择界面
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigateToTab('presets', 'preset-basic')
-                              }
-                              className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-                            >
-                              {presetName ? '编辑当前预设' : '新建预设'}
-                            </button>
-                            {automationActive ? (
-                              <button
-                                type="button"
-                                onClick={stopCareer}
-                                disabled={runnerStopping || busy === 'stop'}
-                                className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                              >
-                                {runnerStopping ? (
-                                  <RefreshCw
-                                    size={17}
-                                    className="animate-spin"
-                                  />
-                                ) : (
-                                  <CircleStop size={17} />
-                                )}
-                                {runnerStopping ? '正在停止…' : '停止自动操作'}
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={saveCareerSetting}
-                                  disabled={busy === 'run'}
-                                  className="flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-                                >
-                                  <Save size={16} />
-                                  保存设置
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={saveAndRunCareer}
-                                  disabled={
-                                    busy === 'run' ||
-                                    unsupportedCareer ||
-                                    (continuingCurrentCareer &&
-                                      !canContinueCurrentCareer)
-                                  }
-                                  className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                  <Play size={17} />
-                                  {busy === 'run'
-                                    ? dashboard.account.career?.active
-                                      ? '正在保存并继续…'
-                                      : '正在保存并开始…'
-                                    : unsupportedCareer
-                                      ? '请先放弃当前育成'
-                                      : continuingCurrentCareer
-                                        ? canContinueCurrentCareer
-                                          ? '保存并继续'
-                                          : '当前详设不匹配'
-                                        : '保存并开始'}
-                                </button>
-                              </>
-                            )}
-                            {dashboard.account.career?.active ? (
-                              <button
-                                type="button"
-                                onClick={abandonCareer}
-                                disabled={busy === 'abandon'}
-                                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                              >
-                                <Trash2 size={16} />
-                                {busy === 'abandon'
-                                  ? '正在放弃…'
-                                  : '放弃本次育成'}
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {!dashboard.account.career?.active ? (
-                          <div
-                            id="career-selection"
-                            className="mt-5 scroll-mt-28 space-y-5"
-                          >
-                            <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                                    1
-                                  </span>
-                                  <div>
-                                    <h3 className="font-semibold text-gray-800">
-                                      选择育成马娘
-                                    </h3>
-                                    <p className="text-xs text-gray-500">
-                                      点击头像选择要育成的马娘。
-                                    </p>
-                                  </div>
-                                </div>
-                                <label className="relative block w-full sm:w-72">
-                                  <Search
-                                    size={15}
-                                    className="absolute left-3 top-2.5 text-gray-400"
-                                  />
-                                  <input
-                                    value={umaSearch}
-                                    onChange={(event) =>
-                                      setUmaSearch(event.target.value)
-                                    }
-                                    placeholder="搜索马娘"
-                                    className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
-                                  />
-                                </label>
-                              </div>
-                              <div className="mt-3 flex max-h-[420px] flex-wrap content-start gap-2 overflow-auto pr-1">
-                                {filteredUmas.map((uma) => (
-                                  <UmaChoiceCard
-                                    key={uma.id}
-                                    uma={uma}
-                                    selected={cardId === uma.id}
-                                    onSelect={() => {
-                                      setCardId(uma.id);
-                                      setDeckId(0);
-                                      setSupportCardIds([]);
-                                      setFriendCardId(0);
-                                      setParent1('');
-                                      setParent2('');
-                                      setParentSelectionSlot(1);
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </section>
-
-                            <section
-                              className={`rounded-lg border p-4 ${
-                                selectedUma
-                                  ? 'border-gray-200 bg-gray-50/60'
-                                  : 'border-dashed border-gray-200 bg-gray-50 opacity-60'
-                              }`}
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                                    2
-                                  </span>
-                                  <div>
-                                    <h3 className="font-semibold text-gray-800">
-                                      选择继承马娘
-                                    </h3>
-                                    <p className="text-xs text-gray-500">
-                                      显示本体与两位祖辈的重点因子；白因子仅统计数量。
-                                    </p>
-                                  </div>
-                                </div>
-                                {selectedUma ? (
-                                  <label className="relative block w-full sm:w-80">
-                                    <Search
-                                      size={15}
-                                      className="absolute left-3 top-2.5 text-gray-400"
-                                    />
-                                    <input
-                                      value={parentSearch}
-                                      onChange={(event) =>
-                                        setParentSearch(event.target.value)
-                                      }
-                                      placeholder="搜索马娘名或因子"
-                                      className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
-                                    />
-                                  </label>
-                                ) : null}
-                              </div>
-
-                              {!selectedUma ? (
-                                <div className="py-12 text-center text-sm text-gray-500">
-                                  请先完成第 1 步，选择要养的马娘。
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="mt-3 flex gap-2">
-                                    {[
-                                      [1, selectedParent1],
-                                      [2, selectedParent2],
-                                    ].map(([slot, parent]) => {
-                                      const slotNumber = slot as 1 | 2;
-                                      const selectedParent = parent as
-                                        | Dashboard['parents'][number]
-                                        | undefined;
-                                      return (
-                                        <button
-                                          key={slotNumber}
-                                          type="button"
-                                          onClick={() =>
-                                            setParentSelectionSlot(slotNumber)
-                                          }
-                                          className={`flex h-20 w-20 flex-col items-center justify-center overflow-hidden rounded-lg border p-1 text-center ${
-                                            parentSelectionSlot === slotNumber
-                                              ? 'border-indigo-400 bg-indigo-50'
-                                              : 'border-gray-200 bg-white'
-                                          }`}
-                                        >
-                                          {selectedParent ? (
-                                            <AssetIcon
-                                              path={horseIconPath(
-                                                selectedParent.card_id,
-                                                selectedParent.rarity,
-                                                selectedParent.race_cloth_id,
-                                              )}
-                                              alt={selectedParent.name}
-                                              className="h-full w-full rounded object-cover"
-                                            />
-                                          ) : (
-                                            <span className="text-xs text-gray-500">
-                                              继承马娘 {slotNumber}
-                                            </span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="mt-3 grid max-h-[720px] gap-2 overflow-auto pr-1 xl:grid-cols-2">
-                                    {filteredParents.map((parent) => {
-                                      const currentValue =
-                                        parentSelectionSlot === 1
-                                          ? parent1
-                                          : parent2;
-                                      const otherValue =
-                                        parentSelectionSlot === 1
-                                          ? parent2
-                                          : parent1;
-                                      const otherParent =
-                                        dashboard.parents.find(
-                                          (item) =>
-                                            item.selection_id === otherValue,
-                                        );
-                                      const blockedCharaIds = new Set([
-                                        selectedUma.chara_id,
-                                        otherParent?.chara_id || 0,
-                                      ]);
-                                      return (
-                                        <ParentChoiceCard
-                                          key={parent.selection_id}
-                                          parent={parent}
-                                          selected={
-                                            currentValue === parent.selection_id
-                                          }
-                                          disabled={
-                                            otherValue ===
-                                              parent.selection_id ||
-                                            blockedCharaIds.has(
-                                              parent.chara_id,
-                                            ) ||
-                                            (parent.source === 'rental' &&
-                                              otherParent?.source === 'rental')
-                                          }
-                                          onSelect={() => {
-                                            if (parentSelectionSlot === 1) {
-                                              setParent1(parent.selection_id);
-                                              setParentSelectionSlot(2);
-                                            } else {
-                                              setParent2(parent.selection_id);
-                                            }
-                                          }}
-                                        />
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              )}
-                            </section>
-
-                            <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                                  3
-                                </span>
-                                <div>
-                                  <h3 className="font-semibold text-gray-800">
-                                    选择支援卡组
-                                  </h3>
-                                  <p className="text-xs text-gray-500">
-                                    卡组直接显示五张支援卡，不显示卡组编号。
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="mt-3 flex flex-wrap content-start gap-3">
-                                {dashboard.decks.map((deck) => {
-                                  const deckCharaIds = deck.cards.map(
-                                    (support) => support.chara_id,
-                                  );
-                                  const reservedCharaIds = new Set([
-                                    selectedUma?.chara_id || 0,
-                                    selectedFriendSupport?.chara_id || 0,
-                                  ]);
-                                  const disabled =
-                                    deck.cards.length !== 5 ||
-                                    new Set(deckCharaIds).size !==
-                                      deckCharaIds.length ||
-                                    deckCharaIds.some((charaId) =>
-                                      reservedCharaIds.has(charaId),
-                                    );
-                                  return (
-                                    <DeckChoiceCard
-                                      key={deck.id}
-                                      deck={deck}
-                                      selected={deckId === deck.id}
-                                      disabled={disabled}
-                                      onSelect={() => {
-                                        setDeckId(deck.id);
-                                        setSupportCardIds(
-                                          deck.support_card_ids,
-                                        );
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </section>
-
-                            <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                                    4
-                                  </span>
-                                  <div>
-                                    <h3 className="font-semibold text-gray-800">
-                                      选择好友支援卡
-                                    </h3>
-                                    <p className="text-xs text-gray-500">
-                                      开始育成时会自动寻找这张卡，只借用满破满级支援。
-                                    </p>
-                                  </div>
-                                </div>
-                                <label className="relative block w-full sm:w-80">
-                                  <Search
-                                    size={15}
-                                    className="absolute left-3 top-2.5 text-gray-400"
-                                  />
-                                  <input
-                                    value={supportSearch}
-                                    onChange={(event) =>
-                                      setSupportSearch(event.target.value)
-                                    }
-                                    placeholder="搜索支援卡名称或类型"
-                                    className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
-                                  />
-                                </label>
-                              </div>
-                              <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={refreshOptionsIndex}
-                                  disabled={
-                                    !selectedAccountId ||
-                                    busy === 'options-index'
-                                  }
-                                  className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 disabled:opacity-50"
-                                >
-                                  <RefreshCw
-                                    size={13}
-                                    className={
-                                      busy === 'options-index'
-                                        ? 'animate-spin'
-                                        : ''
-                                    }
-                                  />
-                                  {busy === 'options-index'
-                                    ? '正在刷新 index…'
-                                    : `刷新 index 数据${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
-                                </button>
-                                <span className="text-xs text-gray-400">
-                                  直接读取 index 中好友的
-                                  support_card_id，只保留满破满级卡。
-                                </span>
-                              </div>
-                              <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
-                                {visibleFriendSupports.map((support) => {
-                                  const reservedCharaIds = new Set([
-                                    selectedUma?.chara_id || 0,
-                                    ...selectedDeckCharaIds,
-                                  ]);
-                                  return (
-                                    <SupportChoiceCard
-                                      key={support.id}
-                                      support={support}
-                                      selected={friendCardId === support.id}
-                                      disabled={reservedCharaIds.has(
-                                        support.chara_id,
-                                      )}
-                                      onSelect={() =>
-                                        setFriendCardId(support.id)
-                                      }
-                                    />
-                                  );
-                                })}
-                              </div>
-                              {!visibleFriendSupports.length &&
-                              busy !== 'options-index' ? (
-                                <div className="py-8 text-center text-sm text-gray-500">
-                                  当前没有找到符合条件的满破满级好友支援。
-                                </div>
-                              ) : null}
-                            </section>
-
-                            <section
-                              id="career-options"
-                              className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                                  5
-                                </span>
-                                <div>
-                                  <h3 className="font-semibold text-gray-800">
-                                    编辑其他设置
-                                  </h3>
-                                  <p className="text-xs text-gray-500">
-                                    选择预设，并设置运行上限与TP恢复方式。
-                                  </p>
-                                </div>
-                              </div>
-
-                              {selectionConflict ? (
-                                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                  {selectionConflict}
-                                </div>
-                              ) : null}
-
-                              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                                <label className="text-sm">
-                                  预设
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      navigateToTab('presets', 'preset-basic')
-                                    }
-                                    className="mt-2 text-xs block font-medium text-indigo-600 hover:text-indigo-800"
-                                  >
-                                    编辑“{presetName || '新预设'}”的详细配置 →
-                                  </button>
-                                  <select
-                                    value={presetName}
-                                    onChange={(event) =>
-                                      setPresetName(event.target.value)
-                                    }
-                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                                  >
-                                    {!presets.length ? (
-                                      <option value="">请先新建预设</option>
-                                    ) : null}
-                                    {presets.map((preset) => (
-                                      <option key={preset.name}>
-                                        {preset.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <label className="text-sm">
-                                  单次养马防卡死上限
-                                  <span className="mt-0.5 block text-xs text-slate-400">
-                                    最多处理多少次训练、事件和比赛；不是养马次数，通常不用修改
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={3000}
-                                    value={maxSteps}
-                                    onChange={(event) =>
-                                      setMaxSteps(Number(event.target.value))
-                                    }
-                                    className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2"
-                                  />
-                                </label>
-                              </div>
-
-                              <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={burnClocks}
-                                    onChange={(event) =>
-                                      setBurnClocks(event.target.checked)
-                                    }
-                                    className="mt-1"
-                                  />
-                                  <span>
-                                    <strong className="block font-medium text-slate-800">
-                                      比赛失败时使用闹钟
-                                    </strong>
-                                    <span className="mt-0.5 block text-xs text-slate-500">
-                                      失败后有可用闹钟时自动继续；当前有{' '}
-                                      {dashboard.account.clocks || 0} 个
-                                    </span>
-                                  </span>
-                                </label>
-                                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={recoverTpWithItem}
-                                    onChange={(event) =>
-                                      setRecoverTpWithItem(event.target.checked)
-                                    }
-                                    className="mt-1"
-                                  />
-                                  <span>
-                                    <strong className="block font-medium text-slate-800">
-                                      TP不足时使用体力药
-                                    </strong>
-                                    <span className="mt-0.5 block text-xs text-slate-500">
-                                      优先使用能量饮料30；当前有{' '}
-                                      {dashboard.account.energy_drinks || 0} 个
-                                    </span>
-                                  </span>
-                                </label>
-                                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={recoverTpWithJewels}
-                                    onChange={(event) =>
-                                      setRecoverTpWithJewels(
-                                        event.target.checked,
-                                      )
-                                    }
-                                    className="mt-1"
-                                  />
-                                  <span>
-                                    <strong className="block font-medium text-slate-800">
-                                      仍不足时允许使用宝石
-                                    </strong>
-                                    <span className="mt-0.5 block text-xs text-slate-500">
-                                      会实际消耗宝石恢复TP，默认关闭
-                                    </span>
-                                  </span>
-                                </label>
-                              </div>
-                            </section>
-                          </div>
-                        ) : null}
-                      </section>
-                    </>
-                  )
+                  <CareerTab
+                    dashboard={dashboard}
+                    careerSaveOpen={careerSaveOpen}
+                    accountCareerSettings={accountCareerSettings}
+                    applyCareerSetting={applyCareerSetting}
+                    deleteCareerSetting={deleteCareerSetting}
+                    newCareerSaveName={newCareerSaveName}
+                    setNewCareerSaveName={setNewCareerSaveName}
+                    createCareerSave={createCareerSave}
+                    careerSettingName={careerSettingName}
+                    navigateToTab={navigateToTab}
+                    automationActive={automationActive}
+                    stopCareer={stopCareer}
+                    runnerStopping={runnerStopping}
+                    busy={busy}
+                    activeCareer={activeCareer}
+                    matchingCareerSettings={matchingCareerSettings}
+                    activeCareerIconPath={activeCareerIconPath}
+                    unsupportedCareer={unsupportedCareer}
+                    openSavedRunDialog={openSavedRunDialog}
+                    abandonCareer={abandonCareer}
+                    continuingCurrentCareer={continuingCurrentCareer}
+                    canContinueCurrentCareer={canContinueCurrentCareer}
+                    saveCareerSetting={saveCareerSetting}
+                    saveAndRunCareer={saveAndRunCareer}
+                    presetName={presetName}
+                    setPresetName={setPresetName}
+                    presets={presets}
+                    selectedUma={selectedUma}
+                    cardId={cardId}
+                    setCardId={setCardId}
+                    filteredUmas={filteredUmas}
+                    umaSearch={umaSearch}
+                    setUmaSearch={setUmaSearch}
+                    selectedParent1={selectedParent1}
+                    selectedParent2={selectedParent2}
+                    parent1={parent1}
+                    parent2={parent2}
+                    setParent1={setParent1}
+                    setParent2={setParent2}
+                    filteredParents={filteredParents}
+                    parentSearch={parentSearch}
+                    setParentSearch={setParentSearch}
+                    parentSelectionSlot={parentSelectionSlot}
+                    setParentSelectionSlot={setParentSelectionSlot}
+                    deckId={deckId}
+                    setDeckId={setDeckId}
+                    setSupportCardIds={setSupportCardIds}
+                    selectedDeckCharaIds={selectedDeckCharaIds}
+                    supportSearch={supportSearch}
+                    setSupportSearch={setSupportSearch}
+                    friendCardId={friendCardId}
+                    setFriendCardId={setFriendCardId}
+                    selectedFriendSupport={selectedFriendSupport}
+                    visibleFriendSupports={visibleFriendSupports}
+                    availableFriendSupportIds={availableFriendSupportIds}
+                    maxSteps={maxSteps}
+                    setMaxSteps={setMaxSteps}
+                    burnClocks={burnClocks}
+                    setBurnClocks={setBurnClocks}
+                    recoverTpWithItem={recoverTpWithItem}
+                    setRecoverTpWithItem={setRecoverTpWithItem}
+                    recoverTpWithJewels={recoverTpWithJewels}
+                    setRecoverTpWithJewels={setRecoverTpWithJewels}
+                    selectionConflict={selectionConflict}
+                    refreshOptionsIndex={refreshOptionsIndex}
+                    setCareerSaveOpen={setCareerSaveOpen}
+                    renameCareerSetting={renameCareerSetting}
+                    selectedAccountId={selectedAccountId}
+                  />
                 ) : null}
 
                 {dashboard && activeTab === 'progress' ? (
-                  currentCareerActive ? (
-                    <div className="min-h-[calc(100vh-170px)] space-y-4">
-                      <section className={panelClass('p-5')}>
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
-                              {activeCareerIconPath ? (
-                                <AssetIcon
-                                  path={activeCareerIconPath}
-                                  alt={
-                                    activeCareer?.name ||
-                                    currentCareerUma?.name ||
-                                    '当前育成'
-                                  }
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <Database
-                                  size={28}
-                                  className="m-6 text-gray-300"
-                                />
-                              )}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="truncate text-xl font-bold text-slate-900">
-                                  {activeCareer?.name ||
-                                    currentCareerUma?.name ||
-                                    '当前养马'}
-                                </h2>
-                                <span
-                                  className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerSessionWaiting ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
-                                >
-                                  {runnerStopping
-                                    ? '正在停止…'
-                                    : runnerSessionWaiting
-                                      ? '等待重新登录'
-                                      : automationActive
-                                        ? '自动育成中'
-                                        : runner?.run_plan?.stop_reason ||
-                                          (runner?.finished
-                                            ? '本次已完成'
-                                            : '等待开始')}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-sm font-medium text-indigo-600">
-                                {turnDateLabel(
-                                  runner?.turn || activeCareer?.turn,
-                                )}
-                              </p>
-                              <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                                {runnerStopping || runnerSessionWaiting ? (
-                                  <RefreshCw
-                                    size={15}
-                                    className={
-                                      runnerStopping
-                                        ? 'animate-spin text-amber-500'
-                                        : 'text-amber-500'
-                                    }
-                                  />
-                                ) : (
-                                  <Activity
-                                    size={15}
-                                    className="text-indigo-500"
-                                  />
-                                )}
-                                {runnerStopping
-                                  ? '已收到停止请求，正在等待当前操作完成'
-                                  : runnerSessionWaiting
-                                    ? `账号可能正在其他位置操作，${waitTimeLabel(runner?.session_wait_seconds)}后重新登录`
-                                    : describeRunnerAction(runner?.last_action)}
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                                <span>
-                                  体力{' '}
-                                  {currentRunnerStats.hp ??
-                                    activeCareer?.vital ??
-                                    0}
-                                  /
-                                  {currentRunnerStats.max_hp ??
-                                    activeCareer?.max_vital ??
-                                    100}
-                                </span>
-                                <span>
-                                  干劲 {currentRunnerStats.motivation ?? '-'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {runner?.last_error ? (
-                          <div className="mt-4 flex items-start gap-2 border-t border-red-100 pt-4 text-sm text-red-700">
-                            <CircleStop
-                              size={16}
-                              className="mt-0.5 flex-none"
-                            />
-                            <span>{runner.last_error}</span>
-                          </div>
-                        ) : null}
-
-                        {runnerStopping ? (
-                          <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-                            自动运行会在当前接口处理结束后停止；当前育成不会被放弃，之后仍可继续。
-                          </div>
-                        ) : null}
-
-                        {runnerSessionWaiting ? (
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-amber-100 pt-4 text-sm text-amber-700">
-                            <span>
-                              错误码 217 再次出现，自动操作已暂停。将在{' '}
-                              {waitTimeLabel(runner?.session_wait_seconds)}
-                              后重新登录并继续当前养马。
-                            </span>
-                            <button
-                              type="button"
-                              onClick={releaseSessionWait}
-                              disabled={busy === 'release-session-wait'}
-                              className="flex items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                            >
-                              <RefreshCw
-                                size={14}
-                                className={
-                                  busy === 'release-session-wait'
-                                    ? 'animate-spin'
-                                    : ''
-                                }
-                              />
-                              {busy === 'release-session-wait'
-                                ? '正在重新登录…'
-                                : '立即继续'}
-                            </button>
-                          </div>
-                        ) : null}
-
-                        <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-3 xl:grid-cols-6">
-                          {[
-                            ['速度', currentRunnerStats.speed],
-                            ['耐力', currentRunnerStats.stamina],
-                            ['力量', currentRunnerStats.power],
-                            ['毅力', currentRunnerStats.guts],
-                            ['智力', currentRunnerStats.wit],
-                            ['PT', currentRunnerStats.skill_point],
-                          ].map(([label, value]) => (
-                            <div
-                              key={String(label)}
-                              className="border-b border-r border-slate-100 px-4 py-3 last:border-r-0 sm:border-b-0"
-                            >
-                              <p className="text-xs text-slate-400">{label}</p>
-                              <p className="mt-1 text-xl font-bold text-slate-800">
-                                {value ?? '-'}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-
-                        {dailyJewelSchedule?.enabled ? (
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
-                            <div>
-                              <span className="font-semibold text-violet-800">
-                                每日宝石计划
-                              </span>
-                              <span className="ml-2 text-xs text-violet-600">
-                                {dailyJewelSchedule.start_time}–
-                                {dailyJewelSchedule.end_time} · 今日{' '}
-                                {dailyJewelSchedule.daily_jewel_drop_count}/
-                                {dailyJewelSchedule.target} 次
-                              </span>
-                            </div>
-                            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
-                              {dailyJewelScheduleStatusLabel(
-                                dailyJewelSchedule.status,
-                              )}
-                            </span>
-                          </div>
-                        ) : null}
-
-                        {runner?.run_plan && hasRunPlan ? (
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-sm">
-                            <div>
-                              <span className="font-semibold text-slate-800">
-                                {runModeLabel(runner.run_plan.mode)}
-                              </span>
-                              <span className="ml-2 text-xs text-slate-500">
-                                {runner.run_plan.mode === 'single'
-                                  ? `完成 ${runner.run_plan.completed_runs}/1 局`
-                                  : runner.run_plan.mode === 'continuous'
-                                    ? `已连续完成 ${runner.run_plan.completed_runs} 局`
-                                    : runner.run_plan.mode === 'daily_count'
-                                      ? `今日 ${runner.run_plan.daily_completed_runs}/${runner.run_plan.target} 局`
-                                      : `本次 ${runner.run_plan.completed_jewel_drops}/${runner.run_plan.target} 次掉落`}
-                              </span>
-                            </div>
-                            {automationActive ? (
-                              <div className="flex flex-wrap gap-2">
-                                {runnerSessionWaiting ? (
-                                  <button
-                                    type="button"
-                                    onClick={releaseSessionWait}
-                                    disabled={busy === 'release-session-wait'}
-                                    className="rounded-md bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-                                  >
-                                    {busy === 'release-session-wait'
-                                      ? '正在继续…'
-                                      : '立即继续'}
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={stopCareer}
-                                  disabled={runnerStopping || busy === 'stop'}
-                                  className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                  {runnerStopping ? (
-                                    <RefreshCw
-                                      size={15}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <CircleStop size={15} />
-                                  )}
-                                  {runnerStopping
-                                    ? '正在停止…'
-                                    : '停止自动运行'}
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </section>
-
-                      <section className={panelClass('overflow-hidden')}>
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-                          <div>
-                            <h3 className="font-bold text-slate-900">
-                              当前流程
-                            </h3>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              按游戏日期显示训练、事件和比赛结果。
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                              <Gem size={14} className="text-violet-500" />
-                              本局 {runner?.jewel_drop_count || 0} 次 /{' '}
-                              {runner?.jewels_earned || 0} 个
-                            </span>
-                            <span>
-                              今天 {runner?.daily_jewel_drop_count || 0}/
-                              {runner?.daily_jewel_drop_limit || 20} 次
-                            </span>
-                          </div>
-                        </div>
-                        <div className="max-h-[560px] overflow-auto">
-                          {(runner?.log || [])
-                            .filter(
-                              (row) =>
-                                !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action),
-                            )
-                            .slice()
-                            .reverse()
-                            .map((row) => (
-                              <div
-                                key={row.id}
-                                className="grid gap-1 border-b border-slate-50 px-5 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
-                              >
-                                <span className="whitespace-nowrap font-medium text-indigo-600">
-                                  {turnDateLabel(row.turn)}
-                                </span>
-                                <span className="font-semibold text-slate-700">
-                                  {describeLogAction(row.action)}
-                                </span>
-                                <span className="text-slate-500">
-                                  {describeLogDetail(row.detail)}
-                                </span>
-                              </div>
-                            ))}
-                          {!(runner?.log || []).some(
-                            (row) => !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action),
-                          ) ? (
-                            <p className="p-10 text-center text-sm text-slate-400">
-                              暂无流程记录
-                            </p>
-                          ) : null}
-                        </div>
-                      </section>
-                    </div>
-                  ) : (
-                    <section
-                      className={panelClass(
-                        'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
-                      )}
-                    >
-                      <div>
-                        <Activity
-                          size={38}
-                          className={`mx-auto ${automationActive ? 'animate-pulse text-indigo-300' : 'text-slate-300'}`}
-                        />
-                        <h2 className="mt-4 font-bold text-slate-700">
-                          {dailyJewelSchedule?.enabled
-                            ? dailyJewelSchedule.status === 'completed'
-                              ? '今日宝石目标已完成'
-                              : `每日宝石计划：${dailyJewelScheduleStatusLabel(
-                                  dailyJewelSchedule.status,
-                                )}`
-                            : runner?.run_plan?.active
-                              ? '正在准备下一次育成'
-                              : '当前没有进行中的养马'}
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {dailyJewelSchedule?.enabled
-                            ? `每日 ${dailyJewelSchedule.start_time}–${dailyJewelSchedule.end_time} 运行，今天 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次掉落。`
-                            : runner?.run_plan?.active
-                              ? '新的育成开始后，这里会显示实时状态。'
-                              : '开始或继续育成后，这里会显示当前属性和流程。'}
-                        </p>
-                        {dailyJewelSchedule?.last_error ? (
-                          <p className="mt-2 text-xs text-red-500">
-                            {dailyJewelSchedule.last_error}
-                          </p>
-                        ) : null}
-                        {dailyJewelSchedule?.enabled ? (
-                          <button
-                            type="button"
-                            onClick={stopCareer}
-                            disabled={runnerStopping || busy === 'stop'}
-                            className="mt-5 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            {runnerStopping ? (
-                              <RefreshCw size={16} className="animate-spin" />
-                            ) : (
-                              <CircleStop size={16} />
-                            )}
-                            {runnerStopping ? '正在停止…' : '停止每日计划'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </section>
-                  )
+                  <ProgressTab
+                    currentCareerActive={currentCareerActive}
+                    activeCareerIconPath={activeCareerIconPath}
+                    activeCareer={activeCareer}
+                    currentCareerUma={currentCareerUma}
+                    runner={runner}
+                    runnerStopping={runnerStopping}
+                    runnerSessionWaiting={runnerSessionWaiting}
+                    automationActive={automationActive}
+                    currentRunnerStats={currentRunnerStats}
+                    busy={busy}
+                    releaseSessionWait={releaseSessionWait}
+                    dailyJewelSchedule={dailyJewelSchedule}
+                    hasRunPlan={hasRunPlan}
+                    stopCareer={stopCareer}
+                  />
                 ) : null}
 
                 {dashboard && activeTab === 'history' ? (
-                  selectedCareerReport ? (
-                    <div className="space-y-4">
-                      <section className={panelClass('p-5')}>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCareerReport(null)}
-                              className="mb-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                            >
-                              ← 返回养马记录
-                            </button>
-                            <h2 className="text-xl font-bold text-slate-900">
-                              {dashboard.umas.find(
-                                (uma) =>
-                                  uma.id === selectedCareerReport.card_id,
-                              )?.name ||
-                                `育成马娘 ${selectedCareerReport.card_id || '-'}`}
-                            </h2>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {formatReportTime(
-                                selectedCareerReport.started_at,
-                              )}{' '}
-                              ·{' '}
-                              {selectedCareerReport.preset_name || '未命名预设'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {health?.umarl?.installed &&
-                            !['queued', 'running'].includes(
-                              umarlTraining?.state || '',
-                            ) ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startUmaRlTraining([selectedCareerReport.id])
-                                }
-                                disabled={busy === 'umarl-train'}
-                                className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-                              >
-                                用此记录训练 UmaRL
-                              </button>
-                            ) : null}
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${selectedCareerReport.status === 'error' ? 'bg-red-100 text-red-700' : selectedCareerReport.status === 'finished' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
-                            >
-                              {careerReportStatusLabel(
-                                selectedCareerReport.status,
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
-                          <span>
-                            结束于{' '}
-                            {turnDateLabel(selectedCareerReport.final_turn)}
-                          </span>
-                          <span>
-                            比赛 {selectedCareerReport.race_count || 0} 场
-                          </span>
-                          <span>
-                            宝石掉落{' '}
-                            {selectedCareerReport.jewel_drop_count || 0} 次，共{' '}
-                            {selectedCareerReport.jewels_earned || 0} 个
-                          </span>
-                        </div>
-                        {selectedCareerReport.error_message ? (
-                          <p className="mt-4 border-t border-red-100 pt-4 text-sm text-red-700">
-                            {selectedCareerReport.error_message}
-                          </p>
-                        ) : null}
-                      </section>
-
-                      <section className={panelClass('overflow-hidden')}>
-                        <div className="border-b border-slate-100 px-5 py-4">
-                          <h3 className="font-bold">详细流程</h3>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                          {(selectedCareerReport.turns || []).map((turn) => {
-                            const logEvents = (turn.events || []).filter(
-                              (event) =>
-                                event.event === 'log' &&
-                                !HIDDEN_RUNNER_LOG_ACTIONS.has(
-                                  String(event.action || ''),
-                                ),
-                            );
-                            const apiCalls = (turn.api_calls || []).filter(
-                              (call) =>
-                                !String(call.endpoint || '').includes(
-                                  'race_end',
-                                ),
-                            );
-                            if (
-                              !logEvents.length &&
-                              !apiCalls.length &&
-                              !turn.selected_action
-                            ) {
-                              return null;
-                            }
-                            return (
-                              <article
-                                key={turn.turn}
-                                className="grid gap-3 px-5 py-4 lg:grid-cols-[210px_minmax(0,1fr)]"
-                              >
-                                <p className="whitespace-nowrap font-semibold text-indigo-600">
-                                  {turnDateLabel(turn.turn)}
-                                </p>
-                                <div className="min-w-0 space-y-2">
-                                  {logEvents.map((event, index) => (
-                                    <div
-                                      key={`${event.action}-${index}`}
-                                      className="grid gap-1 text-sm sm:grid-cols-[110px_minmax(0,1fr)]"
-                                    >
-                                      <span className="font-medium text-slate-700">
-                                        {describeLogAction(
-                                          String(event.action || ''),
-                                        )}
-                                      </span>
-                                      <span className="text-slate-500">
-                                        {describeLogDetail(
-                                          String(event.detail || ''),
-                                        )}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  {!logEvents.length && turn.selected_action ? (
-                                    <p className="text-sm text-slate-600">
-                                      {describeLogAction(turn.selected_action)}
-                                      {turn.decision_reason
-                                        ? ` · ${describeLogDetail(turn.decision_reason)}`
-                                        : ''}
-                                    </p>
-                                  ) : null}
-                                  {apiCalls.length ? (
-                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                      {apiCalls.map((call, index) => (
-                                        <span
-                                          key={`${call.direction}-${call.endpoint}-${index}`}
-                                          className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-500"
-                                        >
-                                          {call.direction} {call.endpoint}
-                                          {call.result_code
-                                            ? ` · ${call.result_code}`
-                                            : ''}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </article>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    </div>
-                  ) : (
-                    <section className={panelClass('p-5')}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h2 className="flex items-center gap-2 text-lg font-bold">
-                            <History size={19} className="text-indigo-600" />
-                            养马记录
-                          </h2>
-                          <p className="mt-1 text-sm text-slate-500">
-                            服务器保留最近记录，并额外保留有限数量的异常流程。
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => loadCareerHistory(selectedAccountId)}
-                          disabled={busy === 'history'}
-                          className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          <RefreshCw
-                            size={15}
-                            className={busy === 'history' ? 'animate-spin' : ''}
-                          />
-                          刷新记录
-                        </button>
-                      </div>
-                      {health?.umarl?.installed ? (
-                        <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <h3 className="font-semibold text-violet-950">
-                                使用养马记录训练 UmaRL
-                              </h3>
-                              <p className="mt-1 text-xs text-violet-700">
-                                从当前账号保留的记录生成搜索标签，使用 CUDA
-                                训练，并在成功后自动晋级为实时育成模型。
-                              </p>
-                            </div>
-                            {['queued', 'running'].includes(
-                              umarlTraining?.state || '',
-                            ) ? (
-                              <button
-                                type="button"
-                                onClick={cancelUmaRlTraining}
-                                disabled={busy === 'umarl-cancel'}
-                                className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
-                              >
-                                请求取消
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startUmaRlTraining(
-                                    careerHistory.map((report) => report.id),
-                                  )
-                                }
-                                disabled={
-                                  !careerHistory.length ||
-                                  busy === 'umarl-train' ||
-                                  !health.umarl.training_available
-                                }
-                                className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                              >
-                                {busy === 'umarl-train'
-                                  ? '正在提交…'
-                                  : '使用全部记录训练'}
-                              </button>
-                            )}
-                          </div>
-                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                            <label className="text-xs text-violet-800">
-                              每个局面 rollout
-                              <input
-                                type="number"
-                                min={8}
-                                max={10000}
-                                value={umarlTrainRollouts}
-                                onChange={(event) =>
-                                  setUmaRlTrainRollouts(
-                                    Number(event.target.value),
-                                  )
-                                }
-                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                              />
-                            </label>
-                            <label className="text-xs text-violet-800">
-                              训练轮数
-                              <input
-                                type="number"
-                                min={1}
-                                max={200}
-                                value={umarlTrainEpochs}
-                                onChange={(event) =>
-                                  setUmaRlTrainEpochs(
-                                    Number(event.target.value),
-                                  )
-                                }
-                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                              />
-                            </label>
-                            <label className="text-xs text-violet-800">
-                              最多训练局面
-                              <input
-                                type="number"
-                                min={1}
-                                max={2048}
-                                value={umarlTrainMaxStates}
-                                onChange={(event) =>
-                                  setUmaRlTrainMaxStates(
-                                    Number(event.target.value),
-                                  )
-                                }
-                                className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                              />
-                            </label>
-                          </div>
-                          {umarlTraining ? (
-                            <div className="mt-4">
-                              <div className="flex justify-between text-xs text-violet-800">
-                                <span>
-                                  {umarlTraining.detail || umarlTraining.state}
-                                </span>
-                                <span>{umarlTraining.progress || 0}%</span>
-                              </div>
-                              <div className="mt-1 h-2 overflow-hidden rounded-full bg-violet-100">
-                                <div
-                                  className="h-full bg-violet-500 transition-all"
-                                  style={{
-                                    width: `${Math.max(0, Math.min(100, umarlTraining.progress || 0))}%`,
-                                  }}
-                                />
-                              </div>
-                              {umarlTraining.error ? (
-                                <p className="mt-2 text-xs text-red-600">
-                                  {umarlTraining.error}
-                                </p>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {careerHistory.map((report) => {
-                          const reportUma = dashboard.umas.find(
-                            (uma) => uma.id === report.card_id,
-                          );
-                          const reportIconPath = reportUma
-                            ? horseIconPath(
-                                reportUma.id,
-                                reportUma.rarity,
-                                reportUma.race_cloth_id,
-                              )
-                            : undefined;
-                          return (
-                            <button
-                              key={report.id}
-                              type="button"
-                              onClick={() => openCareerReport(report.id)}
-                              disabled={busy === `history-${report.id}`}
-                              className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-indigo-300 hover:shadow-sm disabled:opacity-50"
-                            >
-                              <div className="flex items-start gap-3">
-                                <span className="h-16 w-16 flex-none overflow-hidden rounded-lg bg-slate-100">
-                                  {reportIconPath ? (
-                                    <AssetIcon
-                                      path={reportIconPath}
-                                      alt={reportUma?.name || '育成马娘'}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <Trophy
-                                      size={22}
-                                      className="m-5 text-slate-300"
-                                    />
-                                  )}
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="flex items-start justify-between gap-2">
-                                    <strong className="truncate text-slate-900">
-                                      {reportUma?.name ||
-                                        `育成马娘 ${report.card_id || '-'}`}
-                                    </strong>
-                                    <span
-                                      className={`flex-none text-xs ${report.status === 'error' ? 'text-red-600' : report.status === 'finished' ? 'text-emerald-600' : 'text-slate-500'}`}
-                                    >
-                                      {careerReportStatusLabel(report.status)}
-                                    </span>
-                                  </span>
-                                  <span className="mt-1 block text-xs text-slate-500">
-                                    {formatReportTime(report.started_at)}
-                                  </span>
-                                  <span className="mt-1 block truncate text-xs text-slate-400">
-                                    {report.preset_name || '未命名预设'} ·{' '}
-                                    {turnDateLabel(report.final_turn)}
-                                  </span>
-                                </span>
-                              </div>
-                              <div className="mt-4 grid grid-cols-3 border-t border-slate-100 pt-3 text-center text-xs">
-                                <span>
-                                  <strong className="block text-sm text-slate-800">
-                                    {report.race_count || 0}
-                                  </strong>
-                                  比赛
-                                </span>
-                                <span>
-                                  <strong className="block text-sm text-violet-700">
-                                    {report.jewel_drop_count || 0}
-                                  </strong>
-                                  宝石掉落
-                                </span>
-                                <span>
-                                  <strong className="block text-sm text-violet-700">
-                                    {report.jewels_earned || 0}
-                                  </strong>
-                                  宝石
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {!careerHistory.length && busy !== 'history' ? (
-                        <p className="py-14 text-center text-sm text-slate-400">
-                          暂无已保存的养马记录
-                        </p>
-                      ) : null}
-                    </section>
-                  )
+                  <HistoryTab
+                    dashboard={dashboard}
+                    selectedCareerReport={selectedCareerReport}
+                    setSelectedCareerReport={setSelectedCareerReport}
+                    health={health}
+                    umarlTraining={umarlTraining}
+                    startUmaRlTraining={startUmaRlTraining}
+                    busy={busy}
+                    historyCareerSetting={historyCareerSetting}
+                    loadCareerHistory={loadCareerHistory}
+                    selectedAccountId={selectedAccountId}
+                    historyCareerSettingId={historyCareerSettingId}
+                    setHistoryCareerSettingId={setHistoryCareerSettingId}
+                    accountCareerSettings={accountCareerSettings}
+                    umarlSettingModelAvailable={umarlSettingModelAvailable}
+                    cancelUmaRlTraining={cancelUmaRlTraining}
+                    selectedTrainingReportIds={selectedTrainingReportIds}
+                    setSelectedTrainingReportIds={setSelectedTrainingReportIds}
+                    umarlTrainRollouts={umarlTrainRollouts}
+                    setUmaRlTrainRollouts={setUmaRlTrainRollouts}
+                    umarlTrainEpochs={umarlTrainEpochs}
+                    setUmaRlTrainEpochs={setUmaRlTrainEpochs}
+                    umarlTrainMaxStates={umarlTrainMaxStates}
+                    setUmaRlTrainMaxStates={setUmaRlTrainMaxStates}
+                    historyCareerReports={historyCareerReports}
+                    openCareerReport={openCareerReport}
+                  />
                 ) : null}
               </>
             )}
