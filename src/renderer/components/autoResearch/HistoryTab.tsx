@@ -264,7 +264,7 @@ export default function HistoryTab({
                     使用养马记录训练 UmaRL
                   </h3>
                   <p className="mt-1 text-xs text-violet-700">
-                    只使用当前详设中勾选的记录。训练期间继续使用原模型，成功后切换到新模型。
+                    只使用当前详设中勾选的记录。训练期间继续使用原模型；候选模型通过配对续育评测后才会晋级。
                   </p>
                   <p className="mt-1 text-xs text-violet-600">
                     当前模型：
@@ -361,6 +361,34 @@ export default function HistoryTab({
                   {umarlTraining.error ? (
                     <p className="mt-2 text-xs text-red-600">
                       {umarlTraining.error}
+                    </p>
+                  ) : null}
+                  {(umarlTraining.metrics?.promotion_pairs || 0) > 0 ? (
+                    <p className="mt-2 text-xs text-violet-700">
+                      晋级评测：候选模型平均{' '}
+                      {Math.round(
+                        umarlTraining.metrics?.promotion_candidate_mean || 0,
+                      )}
+                      ，当前模型平均{' '}
+                      {Math.round(
+                        umarlTraining.metrics?.promotion_incumbent_mean || 0,
+                      )}
+                      ，提升{' '}
+                      {(umarlTraining.metrics?.promotion_mean_improvement ||
+                        0) >= 0
+                        ? '+'
+                        : ''}
+                      {Math.round(
+                        umarlTraining.metrics?.promotion_mean_improvement || 0,
+                      )}
+                      ，胜率{' '}
+                      {(
+                        (umarlTraining.metrics?.promotion_win_rate || 0) * 100
+                      ).toFixed(1)}
+                      %，
+                      {umarlTraining.metrics?.promotion_passed
+                        ? '已晋级'
+                        : '未晋级'}
                     </p>
                   ) : null}
                 </div>

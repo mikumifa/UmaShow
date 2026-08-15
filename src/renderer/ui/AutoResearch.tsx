@@ -224,6 +224,13 @@ export default function AutoResearch() {
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
   const [careerHistory, setCareerHistory] = useState<CareerReportSummary[]>([]);
   const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
+  const historyCareerSettingIdRef = useRef(historyCareerSettingId);
+  historyCareerSettingIdRef.current = historyCareerSettingId;
+  const umarlTrainingRequestRef = useRef<{
+    key: string;
+    controller: AbortController;
+    promise: Promise<void>;
+  } | null>(null);
   const [selectedTrainingReportIds, setSelectedTrainingReportIds] = useState<
     string[]
   >([]);
@@ -766,31 +773,64 @@ export default function AutoResearch() {
   };
 
   const loadUmaRlTraining = useCallback(
-    async (careerSettingId: string) => {
+    (careerSettingId: string): Promise<void> => {
       if (
         !selectedAccountId ||
         !careerSettingId ||
         !sessionTokens.current.has(selectedAccountId)
       ) {
-        return;
+        return Promise.resolve();
       }
-      try {
-        const result = await accountRequest<{
-          success: boolean;
-          training: UmaRlTrainingStatus;
-          umarl?: Record<string, unknown>;
-        }>(
-          selectedAccountId,
-          `/api/account/umarl/training?career_setting_id=${encodeURIComponent(careerSettingId)}`,
-        );
-        setUmaRlTraining(result.training);
-        if (result.umarl) {
-          setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
-          setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+      const accountId = selectedAccountId;
+      const requestKey = `${accountId}:${careerSettingId}`;
+      const existing = umarlTrainingRequestRef.current;
+      if (existing?.key === requestKey) {
+        return existing.promise;
+      }
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      const promise = (async () => {
+        try {
+          const result = await accountRequest<{
+            success: boolean;
+            training: UmaRlTrainingStatus;
+            umarl?: Record<string, unknown>;
+          }>(
+            accountId,
+            `/api/account/umarl/training?career_setting_id=${encodeURIComponent(careerSettingId)}`,
+            { signal: controller.signal },
+          );
+          if (
+            selectedAccountIdRef.current !== accountId ||
+            historyCareerSettingIdRef.current !== careerSettingId
+          ) {
+            return;
+          }
+          setUmaRlTraining(result.training);
+          if (result.umarl) {
+            setUmaRlSettingModelAvailable(
+              Boolean(result.umarl.model_available),
+            );
+            setHealth((current: any) => ({ ...current, umarl: result.umarl }));
+          }
+        } catch (caught) {
+          if ((caught as Error).name !== 'AbortError') {
+            setError((caught as Error).message);
+          }
+        } finally {
+          window.clearTimeout(timeout);
         }
-      } catch (caught) {
-        setError((caught as Error).message);
-      }
+      })().finally(() => {
+        if (umarlTrainingRequestRef.current?.controller === controller) {
+          umarlTrainingRequestRef.current = null;
+        }
+      });
+      umarlTrainingRequestRef.current = {
+        key: requestKey,
+        controller,
+        promise,
+      };
+      return promise;
     },
     [accountRequest, selectedAccountId],
   );
@@ -1119,6 +1159,8 @@ export default function AutoResearch() {
   }, [careerSettings, selectedAccount?.uid, selectedCareerSettingId]);
 
   useEffect(() => {
+    umarlTrainingRequestRef.current?.controller.abort();
+    umarlTrainingRequestRef.current = null;
     setSelectedCareerSettingId('');
     setCareerSettingName('');
     setCareerSaveOpen(false);
@@ -1132,6 +1174,8 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
+    umarlTrainingRequestRef.current?.controller.abort();
+    umarlTrainingRequestRef.current = null;
     setSelectedCareerReport(null);
     setSelectedTrainingReportIds([]);
     setUmaRlTraining(null);
@@ -1171,14 +1215,25 @@ export default function AutoResearch() {
     ) {
       return undefined;
     }
-    loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
-    if (!['queued', 'running'].includes(umarlTraining?.state || '')) {
+    let cancelled = false;
+    let timer: number | undefined;
+    const running = ['queued', 'running'].includes(umarlTraining?.state || '');
+    const poll = async () => {
+      await loadUmaRlTraining(historyCareerSettingId);
+      if (!cancelled && running) {
+        timer = window.setTimeout(poll, 2000);
+      }
+    };
+    poll().catch(() => undefined);
+    if (!running) {
       return undefined;
     }
-    const timer = window.setInterval(() => {
-      loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
-    }, 2000);
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+      }
+    };
   }, [
     activeTab,
     health?.umarl?.installed,
