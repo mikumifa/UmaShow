@@ -1,4 +1,4 @@
-/* eslint-disable promise/always-return, promise/catch-or-return, jsx-a11y/label-has-associated-control, no-nested-ternary */
+/* eslint-disable promise/always-return, promise/catch-or-return, jsx-a11y/label-has-associated-control, no-nested-ternary, no-await-in-loop */
 import {
   DragEvent,
   useCallback,
@@ -85,6 +85,7 @@ import {
   PendingRun,
   Preset,
   RaceOption,
+  Runner,
   RunMode,
   SessionResponse,
   SkillLearningSetting,
@@ -669,6 +670,38 @@ export default function AutoResearch() {
     [invalidateSessionResponses, updateRuntime],
   );
 
+  const commitRunnerStream = useCallback(
+    (accountId: string, nextRunner: Runner) => {
+      setAccounts((current) =>
+        current.map((account) =>
+          account.id === accountId
+            ? {
+                ...account,
+                runtime: {
+                  ...account.runtime,
+                  runner: nextRunner,
+                },
+              }
+            : account,
+        ),
+      );
+      if (selectedAccountIdRef.current !== accountId) return;
+      setSession((current) =>
+        current
+          ? {
+              ...current,
+              runner: nextRunner,
+              runtime: {
+                ...(current.runtime || {}),
+                runner: nextRunner,
+              },
+            }
+          : current,
+      );
+    },
+    [],
+  );
+
   const accountRequest = useCallback(
     async <T,>(
       accountId: string,
@@ -1246,9 +1279,83 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (!selectedAccountId || !automationActive) return undefined;
+    const token = sessionTokens.current.get(selectedAccountId);
+    if (!token || !server) return undefined;
+    const accountId = selectedAccountId;
+    let cancelled = false;
+    let controller: AbortController | null = null;
+    const connectStream = async () => {
+      while (!cancelled) {
+        controller = new AbortController();
+        try {
+          const response = await fetch(
+            `${server}/api/account/career/runner/stream`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
+            },
+          );
+          if (!response.ok || !response.body) {
+            throw new Error(`runner stream HTTP ${response.status}`);
+          }
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (!cancelled) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const lines =
+              `${buffer}${decoder.decode(value, { stream: true })}`.split('\n');
+            buffer = lines.pop() || '';
+            lines.forEach((line) => {
+              if (!line.trim()) return;
+              try {
+                const event = JSON.parse(line) as {
+                  success?: boolean;
+                  runner?: Runner;
+                };
+                if (!event.runner) return;
+                commitRunnerStream(accountId, event.runner);
+                const stillActive = Boolean(
+                  event.runner.running ||
+                    event.runner.run_plan?.active ||
+                    event.runner.daily_jewel_schedule?.enabled,
+                );
+                if (!stillActive) {
+                  loadSession(accountId).catch(() => undefined);
+                }
+              } catch {
+                // Ignore an incomplete or malformed stream record and keep reading.
+              }
+            });
+          }
+        } catch (caught) {
+          if ((caught as Error).name !== 'AbortError' && !cancelled) {
+            await new Promise<void>((resolve) => {
+              window.setTimeout(resolve, 1000);
+            });
+          }
+        }
+      }
+    };
+    connectStream().catch(() => undefined);
+    return () => {
+      cancelled = true;
+      controller?.abort();
+    };
+  }, [
+    automationActive,
+    commitRunnerStream,
+    loadSession,
+    selectedAccountId,
+    server,
+  ]);
+
+  useEffect(() => {
+    if (!selectedAccountId || !automationActive) return undefined;
     const timer = window.setInterval(() => {
       loadSession(selectedAccountId).catch(() => undefined);
-    }, 2000);
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [automationActive, loadSession, selectedAccountId]);
 

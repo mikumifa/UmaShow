@@ -31,6 +31,13 @@ export type Runner = {
   last_action?: string;
   last_error?: string;
   finished?: boolean;
+  live_activity?: {
+    stage: string;
+    endpoint: string;
+    detail: string;
+    delay: number;
+    updated_at: number;
+  };
   log?: Array<{
     id: number;
     action: string;

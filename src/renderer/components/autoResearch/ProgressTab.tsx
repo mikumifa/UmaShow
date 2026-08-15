@@ -47,6 +47,11 @@ export default function ProgressTab({
   hasRunPlan,
   stopCareer,
 }: ProgressTabProps) {
+  const liveActivity = runner?.live_activity;
+  const liveActivityLabel =
+    automationActive && liveActivity?.endpoint
+      ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail ? ` · ${liveActivity.detail}` : ''}`
+      : '';
   return currentCareerActive ? (
     <div className="min-h-[calc(100vh-170px)] space-y-4">
       <section className={panelClass('p-5')}>
@@ -103,7 +108,8 @@ export default function ProgressTab({
                   ? '已收到停止请求，正在等待当前操作完成'
                   : runnerSessionWaiting
                     ? `账号可能正在其他位置操作，${waitTimeLabel(runner?.session_wait_seconds)}后重新登录`
-                    : describeRunnerAction(runner?.last_action)}
+                    : liveActivityLabel ||
+                      describeRunnerAction(runner?.last_action)}
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span>
