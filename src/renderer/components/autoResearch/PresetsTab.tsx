@@ -82,6 +82,8 @@ type PresetsTabProps = {
   >;
   uraAiEnabled: boolean;
   setUraAiEnabled: Dispatch<SetStateAction<boolean>>;
+  uraAiDecisionMode: 'search' | 'model';
+  setUraAiDecisionMode: Dispatch<SetStateAction<'search' | 'model'>>;
   health: any;
   uraAiTargetAttributes: number[];
   setUraAiTargetAttributes: Dispatch<SetStateAction<number[]>>;
@@ -180,6 +182,8 @@ export default function PresetsTab(props: PresetsTabProps) {
     setSkillLearningSettings,
     uraAiEnabled,
     setUraAiEnabled,
+    uraAiDecisionMode,
+    setUraAiDecisionMode,
     health,
     uraAiTargetAttributes,
     setUraAiTargetAttributes,
@@ -468,7 +472,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     UmaRL
                   </strong>
                   <span className="mt-1 block text-xs leading-5 text-slate-500">
-                    模拟候选动作的后续育成结果，使用手写策略或神经网络选择动作。
+                    可由模型直接选择动作，也可模拟候选动作的后续育成结果后再决策。
                   </span>
                   <span className="mt-2 block text-[11px] text-violet-700">
                     {health?.umarl?.installed
@@ -897,7 +901,9 @@ export default function PresetsTab(props: PresetsTabProps) {
           </h3>
           <p className="mt-2 text-xs text-slate-500">
             {uraAiEnabled
-              ? '当前模式根据目标属性和后续育成模拟选择训练、休息、外出、医务室和可选比赛。手动系数只保留为回退配置。'
+              ? uraAiDecisionMode === 'model'
+                ? '当前模式由该养马详设的神经网络直接选择动作，不执行后续模拟。手动系数只保留为异常回退。'
+                : '当前模式根据目标属性和后续育成模拟选择训练、休息、外出、医务室和可选比赛。手动系数只保留为回退配置。'
               : '当前模式根据属性目标、训练收益、羁绊、失败率和体力阈值直接选择动作。'}
           </p>
 
@@ -906,7 +912,9 @@ export default function PresetsTab(props: PresetsTabProps) {
               <div className="mt-4 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-violet-700">
                   <span>
-                    育成时加载所选详设的独立模型；没有模型时使用手写后续策略
+                    {uraAiDecisionMode === 'model'
+                      ? '育成时加载所选详设的独立模型；模型不可用时回退到手动系数策略'
+                      : '育成时加载所选详设的独立模型；没有模型时使用手写后续策略'}
                     {' · '}
                     {health.umarl.cuda_available
                       ? health.umarl.cuda_device
@@ -914,13 +922,72 @@ export default function PresetsTab(props: PresetsTabProps) {
                   </span>
                   <span>UmaRL {health.umarl.version || '-'}</span>
                 </div>
+                <fieldset className="rounded-xl border border-violet-200 bg-violet-50/70 p-4">
+                  <legend className="px-1 text-sm font-semibold text-violet-950">
+                    决策方式
+                  </legend>
+                  <div className="mt-2 grid gap-3 md:grid-cols-2">
+                    <label
+                      className={`cursor-pointer rounded-lg border p-3 transition ${
+                        uraAiDecisionMode === 'search'
+                          ? 'border-violet-400 bg-white shadow-sm'
+                          : 'border-violet-100 bg-white/60 hover:border-violet-300'
+                      }`}
+                    >
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="umarl-decision-mode"
+                          checked={uraAiDecisionMode === 'search'}
+                          onChange={() => setUraAiDecisionMode('search')}
+                          className="mt-1"
+                        />
+                        <span>
+                          <strong className="block text-sm text-violet-950">
+                            搜索增强
+                          </strong>
+                          <span className="mt-1 block text-xs leading-5 text-violet-700">
+                            模拟候选动作的后续育成，速度较慢，但能修正模型的单步误判。
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                    <label
+                      className={`cursor-pointer rounded-lg border p-3 transition ${
+                        uraAiDecisionMode === 'model'
+                          ? 'border-violet-400 bg-white shadow-sm'
+                          : 'border-violet-100 bg-white/60 hover:border-violet-300'
+                      }`}
+                    >
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="umarl-decision-mode"
+                          checked={uraAiDecisionMode === 'model'}
+                          onChange={() => setUraAiDecisionMode('model')}
+                          className="mt-1"
+                        />
+                        <span>
+                          <strong className="block text-sm text-violet-950">
+                            模型直接决策
+                          </strong>
+                          <span className="mt-1 block text-xs leading-5 text-violet-700">
+                            直接采用 policy
+                            概率最高的动作，几乎无需等待；建议仅对表现稳定的模型启用。
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
                 <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-4">
                   <p className="text-sm font-semibold text-violet-950">
                     目标属性
                   </p>
                   <p className="mt-1 text-xs leading-5 text-violet-700">
-                    搜索会优先减少未达目标的属性缺口；达到目标后继续按最终评价分优化。填写
-                    0 可关闭单项约束。
+                    {uraAiDecisionMode === 'model'
+                      ? '目标属性会作为模型输入，模型需使用相同目标的数据训练。填写 0 可关闭单项约束。'
+                      : '搜索会优先减少未达目标的属性缺口；达到目标后继续按最终评价分优化。填写 0 可关闭单项约束。'}
                   </p>
                   <div className="mt-3 grid grid-cols-5 gap-2">
                     {STAT_LABELS.map((label, index) => (
@@ -946,39 +1013,56 @@ export default function PresetsTab(props: PresetsTabProps) {
                     ))}
                   </div>
                 </div>
-                <div className="grid gap-3 rounded-xl border border-violet-100 bg-white p-4 sm:grid-cols-2 xl:grid-cols-5">
-                  {[
-                    ['每回合秒数', uraAiTimeBudget, setUraAiTimeBudget, 1],
-                    ['最少模拟次数', uraAiMinRollouts, setUraAiMinRollouts, 1],
-                    ['最多模拟次数', uraAiMaxRollouts, setUraAiMaxRollouts, 1],
-                    [
-                      'CPU 并行进程（0 自动）',
-                      uraAiWorkers,
-                      setUraAiWorkers,
-                      1,
-                    ],
-                    ['高分偏好', uraAiRiskFactor, setUraAiRiskFactor, 0.1],
-                  ].map(([label, value, setter, step]) => (
-                    <label
-                      key={String(label)}
-                      className="text-xs text-violet-800"
-                    >
-                      {String(label)}
-                      <input
-                        type="number"
-                        step={Number(step)}
-                        min={String(label).includes('高分') ? undefined : 0}
-                        value={Number(value)}
-                        onChange={(event) =>
-                          (setter as (next: number) => void)(
-                            Number(event.target.value),
-                          )
-                        }
-                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                      />
-                    </label>
-                  ))}
-                </div>
+                {uraAiDecisionMode === 'search' ? (
+                  <div className="grid gap-3 rounded-xl border border-violet-100 bg-white p-4 sm:grid-cols-2 xl:grid-cols-5">
+                    {[
+                      ['每回合秒数', uraAiTimeBudget, setUraAiTimeBudget, 1],
+                      [
+                        '最少模拟次数',
+                        uraAiMinRollouts,
+                        setUraAiMinRollouts,
+                        1,
+                      ],
+                      [
+                        '最多模拟次数',
+                        uraAiMaxRollouts,
+                        setUraAiMaxRollouts,
+                        1,
+                      ],
+                      [
+                        'CPU 并行进程（0 自动）',
+                        uraAiWorkers,
+                        setUraAiWorkers,
+                        1,
+                      ],
+                      ['高分偏好', uraAiRiskFactor, setUraAiRiskFactor, 0.1],
+                    ].map(([label, value, setter, step]) => (
+                      <label
+                        key={String(label)}
+                        className="text-xs text-violet-800"
+                      >
+                        {String(label)}
+                        <input
+                          type="number"
+                          step={Number(step)}
+                          min={String(label).includes('高分') ? undefined : 0}
+                          value={Number(value)}
+                          onChange={(event) =>
+                            (setter as (next: number) => void)(
+                              Number(event.target.value),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-800">
+                    此模式不会运行搜索，因此每回合秒数、模拟次数、CPU
+                    进程和高分偏好均不生效。行动日志会显示模型概率与预测评分。
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
@@ -1422,7 +1506,7 @@ export default function PresetsTab(props: PresetsTabProps) {
           className="mt-5 flex scroll-mt-28 flex-wrap items-end justify-between gap-3"
         >
           <label className="min-w-[260px] flex-1 text-sm">
-            搜索额外赛事
+            搜索预设比赛
             <input
               value={raceSearch}
               onChange={(event) => setRaceSearch(event.target.value)}
@@ -1430,9 +1514,14 @@ export default function PresetsTab(props: PresetsTabProps) {
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
             />
           </label>
-          <p className="text-sm text-slate-400">
-            已选择 {selectedRaceIds.length} 场
-          </p>
+          <div className="text-right">
+            <p className="text-sm text-slate-500">
+              已选择 {selectedRaceIds.length} 场
+            </p>
+            <p className="mt-1 text-xs text-indigo-600">
+              所选比赛可参加时必须执行，UmaRL 不会改选其他行动
+            </p>
+          </div>
         </div>
         <div className="mt-3 grid max-h-[440px] gap-2 overflow-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
           {filteredRaces.map((race) => {

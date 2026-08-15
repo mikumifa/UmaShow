@@ -128,6 +128,7 @@ export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
     rest_threshold: 48,
     ura_ai: {
       enabled: true,
+      decision_mode: 'search',
       model_path: 'uma_runtime/umarl/models/current.pt',
       time_budget_s: 10,
       min_rollouts: 3000,

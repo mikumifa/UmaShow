@@ -353,6 +353,7 @@ export type Preset = {
   rest_threshold?: number;
   ura_ai?: {
     enabled?: boolean;
+    decision_mode?: 'search' | 'model';
     model_path?: string;
     time_budget_s?: number;
     min_rollouts?: number;

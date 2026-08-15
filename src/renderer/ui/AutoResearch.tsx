@@ -197,6 +197,9 @@ export default function AutoResearch() {
   const [palCardMultiplier, setPalCardMultiplier] = useState(0.1);
   const [restThreshold, setRestThreshold] = useState(48);
   const [uraAiEnabled, setUraAiEnabled] = useState(true);
+  const [uraAiDecisionMode, setUraAiDecisionMode] = useState<
+    'search' | 'model'
+  >('search');
   const [uraAiTimeBudget, setUraAiTimeBudget] = useState(10);
   const [uraAiMinRollouts, setUraAiMinRollouts] = useState(3000);
   const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(10000);
@@ -1051,6 +1054,7 @@ export default function AutoResearch() {
     setRestThreshold(Number(preset.rest_threshold ?? 48));
     const uraAi = preset.ura_ai || {};
     setUraAiEnabled(uraAi.enabled !== false);
+    setUraAiDecisionMode(uraAi.decision_mode === 'model' ? 'model' : 'search');
     setUraAiTimeBudget(Number(uraAi.time_budget_s ?? 10));
     setUraAiMinRollouts(Number(uraAi.min_rollouts ?? 3000));
     setUraAiMaxRollouts(Number(uraAi.max_rollouts ?? 10000));
@@ -1848,6 +1852,7 @@ export default function AutoResearch() {
     rest_threshold: restThreshold,
     ura_ai: {
       enabled: uraAiEnabled,
+      decision_mode: uraAiDecisionMode,
       model_path: 'uma_runtime/umarl/models/current.pt',
       time_budget_s: Math.max(1, uraAiTimeBudget),
       min_rollouts: Math.max(1, uraAiMinRollouts),
@@ -3729,6 +3734,8 @@ export default function AutoResearch() {
                     setSkillLearningSettings={setSkillLearningSettings}
                     uraAiEnabled={uraAiEnabled}
                     setUraAiEnabled={setUraAiEnabled}
+                    uraAiDecisionMode={uraAiDecisionMode}
+                    setUraAiDecisionMode={setUraAiDecisionMode}
                     health={health}
                     uraAiTargetAttributes={uraAiTargetAttributes}
                     setUraAiTargetAttributes={setUraAiTargetAttributes}
