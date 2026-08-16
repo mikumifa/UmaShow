@@ -53,8 +53,11 @@ type CareerTabProps = {
   canContinueCurrentCareer: boolean;
   saveCareerSetting: () => boolean;
   saveAndRunCareer: () => void;
-  presetName: string;
-  setPresetName: Dispatch<SetStateAction<string>>;
+  careerPresetName: string;
+  newCareerPresetName: string;
+  setNewCareerPresetName: Dispatch<SetStateAction<string>>;
+  editCareerPreset: () => void;
+  closeCareerEditor: () => void;
   presets: Preset[];
   selectedUma?: Dashboard['umas'][number];
   cardId: number;
@@ -94,7 +97,6 @@ type CareerTabProps = {
   setRecoverTpWithJewels: Dispatch<SetStateAction<boolean>>;
   selectionConflict: string;
   refreshOptionsIndex: () => Promise<void>;
-  setCareerSaveOpen: Dispatch<SetStateAction<boolean>>;
   renameCareerSetting: (settingId: string, name: string) => void;
   selectedAccountId: string;
 };
@@ -125,8 +127,11 @@ export default function CareerTab(props: CareerTabProps) {
     canContinueCurrentCareer,
     saveCareerSetting,
     saveAndRunCareer,
-    presetName,
-    setPresetName,
+    careerPresetName,
+    newCareerPresetName,
+    setNewCareerPresetName,
+    editCareerPreset,
+    closeCareerEditor,
     presets,
     selectedUma,
     cardId,
@@ -166,7 +171,6 @@ export default function CareerTab(props: CareerTabProps) {
     setRecoverTpWithJewels,
     selectionConflict,
     refreshOptionsIndex,
-    setCareerSaveOpen,
     renameCareerSetting,
     selectedAccountId,
   } = props;
@@ -319,6 +323,9 @@ export default function CareerTab(props: CareerTabProps) {
           const uma = dashboard.umas.find(
             (item) => item.id === setting.card_id,
           );
+          const presetExists = presets.some(
+            (preset) => preset.name === setting.preset_name,
+          );
           const iconPath = uma
             ? horseIconPath(uma.id, uma.rarity, uma.race_cloth_id)
             : undefined;
@@ -359,13 +366,23 @@ export default function CareerTab(props: CareerTabProps) {
                   <p className="mt-1 truncate text-xs text-gray-500">
                     {uma?.name || '尚未选择育成马娘'} · {setting.preset_name}
                   </p>
+                  <span
+                    className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      presetExists
+                        ? 'bg-violet-50 text-violet-700'
+                        : 'bg-red-50 text-red-600'
+                    }`}
+                  >
+                    {presetExists ? '已绑定预设' : '绑定预设不存在'}
+                  </span>
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => applyCareerSetting(setting.id)}
-                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                  disabled={!presetExists}
+                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   进入详设
                 </button>
@@ -384,17 +401,36 @@ export default function CareerTab(props: CareerTabProps) {
 
         <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
           <h3 className="font-semibold text-indigo-950">新建养马详设</h3>
+          <label className="mt-4 block text-xs font-medium text-indigo-900">
+            绑定预设
+            <select
+              value={newCareerPresetName}
+              onChange={(event) => setNewCareerPresetName(event.target.value)}
+              className="mt-1 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-800"
+            >
+              <option value="">请手动选择预设</option>
+              {presets.map((preset) => (
+                <option key={preset.name} value={preset.name}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="mt-1 text-xs leading-5 text-indigo-700">
+            进入详设后将固定绑定，不能再切换到其他预设。
+          </p>
           <input
             value={newCareerSaveName}
             onChange={(event) => setNewCareerSaveName(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && createCareerSave()}
             placeholder={`例如：URA 详设 ${accountCareerSettings.length + 1}`}
-            className="mt-4 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
           />
           <button
             type="button"
             onClick={createCareerSave}
-            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+            disabled={!newCareerSaveName.trim() || !newCareerPresetName}
+            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={15} className="mr-1 inline" />
             新建并进入
@@ -431,17 +467,17 @@ export default function CareerTab(props: CareerTabProps) {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setCareerSaveOpen(false)}
+              onClick={closeCareerEditor}
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
               返回详设选择界面
             </button>
             <button
               type="button"
-              onClick={() => navigateToTab('presets', 'preset-basic')}
+              onClick={editCareerPreset}
               className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
             >
-              {presetName ? '编辑当前预设' : '新建预设'}
+              编辑绑定预设
             </button>
             {automationActive ? (
               <button
@@ -803,28 +839,24 @@ export default function CareerTab(props: CareerTabProps) {
               ) : null}
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="text-sm">
-                  预设
+                <div className="text-sm">
+                  绑定预设
+                  <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
+                    <strong className="block text-sm text-violet-950">
+                      {careerPresetName}
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-violet-700">
+                      该详设已与此预设绑定，不能切换
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => navigateToTab('presets', 'preset-basic')}
-                    className="mt-2 text-xs block font-medium text-indigo-600 hover:text-indigo-800"
+                    onClick={editCareerPreset}
+                    className="mt-2 block text-xs font-medium text-indigo-600 hover:text-indigo-800"
                   >
-                    编辑“{presetName || '新预设'}”的详细配置 →
+                    编辑“{careerPresetName}”的预设配置 →
                   </button>
-                  <select
-                    value={presetName}
-                    onChange={(event) => setPresetName(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                  >
-                    {!presets.length ? (
-                      <option value="">请先新建预设</option>
-                    ) : null}
-                    {presets.map((preset) => (
-                      <option key={preset.name}>{preset.name}</option>
-                    ))}
-                  </select>
-                </label>
+                </div>
                 <label className="text-sm">
                   单次养马防卡死上限
                   <span className="mt-0.5 block text-xs text-slate-400">

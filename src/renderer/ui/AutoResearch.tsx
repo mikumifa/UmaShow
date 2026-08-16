@@ -192,8 +192,10 @@ export default function AutoResearch() {
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
   const [selectedCareerSettingId, setSelectedCareerSettingId] = useState('');
   const [careerSettingName, setCareerSettingName] = useState('');
+  const [careerPresetName, setCareerPresetName] = useState('');
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
+  const [newCareerPresetName, setNewCareerPresetName] = useState('');
   const [careerHistory, setCareerHistory] = useState<CareerReportSummary[]>([]);
   const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
   const historyCareerSettingIdRef = useRef(historyCareerSettingId);
@@ -1144,6 +1146,7 @@ export default function AutoResearch() {
     ) {
       setSelectedCareerSettingId('');
       setCareerSettingName('');
+      setCareerPresetName('');
       setCareerSaveOpen(false);
     }
   }, [careerSettings, selectedAccount?.uid, selectedCareerSettingId]);
@@ -1153,8 +1156,10 @@ export default function AutoResearch() {
     umarlTrainingRequestRef.current = null;
     setSelectedCareerSettingId('');
     setCareerSettingName('');
+    setCareerPresetName('');
     setCareerSaveOpen(false);
     setNewCareerSaveName('');
+    setNewCareerPresetName('');
     setCareerHistory([]);
     setHistoryCareerSettingId('');
     setSelectedTrainingReportIds([]);
@@ -1990,6 +1995,13 @@ export default function AutoResearch() {
 
   const runCareer = async (mode: RunMode, target: number) => {
     if (!selectedAccountId || !dashboard) return false;
+    const boundPreset = presets.find(
+      (preset) => preset.name === careerPresetName,
+    );
+    if (!boundPreset) {
+      setError('这个养马详设绑定的预设不存在，请返回后重新创建详设');
+      return false;
+    }
     if (unsupportedCareer) {
       setError(
         `当前进行中的育成剧本（scenario_id=${dashboard.account.career?.scenario_id}）暂不支持。请在游戏中手动退出本次养马，再刷新账号状态。`,
@@ -2047,8 +2059,8 @@ export default function AutoResearch() {
             career_setting_id: selectedCareerSetting?.id || '',
             career_setting_name:
               selectedCareerSetting?.name || careerSettingName,
-            preset_name: presetName,
-            preset: draftPreset(),
+            preset_name: careerPresetName,
+            preset: boundPreset,
             max_steps: maxSteps,
             burn_clocks: burnClocks,
           }),
@@ -2466,6 +2478,8 @@ export default function AutoResearch() {
       ),
     );
     if (presetName === currentName) setPresetName(name);
+    if (careerPresetName === currentName) setCareerPresetName(name);
+    if (newCareerPresetName === currentName) setNewCareerPresetName(name);
     setError('');
     return true;
   };
@@ -2486,6 +2500,10 @@ export default function AutoResearch() {
       );
       return;
     }
+    if (careerSaveOpen && careerPresetName === name) {
+      setError('当前正在编辑的养马详设已绑定这个预设，请先返回详设选择界面');
+      return;
+    }
     if (!window.confirm(`确定删除预设“${name}”吗？`)) return;
     const nextPresets = presets.filter((preset) => preset.name !== name);
     setPresets(nextPresets);
@@ -2504,6 +2522,7 @@ export default function AutoResearch() {
       JSON.stringify(Array.from(new Set([...deletedPresetNames, name]))),
     );
     setPresetName(DEFAULT_PRESET_NAME);
+    if (newCareerPresetName === name) setNewCareerPresetName('');
     setPresetEditorOpen(false);
     setError('');
   };
@@ -2513,12 +2532,41 @@ export default function AutoResearch() {
     setSharedStorageItem(CAREER_SETTINGS_KEY, JSON.stringify(nextSettings));
   };
 
+  const closeCareerEditor = () => {
+    if (!selectedCareerSettingId) {
+      setCareerSettingName('');
+      setCareerPresetName('');
+    }
+    setCareerSaveOpen(false);
+    setError('');
+  };
+
+  const editCareerPreset = () => {
+    if (
+      !careerPresetName ||
+      !presets.some((preset) => preset.name === careerPresetName)
+    ) {
+      setError('这个养马详设绑定的预设不存在');
+      return;
+    }
+    setPresetName(careerPresetName);
+    setPresetEditorOpen(true);
+    setActiveTab('presets');
+    window.setTimeout(() => scrollToSection('preset-basic'), 0);
+    setError('');
+  };
+
   const applyCareerSetting = (settingId: string) => {
-    setSelectedCareerSettingId(settingId);
     const setting = careerSettings.find((item) => item.id === settingId);
     if (!setting) return;
+    if (!presets.some((preset) => preset.name === setting.preset_name)) {
+      setError(`养马详设绑定的预设不存在：${setting.preset_name}`);
+      return;
+    }
+    setSelectedCareerSettingId(settingId);
     setCareerSettingName(setting.name);
     setPresetName(setting.preset_name);
+    setCareerPresetName(setting.preset_name);
     setCardId(setting.card_id);
     setDeckId(setting.deck_id);
     setSupportCardIds(setting.support_card_ids || []);
@@ -2558,8 +2606,16 @@ export default function AutoResearch() {
       setError('请先填写新详设名称');
       return;
     }
+    if (
+      !newCareerPresetName ||
+      !presets.some((preset) => preset.name === newCareerPresetName)
+    ) {
+      setError('请先选择这个养马详设要绑定的预设');
+      return;
+    }
     setSelectedCareerSettingId('');
     setCareerSettingName(name);
+    setCareerPresetName(newCareerPresetName);
     setCardId(0);
     setDeckId(0);
     setSupportCardIds([]);
@@ -2567,13 +2623,13 @@ export default function AutoResearch() {
     setParent1('');
     setParent2('');
     setParentSelectionSlot(1);
-    setPresetName(presets[0]?.name || '');
     setMaxSteps(2500);
     setBurnClocks(false);
     setRecoverTpWithItem(false);
     setRecoverTpWithJewels(false);
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
+    setNewCareerPresetName('');
     setError('');
   };
 
@@ -2597,8 +2653,11 @@ export default function AutoResearch() {
       setError('养马详设名称不能为空，请返回详设界面修改');
       return false;
     }
-    if (!presetName || !presets.some((preset) => preset.name === presetName)) {
-      setError('请选择一个已保存的预设');
+    if (
+      !careerPresetName ||
+      !presets.some((preset) => preset.name === careerPresetName)
+    ) {
+      setError('这个养马详设绑定的预设不存在，请返回后重新创建详设');
       return false;
     }
     if (
@@ -2618,11 +2677,12 @@ export default function AutoResearch() {
     const existing = careerSettings.find(
       (setting) => setting.id === selectedCareerSettingId,
     );
+    const boundPresetName = existing?.preset_name || careerPresetName;
     const setting: CareerSetting = {
       id: existing?.id || `${selectedAccount.uid}-${Date.now()}`,
       name,
       account_uid: selectedAccount.uid,
-      preset_name: presetName,
+      preset_name: boundPresetName,
       card_id: effectiveCardId,
       deck_id: effectiveDeckId,
       support_card_ids: [...effectiveSupportCardIds],
@@ -2702,6 +2762,7 @@ export default function AutoResearch() {
     if (selectedCareerSettingId === setting.id) {
       setSelectedCareerSettingId('');
       setCareerSettingName('');
+      setCareerPresetName('');
       setCareerSaveOpen(false);
     }
     setError('');
@@ -3880,8 +3941,11 @@ export default function AutoResearch() {
                     canContinueCurrentCareer={canContinueCurrentCareer}
                     saveCareerSetting={saveCareerSetting}
                     saveAndRunCareer={saveAndRunCareer}
-                    presetName={presetName}
-                    setPresetName={setPresetName}
+                    careerPresetName={careerPresetName}
+                    newCareerPresetName={newCareerPresetName}
+                    setNewCareerPresetName={setNewCareerPresetName}
+                    editCareerPreset={editCareerPreset}
+                    closeCareerEditor={closeCareerEditor}
                     presets={presets}
                     selectedUma={selectedUma}
                     cardId={cardId}
@@ -3921,7 +3985,6 @@ export default function AutoResearch() {
                     setRecoverTpWithJewels={setRecoverTpWithJewels}
                     selectionConflict={selectionConflict}
                     refreshOptionsIndex={refreshOptionsIndex}
-                    setCareerSaveOpen={setCareerSaveOpen}
                     renameCareerSetting={renameCareerSetting}
                     selectedAccountId={selectedAccountId}
                   />
