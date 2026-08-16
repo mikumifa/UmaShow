@@ -236,7 +236,7 @@ export default function HistoryTab({
             {historyCareerSetting ? ` · ${historyCareerSetting.name}` : ''}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            保存最近 3 天内的全部养马记录；每个详设独立训练并使用自己的模型。
+            保存最近 3 天内的全部养马记录。
           </p>
         </div>
         <button
@@ -253,7 +253,7 @@ export default function HistoryTab({
         </button>
       </div>
       <label className="mt-5 block max-w-xl text-sm font-medium text-slate-700">
-        先选择养马详设
+        选择详设
         <select
           value={historyCareerSettingId}
           onChange={(event) => setHistoryCareerSettingId(event.target.value)}

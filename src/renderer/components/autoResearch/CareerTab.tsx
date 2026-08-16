@@ -311,9 +311,6 @@ export default function CareerTab(props: CareerTabProps) {
             <Database size={19} className="text-indigo-600" />
             选择养马详设
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            选择已有详设继续配置，或者创建一个新的详设。
-          </p>
         </div>
       </div>
 
@@ -387,9 +384,6 @@ export default function CareerTab(props: CareerTabProps) {
 
         <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
           <h3 className="font-semibold text-indigo-950">新建养马详设</h3>
-          <p className="mt-1 text-xs text-indigo-700">
-            创建后再选择马娘、继承马娘和支援卡。
-          </p>
           <input
             value={newCareerSaveName}
             onChange={(event) => setNewCareerSaveName(event.target.value)}
@@ -433,9 +427,6 @@ export default function CareerTab(props: CareerTabProps) {
             <h2 className="text-lg font-bold">
               育成任务配置 · {careerSettingName}
             </h2>
-            <p className="text-sm text-gray-500">
-              依次选择育成马娘、继承马娘、支援卡组和好友支援。当前仅支持 URA。
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -528,9 +519,6 @@ export default function CareerTab(props: CareerTabProps) {
                     <h3 className="font-semibold text-gray-800">
                       选择育成马娘
                     </h3>
-                    <p className="text-xs text-gray-500">
-                      点击头像选择要育成的马娘。
-                    </p>
                   </div>
                 </div>
                 <label className="relative block w-full sm:w-72">
@@ -582,9 +570,6 @@ export default function CareerTab(props: CareerTabProps) {
                     <h3 className="font-semibold text-gray-800">
                       选择继承马娘
                     </h3>
-                    <p className="text-xs text-gray-500">
-                      显示本体与两位祖辈的重点因子；白因子仅统计数量。
-                    </p>
                   </div>
                 </div>
                 {selectedUma ? (
@@ -697,9 +682,6 @@ export default function CareerTab(props: CareerTabProps) {
                 </span>
                 <div>
                   <h3 className="font-semibold text-gray-800">选择支援卡组</h3>
-                  <p className="text-xs text-gray-500">
-                    卡组直接显示五张支援卡，不显示卡组编号。
-                  </p>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap content-start gap-3">
@@ -744,7 +726,7 @@ export default function CareerTab(props: CareerTabProps) {
                       选择好友支援卡
                     </h3>
                     <p className="text-xs text-gray-500">
-                      开始育成时会自动寻找这张卡，只借用满破满级支援。
+                      只允许借用满破满级支援。
                     </p>
                   </div>
                 </div>
@@ -773,12 +755,9 @@ export default function CareerTab(props: CareerTabProps) {
                     className={busy === 'options-index' ? 'animate-spin' : ''}
                   />
                   {busy === 'options-index'
-                    ? '正在刷新 index…'
-                    : `刷新 index 数据${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
+                    ? '正在刷新 …'
+                    : `刷新 好友支援卡列表${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
                 </button>
-                <span className="text-xs text-gray-400">
-                  直接读取 index 中好友的 support_card_id，只保留满破满级卡。
-                </span>
               </div>
               <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
                 {visibleFriendSupports.map((support) => {
@@ -814,9 +793,6 @@ export default function CareerTab(props: CareerTabProps) {
                 </span>
                 <div>
                   <h3 className="font-semibold text-gray-800">编辑其他设置</h3>
-                  <p className="text-xs text-gray-500">
-                    选择预设，并设置运行上限与TP恢复方式。
-                  </p>
                 </div>
               </div>
 

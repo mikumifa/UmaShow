@@ -1739,7 +1739,7 @@ export default function AutoResearch() {
     } catch (caught) {
       setError(
         needsRelogin(caught)
-          ? '登录会话已失效，请返回账号页重新登录后再刷新 index 数据'
+          ? '登录会话已失效，请退出账号后重新连接'
           : (caught as Error).message,
       );
     } finally {
@@ -3390,9 +3390,6 @@ export default function AutoResearch() {
                 <p className="text-sm font-semibold text-slate-700">
                   方法一：导入 users.db
                 </p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  可以拖入文件，也可以手动选择文件。
-                </p>
                 <div
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -3747,11 +3744,6 @@ export default function AutoResearch() {
                     >
                       <div>
                         <h2 className="font-bold">账号已经准备好</h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {presets.length
-                            ? '接下来可以编辑预设，或进入养马详设选择阵容。'
-                            : '开始养马前需要先创建一个预设。'}
-                        </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button

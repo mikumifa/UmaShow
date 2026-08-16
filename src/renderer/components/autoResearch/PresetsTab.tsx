@@ -167,9 +167,6 @@ export default function PresetsTab(props: PresetsTabProps) {
             <Settings2 size={19} className="text-indigo-600" />
             选择预设槽位
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            选择已有预设后才能编辑，也可以导入其他玩家分享的预设。
-          </p>
         </div>
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
           <Upload size={15} />
