@@ -20,6 +20,8 @@ export type RunnerStats = {
 };
 
 export type Runner = {
+  state_epoch?: string;
+  state_revision?: number;
   running?: boolean;
   stopping?: boolean;
   session_waiting?: boolean;
@@ -306,6 +308,14 @@ export type SessionResponse = {
   runtime?: Partial<Account['runtime']>;
   runner?: Runner;
   relogged_in?: boolean;
+};
+
+export type AccountOptionsResponse = {
+  success: boolean;
+  options: Pick<
+    Dashboard,
+    'umas' | 'supports' | 'decks' | 'parents' | 'friends' | 'friend_exclude_ids'
+  >;
 };
 
 export type AuthResponse = SessionResponse & {

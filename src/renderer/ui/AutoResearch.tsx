@@ -67,6 +67,7 @@ import {
 } from 'renderer/components/autoResearch/shared';
 import {
   Account,
+  AccountOptionsResponse,
   AuthResponse,
   AutoResearchTab,
   CapturedCredential,
@@ -91,6 +92,39 @@ import {
 import { loadUMDB } from 'renderer/utils/umdb';
 
 const SHOW_UMARL_TRAINING = false;
+
+const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
+  umas: [],
+  supports: [],
+  decks: [],
+  parents: [],
+  friends: [],
+  friend_exclude_ids: [],
+});
+
+const preferNewerRunner = (
+  current: Runner | undefined,
+  incoming: Runner | undefined,
+) => {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  const currentEpoch = String(current.state_epoch || '');
+  const incomingEpoch = String(incoming.state_epoch || '');
+  if (currentEpoch && incomingEpoch && currentEpoch !== incomingEpoch) {
+    return incoming;
+  }
+  const currentRevision = Number(current.state_revision || 0);
+  const incomingRevision = Number(incoming.state_revision || 0);
+  if (currentRevision > 0 && incomingRevision <= 0) return current;
+  if (
+    currentRevision > 0 &&
+    incomingRevision > 0 &&
+    incomingRevision < currentRevision
+  ) {
+    return current;
+  }
+  return incoming;
+};
 
 export default function AutoResearch() {
   const [activeTab, setActiveTab] = useState<AutoResearchTab>('accounts');
@@ -126,8 +160,12 @@ export default function AutoResearch() {
   const disconnectingAccountIdRef = useRef('');
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
-  const sessionRequestVersions = useRef(new Map<string, number>());
-  const sessionResponseOrders = useRef(new Map<string, number>());
+  const overviewRequestVersions = useRef(new Map<string, number>());
+  const overviewResponseOrders = useRef(new Map<string, number>());
+  const accountOptionsCache = useRef(
+    new Map<string, AccountOptionsResponse['options']>(),
+  );
+  const accountOptionsRequests = useRef(new Map<string, Promise<void>>());
   const accountActionRef = useRef<
     | ((
         accountId: string,
@@ -596,27 +634,31 @@ export default function AutoResearch() {
       setAccounts((current) =>
         current.map((account) =>
           account.id === accountId
-            ? {
-                ...account,
-                runtime: response
-                  ? {
-                      ...account.runtime,
-                      ...(response.runtime || {}),
-                      runner:
-                        response.runtime?.runner ||
-                        response.runner ||
-                        account.runtime.runner,
-                      logged_in: !!response.success,
-                      account:
-                        response.dashboard?.account ?? account.runtime.account,
-                    }
-                  : {
-                      logged_in: false,
-                      last_error: '',
-                      runner: { running: false },
-                      account: null,
-                    },
-              }
+            ? (() => {
+                const nextRunner = preferNewerRunner(
+                  account.runtime.runner,
+                  response?.runtime?.runner || response?.runner,
+                );
+                return {
+                  ...account,
+                  runtime: response
+                    ? {
+                        ...account.runtime,
+                        ...(response.runtime || {}),
+                        runner: nextRunner || account.runtime.runner,
+                        logged_in: !!response.success,
+                        account:
+                          response.dashboard?.account ??
+                          account.runtime.account,
+                      }
+                    : {
+                        logged_in: false,
+                        last_error: '',
+                        runner: { running: false },
+                        account: null,
+                      },
+                };
+              })()
             : account,
         ),
       );
@@ -624,30 +666,53 @@ export default function AutoResearch() {
     [],
   );
 
-  const invalidateSessionResponses = useCallback((accountId: string) => {
-    const nextOrder = (sessionResponseOrders.current.get(accountId) || 0) + 1;
-    sessionResponseOrders.current.set(accountId, nextOrder);
+  const invalidateOverviewResponses = useCallback((accountId: string) => {
+    const nextOrder = (overviewResponseOrders.current.get(accountId) || 0) + 1;
+    overviewResponseOrders.current.set(accountId, nextOrder);
     return nextOrder;
   }, []);
 
-  const commitSessionResponse = useCallback(
+  const commitOverviewResponse = useCallback(
     (accountId: string, response: SessionResponse, requestOrder?: number) => {
       if (requestOrder !== undefined) {
-        if (sessionResponseOrders.current.get(accountId) !== requestOrder) {
+        if (overviewResponseOrders.current.get(accountId) !== requestOrder) {
           return false;
         }
       } else {
-        invalidateSessionResponses(accountId);
+        invalidateOverviewResponses(accountId);
       }
-      setSession(response);
-      updateRuntime(accountId, response);
+      const options = accountOptionsCache.current.get(accountId);
+      const normalized = {
+        ...response,
+        dashboard: response.dashboard
+          ? {
+              ...emptyAccountOptions(),
+              ...(options || {}),
+              ...response.dashboard,
+            }
+          : undefined,
+      } as SessionResponse;
+      setSession((current) => {
+        const currentRunner = current?.runtime?.runner || current?.runner;
+        const incomingRunner = normalized.runtime?.runner || normalized.runner;
+        const nextRunner = preferNewerRunner(currentRunner, incomingRunner);
+        return {
+          ...normalized,
+          runner: normalized.runner ? nextRunner : normalized.runner,
+          runtime: normalized.runtime
+            ? { ...normalized.runtime, runner: nextRunner }
+            : normalized.runtime,
+        };
+      });
+      updateRuntime(accountId, normalized);
       return true;
     },
-    [invalidateSessionResponses, updateRuntime],
+    [invalidateOverviewResponses, updateRuntime],
   );
 
   const commitRunnerStream = useCallback(
     (accountId: string, nextRunner: Runner) => {
+      invalidateOverviewResponses(accountId);
       setAccounts((current) =>
         current.map((account) =>
           account.id === accountId
@@ -655,7 +720,9 @@ export default function AutoResearch() {
                 ...account,
                 runtime: {
                   ...account.runtime,
-                  runner: nextRunner,
+                  runner:
+                    preferNewerRunner(account.runtime.runner, nextRunner) ||
+                    account.runtime.runner,
                 },
               }
             : account,
@@ -664,18 +731,23 @@ export default function AutoResearch() {
       if (selectedAccountIdRef.current !== accountId) return;
       setSession((current) =>
         current
-          ? {
-              ...current,
-              runner: nextRunner,
-              runtime: {
-                ...(current.runtime || {}),
-                runner: nextRunner,
-              },
-            }
+          ? (() => {
+              const currentRunner = current.runtime?.runner || current.runner;
+              const acceptedRunner =
+                preferNewerRunner(currentRunner, nextRunner) || nextRunner;
+              return {
+                ...current,
+                runner: acceptedRunner,
+                runtime: {
+                  ...(current.runtime || {}),
+                  runner: acceptedRunner,
+                },
+              };
+            })()
           : current,
       );
     },
-    [],
+    [invalidateOverviewResponses],
   );
 
   const accountRequest = useCallback(
@@ -699,7 +771,51 @@ export default function AutoResearch() {
     [request],
   );
 
-  const loadSession = useCallback(
+  const applyAccountOptions = useCallback(
+    (accountId: string, options: AccountOptionsResponse['options']) => {
+      accountOptionsCache.current.set(accountId, options);
+      if (selectedAccountIdRef.current !== accountId) return;
+      setSession((current) =>
+        current?.dashboard
+          ? {
+              ...current,
+              dashboard: { ...current.dashboard, ...options },
+            }
+          : current,
+      );
+    },
+    [],
+  );
+
+  const loadAccountOptions = useCallback(
+    (accountId: string, refresh = false): Promise<void> => {
+      if (!accountId || !sessionTokens.current.has(accountId)) {
+        return Promise.resolve();
+      }
+      const cached = accountOptionsCache.current.get(accountId);
+      if (cached && !refresh) {
+        applyAccountOptions(accountId, cached);
+        return Promise.resolve();
+      }
+      const requestKey = `${accountId}:${refresh ? 'refresh' : 'cached'}`;
+      const existing = accountOptionsRequests.current.get(requestKey);
+      if (existing) return existing;
+      const promise = accountRequest<AccountOptionsResponse>(
+        accountId,
+        refresh ? '/api/account/options/refresh' : '/api/account/options',
+        refresh ? { method: 'POST', body: '{}' } : undefined,
+      )
+        .then((result) => applyAccountOptions(accountId, result.options))
+        .finally(() => {
+          accountOptionsRequests.current.delete(requestKey);
+        });
+      accountOptionsRequests.current.set(requestKey, promise);
+      return promise;
+    },
+    [accountRequest, applyAccountOptions],
+  );
+
+  const loadOverview = useCallback(
     async (accountId: string) => {
       if (!accountId) return;
       if (
@@ -711,20 +827,21 @@ export default function AutoResearch() {
         setSession(null);
         return;
       }
-      const requestVersion = sessionRequestVersions.current.get(accountId) || 0;
-      const requestOrder = invalidateSessionResponses(accountId);
+      const requestVersion =
+        overviewRequestVersions.current.get(accountId) || 0;
+      const requestOrder = invalidateOverviewResponses(accountId);
       let result: SessionResponse;
       try {
         result = await accountRequest<SessionResponse>(
           accountId,
-          '/api/account/session',
+          '/api/account/overview',
         );
       } catch (caught) {
         if (
           disconnectingAccountIdRef.current === accountId ||
           activeConnectionAccountIdRef.current === accountId ||
           selectedAccountIdRef.current !== accountId ||
-          (sessionRequestVersions.current.get(accountId) || 0) !==
+          (overviewRequestVersions.current.get(accountId) || 0) !==
             requestVersion
         )
           return;
@@ -734,12 +851,12 @@ export default function AutoResearch() {
         disconnectingAccountIdRef.current === accountId ||
         activeConnectionAccountIdRef.current === accountId ||
         selectedAccountIdRef.current !== accountId ||
-        (sessionRequestVersions.current.get(accountId) || 0) !== requestVersion
+        (overviewRequestVersions.current.get(accountId) || 0) !== requestVersion
       )
         return;
-      commitSessionResponse(accountId, result, requestOrder);
+      commitOverviewResponse(accountId, result, requestOrder);
     },
-    [accountRequest, commitSessionResponse, invalidateSessionResponses],
+    [accountRequest, commitOverviewResponse, invalidateOverviewResponses],
   );
 
   const loadCareerHistory = useCallback(
@@ -933,6 +1050,8 @@ export default function AutoResearch() {
         }
         localStorage.setItem('autoResearch.server', nextServer);
         sessionTokens.current.clear();
+        accountOptionsCache.current.clear();
+        accountOptionsRequests.current.clear();
         setAccounts((current) =>
           current.map((account) => ({
             ...account,
@@ -1131,10 +1250,28 @@ export default function AutoResearch() {
       setSession(null);
       return;
     }
-    loadSession(selectedAccountId).catch((caught) =>
+    loadOverview(selectedAccountId).catch((caught) =>
       setError((caught as Error).message),
     );
-  }, [loadSession, selectedAccountId]);
+  }, [loadOverview, selectedAccountId]);
+
+  useEffect(() => {
+    if (
+      !selectedAccountId ||
+      !selectedAccount?.runtime.logged_in ||
+      !['career', 'progress', 'history'].includes(activeTab)
+    ) {
+      return;
+    }
+    loadAccountOptions(selectedAccountId).catch((caught) =>
+      setError((caught as Error).message),
+    );
+  }, [
+    activeTab,
+    loadAccountOptions,
+    selectedAccount?.runtime.logged_in,
+    selectedAccountId,
+  ]);
 
   useEffect(() => {
     const selectedSetting = careerSettings.find(
@@ -1228,7 +1365,34 @@ export default function AutoResearch() {
     if (!token || !server) return undefined;
     const accountId = selectedAccountId;
     let cancelled = false;
+    let completionRequested = false;
+    let retryDelay = 1000;
     let controller: AbortController | null = null;
+    const handleStreamLine = (line: string) => {
+      if (cancelled || !line.trim()) return;
+      try {
+        const event = JSON.parse(line) as {
+          success?: boolean;
+          runner?: Runner;
+        };
+        if (!event.runner) return;
+        retryDelay = 1000;
+        commitRunnerStream(accountId, event.runner);
+        const stillActive = Boolean(
+          event.runner.running ||
+            event.runner.run_plan?.active ||
+            event.runner.daily_jewel_schedule?.enabled,
+        );
+        if (!stillActive && !completionRequested) {
+          completionRequested = true;
+          cancelled = true;
+          controller?.abort();
+          loadOverview(accountId).catch(() => undefined);
+        }
+      } catch {
+        // Ignore an incomplete or malformed stream record and keep reading.
+      }
+    };
     const connectStream = async () => {
       while (!cancelled) {
         controller = new AbortController();
@@ -1252,34 +1416,17 @@ export default function AutoResearch() {
             const lines =
               `${buffer}${decoder.decode(value, { stream: true })}`.split('\n');
             buffer = lines.pop() || '';
-            lines.forEach((line) => {
-              if (!line.trim()) return;
-              try {
-                const event = JSON.parse(line) as {
-                  success?: boolean;
-                  runner?: Runner;
-                };
-                if (!event.runner) return;
-                commitRunnerStream(accountId, event.runner);
-                const stillActive = Boolean(
-                  event.runner.running ||
-                    event.runner.run_plan?.active ||
-                    event.runner.daily_jewel_schedule?.enabled,
-                );
-                if (!stillActive) {
-                  loadSession(accountId).catch(() => undefined);
-                }
-              } catch {
-                // Ignore an incomplete or malformed stream record and keep reading.
-              }
-            });
+            lines.forEach(handleStreamLine);
           }
         } catch (caught) {
-          if ((caught as Error).name !== 'AbortError' && !cancelled) {
-            await new Promise<void>((resolve) => {
-              window.setTimeout(resolve, 1000);
-            });
-          }
+          if ((caught as Error).name === 'AbortError' || cancelled) return;
+        }
+        if (!cancelled) {
+          const currentRetryDelay = retryDelay;
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, currentRetryDelay);
+          });
+          retryDelay = Math.min(retryDelay * 2, 8000);
         }
       }
     };
@@ -1291,18 +1438,10 @@ export default function AutoResearch() {
   }, [
     automationActive,
     commitRunnerStream,
-    loadSession,
+    loadOverview,
     selectedAccountId,
     server,
   ]);
-
-  useEffect(() => {
-    if (!selectedAccountId || !automationActive) return undefined;
-    const timer = window.setInterval(() => {
-      loadSession(selectedAccountId).catch(() => undefined);
-    }, 15000);
-    return () => window.clearInterval(timer);
-  }, [automationActive, loadSession, selectedAccountId]);
 
   useEffect(() => {
     if (!stoppingAccountId) return;
@@ -1317,7 +1456,8 @@ export default function AutoResearch() {
   }, [accounts, selectedAccountId, session, stoppingAccountId]);
 
   useEffect(() => {
-    if (!dashboard) return;
+    if (!dashboard || !accountOptionsCache.current.has(selectedAccountId))
+      return;
     if (cardId && !dashboard.umas.some((uma) => uma.id === cardId))
       setCardId(0);
     if (
@@ -1342,7 +1482,15 @@ export default function AutoResearch() {
       setDeckId(0);
       setSupportCardIds([]);
     }
-  }, [cardId, dashboard, deckId, friendCardId, parent1, parent2]);
+  }, [
+    cardId,
+    dashboard,
+    deckId,
+    friendCardId,
+    parent1,
+    parent2,
+    selectedAccountId,
+  ]);
 
   const addCredentials = async (credentials: CapturedCredential[]) => {
     if (!credentials.length) return;
@@ -1442,9 +1590,9 @@ export default function AutoResearch() {
       setDisconnectingAccountId(accountId);
     }
     if (connectionOperationId || action === 'logout') {
-      sessionRequestVersions.current.set(
+      overviewRequestVersions.current.set(
         accountId,
-        (sessionRequestVersions.current.get(accountId) || 0) + 1,
+        (overviewRequestVersions.current.get(accountId) || 0) + 1,
       );
     }
     setBusy(`${action}-${accountId}`);
@@ -1553,7 +1701,7 @@ export default function AutoResearch() {
           if (accountRunning) {
             return accountRequest<SessionResponse>(
               accountId,
-              '/api/account/session',
+              '/api/account/overview',
             );
           }
           const refreshId = `refresh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1671,7 +1819,13 @@ export default function AutoResearch() {
         });
         sessionTokens.current.delete(accountId);
       }
-      commitSessionResponse(accountId, result);
+      accountOptionsCache.current.delete(accountId);
+      if (result) {
+        commitOverviewResponse(accountId, result);
+      } else {
+        setSession(null);
+        updateRuntime(accountId, null);
+      }
       setSelectedAccountId(accountId);
       if (action === 'logout') {
         if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
@@ -1735,12 +1889,7 @@ export default function AutoResearch() {
     setBusy('options-index');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/options/refresh',
-        { method: 'POST', body: '{}' },
-      );
-      commitSessionResponse(selectedAccountId, result);
+      await loadAccountOptions(selectedAccountId, true);
     } catch (caught) {
       setError(
         needsRelogin(caught)
@@ -1762,6 +1911,7 @@ export default function AutoResearch() {
         }).catch(() => undefined);
         sessionTokens.current.delete(accountId);
       }
+      accountOptionsCache.current.delete(accountId);
       await window.electron.autoResearch.deleteAccount(accountId);
       if (selectedAccountId === accountId) {
         setSelectedAccountId('');
@@ -1792,9 +1942,9 @@ export default function AutoResearch() {
     const resetOperationId = `reset-${accountId}-${Date.now()}`;
     activeLoginOperation.current = resetOperationId;
     activeConnectionAccountIdRef.current = accountId;
-    sessionRequestVersions.current.set(
+    overviewRequestVersions.current.set(
       accountId,
-      (sessionRequestVersions.current.get(accountId) || 0) + 1,
+      (overviewRequestVersions.current.get(accountId) || 0) + 1,
     );
     setBusy(`reset-${accountId}`);
     setError('');
@@ -1805,6 +1955,7 @@ export default function AutoResearch() {
         { method: 'POST', body: '{}' },
       );
       sessionTokens.current.delete(accountId);
+      accountOptionsCache.current.delete(accountId);
       setSession(null);
       updateRuntime(accountId, null);
       if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
@@ -2066,7 +2217,7 @@ export default function AutoResearch() {
           }),
         },
       );
-      commitSessionResponse(selectedAccountId, result);
+      commitOverviewResponse(selectedAccountId, result);
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -2142,7 +2293,7 @@ export default function AutoResearch() {
       );
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
-      commitSessionResponse(selectedAccountId, result);
+      commitOverviewResponse(selectedAccountId, result);
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -2167,7 +2318,7 @@ export default function AutoResearch() {
           body: '{}',
         },
       );
-      invalidateSessionResponses(accountId);
+      invalidateOverviewResponses(accountId);
       setSession((current) =>
         current
           ? {
@@ -2183,7 +2334,7 @@ export default function AutoResearch() {
           : current,
       );
       updateRuntime(accountId, result);
-      loadSession(accountId).catch(() => undefined);
+      loadOverview(accountId).catch(() => undefined);
     } catch (caught) {
       setStoppingAccountId('');
       setError((caught as Error).message);
@@ -2203,7 +2354,7 @@ export default function AutoResearch() {
         '/api/account/career/runner/release-wait',
         { method: 'POST', body: '{}' },
       );
-      invalidateSessionResponses(accountId);
+      invalidateOverviewResponses(accountId);
       setSession((current) =>
         current
           ? {
@@ -2219,7 +2370,7 @@ export default function AutoResearch() {
           : current,
       );
       updateRuntime(accountId, result);
-      loadSession(accountId).catch(() => undefined);
+      loadOverview(accountId).catch(() => undefined);
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
@@ -2250,7 +2401,7 @@ export default function AutoResearch() {
           current_turn: runner?.turn ?? dashboard.account.career.turn ?? 1,
         }),
       });
-      await loadSession(selectedAccountId);
+      await loadOverview(selectedAccountId);
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
