@@ -13,11 +13,9 @@ import {
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { AutoResearchSkill, skillIconPath } from './SkillSelector';
 import {
-  CONDITION_OPTIONS,
   DEFAULT_PRESET_NAME,
   MONTH_OPTIONS,
   panelClass,
-  PERIOD_LABELS,
   scrollToSection,
   skillPurchaseTurn,
   skillPurchaseTurnLabel,
@@ -52,8 +50,6 @@ type PresetsTabProps = {
   busy: string;
   presetSaved: boolean;
   savePresetAndContinue: () => Promise<void>;
-  scenarioId: number;
-  setScenarioId: Dispatch<SetStateAction<number>>;
   runningStyle: number;
   setRunningStyle: Dispatch<SetStateAction<number>>;
   skillSelections: SkillSelectionEntry[];
@@ -80,8 +76,6 @@ type PresetsTabProps = {
   setSkillLearningSettings: Dispatch<
     SetStateAction<Record<string, SkillLearningSetting>>
   >;
-  uraAiEnabled: boolean;
-  setUraAiEnabled: Dispatch<SetStateAction<boolean>>;
   health: any;
   uraAiTargetAttributes: number[];
   setUraAiTargetAttributes: Dispatch<SetStateAction<number[]>>;
@@ -95,36 +89,6 @@ type PresetsTabProps = {
   setUraAiWorkers: Dispatch<SetStateAction<number>>;
   uraAiRiskFactor: number;
   setUraAiRiskFactor: Dispatch<SetStateAction<number>>;
-  expectAttribute: number[];
-  setExpectAttribute: Dispatch<SetStateAction<number[]>>;
-  baseScore: number[];
-  setBaseScore: Dispatch<SetStateAction<number[]>>;
-  statMultiplier: number[];
-  setStatMultiplier: Dispatch<SetStateAction<number[]>>;
-  scoreValue: number[][];
-  setScoreValue: Dispatch<SetStateAction<number[][]>>;
-  extraWeight: number[][];
-  setExtraWeight: Dispatch<SetStateAction<number[][]>>;
-  npcScoreValue: number[][];
-  setNpcScoreValue: Dispatch<SetStateAction<number[][]>>;
-  compensateFailure: boolean;
-  setCompensateFailure: Dispatch<SetStateAction<boolean>>;
-  summerScoreThreshold: number;
-  setSummerScoreThreshold: Dispatch<SetStateAction<number>>;
-  motivationThresholds: number[];
-  setMotivationThresholds: Dispatch<SetStateAction<number[]>>;
-  prioritizeRecreation: boolean;
-  setPrioritizeRecreation: Dispatch<SetStateAction<boolean>>;
-  palThresholds: number[][];
-  setPalThresholds: Dispatch<SetStateAction<number[][]>>;
-  palFriendshipScore: number[];
-  setPalFriendshipScore: Dispatch<SetStateAction<number[]>>;
-  palCardMultiplier: number;
-  setPalCardMultiplier: Dispatch<SetStateAction<number>>;
-  restThreshold: number;
-  setRestThreshold: Dispatch<SetStateAction<number>>;
-  cureConditions: string[];
-  setCureConditions: Dispatch<SetStateAction<string[]>>;
   raceSearch: string;
   setRaceSearch: Dispatch<SetStateAction<string>>;
   filteredRaces: RaceOption[];
@@ -152,8 +116,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     busy,
     presetSaved,
     savePresetAndContinue,
-    scenarioId,
-    setScenarioId,
     runningStyle,
     setRunningStyle,
     skillSelections,
@@ -178,8 +140,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     setSkillPurchaseTurns,
     editingSkillSelectionId,
     setSkillLearningSettings,
-    uraAiEnabled,
-    setUraAiEnabled,
     health,
     uraAiTargetAttributes,
     setUraAiTargetAttributes,
@@ -193,36 +153,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     setUraAiWorkers,
     uraAiRiskFactor,
     setUraAiRiskFactor,
-    expectAttribute,
-    setExpectAttribute,
-    baseScore,
-    setBaseScore,
-    statMultiplier,
-    setStatMultiplier,
-    scoreValue,
-    setScoreValue,
-    extraWeight,
-    setExtraWeight,
-    npcScoreValue,
-    setNpcScoreValue,
-    compensateFailure,
-    setCompensateFailure,
-    summerScoreThreshold,
-    setSummerScoreThreshold,
-    motivationThresholds,
-    setMotivationThresholds,
-    prioritizeRecreation,
-    setPrioritizeRecreation,
-    palThresholds,
-    setPalThresholds,
-    palFriendshipScore,
-    setPalFriendshipScore,
-    palCardMultiplier,
-    setPalCardMultiplier,
-    restThreshold,
-    setRestThreshold,
-    cureConditions,
-    setCureConditions,
     raceSearch,
     setRaceSearch,
     filteredRaces,
@@ -304,9 +234,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     </label>
                   )}
                   <p className="mt-2 text-xs text-gray-500">
-                    URA ·{' '}
-                    {preset.ura_ai?.enabled !== false ? 'UmaRL' : '手动系数'} ·{' '}
-                    {skillCount} 个优先技能 ·{' '}
+                    URA · 手写策略 + 蒙特卡洛 · {skillCount} 个优先技能 ·{' '}
                     {(preset.extra_race_list || []).length} 场额外赛事
                   </p>
                   {referencedCount ? (
@@ -440,90 +368,7 @@ export default function PresetsTab(props: PresetsTabProps) {
           预设的改名和删除只能在预设槽位界面操作。
         </p>
 
-        <fieldset className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <legend className="px-1 text-sm font-semibold text-slate-800">
-            养成决策模式
-          </legend>
-          <p className="mt-1 text-xs text-slate-500">
-            两套设置独立保存。切换模式不会清空另一套参数。
-          </p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label
-              className={`cursor-pointer rounded-xl border p-4 transition ${
-                uraAiEnabled
-                  ? 'border-violet-400 bg-violet-50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-violet-200'
-              }`}
-            >
-              <span className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="preset-decision-mode"
-                  checked={uraAiEnabled}
-                  onChange={() => setUraAiEnabled(true)}
-                  className="mt-1"
-                />
-                <span>
-                  <strong className="block text-sm text-slate-900">
-                    UmaRL
-                  </strong>
-                  <span className="mt-1 block text-xs leading-5 text-slate-500">
-                    可由模型直接选择动作，也可模拟候选动作的后续育成结果后再决策。
-                  </span>
-                  <span className="mt-2 block text-[11px] text-violet-700">
-                    {health?.umarl?.installed
-                      ? `UmaRL ${health.umarl.version || '-'} · ${
-                          health.umarl.cuda_available
-                            ? health.umarl.cuda_device
-                            : '未检测到 CUDA'
-                        }`
-                      : '当前后端未安装 UmaRL'}
-                  </span>
-                </span>
-              </span>
-            </label>
-            <label
-              className={`cursor-pointer rounded-xl border p-4 transition ${
-                !uraAiEnabled
-                  ? 'border-indigo-400 bg-indigo-50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-indigo-200'
-              }`}
-            >
-              <span className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="preset-decision-mode"
-                  checked={!uraAiEnabled}
-                  onChange={() => setUraAiEnabled(false)}
-                  className="mt-1"
-                />
-                <span>
-                  <strong className="block text-sm text-slate-900">
-                    手动系数策略
-                  </strong>
-                  <span className="mt-1 block text-xs leading-5 text-slate-500">
-                    使用属性目标、羁绊收益、失败率、休息阈值和分期权重进行快速决策。
-                  </span>
-                  <span className="mt-2 block text-[11px] text-indigo-700">
-                    无需 UmaRL 或 CUDA，也作为 UmaRL 异常时的安全回退。
-                  </span>
-                </span>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="text-sm">
-            剧本
-            <select
-              value={scenarioId}
-              onChange={(event) => setScenarioId(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            >
-              <option value={1}>URA</option>
-            </select>
-          </label>
           <label className="text-sm">
             跑法
             <select
@@ -549,21 +394,6 @@ export default function PresetsTab(props: PresetsTabProps) {
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
             />
           </label>
-          {!uraAiEnabled ? (
-            <label className="text-sm">
-              休息体力阈值
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={restThreshold}
-                onChange={(event) =>
-                  setRestThreshold(Number(event.target.value))
-                }
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-              />
-            </label>
-          ) : null}
         </div>
 
         <div id="preset-skills" className="mt-4 scroll-mt-28">
@@ -760,26 +590,6 @@ export default function PresetsTab(props: PresetsTabProps) {
                 </span>
               </span>
             </label>
-            {!uraAiEnabled ? (
-              <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={compensateFailure}
-                  onChange={(event) =>
-                    setCompensateFailure(event.target.checked)
-                  }
-                  className="mt-1"
-                />
-                <span>
-                  <strong className="block font-medium text-slate-800">
-                    训练评分考虑失败率
-                  </strong>
-                  <span className="mt-0.5 block text-xs text-slate-500">
-                    使用失败率系数降低高风险训练的优先度
-                  </span>
-                </span>
-              </label>
-            ) : null}
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-3">
@@ -890,79 +700,98 @@ export default function PresetsTab(props: PresetsTabProps) {
 
         <section
           id="preset-training"
-          className="mt-4 scroll-mt-28 rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+          className="mt-4 scroll-mt-28 rounded-xl border border-violet-200 bg-violet-50/50 p-4"
         >
-          <h3 className="font-semibold text-slate-900">
-            {uraAiEnabled ? 'UmaRL 设置' : '手动系数策略设置'}
-          </h3>
-          <p className="mt-2 text-xs text-slate-500">
-            {uraAiEnabled
-              ? '当前模式使用手写策略完成后续育成，并通过蒙特卡洛采样比较当前合法动作。手动系数只保留为异常回退。'
-              : '当前模式根据属性目标、训练收益、羁绊、失败率和体力阈值直接选择动作。'}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-violet-950">
+                手写策略 + 蒙特卡洛
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-violet-700">
+                手写策略负责模拟后续育成，蒙特卡洛比较当前合法动作。
+              </p>
+            </div>
+            <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-xs text-violet-700">
+              {health?.umarl?.installed
+                ? `UmaRL ${health.umarl.version || '-'}`
+                : '未安装 UmaRL'}
+            </span>
+          </div>
 
-          {uraAiEnabled ? (
-            health?.umarl?.installed ? (
-              <div className="mt-4 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-violet-700">
-                  <span>
-                    使用手写策略续育，并通过蒙特卡洛采样选择当前动作
-                    {' · '}
-                    {health.umarl.cuda_available
-                      ? health.umarl.cuda_device
-                      : '未检测到 CUDA'}
-                  </span>
-                  <span>UmaRL {health.umarl.version || '-'}</span>
+          {health?.umarl?.installed ? (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-xl border border-violet-200 bg-white p-4">
+                <p className="text-sm font-semibold text-violet-950">
+                  目标属性
+                </p>
+                <p className="mt-1 text-xs leading-5 text-violet-700">
+                  超过目标后的属性收益会自动降权。填写 0 可关闭单项约束。
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {STAT_LABELS.map((label, index) => (
+                    <label key={label} className="text-xs text-violet-800">
+                      {label}
+                      <input
+                        type="number"
+                        min={0}
+                        step={10}
+                        value={uraAiTargetAttributes[index] ?? 0}
+                        onChange={(event) =>
+                          setUraAiTargetAttributes((current) =>
+                            current.map((value, valueIndex) =>
+                              valueIndex === index
+                                ? Number(event.target.value)
+                                : value,
+                            ),
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-2 py-2 text-sm text-slate-800"
+                      />
+                    </label>
+                  ))}
                 </div>
-                <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-xs leading-5 text-violet-800">
-                  当前固定使用“手写策略 +
-                  蒙特卡洛采样”。模型训练和模型直接决策入口暂时隐藏。
-                </div>
-                <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-4">
-                  <p className="text-sm font-semibold text-violet-950">
-                    目标属性
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-violet-700">
-                    搜索会优先减少未达目标的属性缺口；达到目标后继续按最终评价分优化。填写
-                    0 可关闭单项约束。
-                  </p>
-                  <div className="mt-3 grid grid-cols-5 gap-2">
-                    {STAT_LABELS.map((label, index) => (
-                      <label key={label} className="text-xs text-violet-800">
-                        {label}
-                        <input
-                          type="number"
-                          min={0}
-                          step={10}
-                          value={uraAiTargetAttributes[index] ?? 0}
-                          onChange={(event) =>
-                            setUraAiTargetAttributes((current) =>
-                              current.map((value, valueIndex) =>
-                                valueIndex === index
-                                  ? Number(event.target.value)
-                                  : value,
-                              ),
-                            )
-                          }
-                          className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-2 py-2 text-sm text-slate-800"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-3 rounded-xl border border-violet-100 bg-white p-4 sm:grid-cols-2 xl:grid-cols-5">
+              </div>
+
+              <details className="rounded-xl border border-violet-100 bg-white">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-violet-950">
+                  高级采样设置
+                </summary>
+                <div className="grid gap-3 border-t border-violet-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
                   {[
-                    ['每回合秒数', uraAiTimeBudget, setUraAiTimeBudget, 1],
-                    ['最少模拟次数', uraAiMinRollouts, setUraAiMinRollouts, 1],
-                    ['最多模拟次数', uraAiMaxRollouts, setUraAiMaxRollouts, 1],
                     [
-                      'CPU 并行进程（0 自动）',
-                      uraAiWorkers,
-                      setUraAiWorkers,
-                      1,
+                      '每回合秒数',
+                      uraAiTimeBudget,
+                      setUraAiTimeBudget,
+                      0.5,
+                      0.5,
+                      2,
                     ],
-                    ['高分偏好', uraAiRiskFactor, setUraAiRiskFactor, 0.1],
-                  ].map(([label, value, setter, step]) => (
+                    [
+                      '最少模拟次数',
+                      uraAiMinRollouts,
+                      setUraAiMinRollouts,
+                      1,
+                      32,
+                      128,
+                    ],
+                    [
+                      '最多模拟次数',
+                      uraAiMaxRollouts,
+                      setUraAiMaxRollouts,
+                      1,
+                      32,
+                      256,
+                    ],
+                    ['CPU 并行进程', uraAiWorkers, setUraAiWorkers, 1, 1, 64],
+                    [
+                      '高分偏好',
+                      uraAiRiskFactor,
+                      setUraAiRiskFactor,
+                      0.1,
+                      -2,
+                      2,
+                    ],
+                  ].map(([label, value, setter, step, min, max]) => (
                     <label
                       key={String(label)}
                       className="text-xs text-violet-800"
@@ -971,7 +800,8 @@ export default function PresetsTab(props: PresetsTabProps) {
                       <input
                         type="number"
                         step={Number(step)}
-                        min={String(label).includes('高分') ? undefined : 0}
+                        min={Number(min)}
+                        max={Number(max)}
                         value={Number(value)}
                         onChange={(event) =>
                           (setter as (next: number) => void)(
@@ -983,444 +813,25 @@ export default function PresetsTab(props: PresetsTabProps) {
                     </label>
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                <strong className="block">
-                  当前 AutoResearch 未安装 UmaRL
-                </strong>
-                <span className="mt-1 block text-xs leading-5">
-                  保存后仍会保留 UmaRL
-                  模式，但实际育成会安全回退到手动系数策略。请在后端使用
-                  <code className="mx-1 rounded bg-white px-1.5 py-0.5">
-                    uv run --extra umarl python main.py
-                  </code>
-                  启动。
-                </span>
-              </div>
-            )
-          ) : null}
-
-          {!uraAiEnabled ? (
-            <>
-              <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-4 text-xs text-slate-600">
-                <p className="text-sm font-semibold text-slate-800">
-                  训练评分公式
+                <p className="px-4 pb-4 text-xs leading-5 text-violet-600">
+                  当前快速模式的有效范围为 0.5–2 秒、32–128 次最少模拟和 32–256
+                  次最多模拟。
                 </p>
-                <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] leading-5 text-slate-700">
-                  <p>
-                    初始分 = 训练基础分 + 羁绊收益 + 技能 Hit 权重 + 属性收益 +
-                    体力收益
-                  </p>
-                  <p>
-                    最终分 = 初始分 × 友人卡倍率 × 失败率系数 × 训练类型额外权重
-                  </p>
-                </div>
-                <div className="mt-3 grid gap-x-6 gap-y-2 md:grid-cols-2">
-                  <p>
-                    <strong className="text-slate-700">属性收益：</strong>
-                    属性增加值 × 属性收益倍率 × 目标衰减。当前属性达到目标的 70%
-                    后会逐步降权，达到目标后该属性收益记为 0。
-                  </p>
-                  <p>
-                    <strong className="text-slate-700">羁绊收益：</strong>
-                    在低羁绊与高羁绊评分间按当前羁绊线性计算，再乘 max(0, (72 -
-                    当前回合) / 72)；羁绊达到 60 后还会获得最多 1.5
-                    倍的效率修正。
-                  </p>
-                  <p>
-                    <strong className="text-slate-700">技能 Hit：</strong>
-                    本次训练存在至少一个技能提示时，增加一次对应阶段的技能 Hit
-                    权重，不按提示人数重复叠加。
-                  </p>
-                  <p>
-                    <strong className="text-slate-700">失败率系数：</strong>
-                    max(0, 1 - 失败率 / 50)。例如失败率 10% 时，训练分乘
-                    0.8；关闭“考虑失败率”后不应用此项。
-                  </p>
-                  <p>
-                    <strong className="text-slate-700">额外权重：</strong>
-                    最终乘数为 clamp(1 + 权重, 0, 2)。0 表示不调整，0.2 表示乘
-                    1.2，-1 表示直接排除该训练。
-                  </p>
-                  <p>
-                    <strong className="text-slate-700">休息判断：</strong>
-                    体力低于休息阈值、最佳训练失败率达到 35%，或最佳训练分低于 0
-                    时，会优先休息；夏合宿期间会改为外出恢复。
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <p className="text-sm font-semibold">需要立即治疗的负面状态</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {CONDITION_OPTIONS.map((condition) => (
-                    <label
-                      key={condition.value}
-                      className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={cureConditions.includes(condition.value)}
-                        onChange={(event) =>
-                          setCureConditions((current) =>
-                            event.target.checked
-                              ? [...current, condition.value]
-                              : current.filter(
-                                  (item) => item !== condition.value,
-                                ),
-                          )
-                        }
-                      />
-                      {condition.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div>
-                  <p className="text-sm font-semibold">属性目标</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    达到目标后会降低对应属性训练的优先度，默认采用 URA
-                    的通用推荐值
-                  </p>
-                  <div className="mt-2 grid grid-cols-5 gap-2">
-                    {STAT_LABELS.map((label, index) => (
-                      <label key={label} className="text-xs text-slate-500">
-                        {label}
-                        <input
-                          type="number"
-                          value={expectAttribute[index]}
-                          onChange={(event) =>
-                            setExpectAttribute((current) =>
-                              current.map((value, valueIndex) =>
-                                valueIndex === index
-                                  ? Number(event.target.value)
-                                  : value,
-                              ),
-                            )
-                          }
-                          className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">训练基础分</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    0 表示不额外偏爱该训练，是正常的中立默认值
-                  </p>
-                  <div className="mt-2 grid grid-cols-5 gap-2">
-                    {STAT_LABELS.map((label, index) => (
-                      <label key={label} className="text-xs text-slate-500">
-                        {label}
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={baseScore[index]}
-                          onChange={(event) =>
-                            setBaseScore((current) =>
-                              current.map((value, valueIndex) =>
-                                valueIndex === index
-                                  ? Number(event.target.value)
-                                  : value,
-                              ),
-                            )
-                          }
-                          className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="text-sm">
-                  夏合宿保留训练分阈值
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={summerScoreThreshold}
-                    onChange={(event) =>
-                      setSummerScoreThreshold(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
-                  />
-                </label>
-                {['初级年心情阈值', '经典年心情阈值', '高级年心情阈值'].map(
-                  (label, index) => (
-                    <label key={label} className="text-sm">
-                      {label}
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={motivationThresholds[index]}
-                        onChange={(event) =>
-                          setMotivationThresholds((current) =>
-                            current.map((value, valueIndex) =>
-                              valueIndex === index
-                                ? Number(event.target.value)
-                                : value,
-                            ),
-                          )
-                        }
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
-                      />
-                    </label>
-                  ),
-                )}
-              </div>
-
-              <div className="mt-4">
-                <p className="text-sm font-semibold">
-                  属性收益倍率（速度、耐力、力量、毅力、智力、技能点）
-                </p>
-                <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
-                  {['速度', '耐力', '力量', '毅力', '智力', '技能点'].map(
-                    (label, index) => (
-                      <label key={label} className="text-xs text-slate-500">
-                        {label}
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={statMultiplier[index]}
-                          onChange={(event) =>
-                            setStatMultiplier((current) =>
-                              current.map((value, valueIndex) =>
-                                valueIndex === index
-                                  ? Number(event.target.value)
-                                  : value,
-                              ),
-                            )
-                          }
-                          className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                        />
-                      </label>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 overflow-x-auto">
-                <p className="text-sm font-semibold">
-                  分期评分参数（低羁绊、高羁绊、体力、技能 Hit）
-                </p>
-                <div className="mt-2 min-w-[620px] space-y-2">
-                  {scoreValue.map((row, rowIndex) => (
-                    <div
-                      key={PERIOD_LABELS[rowIndex]}
-                      className="grid grid-cols-[120px_repeat(4,1fr)] gap-2"
-                    >
-                      <span className="py-2 text-xs text-slate-500">
-                        {PERIOD_LABELS[rowIndex]}
-                      </span>
-                      {row.map((value, columnIndex) => (
-                        <input
-                          key={`${rowIndex}-${columnIndex}`}
-                          type="number"
-                          step="0.001"
-                          value={value}
-                          aria-label={`${PERIOD_LABELS[rowIndex]} 参数 ${columnIndex + 1}`}
-                          onChange={(event) =>
-                            setScoreValue((current) =>
-                              current.map((currentRow, currentRowIndex) =>
-                                currentRowIndex === rowIndex
-                                  ? currentRow.map(
-                                      (currentValue, currentColumnIndex) =>
-                                        currentColumnIndex === columnIndex
-                                          ? Number(event.target.value)
-                                          : currentValue,
-                                    )
-                                  : currentRow,
-                              ),
-                            )
-                          }
-                          className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-4 overflow-x-auto">
-                <p className="text-sm font-semibold">各阶段训练类型额外权重</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  0 表示该阶段不额外调整；正数提高优先度，负数降低优先度
-                </p>
-                <div className="mt-2 min-w-[700px] space-y-2">
-                  {extraWeight.map((row, rowIndex) => (
-                    <div
-                      key={rowIndex}
-                      className="grid grid-cols-[120px_repeat(5,1fr)] gap-2"
-                    >
-                      <span className="py-2 text-xs text-slate-500">
-                        {
-                          ['初级年', '经典年', '高级年普通阶段', '夏合宿'][
-                            rowIndex
-                          ]
-                        }
-                      </span>
-                      {row.map((value, columnIndex) => (
-                        <label
-                          key={`${rowIndex}-${columnIndex}`}
-                          className="text-xs text-slate-500"
-                        >
-                          {STAT_LABELS[columnIndex]}
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={value}
-                            onChange={(event) =>
-                              setExtraWeight((current) =>
-                                current.map((currentRow, currentRowIndex) =>
-                                  currentRowIndex === rowIndex
-                                    ? currentRow.map(
-                                        (currentValue, currentColumnIndex) =>
-                                          currentColumnIndex === columnIndex
-                                            ? Number(event.target.value)
-                                            : currentValue,
-                                      )
-                                    : currentRow,
-                                ),
-                              )
-                            }
-                            className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="overflow-x-auto">
-                  <p className="text-sm font-semibold">
-                    分期非卡组角色羁绊评分
-                  </p>
-                  <div className="mt-2 min-w-[360px] space-y-2">
-                    {npcScoreValue.map((row, rowIndex) => (
-                      <div
-                        key={PERIOD_LABELS[rowIndex]}
-                        className="grid grid-cols-[120px_repeat(2,1fr)] gap-2"
-                      >
-                        <span className="py-2 text-xs text-slate-500">
-                          {PERIOD_LABELS[rowIndex]}
-                        </span>
-                        {row.slice(0, 2).map((value, columnIndex) => (
-                          <label
-                            key={`${rowIndex}-${columnIndex}`}
-                            className="text-xs text-slate-500"
-                          >
-                            {columnIndex === 0 ? '低羁绊' : '高羁绊'}
-                            <input
-                              type="number"
-                              step="0.001"
-                              value={value}
-                              onChange={(event) =>
-                                setNpcScoreValue((current) =>
-                                  current.map((currentRow, currentRowIndex) =>
-                                    currentRowIndex === rowIndex
-                                      ? currentRow.map(
-                                          (currentValue, currentColumnIndex) =>
-                                            currentColumnIndex === columnIndex
-                                              ? Number(event.target.value)
-                                              : currentValue,
-                                        )
-                                      : currentRow,
-                                  ),
-                                )
-                              }
-                              className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">友人卡羁绊评分</p>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {['低羁绊', '高羁绊', '友人卡倍率'].map((label, index) => (
-                      <label key={label} className="text-xs text-slate-500">
-                        {label}
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={
-                            index < 2
-                              ? palFriendshipScore[index]
-                              : palCardMultiplier
-                          }
-                          onChange={(event) => {
-                            const value = Number(event.target.value);
-                            if (index < 2) {
-                              setPalFriendshipScore((current) =>
-                                current.map((currentValue, currentIndex) =>
-                                  currentIndex === index ? value : currentValue,
-                                ),
-                              );
-                            } else {
-                              setPalCardMultiplier(value);
-                            }
-                          }}
-                          className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-white p-3">
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={prioritizeRecreation}
-                    onChange={(event) =>
-                      setPrioritizeRecreation(event.target.checked)
-                    }
-                  />
-                  按条件优先外出
-                </label>
-                <label className="mt-3 block text-xs text-slate-500">
-                  外出条件：每行填写“心情, 体力, 最高训练评分”
-                  <textarea
-                    value={palThresholds
-                      .map((row) => row.join(', '))
-                      .join('\n')}
-                    onChange={(event) =>
-                      setPalThresholds(
-                        event.target.value
-                          .split(/\r?\n/)
-                          .map((line) =>
-                            line
-                              .split(/[,，]/)
-                              .map((value) => Number(value.trim())),
-                          )
-                          .filter(
-                            (row) =>
-                              row.length >= 2 &&
-                              row.every((value) => Number.isFinite(value)),
-                          ),
-                      )
-                    }
-                    rows={3}
-                    placeholder={'3, 60, 0.30\n4, 45, 0.20'}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-              </div>
-            </>
-          ) : null}
+              </details>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              <strong className="block">当前 AutoResearch 未安装 UmaRL</strong>
+              <span className="mt-1 block text-xs leading-5">
+                请在后端使用
+                <code className="mx-1 rounded bg-white px-1.5 py-0.5">
+                  uv run --extra umarl python main.py
+                </code>
+                启动。未安装时后端仍会使用内置兜底策略，但不再提供旧系数调节入口。
+              </span>
+            </div>
+          )}
         </section>
-
         <div
           id="preset-races"
           className="mt-5 flex scroll-mt-28 flex-wrap items-end justify-between gap-3"

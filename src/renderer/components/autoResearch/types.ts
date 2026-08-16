@@ -341,27 +341,8 @@ export type Preset = {
   maximize_skill_score_at_end?: boolean;
   skill_purchase_turns?: number[];
   extra_race_list?: number[];
-  cure_asap_conditions?: string[];
-  expect_attribute?: number[];
-  score_value?: number[][];
-  base_score?: number[];
-  stat_value_multiplier?: number[];
-  extra_weight?: number[][];
-  npc_score_value?: number[][];
-  compensate_failure?: boolean;
-  summer_score_threshold?: number;
-  motivation_threshold_year1?: number;
-  motivation_threshold_year2?: number;
-  motivation_threshold_year3?: number;
-  prioritize_recreation?: boolean;
-  pal_thresholds?: number[][];
-  pal_friendship_score?: number[];
-  pal_card_multiplier?: number;
-  rest_threshold?: number;
   ura_ai?: {
     enabled?: boolean;
-    decision_mode?: 'search' | 'model';
-    model_path?: string;
     time_budget_s?: number;
     min_rollouts?: number;
     max_rollouts?: number;

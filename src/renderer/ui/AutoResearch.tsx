@@ -40,17 +40,11 @@ import {
   CAREER_SETTINGS_KEY,
   careerSettingMatchesCurrent,
   compareRaces,
-  CONDITION_OPTIONS,
   createDefaultPreset,
   createSkillSelectionId,
-  DEFAULT_BASE_SCORE,
   DEFAULT_EXPECT_ATTRIBUTE,
-  DEFAULT_EXTRA_WEIGHT,
-  DEFAULT_NPC_SCORE,
   DEFAULT_PRESET_NAME,
-  DEFAULT_SCORE_VALUE,
   DEFAULT_SERVER,
-  DEFAULT_STAT_MULTIPLIER,
   DELETED_PRESETS_KEY,
   fileToBase64,
   getSharedStorageItem,
@@ -63,7 +57,6 @@ import {
   normalizeSkillSelections,
   normalizeTurnList,
   numberArray,
-  numberMatrix,
   panelClass,
   parentViewerIdFromSelection,
   scrollToSection,
@@ -149,7 +142,7 @@ export default function AutoResearch() {
   const [friendCardId, setFriendCardId] = useState(0);
   const [parent1, setParent1] = useState('');
   const [parent2, setParent2] = useState('');
-  const [scenarioId, setScenarioId] = useState(1);
+  const scenarioId = 1;
   const [presetName, setPresetName] = useState(DEFAULT_PRESET_NAME);
   const [presetEditorOpen, setPresetEditorOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -182,32 +175,10 @@ export default function AutoResearch() {
   const [maximizeSkillScoreAtEnd, setMaximizeSkillScoreAtEnd] = useState(false);
   const [skillPurchaseTurns, setSkillPurchaseTurns] = useState<number[]>([]);
   const [skillPurchaseYearOffset, setSkillPurchaseYearOffset] = useState(0);
-  const [cureConditions, setCureConditions] = useState<string[]>(
-    CONDITION_OPTIONS.map((item) => item.value),
-  );
-  const [expectAttribute, setExpectAttribute] = useState(
-    DEFAULT_EXPECT_ATTRIBUTE,
-  );
-  const [baseScore, setBaseScore] = useState(DEFAULT_BASE_SCORE);
-  const [statMultiplier, setStatMultiplier] = useState(DEFAULT_STAT_MULTIPLIER);
-  const [scoreValue, setScoreValue] = useState(DEFAULT_SCORE_VALUE);
-  const [extraWeight, setExtraWeight] = useState(DEFAULT_EXTRA_WEIGHT);
-  const [npcScoreValue, setNpcScoreValue] = useState(DEFAULT_NPC_SCORE);
-  const [compensateFailure, setCompensateFailure] = useState(true);
-  const [summerScoreThreshold, setSummerScoreThreshold] = useState(0.34);
-  const [motivationThresholds, setMotivationThresholds] = useState([3, 4, 4]);
-  const [prioritizeRecreation, setPrioritizeRecreation] = useState(false);
-  const [palThresholds, setPalThresholds] = useState<number[][]>([]);
-  const [palFriendshipScore, setPalFriendshipScore] = useState([
-    0.08, 0.057, 0.018,
-  ]);
-  const [palCardMultiplier, setPalCardMultiplier] = useState(0.1);
-  const [restThreshold, setRestThreshold] = useState(48);
-  const [uraAiEnabled, setUraAiEnabled] = useState(true);
-  const [uraAiTimeBudget, setUraAiTimeBudget] = useState(10);
-  const [uraAiMinRollouts, setUraAiMinRollouts] = useState(3000);
-  const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(10000);
-  const [uraAiWorkers, setUraAiWorkers] = useState(0);
+  const [uraAiTimeBudget, setUraAiTimeBudget] = useState(2);
+  const [uraAiMinRollouts, setUraAiMinRollouts] = useState(128);
+  const [uraAiMaxRollouts, setUraAiMaxRollouts] = useState(256);
+  const [uraAiWorkers, setUraAiWorkers] = useState(4);
   const [uraAiRiskFactor, setUraAiRiskFactor] = useState(0);
   const [uraAiTargetAttributes, setUraAiTargetAttributes] = useState(
     DEFAULT_EXPECT_ATTRIBUTE,
@@ -1119,7 +1090,6 @@ export default function AutoResearch() {
   useEffect(() => {
     const preset = presets.find((item) => item.name === presetName);
     if (!preset) return;
-    setScenarioId(Number(preset.scenario_id || 1));
     setRunningStyle(Number(preset.running_style ?? 0));
     setSkillSelections(
       normalizeSkillSelections(
@@ -1134,52 +1104,23 @@ export default function AutoResearch() {
     setSkipDoubleCircle(Boolean(preset.skip_double_circle_unless_high_hint));
     setMaximizeSkillScoreAtEnd(Boolean(preset.maximize_skill_score_at_end));
     setSkillPurchaseTurns(normalizeTurnList(preset.skill_purchase_turns));
-    setCureConditions(
-      preset.cure_asap_conditions ||
-        CONDITION_OPTIONS.map((item) => item.value),
-    );
-    const loadedTargets = numberArray(
-      preset.expect_attribute,
-      DEFAULT_EXPECT_ATTRIBUTE,
-    );
-    setExpectAttribute(
-      preset.name === 'URA 默认' &&
-        loadedTargets.every((value) => value >= 9999)
-        ? DEFAULT_EXPECT_ATTRIBUTE
-        : loadedTargets,
-    );
-    setBaseScore(numberArray(preset.base_score, DEFAULT_BASE_SCORE));
-    setStatMultiplier(
-      numberArray(preset.stat_value_multiplier, DEFAULT_STAT_MULTIPLIER),
-    );
-    setScoreValue(numberMatrix(preset.score_value, DEFAULT_SCORE_VALUE));
-    setExtraWeight(numberMatrix(preset.extra_weight, DEFAULT_EXTRA_WEIGHT));
-    setNpcScoreValue(numberMatrix(preset.npc_score_value, DEFAULT_NPC_SCORE));
-    setCompensateFailure(preset.compensate_failure !== false);
-    setSummerScoreThreshold(Number(preset.summer_score_threshold ?? 0.34));
-    setMotivationThresholds([
-      Number(preset.motivation_threshold_year1 ?? 3),
-      Number(preset.motivation_threshold_year2 ?? 4),
-      Number(preset.motivation_threshold_year3 ?? 4),
-    ]);
-    setPrioritizeRecreation(Boolean(preset.prioritize_recreation));
-    setPalThresholds(preset.pal_thresholds || []);
-    setPalFriendshipScore(
-      numberArray(preset.pal_friendship_score, [0.08, 0.057, 0.018]),
-    );
-    setPalCardMultiplier(Number(preset.pal_card_multiplier ?? 0.1));
-    setRestThreshold(Number(preset.rest_threshold ?? 48));
     const uraAi = preset.ura_ai || {};
-    setUraAiEnabled(uraAi.enabled !== false);
-    setUraAiTimeBudget(Number(uraAi.time_budget_s ?? 10));
-    setUraAiMinRollouts(Number(uraAi.min_rollouts ?? 3000));
-    setUraAiMaxRollouts(Number(uraAi.max_rollouts ?? 10000));
-    setUraAiWorkers(Number(uraAi.workers ?? 0));
-    setUraAiRiskFactor(Number(uraAi.risk_factor ?? 0));
+    setUraAiTimeBudget(
+      Math.max(0.5, Math.min(2, Number(uraAi.time_budget_s ?? 2))),
+    );
+    setUraAiMinRollouts(
+      Math.max(32, Math.min(128, Number(uraAi.min_rollouts ?? 128))),
+    );
+    setUraAiMaxRollouts(
+      Math.max(32, Math.min(256, Number(uraAi.max_rollouts ?? 256))),
+    );
+    setUraAiWorkers(Math.max(1, Math.min(64, Number(uraAi.workers ?? 4) || 4)));
+    setUraAiRiskFactor(
+      Math.max(-2, Math.min(2, Number(uraAi.risk_factor ?? 0))),
+    );
     setUraAiTargetAttributes(
       numberArray(uraAi.target_attributes, DEFAULT_EXPECT_ATTRIBUTE),
     );
-    setScenarioId(1);
     setSelectedRaceIds((preset.extra_race_list || []).map(Number));
   }, [presetName, presets]);
 
@@ -2002,62 +1943,50 @@ export default function AutoResearch() {
     return parts.join(' · ');
   };
 
-  const draftPreset = () => ({
-    name: presetName.trim(),
-    scenario_id: scenarioId,
-    running_style: runningStyle,
-    learn_skill_list: skillSelections.map((entry) => entry.skill_names),
-    learn_skill_group_labels: skillSelections.map((entry) => entry.label),
-    learn_skill_settings: Object.fromEntries(
-      skillPriorityNames
-        .filter((name) => skillLearningSettings[name])
-        .map((name) => [name, skillLearningSettings[name]]),
-    ),
-    learn_skill_blacklist: [],
-    learn_skill_threshold: skillThreshold,
-    learn_skill_only_user_provided: true,
-    skip_double_circle_unless_high_hint: skipDoubleCircle,
-    maximize_skill_score_at_end: maximizeSkillScoreAtEnd,
-    skill_purchase_turns: normalizeTurnList(skillPurchaseTurns),
-    cure_asap_conditions: cureConditions,
-    expect_attribute: expectAttribute,
-    score_value: scoreValue,
-    base_score: baseScore,
-    stat_value_multiplier: statMultiplier,
-    extra_weight: extraWeight,
-    npc_score_value: npcScoreValue,
-    compensate_failure: compensateFailure,
-    summer_score_threshold: summerScoreThreshold,
-    motivation_threshold_year1: motivationThresholds[0],
-    motivation_threshold_year2: motivationThresholds[1],
-    motivation_threshold_year3: motivationThresholds[2],
-    prioritize_recreation: prioritizeRecreation,
-    pal_thresholds: palThresholds,
-    pal_friendship_score: palFriendshipScore,
-    pal_card_multiplier: palCardMultiplier,
-    rest_threshold: restThreshold,
-    ura_ai: {
-      enabled: uraAiEnabled,
-      decision_mode: 'search',
-      model_path: 'uma_runtime/umarl/models/current.pt',
-      time_budget_s: Math.max(1, uraAiTimeBudget),
-      min_rollouts: Math.max(1, uraAiMinRollouts),
-      max_rollouts: Math.max(1, uraAiMaxRollouts),
-      workers: Math.max(0, uraAiWorkers),
-      risk_factor: uraAiRiskFactor,
-      target_attributes: uraAiTargetAttributes.map((value) =>
-        Math.max(0, Math.trunc(value)),
+  const draftPreset = () => {
+    const minRollouts = Math.max(32, Math.min(128, uraAiMinRollouts));
+    const maxRollouts = Math.max(
+      minRollouts,
+      Math.max(32, Math.min(256, uraAiMaxRollouts)),
+    );
+    return {
+      name: presetName.trim(),
+      scenario_id: scenarioId,
+      running_style: runningStyle,
+      learn_skill_list: skillSelections.map((entry) => entry.skill_names),
+      learn_skill_group_labels: skillSelections.map((entry) => entry.label),
+      learn_skill_settings: Object.fromEntries(
+        skillPriorityNames
+          .filter((name) => skillLearningSettings[name])
+          .map((name) => [name, skillLearningSettings[name]]),
       ),
-    },
-    extra_race_list: [...selectedRaceIds].sort((leftId, rightId) => {
-      const left = races.find((race) => race.id === leftId);
-      const right = races.find((race) => race.id === rightId);
-      if (left && right) return compareRaces(left, right);
-      if (left) return -1;
-      if (right) return 1;
-      return leftId - rightId;
-    }),
-  });
+      learn_skill_blacklist: [],
+      learn_skill_threshold: skillThreshold,
+      learn_skill_only_user_provided: true,
+      skip_double_circle_unless_high_hint: skipDoubleCircle,
+      maximize_skill_score_at_end: maximizeSkillScoreAtEnd,
+      skill_purchase_turns: normalizeTurnList(skillPurchaseTurns),
+      ura_ai: {
+        enabled: true,
+        time_budget_s: Math.max(0.5, Math.min(2, uraAiTimeBudget)),
+        min_rollouts: minRollouts,
+        max_rollouts: maxRollouts,
+        workers: Math.max(1, Math.min(64, uraAiWorkers)),
+        risk_factor: Math.max(-2, Math.min(2, uraAiRiskFactor)),
+        target_attributes: uraAiTargetAttributes.map((value) =>
+          Math.max(0, Math.trunc(value)),
+        ),
+      },
+      extra_race_list: [...selectedRaceIds].sort((leftId, rightId) => {
+        const left = races.find((race) => race.id === leftId);
+        const right = races.find((race) => race.id === rightId);
+        if (left && right) return compareRaces(left, right);
+        if (left) return -1;
+        if (right) return 1;
+        return leftId - rightId;
+      }),
+    };
+  };
 
   const runCareer = async (mode: RunMode, target: number) => {
     if (!selectedAccountId || !dashboard) return false;
@@ -3888,8 +3817,6 @@ export default function AutoResearch() {
                     busy={busy}
                     presetSaved={presetSaved}
                     savePresetAndContinue={savePresetAndContinue}
-                    scenarioId={scenarioId}
-                    setScenarioId={setScenarioId}
                     runningStyle={runningStyle}
                     setRunningStyle={setRunningStyle}
                     skillSelections={skillSelections}
@@ -3914,8 +3841,6 @@ export default function AutoResearch() {
                     setSkillPurchaseTurns={setSkillPurchaseTurns}
                     editingSkillSelectionId={editingSkillSelectionId}
                     setSkillLearningSettings={setSkillLearningSettings}
-                    uraAiEnabled={uraAiEnabled}
-                    setUraAiEnabled={setUraAiEnabled}
                     health={health}
                     uraAiTargetAttributes={uraAiTargetAttributes}
                     setUraAiTargetAttributes={setUraAiTargetAttributes}
@@ -3929,36 +3854,6 @@ export default function AutoResearch() {
                     setUraAiWorkers={setUraAiWorkers}
                     uraAiRiskFactor={uraAiRiskFactor}
                     setUraAiRiskFactor={setUraAiRiskFactor}
-                    expectAttribute={expectAttribute}
-                    setExpectAttribute={setExpectAttribute}
-                    baseScore={baseScore}
-                    setBaseScore={setBaseScore}
-                    statMultiplier={statMultiplier}
-                    setStatMultiplier={setStatMultiplier}
-                    scoreValue={scoreValue}
-                    setScoreValue={setScoreValue}
-                    extraWeight={extraWeight}
-                    setExtraWeight={setExtraWeight}
-                    npcScoreValue={npcScoreValue}
-                    setNpcScoreValue={setNpcScoreValue}
-                    compensateFailure={compensateFailure}
-                    setCompensateFailure={setCompensateFailure}
-                    summerScoreThreshold={summerScoreThreshold}
-                    setSummerScoreThreshold={setSummerScoreThreshold}
-                    motivationThresholds={motivationThresholds}
-                    setMotivationThresholds={setMotivationThresholds}
-                    prioritizeRecreation={prioritizeRecreation}
-                    setPrioritizeRecreation={setPrioritizeRecreation}
-                    palThresholds={palThresholds}
-                    setPalThresholds={setPalThresholds}
-                    palFriendshipScore={palFriendshipScore}
-                    setPalFriendshipScore={setPalFriendshipScore}
-                    palCardMultiplier={palCardMultiplier}
-                    setPalCardMultiplier={setPalCardMultiplier}
-                    restThreshold={restThreshold}
-                    setRestThreshold={setRestThreshold}
-                    cureConditions={cureConditions}
-                    setCureConditions={setCureConditions}
                     raceSearch={raceSearch}
                     setRaceSearch={setRaceSearch}
                     filteredRaces={filteredRaces}

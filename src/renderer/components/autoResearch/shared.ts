@@ -49,13 +49,6 @@ export function setSharedStorageItem(key: string, value: string) {
 }
 
 export const STAT_LABELS = ['速度', '耐力', '力量', '毅力', '智力'];
-export const PERIOD_LABELS = [
-  '初级年',
-  '经典年',
-  '高级年前半',
-  '高级年后半',
-  'URA 决赛阶段',
-];
 export const SKILL_PURCHASE_YEAR_OPTIONS = [
   { offset: 0, label: '初级年' },
   { offset: 24, label: '经典年' },
@@ -65,34 +58,7 @@ export const MONTH_OPTIONS = Array.from(
   { length: 12 },
   (_, index) => index + 1,
 );
-export const CONDITION_OPTIONS = [
-  { value: 'Migraine', label: '偏头痛' },
-  { value: 'Night Owl', label: '熬夜' },
-  { value: 'Skin Outbreak', label: '皮肤粗糙' },
-  { value: 'Slacker', label: '偷懒癖' },
-  { value: 'Slow Metabolism', label: '发胖' },
-];
-
 export const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
-export const DEFAULT_BASE_SCORE = [0, 0, 0, 0, 0];
-export const DEFAULT_STAT_MULTIPLIER = [0.01, 0.01, 0.01, 0.01, 0.01, 0.005];
-export const DEFAULT_SCORE_VALUE = [
-  [0.11, 0.1, 0.006, 0.09],
-  [0.11, 0.1, 0.006, 0.09],
-  [0.11, 0.1, 0.006, 0.09],
-  [0.03, 0.05, 0.006, 0.09],
-  [0, 0, 0.006, 0],
-];
-export const DEFAULT_EXTRA_WEIGHT = Array.from({ length: 4 }, () => [
-  0, 0, 0, 0, 0,
-]);
-export const DEFAULT_NPC_SCORE = [
-  [0.05, 0.05, 0.05],
-  [0.05, 0.05, 0.05],
-  [0.05, 0.05, 0.05],
-  [0.03, 0.05, 0.05],
-  [0, 0, 0.05],
-];
 
 export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
   return {
@@ -109,31 +75,12 @@ export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
     maximize_skill_score_at_end: false,
     skill_purchase_turns: [],
     extra_race_list: [],
-    cure_asap_conditions: CONDITION_OPTIONS.map((item) => item.value),
-    expect_attribute: [...DEFAULT_EXPECT_ATTRIBUTE],
-    score_value: DEFAULT_SCORE_VALUE.map((row) => [...row]),
-    base_score: [...DEFAULT_BASE_SCORE],
-    stat_value_multiplier: [...DEFAULT_STAT_MULTIPLIER],
-    extra_weight: DEFAULT_EXTRA_WEIGHT.map((row) => [...row]),
-    npc_score_value: DEFAULT_NPC_SCORE.map((row) => [...row]),
-    compensate_failure: true,
-    summer_score_threshold: 0.34,
-    motivation_threshold_year1: 3,
-    motivation_threshold_year2: 4,
-    motivation_threshold_year3: 4,
-    prioritize_recreation: false,
-    pal_thresholds: [],
-    pal_friendship_score: [0.08, 0.057, 0.018],
-    pal_card_multiplier: 0.1,
-    rest_threshold: 48,
     ura_ai: {
       enabled: true,
-      decision_mode: 'search',
-      model_path: 'uma_runtime/umarl/models/current.pt',
-      time_budget_s: 10,
-      min_rollouts: 3000,
-      max_rollouts: 10000,
-      workers: 0,
+      time_budget_s: 2,
+      min_rollouts: 128,
+      max_rollouts: 256,
+      workers: 4,
       risk_factor: 0,
       target_attributes: [...DEFAULT_EXPECT_ATTRIBUTE],
     },
@@ -262,13 +209,6 @@ export function numberArray(
     const candidate = Number(value?.[index]);
     return Number.isFinite(candidate) ? candidate : defaultValue;
   });
-}
-
-export function numberMatrix(
-  value: number[][] | undefined,
-  fallback: number[][],
-): number[][] {
-  return fallback.map((row, index) => numberArray(value?.[index], row));
 }
 
 export function normalizeTurnList(value: string | number[] | undefined) {
