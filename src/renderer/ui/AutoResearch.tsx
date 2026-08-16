@@ -302,7 +302,9 @@ export default function AutoResearch() {
   const activeCareerUma = dashboard?.umas.find(
     (uma) => uma.id === Number(activeCareer?.card_id || 0),
   );
-  const currentCareerActive = Boolean(activeCareer?.active || runner?.running);
+  const currentCareerActive = runner?.run_plan?.active
+    ? Boolean(runner.running)
+    : Boolean(activeCareer?.active || runner?.running);
   const currentCareerUma =
     activeCareerUma ||
     (runner?.running
@@ -711,20 +713,31 @@ export default function AutoResearch() {
   );
 
   const commitRunnerStream = useCallback(
-    (accountId: string, nextRunner: Runner) => {
+    (
+      accountId: string,
+      nextRunner: Runner,
+      nextAccount?: SessionAccount | null,
+    ) => {
       invalidateOverviewResponses(accountId);
       setAccounts((current) =>
         current.map((account) =>
           account.id === accountId
-            ? {
-                ...account,
-                runtime: {
-                  ...account.runtime,
-                  runner:
-                    preferNewerRunner(account.runtime.runner, nextRunner) ||
-                    account.runtime.runner,
-                },
-              }
+            ? (() => {
+                const acceptedRunner =
+                  preferNewerRunner(account.runtime.runner, nextRunner) ||
+                  account.runtime.runner;
+                return {
+                  ...account,
+                  runtime: {
+                    ...account.runtime,
+                    runner: acceptedRunner,
+                    account:
+                      acceptedRunner === nextRunner && nextAccount !== undefined
+                        ? nextAccount
+                        : account.runtime.account,
+                  },
+                };
+              })()
             : account,
         ),
       );
@@ -737,6 +750,12 @@ export default function AutoResearch() {
                 preferNewerRunner(currentRunner, nextRunner) || nextRunner;
               return {
                 ...current,
+                dashboard:
+                  acceptedRunner === nextRunner &&
+                  nextAccount != null &&
+                  current.dashboard
+                    ? { ...current.dashboard, account: nextAccount }
+                    : current.dashboard,
                 runner: acceptedRunner,
                 runtime: {
                   ...(current.runtime || {}),
@@ -1374,10 +1393,11 @@ export default function AutoResearch() {
         const event = JSON.parse(line) as {
           success?: boolean;
           runner?: Runner;
+          account?: SessionAccount | null;
         };
         if (!event.runner) return;
         retryDelay = 1000;
-        commitRunnerStream(accountId, event.runner);
+        commitRunnerStream(accountId, event.runner, event.account);
         const stillActive = Boolean(
           event.runner.running ||
             event.runner.run_plan?.active ||

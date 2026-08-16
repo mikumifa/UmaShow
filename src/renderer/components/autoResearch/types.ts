@@ -20,6 +20,7 @@ export type RunnerStats = {
 };
 
 export type Runner = {
+  run_id?: string;
   state_epoch?: string;
   state_revision?: number;
   running?: boolean;

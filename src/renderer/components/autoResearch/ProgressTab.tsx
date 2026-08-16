@@ -274,7 +274,7 @@ export default function ProgressTab({
             .reverse()
             .map((row) => (
               <div
-                key={row.id}
+                key={`${runner?.run_id || 'legacy'}:${row.id}`}
                 className="grid gap-1 border-b border-slate-50 px-5 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
               >
                 <span className="whitespace-nowrap font-medium text-indigo-600">
