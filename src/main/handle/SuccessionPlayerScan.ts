@@ -61,6 +61,19 @@ export function mergeStoredSuccessionPlayers(
   );
 }
 
+export function selectSuccessionPlayerIdsForScan(
+  playerIds: string[],
+  current: StoredSuccessionPlayer[],
+  updateExisting: boolean,
+) {
+  if (updateExisting) return { pending: playerIds, skipped: [] as string[] };
+  const existingViewerIds = new Set(current.map((item) => item.viewerId));
+  return {
+    pending: playerIds.filter((viewerId) => !existingViewerIds.has(viewerId)),
+    skipped: playerIds.filter((viewerId) => existingViewerIds.has(viewerId)),
+  };
+}
+
 export function normalizeImportedSuccessionPlayers(
   payload: unknown,
 ): StoredSuccessionPlayer[] {
@@ -127,10 +140,24 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
   });
   ipcMain.handle(
     'succession-player-scan:scan',
-    async (event, accountId: string, rawPlayerIds: string) => {
+    async (
+      event,
+      accountId: string,
+      rawPlayerIds: string,
+      updateExisting = true,
+    ) => {
       if (scanRunning) throw new Error('已有玩家扫描任务正在运行');
       const playerIds = parseSuccessionPlayerIds(rawPlayerIds);
       if (!playerIds.length) throw new Error('请至少填写一个有效的玩家 ID');
+      const currentPlayers = readPlayers();
+      const { pending, skipped } = selectSuccessionPlayerIdsForScan(
+        playerIds,
+        currentPlayers,
+        updateExisting,
+      );
+      if (!pending.length) {
+        return { players: currentPlayers, added: [], errors: [], skipped };
+      }
       const credential = getAutoResearchAccountCredential(accountId);
       scanRunning = true;
       const progress = (value: SuccessionGameProgress) => {
@@ -157,8 +184,8 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
           });
         }
         let lastScanStartedAt = 0;
-        for (let index = 0; index < playerIds.length; index += 1) {
-          const viewerId = playerIds[index];
+        for (let index = 0; index < pending.length; index += 1) {
+          const viewerId = pending[index];
           const waitMs = 500 - (Date.now() - lastScanStartedAt);
           if (waitMs > 0) {
             // 玩家搜索固定按至少 0.5 秒的间隔顺序请求。
@@ -173,7 +200,7 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
             detail: `正在扫描玩家 ${viewerId}`,
             viewerId,
             current: index + 1,
-            total: playerIds.length,
+            total: pending.length,
           });
           try {
             // 游戏接口需要按顺序更新 SID，不能并发请求。
@@ -195,7 +222,7 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
         }
         const players = mergeStoredSuccessionPlayers(readPlayers(), added);
         writePlayers(players);
-        return { players, added, errors };
+        return { players, added, errors, skipped };
       } finally {
         scanRunning = false;
       }

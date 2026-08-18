@@ -2,8 +2,12 @@ import {
   capturedFactorBaseProbability,
   capturedFactorInheritanceProbability,
   capturedFactorTargetProbability,
+  capturedBlueFactorMinimumsSatisfied,
+  capturedBlueFactorMinimumSlotCount,
+  capturedBlueFactorTotals,
   capturedMemberMatchesSlotConstraint,
   capturedReuseCombinationValid,
+  capturedSelectedSkillFactorCount,
   capturedUmaMatchesGeneratedCandidate,
   combinedSkillTargetProbability,
   compareCombinedProbabilityPriority,
@@ -132,6 +136,89 @@ describe('captured slot constraints', () => {
         },
       ),
     ).toBe(true);
+  });
+
+  test('filters by the total blue factor stars across all six positions', () => {
+    const paternal = capturedBlueFactorTotals([
+      {
+        blueFactor: {
+          id: 103,
+          type: 'speed',
+          name: '速度',
+          stars: 3,
+        },
+      },
+      {
+        blueFactor: {
+          id: 102,
+          type: 'speed',
+          name: '速度',
+          stars: 2,
+        },
+      },
+      {
+        blueFactor: {
+          id: 203,
+          type: 'stamina',
+          name: '耐力',
+          stars: 3,
+        },
+      },
+    ]);
+    const maternal = capturedBlueFactorTotals([
+      {
+        blueFactor: {
+          id: 101,
+          type: 'speed',
+          name: '速度',
+          stars: 1,
+        },
+      },
+      {
+        blueFactor: {
+          id: 303,
+          type: 'power',
+          name: '力量',
+          stars: 3,
+        },
+      },
+      { blueFactor: null },
+    ]);
+    const minimums = {
+      speed: 6,
+      stamina: 3,
+      power: 3,
+      guts: 0,
+      wisdom: 0,
+    };
+
+    expect(
+      capturedBlueFactorMinimumsSatisfied(minimums, [paternal, maternal]),
+    ).toBe(true);
+    expect(
+      capturedBlueFactorMinimumsSatisfied({ ...minimums, speed: 7 }, [
+        paternal,
+        maternal,
+      ]),
+    ).toBe(false);
+    expect(
+      capturedBlueFactorMinimumSlotCount({
+        speed: 4,
+        stamina: 7,
+        power: 3,
+        guts: 0,
+        wisdom: 0,
+      }),
+    ).toBe(6);
+    expect(
+      capturedBlueFactorMinimumSlotCount({
+        speed: 4,
+        stamina: 7,
+        power: 3,
+        guts: 1,
+        wisdom: 0,
+      }),
+    ).toBe(7);
   });
 });
 
@@ -279,6 +366,20 @@ describe('captured factor probability', () => {
     );
   });
 
+  test('counts factor sources matching the configured skills', () => {
+    expect(
+      capturedSelectedSkillFactorCount(
+        [
+          { id: 1001203, groupId: 10012, stars: 3 },
+          { id: 2001803, groupId: 20018, stars: 3 },
+          { id: 10010102, groupId: 100101, stars: 2 },
+        ],
+        [{ kind: 'skill', groupId: 20018 }],
+        factorMeta,
+      ),
+    ).toBe(2);
+  });
+
   test('treats a green factor as a skill source: direct parent guaranteed, ancestor rolled twice', () => {
     const factor = { id: 10010102, groupId: 100101, stars: 2 as const };
     expect(
@@ -299,6 +400,81 @@ describe('captured factor probability', () => {
 });
 
 describe('normalizeSuccessionIndex', () => {
+  test('applies factor research upgrades to each lineage position', () => {
+    const normalized = normalizeSuccessionIndex({
+      receivedAt: '2026-08-19T00:00:00.000Z',
+      data: {
+        trained_chara: [
+          {
+            trained_chara_id: 675758571247,
+            card_id: 100101,
+            factor_info_array: [
+              { factor_id: 302 },
+              { factor_id: 3202 },
+              { factor_id: 2003302 },
+            ],
+            factor_extend_array: [
+              { position_id: 1, base_factor_id: 2003302, factor_id: 2003303 },
+              { position_id: 10, base_factor_id: 302, factor_id: 303 },
+              {
+                position_id: 10,
+                base_factor_id: 10040202,
+                factor_id: 10040203,
+              },
+              { position_id: 20, base_factor_id: 202, factor_id: 203 },
+              {
+                position_id: 20,
+                base_factor_id: 2004502,
+                factor_id: 2004503,
+              },
+            ],
+            succession_chara_array: [
+              {
+                position_id: 10,
+                card_id: 100201,
+                factor_info_array: [
+                  { factor_id: 302 },
+                  { factor_id: 1202 },
+                  { factor_id: 10040202 },
+                ],
+              },
+              {
+                position_id: 20,
+                card_id: 100301,
+                factor_info_array: [
+                  { factor_id: 202 },
+                  { factor_id: 2102 },
+                  { factor_id: 2004502 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0].blueFactor?.stars).toBe(2);
+    expect(
+      normalized[0].parents.map((parent) => parent.blueFactor?.stars),
+    ).toEqual([3, 3]);
+    expect(normalized[0].inheritanceFactors).toEqual(
+      expect.arrayContaining([{ id: 2003303, groupId: 20033, stars: 3 }]),
+    );
+    expect(normalized[0].parents[0].inheritanceFactors).toEqual(
+      expect.arrayContaining([
+        { id: 303, groupId: 3, stars: 3 },
+        { id: 10040203, groupId: 100402, stars: 3 },
+      ]),
+    );
+    expect(normalized[0].parents[1].inheritanceFactors).toEqual(
+      expect.arrayContaining([
+        { id: 203, groupId: 2, stars: 3 },
+        { id: 2004503, groupId: 20045, stars: 3 },
+      ]),
+    );
+  });
+
   test('merges persisted scanned players into rental candidates', () => {
     const practicePartner = {
       viewer_id: 245749415802,

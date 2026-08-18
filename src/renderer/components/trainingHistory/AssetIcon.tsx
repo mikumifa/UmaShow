@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 const iconUrlCache = new Map<string, Promise<string | null>>();
 
@@ -25,10 +25,12 @@ export default function AssetIcon({
   path,
   alt,
   className,
+  fallback,
 }: {
   path: string;
   alt: string;
   className: string;
+  fallback?: ReactNode;
 }) {
   const [src, setSrc] = useState<string | null>(null);
 
@@ -50,7 +52,9 @@ export default function AssetIcon({
   }, [path]);
 
   if (!src) {
-    return <div className={`${className} bg-gray-100`} title={alt} />;
+    return (
+      fallback ?? <div className={`${className} bg-gray-100`} title={alt} />
+    );
   }
 
   return <img src={src} alt={alt} className={className} draggable={false} />;

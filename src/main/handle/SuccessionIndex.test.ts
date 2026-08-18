@@ -57,7 +57,7 @@ describe('captureSuccessionIndex', () => {
     ).toBe(false);
   });
 
-  test('merges a later pre_single_mode rental response into load/index data', () => {
+  test('replaces rentals while retaining the cached owned list', () => {
     const send = jest.fn();
     const mainWindow = { webContents: { send } } as any;
     const ownRows = [
@@ -156,7 +156,7 @@ describe('captureSuccessionIndex', () => {
     );
   });
 
-  test('preserves pre_single_mode rentals when load/index arrives later', () => {
+  test('replaces all rentals when a later packet contains a new rental list', () => {
     const send = jest.fn();
     const mainWindow = { webContents: { send } } as any;
     const rentalData = {
@@ -198,9 +198,138 @@ describe('captureSuccessionIndex', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           trained_chara: ownRows,
-          succession_trained_chara_data: rentalData,
+          succession_trained_chara_data: {
+            summary_user_info_array: [],
+            succession_trained_chara_array: [],
+          },
         }),
       }),
     );
+  });
+
+  test('replaces all owned umas, including with an empty list', () => {
+    const send = jest.fn();
+    const mainWindow = { webContents: { send } } as any;
+    const ownRows = [
+      {
+        trained_chara_id: 1,
+        factor_info_array: [{ factor_id: 402 }],
+      },
+    ];
+
+    captureSuccessionIndex({ data: { trained_chara: ownRows } }, mainWindow);
+    captureSuccessionIndex({ data: { trained_chara: [] } }, mainWindow);
+
+    expect(send).toHaveBeenLastCalledWith(
+      'succession-index:update',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trained_chara: [],
+          trained_chara_array: undefined,
+        }),
+      }),
+    );
+  });
+
+  test('clears the old owned-list field when a new packet uses the other shape', () => {
+    const send = jest.fn();
+    const mainWindow = { webContents: { send } } as any;
+    const directRows = [
+      {
+        trained_chara_id: 1,
+        factor_info_array: [{ factor_id: 402 }],
+      },
+    ];
+    const fallbackRows = [
+      {
+        trained_chara_id: 2,
+        factor_info_array: [{ factor_id: 503 }],
+      },
+    ];
+
+    captureSuccessionIndex({ data: { trained_chara: directRows } }, mainWindow);
+    captureSuccessionIndex(
+      { data: { trained_chara_array: fallbackRows } },
+      mainWindow,
+    );
+
+    expect(send).toHaveBeenLastCalledWith(
+      'succession-index:update',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trained_chara: undefined,
+          trained_chara_array: fallbackRows,
+        }),
+      }),
+    );
+  });
+
+  test('replaces fallback owned rows with an empty index list', () => {
+    const send = jest.fn();
+    const mainWindow = { webContents: { send } } as any;
+    const fallbackRows = [
+      {
+        trained_chara_id: 2,
+        factor_info_array: [{ factor_id: 503 }],
+      },
+    ];
+
+    captureSuccessionIndex(
+      { data: { trained_chara_array: fallbackRows } },
+      mainWindow,
+    );
+    captureSuccessionIndex(
+      { data: { card_list: [], trained_chara_array: [] } },
+      mainWindow,
+    );
+
+    expect(send).toHaveBeenLastCalledWith(
+      'succession-index:update',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trained_chara: undefined,
+          trained_chara_array: [],
+        }),
+      }),
+    );
+  });
+
+  test('keeps each cached list when an unrelated packet arrives', () => {
+    const send = jest.fn();
+    const mainWindow = { webContents: { send } } as any;
+    const ownRows = [
+      {
+        trained_chara_id: 1,
+        factor_info_array: [{ factor_id: 402 }],
+      },
+    ];
+    const rentalData = {
+      summary_user_info_array: [{ viewer_id: 9, name: '好友' }],
+      succession_trained_chara_array: [
+        {
+          viewer_id: 9,
+          trained_chara_id: 2,
+          factor_info_array: [{ factor_id: 2202 }],
+        },
+      ],
+    };
+
+    captureSuccessionIndex(
+      {
+        data: {
+          trained_chara: ownRows,
+          succession_trained_chara_data: rentalData,
+        },
+      },
+      mainWindow,
+    );
+
+    expect(
+      captureSuccessionIndex(
+        { data: { opponent_info: { trained_chara_array: [] } } },
+        mainWindow,
+      ),
+    ).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });

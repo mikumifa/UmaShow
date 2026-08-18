@@ -129,6 +129,135 @@
   width: min(1320px, calc(100vw - 28px));
 }
 
+.successionCapturedDetailOverlay {
+  z-index: 10020;
+}
+
+.successionCapturedDetailDialog {
+  width: min(1040px, calc(100vw - 28px));
+  max-height: min(88vh, 860px);
+  overflow: hidden;
+  border: 1px solid var(--uma-border);
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 30%);
+}
+
+.successionCapturedDetailDialog > .successionPickerHeader {
+  background: #fff;
+}
+
+.successionCapturedDetailMembers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding: 14px;
+  background: #f1f5f9;
+}
+
+.successionCapturedDetailMembers > article {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--uma-border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.successionCapturedDetailMembers > article > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--uma-border);
+}
+
+.successionCapturedDetailMembers > article > header > span {
+  display: grid;
+  min-width: 0;
+}
+
+.successionCapturedDetailMembers > article > header small,
+.successionCapturedDetailMembers > article > header strong,
+.successionCapturedDetailMembers > article > header em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedDetailMembers > article > header small,
+.successionCapturedDetailMembers > article > header em {
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.successionCapturedDetailMembers > article > header strong {
+  color: var(--uma-text);
+  font-size: 13px;
+}
+
+.successionCapturedAllFactors {
+  display: flex;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.successionCapturedAllFactors > span {
+  padding: 4px 7px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+}
+
+.successionCapturedAllFactors .stat {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.successionCapturedAllFactors .aptitude {
+  border-color: #fbcfe8;
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.successionCapturedAllFactors .unique {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.successionCapturedAllFactors .race {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.successionCapturedDetailActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionCapturedDetailActions button {
+  min-height: 34px;
+  padding: 6px 14px;
+}
+
+.successionCapturedDetailActions .primary {
+  border-color: var(--uma-accent);
+  background: var(--uma-accent);
+  color: #fff;
+  font-weight: 800;
+}
+
 .successionMatchingCapturedDialog .successionCapturedPickerGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -146,6 +275,43 @@
   max-height: min(68vh, 720px);
   overflow: auto;
   padding: 12px;
+}
+
+.successionCapturedPickerPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 12px 0;
+}
+
+.successionCapturedPickerPagination button {
+  min-width: 92px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--uma-border);
+  border-radius: 6px;
+  background: var(--uma-surface);
+  color: var(--uma-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionCapturedPickerPagination button:not(:disabled):hover {
+  border-color: var(--uma-accent);
+  background: #f5f9ff;
+}
+
+.successionCapturedPickerPagination button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.successionCapturedPickerPagination strong {
+  min-width: 70px;
+  color: var(--uma-text);
+  font-size: 13px;
+  text-align: center;
 }
 
 .successionCapturedPickerCard {
@@ -199,6 +365,24 @@
   gap: 2px;
 }
 
+.successionCapturedPickerSelf .successionCapturedViewDetails {
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCapturedPickerSelf .successionCapturedViewDetails:hover {
+  border-color: #60a5fa;
+  background: #dbeafe;
+}
+
 .successionCapturedPortrait {
   display: block;
   width: 58px;
@@ -214,6 +398,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.successionCapturedPortrait > .successionPortrait {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
 }
 
 .successionCapturedIdentity {
@@ -462,6 +653,10 @@
   }
 
   .successionMatchingCapturedDialog .successionCapturedPickerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCapturedDetailMembers {
     grid-template-columns: 1fr;
   }
 
@@ -1123,6 +1318,60 @@
 .successionPlayerScanFooter span {
   color: var(--uma-muted);
   font-size: 11px;
+}
+
+.successionPlayerScanUpdateToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.successionPlayerScanUpdateToggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.successionPlayerScanUpdateToggle i {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.18s ease;
+}
+
+.successionPlayerScanUpdateToggle i::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.28);
+  content: '';
+  transition: transform 0.18s ease;
+}
+
+.successionPlayerScanUpdateToggle input:checked + i {
+  background: #4f46e5;
+}
+
+.successionPlayerScanUpdateToggle input:checked + i::after {
+  transform: translateX(15px);
+}
+
+.successionPlayerScanUpdateToggle input:focus-visible + i {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
+.successionPlayerScanUpdateToggle:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .successionPlayerScanFooter button {
@@ -4228,6 +4477,13 @@
   border-width: 1px;
 }
 
+.successionUmaExclusionSummary .successionCapturedPortrait {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+  border-radius: 50%;
+}
+
 .successionUmaExclusionSummary b {
   max-width: 72px;
   overflow: hidden;
@@ -4270,6 +4526,84 @@
 .successionExclusionToolbar > span b {
   color: #be123c;
   font-size: 14px;
+}
+
+.successionCapturedBlacklistRecords {
+  display: grid;
+  gap: 7px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--uma-border);
+  background: #fff7f8;
+}
+
+.successionCapturedBlacklistRecords > strong {
+  color: #9f1239;
+  font-size: 12px;
+}
+
+.successionCapturedBlacklistRecords > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.successionCapturedBlacklistRecords .successionCapturedHoverAnchor {
+  display: block;
+  min-width: 0;
+}
+
+.successionCapturedBlacklistRecords .successionCapturedHoverAnchor > button {
+  width: 100%;
+}
+
+.successionCapturedBlacklistRecords button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid #fecdd3;
+  border-radius: 7px;
+  background: #fff;
+  text-align: left;
+}
+
+.successionCapturedBlacklistRecords .successionCapturedPortrait {
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
+}
+
+.successionCapturedBlacklistRecords button > span {
+  display: grid;
+  min-width: 0;
+}
+
+.successionCapturedBlacklistRecords b,
+.successionCapturedBlacklistRecords small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedBlacklistRecords b {
+  color: var(--uma-text);
+  font-size: 11px;
+}
+
+.successionCapturedBlacklistRecords small {
+  color: var(--uma-muted);
+  font-size: 9px;
+}
+
+.successionCapturedBlacklistRecords i {
+  color: #be123c;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .successionExclusionGrid {
@@ -4730,6 +5064,15 @@
   flex-direction: column;
 }
 
+.successionCandidateOption.clickable {
+  cursor: pointer;
+}
+
+.successionCandidateOption.clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--uma-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
 .successionCandidateOptionChoice + .successionCandidateOptionChoice {
   margin-top: 7px;
   padding-top: 7px;
@@ -4761,6 +5104,94 @@
   flex-wrap: wrap;
   gap: 5px;
   margin-left: auto;
+}
+
+.successionCapturedBlacklistTooltip {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #fda4af;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(15 23 42 / 22%);
+  color: var(--uma-text);
+}
+
+.successionCapturedBlacklistFloating {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.successionCapturedBlacklistTooltip > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #fecdd3;
+}
+
+.successionCapturedBlacklistTooltip > header strong {
+  color: #9f1239;
+  font-size: 12px;
+}
+
+.successionCapturedBlacklistTooltip > header span {
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionCapturedBlacklistTooltip > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.successionCapturedBlacklistTooltip section {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--uma-border);
+  border-radius: 7px;
+  background: var(--uma-surface-soft);
+}
+
+.successionCapturedBlacklistTooltip section > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.successionCapturedBlacklistTooltip .successionCapturedPortrait {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+}
+
+.successionCapturedBlacklistTooltip section > div:first-child > span {
+  display: grid;
+  min-width: 0;
+}
+
+.successionCapturedBlacklistTooltip small,
+.successionCapturedBlacklistTooltip section > div:first-child strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedBlacklistTooltip small {
+  color: var(--uma-muted);
+  font-size: 9px;
+}
+
+.successionCapturedBlacklistTooltip section > div:first-child strong {
+  font-size: 11px;
+}
+
+.successionCapturedBlacklistTooltip .successionCapturedMemberDetails {
+  margin-top: 6px;
 }
 
 .successionCandidateOptionIdentity .successionCandidateViewCaptured {
@@ -4832,6 +5263,72 @@
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.successionCapturedResultFactors {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionCapturedResultFactors > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.successionCapturedResultFactors > span i {
+  color: #64748b;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.successionCapturedResultFactors > span b {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.successionCapturedResultFactors > span.stat {
+  background: #eef6ff;
+  color: #1d4ed8;
+}
+
+.successionCapturedResultFactors > span.aptitude {
+  background: #fff0f7;
+  color: #a8205a;
+}
+
+.successionCapturedResultFactors > span.unique {
+  background: #eefbf5;
+  color: #047857;
+}
+
+.successionCapturedResultFactors > span.skill {
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 12px;
+}
+
+.successionCapturedResultFactors > span.skill b,
+.successionCapturedResultFactors > span.skill i {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.successionCapturedResultFactors > span.white {
+  background: #f8fafc;
+  color: #475569;
 }
 
 .successionCandidateCompatibility {
@@ -5149,6 +5646,14 @@
 .successionOptimalResults.singleBranchResults
   > .successionOptimalResultsNotice {
   grid-column: 1 / -1;
+}
+
+.successionOptimalResults > .successionResultPagination {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: var(--uma-surface);
 }
 
 .successionOptimalResults .successionOptimalResult {
@@ -5950,6 +6455,116 @@
   margin: 8px 0 0;
 }
 
+.successionCapturedBlueRequirements {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.successionCapturedBlueRequirements > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.successionCapturedBlueRequirements > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.successionCapturedBlueRequirements > header > b {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.successionCapturedBlueRequirements > header strong {
+  color: var(--uma-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.successionCapturedBlueRequirements > header small {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.successionCapturedBlueRequirementGrid {
+  display: grid;
+  grid-template-columns: repeat(5, max-content);
+  justify-content: start;
+  gap: 6px;
+}
+
+.successionCapturedBlueRequirement {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.successionCapturedBlueRequirement > span {
+  min-width: 0;
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.successionCapturedBlueRequirement > div {
+  display: grid;
+  grid-template-columns: 27px 38px 27px;
+  align-items: center;
+  gap: 2px;
+  min-width: 96px;
+}
+
+.successionCapturedBlueRequirement > div b {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.successionCapturedBlueRequirement > div button {
+  display: grid;
+  width: 27px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #c4b5fd;
+  border-radius: 6px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.successionCapturedBlueRequirement > div button:hover:not(:disabled) {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+}
+
+.successionCapturedBlueRequirement > div button:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .successionCalculationSettingsDialog > footer {
   display: flex;
   align-items: center;
@@ -6267,6 +6882,10 @@
     grid-template-columns: 1fr;
   }
 
+  .successionCapturedBlueRequirementGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .successionLineageGrid::before {
     display: none;
   }
@@ -6333,6 +6952,15 @@
 
   .successionCapturedSkillPriorityList {
     grid-template-columns: 1fr;
+  }
+
+  .successionCapturedBlueRequirementGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCapturedBlueRequirement {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
   }
 
   .successionTrainedUmaTreeRoot {

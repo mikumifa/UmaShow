@@ -173,8 +173,13 @@ const electronHandler = {
     clear: () => ipcRenderer.invoke('succession-player-scan:clear'),
     importPlayers: (payload: unknown) =>
       ipcRenderer.invoke('succession-player-scan:import', payload),
-    scan: (accountId: string, playerIds: string) =>
-      ipcRenderer.invoke('succession-player-scan:scan', accountId, playerIds),
+    scan: (accountId: string, playerIds: string, updateExisting = true) =>
+      ipcRenderer.invoke(
+        'succession-player-scan:scan',
+        accountId,
+        playerIds,
+        updateExisting,
+      ),
     onProgress(
       callback: (data: {
         stage: 'login' | 'load' | 'scan';

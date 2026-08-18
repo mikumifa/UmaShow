@@ -1,6 +1,7 @@
 import {
   mergeStoredSuccessionPlayers,
   normalizeImportedSuccessionPlayers,
+  selectSuccessionPlayerIdsForScan,
   StoredSuccessionPlayer,
 } from './SuccessionPlayerScan';
 
@@ -81,5 +82,30 @@ describe('mergeStoredSuccessionPlayers', () => {
       imported,
       existing,
     ]);
+  });
+});
+
+describe('selectSuccessionPlayerIdsForScan', () => {
+  test('skips stored players when updates are disabled', () => {
+    expect(
+      selectSuccessionPlayerIdsForScan(
+        ['245749415802', '426751416382'],
+        [player('245749415802')],
+        false,
+      ),
+    ).toEqual({
+      pending: ['426751416382'],
+      skipped: ['245749415802'],
+    });
+  });
+
+  test('keeps stored players when updates are enabled', () => {
+    expect(
+      selectSuccessionPlayerIdsForScan(
+        ['245749415802'],
+        [player('245749415802')],
+        true,
+      ),
+    ).toEqual({ pending: ['245749415802'], skipped: [] });
   });
 });

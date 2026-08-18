@@ -8,8 +8,10 @@ export type SuccessionIndexSnapshot = {
 let latestSnapshot: SuccessionIndexSnapshot | null = null;
 
 type SuccessionCaptureParts = {
-  trained_chara?: any[];
-  trained_chara_array?: any[];
+  own?: {
+    field: 'trained_chara' | 'trained_chara_array';
+    rows: any[];
+  };
   succession_trained_chara_data?: Record<string, any>;
 };
 
@@ -33,6 +35,18 @@ function looksLikeRentalData(value: unknown): value is Record<string, any> {
   );
 }
 
+function looksLikeEmptyOwnIndexRows(
+  container: Record<string, any>,
+  rows: unknown,
+) {
+  return (
+    Array.isArray(rows) &&
+    rows.length === 0 &&
+    (Array.isArray(container.card_list) ||
+      looksLikeRentalData(container.succession_trained_chara_data))
+  );
+}
+
 function findSuccessionParts(decodedData: unknown) {
   const queue: unknown[] = [decodedData];
   const visited = new Set<object>();
@@ -46,14 +60,18 @@ function findSuccessionParts(decodedData: unknown) {
       const value = current as Record<string, any>;
       const directOwnRows = value.trained_chara;
       const fallbackOwnRows = value.trained_chara_array;
-      if (!found.trained_chara && hasDetailedTrainedRows(directOwnRows)) {
-        found.trained_chara = directOwnRows;
+      if (!found.own && Array.isArray(directOwnRows)) {
+        found.own = { field: 'trained_chara', rows: directOwnRows };
       }
       if (
-        !found.trained_chara_array &&
-        hasDetailedTrainedRows(fallbackOwnRows)
+        !found.own &&
+        (hasDetailedTrainedRows(fallbackOwnRows) ||
+          looksLikeEmptyOwnIndexRows(value, fallbackOwnRows))
       ) {
-        found.trained_chara_array = fallbackOwnRows;
+        found.own = {
+          field: 'trained_chara_array',
+          rows: fallbackOwnRows,
+        };
       }
 
       const rentalData = value.succession_trained_chara_data;
@@ -73,62 +91,39 @@ function findSuccessionParts(decodedData: unknown) {
   return found;
 }
 
-function preferIncomingArray(current: unknown, incoming: unknown) {
-  if (!Array.isArray(incoming)) return current;
-  if (incoming.length || !Array.isArray(current)) return incoming;
-  return current;
-}
-
-function mergeRentalData(
-  current: Record<string, any> | undefined,
-  incoming: Record<string, any> | undefined,
-) {
-  if (!incoming) return current;
-  if (!current) return incoming;
-  return {
-    ...current,
-    ...incoming,
-    succession_trained_chara_array: preferIncomingArray(
-      current.succession_trained_chara_array,
-      incoming.succession_trained_chara_array,
-    ),
-    summary_user_info_array: preferIncomingArray(
-      current.summary_user_info_array,
-      incoming.summary_user_info_array,
-    ),
-  };
-}
-
 export function captureSuccessionIndex(
   decodedData: unknown,
   mainWindow: BrowserWindow,
 ) {
   const captured = findSuccessionParts(decodedData);
-  if (
-    !captured.trained_chara &&
-    !captured.trained_chara_array &&
-    !captured.succession_trained_chara_data
-  ) {
+  if (!captured.own && !captured.succession_trained_chara_data) {
     return false;
   }
 
   const current = latestSnapshot?.data || {};
+  const ownData = captured.own
+    ? {
+        trained_chara:
+          captured.own.field === 'trained_chara'
+            ? captured.own.rows
+            : undefined,
+        trained_chara_array:
+          captured.own.field === 'trained_chara_array'
+            ? captured.own.rows
+            : undefined,
+      }
+    : {
+        trained_chara: current.trained_chara,
+        trained_chara_array: current.trained_chara_array,
+      };
 
   latestSnapshot = {
     receivedAt: new Date().toISOString(),
     data: {
-      trained_chara: preferIncomingArray(
-        current.trained_chara,
-        captured.trained_chara,
-      ),
-      trained_chara_array: preferIncomingArray(
-        current.trained_chara_array,
-        captured.trained_chara_array,
-      ),
-      succession_trained_chara_data: mergeRentalData(
+      ...ownData,
+      succession_trained_chara_data:
+        captured.succession_trained_chara_data ??
         current.succession_trained_chara_data,
-        captured.succession_trained_chara_data,
-      ),
     },
   };
   mainWindow.webContents.send('succession-index:update', latestSnapshot);
