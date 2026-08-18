@@ -102,15 +102,6 @@ const electronHandler = {
       };
     },
   },
-  venusModel: {
-    open: () => ipcRenderer.invoke('venus-model:open'),
-    loadPath: (manifestPath: string) =>
-      ipcRenderer.invoke('venus-model:load-path', manifestPath),
-    clear: () => ipcRenderer.invoke('venus-model:clear'),
-    info: () => ipcRenderer.invoke('venus-model:info'),
-    predict: (features: number[]) =>
-      ipcRenderer.invoke('venus-model:predict', features),
-  },
   leaderboardRanking: {
     latest: () => ipcRenderer.invoke('leaderboard-ranking:latest'),
     onNew(callback: (data: any) => void) {
@@ -180,6 +171,8 @@ const electronHandler = {
   successionPlayerScan: {
     list: () => ipcRenderer.invoke('succession-player-scan:list'),
     clear: () => ipcRenderer.invoke('succession-player-scan:clear'),
+    importPlayers: (payload: unknown) =>
+      ipcRenderer.invoke('succession-player-scan:import', payload),
     scan: (accountId: string, playerIds: string) =>
       ipcRenderer.invoke('succession-player-scan:scan', accountId, playerIds),
     onProgress(

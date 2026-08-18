@@ -16,7 +16,6 @@ import {
   ensureTrainingHistory,
   handleTrainingHistoryList,
 } from './handle/TrainingHistory';
-import { handleVenusModel } from './handle/VenusModel';
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
 import { handleAutoResearchUiSettings } from './handle/AutoResearchUiSettings';
@@ -131,7 +130,6 @@ const createWindow = async () => {
 handleRaceList(ipcMain);
 handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
-handleVenusModel(ipcMain);
 handleLeaderboardRanking(ipcMain);
 handleAutoResearchCredentials(ipcMain);
 handleAutoResearchUiSettings(ipcMain);

@@ -61,6 +61,54 @@ export function mergeStoredSuccessionPlayers(
   );
 }
 
+export function normalizeImportedSuccessionPlayers(
+  payload: unknown,
+): StoredSuccessionPlayer[] {
+  const source = Array.isArray(payload)
+    ? payload
+    : (payload as { players?: unknown } | null)?.players;
+  if (!Array.isArray(source)) {
+    throw new Error('导入文件不是有效的种马数据');
+  }
+  const players = source.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Record<string, any>;
+    const viewerId = String(
+      record.viewerId ?? record.userInfo?.viewer_id ?? '',
+    ).trim();
+    const { practicePartner } = record;
+    if (
+      !/^\d{6,16}$/.test(viewerId) ||
+      !practicePartner ||
+      typeof practicePartner !== 'object' ||
+      Array.isArray(practicePartner)
+    ) {
+      return [];
+    }
+    const fetchedAt = Number.isNaN(Date.parse(String(record.fetchedAt || '')))
+      ? new Date().toISOString()
+      : new Date(record.fetchedAt).toISOString();
+    return [
+      {
+        viewerId,
+        name: String(
+          record.name || record.userInfo?.name || `玩家 ${viewerId}`,
+        ),
+        fetchedAt,
+        userInfo:
+          record.userInfo && typeof record.userInfo === 'object'
+            ? record.userInfo
+            : { viewer_id: Number(viewerId) },
+        practicePartner,
+      },
+    ];
+  });
+  if (!players.length && source.length) {
+    throw new Error('导入文件中没有可识别的种马记录');
+  }
+  return mergeStoredSuccessionPlayers([], players);
+}
+
 let scanRunning = false;
 
 export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
@@ -69,6 +117,13 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
     if (scanRunning) throw new Error('请等待当前玩家扫描完成');
     writePlayers([]);
     return [];
+  });
+  ipcMain.handle('succession-player-scan:import', (_, payload: unknown) => {
+    if (scanRunning) throw new Error('请等待当前玩家扫描完成');
+    const imported = normalizeImportedSuccessionPlayers(payload);
+    const players = mergeStoredSuccessionPlayers(readPlayers(), imported);
+    writePlayers(players);
+    return { players, importedCount: imported.length };
   });
   ipcMain.handle(
     'succession-player-scan:scan',

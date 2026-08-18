@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Settings,
   Trash2,
+  Upload,
 } from 'lucide-react';
 
 import successionData from 'renderer/data/succession_data.json';
@@ -8367,6 +8368,7 @@ export default function SuccessionPlannerPage() {
   );
   const [playerScanOpen, setPlayerScanOpen] = useState(false);
   const [playerIdsText, setPlayerIdsText] = useState('');
+  const scannedImportInputRef = useRef<HTMLInputElement>(null);
   const [scanProgress, setScanProgress] =
     useState<SuccessionScanProgress | null>(null);
   const [scanBusy, setScanBusy] = useState(false);
@@ -8519,6 +8521,26 @@ export default function SuccessionPlannerPage() {
       .slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
+  };
+
+  const importScannedPlayers = async (file: File) => {
+    setScanError('');
+    setScanResult('');
+    try {
+      const payload = JSON.parse(await file.text());
+      const result = (await window.electron.successionPlayerScan.importPlayers(
+        payload,
+      )) as {
+        players: StoredSuccessionPlayer[];
+        importedCount: number;
+      };
+      setScannedPlayers(result.players);
+      setScanResult(
+        `已导入 ${result.importedCount} 位玩家，当前共 ${result.players.length} 位`,
+      );
+    } catch (error) {
+      setScanError(`导入失败：${(error as Error).message}`);
+    }
   };
 
   return (
@@ -8677,6 +8699,25 @@ export default function SuccessionPlannerPage() {
                         <Download size={12} />
                         导出 JSON
                       </button>
+                      <button
+                        type="button"
+                        disabled={scanBusy}
+                        onClick={() => scannedImportInputRef.current?.click()}
+                      >
+                        <Upload size={12} />
+                        导入 JSON
+                      </button>
+                      <input
+                        ref={scannedImportInputRef}
+                        type="file"
+                        accept="application/json,.json"
+                        hidden
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) importScannedPlayers(file);
+                          event.target.value = '';
+                        }}
+                      />
                       <button
                         type="button"
                         className="danger"

@@ -32,8 +32,7 @@ const configuration: webpack.Configuration = {
 
   entry: {
     renderer: Object.keys(dependencies || {}).filter(
-      (dependency) =>
-        dependency !== 'node-gyp' && dependency !== 'onnxruntime-node',
+      (dependency) => dependency !== 'node-gyp',
     ),
   },
 

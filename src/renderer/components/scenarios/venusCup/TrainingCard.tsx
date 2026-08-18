@@ -14,7 +14,6 @@ import { UMDB } from 'renderer/utils/umdb';
 import { getSupportCardSpecialtySummary } from 'utils/supportCardSpecialty';
 import FailureRateBadge from 'renderer/components/FailureRateBadge';
 import createImageIcon from 'renderer/components/Icon';
-import type { VenusModelAdvice } from 'renderer/utils/venusModel';
 
 interface TargetConfig {
   label: string;
@@ -420,14 +419,12 @@ export default function VenusCupTrainingCard({
   partnerStats,
   currentStats,
   venusPassionActive,
-  modelAdvice,
 }: {
   command: TrainingCommand;
   venusData?: VenusData;
   partnerStats: PartnerStats;
   currentStats?: CharStats;
   venusPassionActive?: boolean;
-  modelAdvice?: VenusModelAdvice;
 }) {
   const isDisabled = command.isEnable === 0;
   const name =
@@ -504,13 +501,6 @@ export default function VenusCupTrainingCard({
           Lv{command.level}
         </div>
       )}
-
-      {modelAdvice ? (
-        <div className="absolute -right-3 -top-3 z-20 flex min-w-[58px] flex-col items-center rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-black leading-tight text-indigo-700 shadow">
-          <span>#{modelAdvice.rank}</span>
-          <span>{Math.round(modelAdvice.normalizedProbability * 100)}%</span>
-        </div>
-      ) : null}
 
       {command.failureRate > 0 && (
         <FailureRateBadge failureRate={command.failureRate} />
