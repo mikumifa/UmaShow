@@ -2,6 +2,7 @@ import type { BrowserWindow, IpcMain } from 'electron';
 
 export type SuccessionIndexSnapshot = {
   receivedAt: string;
+  viewerId?: number;
   data: Record<string, any>;
 };
 
@@ -91,6 +92,24 @@ function findSuccessionParts(decodedData: unknown) {
   return found;
 }
 
+function findResponseViewerId(decodedData: unknown) {
+  const queue: unknown[] = [decodedData];
+  const visited = new Set<object>();
+  while (queue.length) {
+    const current = queue.shift();
+    if (current && typeof current === 'object' && !visited.has(current)) {
+      visited.add(current);
+      const value = current as Record<string, any>;
+      const viewerId = Number(value.data_headers?.viewer_id || 0);
+      if (viewerId) return viewerId;
+      Object.values(value).forEach((child) => {
+        if (child && typeof child === 'object') queue.push(child);
+      });
+    }
+  }
+  return 0;
+}
+
 export function captureSuccessionIndex(
   decodedData: unknown,
   mainWindow: BrowserWindow,
@@ -119,6 +138,7 @@ export function captureSuccessionIndex(
 
   latestSnapshot = {
     receivedAt: new Date().toISOString(),
+    viewerId: findResponseViewerId(decodedData) || latestSnapshot?.viewerId,
     data: {
       ...ownData,
       succession_trained_chara_data:

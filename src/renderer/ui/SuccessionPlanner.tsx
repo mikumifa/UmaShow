@@ -208,6 +208,7 @@ type CapturedCompatibilityPreview = {
 };
 type SuccessionIndexSnapshot = {
   receivedAt: string;
+  viewerId?: number;
   data: Record<string, any>;
 };
 
@@ -957,8 +958,17 @@ export function normalizeSuccessionIndex(
 
   const normalizeRoot = (
     row: any,
-    source: 'own' | 'rental',
+    expectedSource: 'own' | 'rental',
   ): CapturedTrainedUma | null => {
+    const currentViewerId = Number(snapshot.viewerId || 0);
+    const rowViewerId = Number(row?.viewer_id || row?.owner_viewer_id || 0);
+    const source =
+      expectedSource === 'own' &&
+      currentViewerId &&
+      rowViewerId &&
+      rowViewerId !== currentViewerId
+        ? 'rental'
+        : expectedSource;
     const factorExtendRows = row?.factor_extend_array;
     const self = capturedMember(row, factorExtendRows, 1);
     if (!self) return null;
@@ -1027,12 +1037,15 @@ export function normalizeSuccessionIndex(
     };
   };
 
-  return [
+  const normalizedRows = [
     ...ownRows.map((row: any) => normalizeRoot(row, 'own')),
     ...rentalRows.map((row: any) => normalizeRoot(row, 'rental')),
-  ]
-    .filter((row): row is CapturedTrainedUma => Boolean(row))
-    .sort(
+  ].filter((row): row is CapturedTrainedUma => Boolean(row));
+  const uniqueRows = new Map<string, CapturedTrainedUma>();
+  normalizedRows.forEach((row) => {
+    if (!uniqueRows.has(row.selectionId)) uniqueRows.set(row.selectionId, row);
+  });
+  return [...uniqueRows.values()].sort(
       (left, right) =>
         (left.source === right.source ? 0 : left.source === 'own' ? -1 : 1) ||
         right.rankScore - left.rankScore,
@@ -1083,6 +1096,7 @@ export function mergeScannedSuccessionPlayers(
       latestScannedAt > (snapshot?.receivedAt || '')
         ? latestScannedAt
         : snapshot?.receivedAt || new Date().toISOString(),
+    viewerId: snapshot?.viewerId,
     data: {
       ...data,
       succession_trained_chara_data: {
@@ -3191,14 +3205,34 @@ function CapturedMemberDetails({ member }: { member: CapturedLineageMember }) {
   );
 }
 
+export function capturedDetailFactorOrder(
+  factors: CapturedInheritanceFactor[],
+  blueFactorId: number | undefined,
+  aptitudeFactorId: number,
+  factorMeta: Record<number, SuccessionFactorMeta> = {},
+) {
+  const remainingFactors = factors.filter(
+    (factor) =>
+      factor.id !== blueFactorId && factor.id !== aptitudeFactorId,
+  );
+  const isUnique = (factor: CapturedInheritanceFactor) =>
+    factor.id >= 10_000_000 || factorMeta[factor.id]?.factorType === 3;
+  return [
+    ...remainingFactors.filter(isUnique),
+    ...remainingFactors.filter((factor) => !isUnique(factor)),
+  ];
+}
+
 function CapturedMemberAllFactors({ member }: { member: CapturedLineageMember }) {
   const factorMeta = UMDB.successionFactorMeta as Record<
     number,
     SuccessionFactorMeta
   >;
-  const remainingFactors = member.inheritanceFactors.filter(
-    (factor) =>
-      factor.id !== member.blueFactor?.id && factor.id !== member.factor.id,
+  const remainingFactors = capturedDetailFactorOrder(
+    member.inheritanceFactors,
+    member.blueFactor?.id,
+    member.factor.id,
+    factorMeta,
   );
   return (
     <div className="successionCapturedAllFactors">

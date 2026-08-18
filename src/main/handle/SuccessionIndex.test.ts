@@ -43,6 +43,23 @@ describe('captureSuccessionIndex', () => {
     );
   });
 
+  test('keeps the logged-in viewer id for owned-row validation', () => {
+    const send = jest.fn();
+    const mainWindow = { webContents: { send } } as any;
+    captureSuccessionIndex(
+      {
+        data_headers: { viewer_id: 876724857032 },
+        data: { trained_chara: [] },
+      },
+      mainWindow,
+    );
+
+    expect(send).toHaveBeenLastCalledWith(
+      'succession-index:update',
+      expect.objectContaining({ viewerId: 876724857032 }),
+    );
+  });
+
   test('ignores ordinary race packets containing trained_chara_array', () => {
     const mainWindow = { webContents: { send: jest.fn() } } as any;
     expect(

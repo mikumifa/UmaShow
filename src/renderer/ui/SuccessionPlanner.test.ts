@@ -2,6 +2,7 @@ import {
   capturedFactorBaseProbability,
   capturedFactorInheritanceProbability,
   capturedFactorTargetProbability,
+  capturedDetailFactorOrder,
   capturedBlueFactorMinimumsSatisfied,
   capturedBlueFactorMinimumSlotCount,
   capturedBlueFactorTotals,
@@ -399,7 +400,69 @@ describe('captured factor probability', () => {
   });
 });
 
+describe('captured factor display order', () => {
+  test('places the unique factor immediately after blue and aptitude factors', () => {
+    expect(
+      capturedDetailFactorOrder(
+        [
+          { id: 302, groupId: 3, stars: 2 },
+          { id: 3202, groupId: 32, stars: 2 },
+          { id: 2004502, groupId: 20045, stars: 2 },
+          { id: 1000302, groupId: 10003, stars: 2 },
+          { id: 10320202, groupId: 103202, stars: 2 },
+        ],
+        302,
+        3202,
+      ).map((factor) => factor.id),
+    ).toEqual([10320202, 2004502, 1000302]);
+  });
+});
+
 describe('normalizeSuccessionIndex', () => {
+  test('does not treat a different viewer in the owned array as the current player', () => {
+    const parents = [
+      {
+        position_id: 10,
+        card_id: 100201,
+        factor_info_array: [{ factor_id: 302 }, { factor_id: 1202 }],
+      },
+      {
+        position_id: 20,
+        card_id: 100301,
+        factor_info_array: [{ factor_id: 202 }, { factor_id: 2102 }],
+      },
+    ];
+    const normalized = normalizeSuccessionIndex({
+      receivedAt: '2026-08-19T00:00:00.000Z',
+      viewerId: 111,
+      data: {
+        trained_chara: [
+          {
+            ...trainedUma(1, 100101, 3202, parents),
+            viewer_id: 111,
+            factor_info_array: [{ factor_id: 302 }, { factor_id: 3202 }],
+          },
+          {
+            ...trainedUma(2, 100401, 1202, parents),
+            viewer_id: 222,
+            factor_info_array: [{ factor_id: 202 }, { factor_id: 1202 }],
+          },
+        ],
+        succession_trained_chara_data: {
+          summary_user_info_array: [{ viewer_id: 222, name: '好友' }],
+        },
+      },
+    });
+
+    expect(
+      normalized.map(({ viewerId, source }) => ({ viewerId, source })),
+    ).toEqual([
+      { viewerId: 111, source: 'own' },
+      { viewerId: 222, source: 'rental' },
+    ]);
+    expect(normalized[1].ownerName).toBe('好友');
+  });
+
   test('applies factor research upgrades to each lineage position', () => {
     const normalized = normalizeSuccessionIndex({
       receivedAt: '2026-08-19T00:00:00.000Z',
