@@ -61,6 +61,28 @@ export const UMDB = {
   get stories() {
     return umdbInstance?.stories ?? [];
   },
+  get successionG1SaddleIds(): number[] {
+    return umdbInstance?.successionG1SaddleIds ?? [];
+  },
+  get successionFactorMeta(): Record<
+    number,
+    {
+      id: number;
+      groupId: number;
+      stars: 1 | 2 | 3;
+      factorType: 3 | 4 | 5;
+      name: string;
+      skillGroupIds: number[];
+      skillTargets: Array<{
+        groupId: number;
+        name: string;
+        iconId: number;
+        level?: number;
+      }>;
+    }
+  > {
+    return umdbInstance?.successionFactorMeta ?? {};
+  },
 
   charaName(id: number) {
     return umdbInstance?.charas[id]?.name ?? 'Unknown Chara';

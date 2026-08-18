@@ -1673,21 +1673,21 @@ function SkillStatsTable({
               <td className="px-3 py-2 text-gray-800">
                 <SkillNameCell skillId={row.skillId} label={row.label} />
               </td>
-              <td className="px-3 py-2 text-right font-mono text-amber-700">
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-amber-700">
                 {percent(row.triggerRate)} (
                 {ratioText(row.triggeredCount, row.totalCount)})
               </td>
-              <td className="px-3 py-2 text-right font-mono text-rose-700">
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-rose-700">
                 {percent(row.winTriggerRate)} (
                 {ratioText(row.winTriggeredCount, row.winCount)})
               </td>
-              <td className="px-3 py-2 text-right font-mono text-cyan-700">
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-cyan-700">
                 <InformationGainValue
                   value={row.informationGain}
                   detail={informationGainDetail(row)}
                 />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
+              <td className="px-3 py-2 text-right font-sans tabular-nums">
                 <WinRateLiftValue
                   value={row.winRateLift}
                   detail={winRateLiftDetail(row)}

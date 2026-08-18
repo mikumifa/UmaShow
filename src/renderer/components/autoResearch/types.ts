@@ -34,6 +34,8 @@ export type Runner = {
   last_action?: string;
   last_error?: string;
   finished?: boolean;
+  worker_process?: boolean;
+  worker_pid?: number;
   live_activity?: {
     stage: string;
     endpoint: string;
@@ -59,6 +61,9 @@ export type Runner = {
   current_stats?: RunnerStats;
   jewels_earned?: number;
   jewel_drop_count?: number;
+  chara_score?: number;
+  large_margin_count?: number;
+  large_margin_race_counts?: Record<string, number>;
   daily_jewel_drop_count?: number;
   daily_jewels_earned?: number;
   daily_jewel_drop_limit?: number;
@@ -233,41 +238,63 @@ export type AutoResearchTab =
   | 'progress'
   | 'history';
 
-export type CareerReportSummary = {
-  id: string;
-  started_at?: string;
-  ended_at?: string;
-  preset_name: string;
-  career_setting_id?: string;
-  career_setting_name?: string;
-  scenario_id: number;
-  status: string;
-  final_turn: number;
-  card_id: number;
-  race_count: number;
-  jewel_drop_count: number;
-  jewels_earned: number;
-  final_stats?: RunnerStats;
-  error_message?: string;
+export type CareerSessionAttributes = {
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wit: number;
 };
 
-export type CareerReport = CareerReportSummary & {
-  turns?: Array<{
-    turn: number;
-    selected_action?: string;
-    decision_reason?: string;
-    events?: Array<{
-      event?: string;
-      action?: string;
-      detail?: string;
-      time?: string;
-    }>;
-    api_calls?: Array<{
-      direction?: string;
-      endpoint?: string;
-      result_code?: number;
-    }>;
-  }>;
+export type G123RaceRecord = {
+  race_id: number;
+  program_id: number;
+  turn: number;
+  recorded_at: string;
+  large_margin: boolean;
+};
+
+export type CareerSessionRun = {
+  run_id?: string;
+  completed: boolean;
+  discarded: boolean;
+  card_id: number;
+  attributes: CareerSessionAttributes;
+  large_margin_count: number;
+  large_margin_race_counts: Record<string, number>;
+  g123_race_counts?: Record<string, number>;
+  g123_race_records?: G123RaceRecord[];
+  jewel_drop_count: number;
+  jewels_earned: number;
+  last_error: string;
+};
+
+export type CareerSessionRecord = {
+  id: string;
+  schema_version: number;
+  session_id: string;
+  uid: string;
+  started_at: string;
+  ended_at: string;
+  preset_name: string;
+  career_setting_id: string;
+  career_setting_name: string;
+  card_id: number;
+  mode: string;
+  target: number;
+  stop_reason: string;
+  error: string;
+  count: number;
+  attributes_total: CareerSessionAttributes;
+  attributes_average: CareerSessionAttributes;
+  large_margin_count: number;
+  large_margin_race_counts: Record<string, number>;
+  g123_race_counts?: Record<string, number>;
+  g123_race_records?: G123RaceRecord[];
+  jewel_drop_count: number;
+  jewels_earned: number;
+  runs: CareerSessionRun[];
+  current?: CareerSessionRun | null;
 };
 
 export type CareerSetting = {
@@ -336,6 +363,11 @@ export type SkillSelectionEntry = {
   skill_names: string[];
 };
 
+export type TargetAttributeStage = {
+  turn: number;
+  target_attributes: number[];
+};
+
 export type Preset = {
   name: string;
   scenario_id?: number;
@@ -360,29 +392,8 @@ export type Preset = {
     workers?: number;
     risk_factor?: number;
     target_attributes?: number[];
+    target_attribute_stages?: TargetAttributeStage[];
   };
-};
-
-export type UmaRlTrainingStatus = {
-  state: 'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-  job_id?: string;
-  stage?: string;
-  detail?: string;
-  progress?: number;
-  error?: string;
-  metrics?: Record<string, number>;
-  logs?: Array<{
-    id: number;
-    time: string;
-    stage: string;
-    message: string;
-    data?: Record<string, unknown>;
-  }>;
-  state_count?: number;
-  model_updated?: boolean;
-  setting_id?: string;
-  setting_name?: string;
-  model_path?: string;
 };
 
 export type SkillOption = Partial<Omit<AutoResearchSkill, 'id'>> & {

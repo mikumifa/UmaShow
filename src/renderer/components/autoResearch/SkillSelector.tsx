@@ -205,6 +205,9 @@ export default function SkillSelector({
   skills,
   selectedNames,
   blockedNames = [],
+  showRarityFilter = true,
+  showSkillPoints = true,
+  elevated = false,
   onToggle,
   onAddGroup,
   onClose,
@@ -215,6 +218,9 @@ export default function SkillSelector({
   skills: AutoResearchSkill[];
   selectedNames: string[];
   blockedNames?: string[];
+  showRarityFilter?: boolean;
+  showSkillPoints?: boolean;
+  elevated?: boolean;
   onToggle: (skill: AutoResearchSkill) => void;
   onAddGroup?: (skills: AutoResearchSkill[], label: string) => void;
   onClose: () => void;
@@ -321,7 +327,9 @@ export default function SkillSelector({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+    <div
+      className={`fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm ${elevated ? 'z-[1400]' : 'z-50'}`}
+    >
       <div
         role="dialog"
         aria-modal="true"
@@ -359,29 +367,31 @@ export default function SkillSelector({
             />
           </div>
           <div className="mt-3 space-y-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-10 flex-none text-xs font-medium text-slate-500">
-                稀有度
-              </span>
-              {[
-                ['all', '全部'],
-                ['white', '白'],
-                ['gold', '金'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setRarity(value as typeof rarity)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    rarity === value
-                      ? 'bg-indigo-600 text-white'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {showRarityFilter ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-10 flex-none text-xs font-medium text-slate-500">
+                  稀有度
+                </span>
+                {[
+                  ['all', '全部'],
+                  ['white', '白'],
+                  ['gold', '金'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRarity(value as typeof rarity)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      rarity === value
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-10 flex-none text-xs font-medium text-slate-500">
                 效果
@@ -527,7 +537,9 @@ export default function SkillSelector({
                       >
                         {skillRarityLabel(skill)}
                       </span>
-                      <span>{skill.need_skill_point} 技能点</span>
+                      {showSkillPoints ? (
+                        <span>{skill.need_skill_point} 技能点</span>
+                      ) : null}
                       <span>{skillEffectLabel(skill)}</span>
                       {selectedTagLabels(skill, RUNNING_STYLE_FILTERS).map(
                         (label) => (

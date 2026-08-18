@@ -1,40 +1,25 @@
-/* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
+/* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction } from 'react';
-import { History, RefreshCw, Trophy } from 'lucide-react';
+import { Gem, History, RefreshCw, Trash2, Trophy } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { horseIconPath } from './SelectionCards';
+import { formatReportTime, panelClass } from './shared';
 import {
-  careerReportStatusLabel,
-  describeLogAction,
-  describeLogDetail,
-  formatReportTime,
-  HIDDEN_RUNNER_LOG_ACTIONS,
-  panelClass,
-  turnDateLabel,
-} from './shared';
-import {
-  CareerReport,
-  CareerReportSummary,
+  CareerSessionAttributes,
+  CareerSessionRecord,
+  CareerSessionRun,
   CareerSetting,
   Dashboard,
-  UmaRlTrainingStatus,
+  G123RaceRecord,
+  RaceOption,
 } from './types';
-
-type HealthStatus = {
-  umarl?: {
-    installed?: boolean;
-    training_available?: boolean;
-  };
-};
 
 type HistoryTabProps = {
   dashboard: Dashboard;
-  selectedCareerReport: CareerReport | null;
-  setSelectedCareerReport: Dispatch<SetStateAction<CareerReport | null>>;
-  health: HealthStatus | null;
-  showUmaRlTraining: boolean;
-  umarlTraining: UmaRlTrainingStatus | null;
-  startUmaRlTraining: (reportIds: string[]) => Promise<void>;
+  selectedCareerRecords: CareerSessionRecord[] | null;
+  setSelectedCareerRecords: Dispatch<
+    SetStateAction<CareerSessionRecord[] | null>
+  >;
   busy: string;
   historyCareerSetting?: CareerSetting;
   loadCareerHistory: (accountId: string) => Promise<void>;
@@ -42,35 +27,254 @@ type HistoryTabProps = {
   historyCareerSettingId: string;
   setHistoryCareerSettingId: Dispatch<SetStateAction<string>>;
   accountCareerSettings: CareerSetting[];
-  umarlSettingModelAvailable: boolean | null;
-  cancelUmaRlTraining: () => Promise<void>;
-  refreshUmaRlTraining: () => Promise<void>;
-  selectedTrainingReportIds: string[];
-  setSelectedTrainingReportIds: Dispatch<SetStateAction<string[]>>;
-  umarlTrainEpisodes: number;
-  setUmaRlTrainEpisodes: Dispatch<SetStateAction<number>>;
-  umarlTrainGenerations: number;
-  setUmaRlTrainGenerations: Dispatch<SetStateAction<number>>;
-  umarlTrainEpochs: number;
-  setUmaRlTrainEpochs: Dispatch<SetStateAction<number>>;
-  umarlTrainBatchSize: number;
-  setUmaRlTrainBatchSize: Dispatch<SetStateAction<number>>;
-  umarlTrainMaxStates: number;
-  setUmaRlTrainMaxStates: Dispatch<SetStateAction<number>>;
-  umarlTrainRolloutWorkers: number;
-  setUmaRlTrainRolloutWorkers: Dispatch<SetStateAction<number>>;
-  historyCareerReports: CareerReportSummary[];
-  openCareerReport: (reportId: string) => Promise<void>;
+  historyCareerRecords: CareerSessionRecord[];
+  deleteCareerHistory: (reportIds: string[]) => Promise<void>;
+  races: RaceOption[];
+};
+
+const attributeItems = [
+  ['speed', '速度'],
+  ['stamina', '耐力'],
+  ['power', '力量'],
+  ['guts', '根性'],
+  ['wit', '智力'],
+] as const;
+
+const emptyAttributes = (): CareerSessionAttributes => ({
+  speed: 0,
+  stamina: 0,
+  power: 0,
+  guts: 0,
+  wit: 0,
+});
+
+const formatMetric = (value?: number) => {
+  const number = Number(value || 0);
+  return Number.isInteger(number) ? String(number) : number.toFixed(1);
+};
+
+const raceCounts = (value?: Record<string, number>) => {
+  const result: Record<string, number> = {};
+  Object.entries(value || {}).forEach(([rawId, rawCount]) => {
+    const raceId = Number(rawId);
+    const count = Number(rawCount);
+    if (Number.isInteger(raceId) && raceId > 0 && count > 0) {
+      result[String(raceId)] = count;
+    }
+  });
+  return result;
+};
+
+type AggregatedG123Race = {
+  raceId: number;
+  programId: number;
+  turn: number;
+  largeMarginCount: number;
+  recordedAt: string;
+};
+
+const normalizedG123RaceRecords = (value?: G123RaceRecord[]) =>
+  (Array.isArray(value) ? value : []).filter(
+    (record) => Number(record?.program_id) > 0,
+  );
+
+const aggregateG123Races = (
+  records: CareerSessionRecord[],
+): AggregatedG123Race[] => {
+  const aggregated = new Map<string, AggregatedG123Race>();
+  records.forEach((record) => {
+    const sources = [
+      ...(record.runs || []),
+      ...(record.current ? [record.current] : []),
+    ];
+    const raceRecords = sources.flatMap((source) =>
+      normalizedG123RaceRecords(source.g123_race_records),
+    );
+    if (raceRecords.length) {
+      raceRecords.forEach((raceRecord) => {
+        const raceId = Number(raceRecord.race_id || 0);
+        const programId = Number(raceRecord.program_id);
+        const turn = Number(raceRecord.turn || 0);
+        const key =
+          raceId > 0 ? `race:${raceId}` : `program:${programId}:${turn}`;
+        const previous = aggregated.get(key);
+        aggregated.set(key, {
+          raceId,
+          programId,
+          turn,
+          largeMarginCount:
+            (previous?.largeMarginCount || 0) +
+            (raceRecord.large_margin ? 1 : 0),
+          recordedAt:
+            String(raceRecord.recorded_at || '') >
+            String(previous?.recordedAt || '')
+              ? String(raceRecord.recorded_at || '')
+              : String(previous?.recordedAt || ''),
+        });
+      });
+      return;
+    }
+
+    const sourceRows = sources.length ? sources : [record];
+    const allRaceCounts: Record<string, number> = {};
+    const largeCounts: Record<string, number> = {};
+    sourceRows.forEach((source) => {
+      Object.entries(raceCounts(source.g123_race_counts)).forEach(
+        ([raceId, count]) => {
+          allRaceCounts[raceId] = (allRaceCounts[raceId] || 0) + count;
+        },
+      );
+      Object.entries(raceCounts(source.large_margin_race_counts)).forEach(
+        ([raceId, count]) => {
+          largeCounts[raceId] = (largeCounts[raceId] || 0) + count;
+        },
+      );
+    });
+    const raceIds = new Set([
+      ...Object.keys(allRaceCounts),
+      ...Object.keys(largeCounts),
+    ]);
+    raceIds.forEach((raceId) => {
+      const programId = Number(raceId);
+      const key = `${programId}:0`;
+      const previous = aggregated.get(key);
+      aggregated.set(key, {
+        raceId: programId,
+        programId,
+        turn: 0,
+        largeMarginCount:
+          (previous?.largeMarginCount || 0) + (largeCounts[raceId] || 0),
+        recordedAt: '',
+      });
+    });
+  });
+  return [...aggregated.values()].sort(
+    (left, right) =>
+      right.largeMarginCount - left.largeMarginCount ||
+      left.turn - right.turn ||
+      left.programId - right.programId,
+  );
+};
+
+const runStatus = (run: CareerSessionRun, current = false) => {
+  if (current) return { label: '暂停时', className: 'text-amber-600' };
+  if (run.completed) return { label: '已完成', className: 'text-emerald-600' };
+  if (run.discarded) return { label: '已放弃', className: 'text-slate-500' };
+  return { label: '未完成', className: 'text-red-600' };
+};
+
+const businessDateFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const recordDateKey = (record: CareerSessionRecord) => {
+  const timestamp = String(record.ended_at || record.started_at || '');
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp.slice(0, 10) || '未知日期';
+  const shifted = new Date(date.getTime() - 5 * 60 * 60 * 1000);
+  const parts = Object.fromEntries(
+    businessDateFormatter
+      .formatToParts(shifted)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const formatRecordDate = (dateKey: string) => {
+  if (dateKey === '未知日期') return dateKey;
+  const date = new Date(`${dateKey}T00:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  const label = date.toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
+  return `${label} · 05:00–次日05:00`;
+};
+
+const groupRecordsByDate = (records: CareerSessionRecord[]) => {
+  const groups = new Map<string, CareerSessionRecord[]>();
+  [...records]
+    .sort((left, right) =>
+      String(right.ended_at || right.started_at || '').localeCompare(
+        String(left.ended_at || left.started_at || ''),
+      ),
+    )
+    .forEach((record) => {
+      const key = recordDateKey(record);
+      groups.set(key, [...(groups.get(key) || []), record]);
+    });
+  return [...groups.entries()];
+};
+
+const aggregateRecords = (records: CareerSessionRecord[]) => {
+  const count = records.reduce(
+    (sum, record) => sum + Number(record.count || 0),
+    0,
+  );
+  const attributesTotal = emptyAttributes();
+  records.forEach((record) => {
+    attributeItems.forEach(([key]) => {
+      const storedTotal = Number(record.attributes_total?.[key]);
+      attributesTotal[key] += Number.isFinite(storedTotal)
+        ? storedTotal
+        : Number(record.attributes_average?.[key] || 0) *
+          Number(record.count || 0);
+    });
+  });
+  const attributesAverage = emptyAttributes();
+  attributeItems.forEach(([key]) => {
+    attributesAverage[key] = count
+      ? Math.round((attributesTotal[key] / count) * 100) / 100
+      : 0;
+  });
+  const sorted = [...records].sort((left, right) =>
+    String(left.started_at || '').localeCompare(String(right.started_at || '')),
+  );
+  return {
+    count,
+    attributesAverage,
+    cardId: Number(sorted.find((record) => record.card_id)?.card_id || 0),
+    startedAt: String(sorted[0]?.started_at || ''),
+    endedAt: String(sorted.at(-1)?.ended_at || ''),
+    largeMarginCount: records.reduce(
+      (sum, record) =>
+        sum +
+        Number(
+          record.large_margin_count ||
+            Object.values(raceCounts(record.large_margin_race_counts)).reduce(
+              (raceTotal, value) => raceTotal + value,
+              0,
+            ),
+        ),
+      0,
+    ),
+    g123Races: aggregateG123Races(records),
+    jewelDropCount: records.reduce(
+      (sum, record) => sum + Number(record.jewel_drop_count || 0),
+      0,
+    ),
+    jewelsEarned: records.reduce(
+      (sum, record) => sum + Number(record.jewels_earned || 0),
+      0,
+    ),
+    errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
+    rows: sorted.flatMap((record) => [
+      ...(record.runs || []).map((run) => ({ run, current: false })),
+      ...(record.current ? [{ run: record.current, current: true }] : []),
+    ]),
+  };
 };
 
 export default function HistoryTab({
   dashboard,
-  selectedCareerReport,
-  setSelectedCareerReport,
-  health,
-  showUmaRlTraining,
-  umarlTraining,
-  startUmaRlTraining,
+  selectedCareerRecords,
+  setSelectedCareerRecords,
   busy,
   historyCareerSetting,
   loadCareerHistory,
@@ -78,155 +282,268 @@ export default function HistoryTab({
   historyCareerSettingId,
   setHistoryCareerSettingId,
   accountCareerSettings,
-  umarlSettingModelAvailable,
-  cancelUmaRlTraining,
-  refreshUmaRlTraining,
-  selectedTrainingReportIds,
-  setSelectedTrainingReportIds,
-  umarlTrainEpisodes,
-  setUmaRlTrainEpisodes,
-  umarlTrainGenerations,
-  setUmaRlTrainGenerations,
-  umarlTrainEpochs,
-  setUmaRlTrainEpochs,
-  umarlTrainBatchSize,
-  setUmaRlTrainBatchSize,
-  umarlTrainMaxStates,
-  setUmaRlTrainMaxStates,
-  umarlTrainRolloutWorkers,
-  setUmaRlTrainRolloutWorkers,
-  historyCareerReports,
-  openCareerReport,
+  historyCareerRecords,
+  deleteCareerHistory,
+  races,
 }: HistoryTabProps) {
-  return selectedCareerReport ? (
-    <div className="space-y-4">
-      <section className={panelClass('p-5')}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+  const raceByProgramId = new Map<number, RaceOption>();
+  const raceByProgramAndTurn = new Map<string, RaceOption>();
+  const raceById = new Map<number, RaceOption>();
+  races.forEach((race) => {
+    const programId = Number(race.program_id);
+    if (programId > 0 && !raceByProgramId.has(programId)) {
+      raceByProgramId.set(programId, race);
+    }
+    if (programId > 0) {
+      raceByProgramAndTurn.set(`${programId}:${Number(race.turn || 0)}`, race);
+    }
+    raceById.set(Number(race.id), race);
+  });
+
+  if (selectedCareerRecords?.length) {
+    const aggregate = aggregateRecords(selectedCareerRecords);
+    const recordUma = dashboard.umas.find((uma) => uma.id === aggregate.cardId);
+    const dateKey = recordDateKey(selectedCareerRecords[0]);
+
+    return (
+      <div className="space-y-4">
+        <section className={panelClass('p-5')}>
+          <div className="mb-3 flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => setSelectedCareerReport(null)}
-              className="mb-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              onClick={() => setSelectedCareerRecords(null)}
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
               ← 返回养马记录
             </button>
-            <h2 className="text-xl font-bold text-slate-900">
-              {dashboard.umas.find(
-                (uma) => uma.id === selectedCareerReport.card_id,
-              )?.name || `育成马娘 ${selectedCareerReport.card_id || '-'}`}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {formatReportTime(selectedCareerReport.started_at)} ·{' '}
-              {selectedCareerReport.preset_name || '未命名预设'}
+            <button
+              type="button"
+              disabled={busy === 'history-delete'}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                  )
+                ) {
+                  deleteCareerHistory(
+                    selectedCareerRecords.map((record) => record.id),
+                  );
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              删除当天记录
+            </button>
+          </div>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="h-16 w-16 flex-none overflow-hidden rounded-lg bg-slate-100">
+                {recordUma ? (
+                  <AssetIcon
+                    path={
+                      horseIconPath(
+                        recordUma.id,
+                        recordUma.rarity,
+                        recordUma.race_cloth_id,
+                      ) || ''
+                    }
+                    alt={recordUma.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Trophy size={22} className="m-5 text-slate-300" />
+                )}
+              </span>
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-bold text-slate-900">
+                  {historyCareerSetting?.name || '未命名详设'} ·{' '}
+                  {formatRecordDate(dateKey)}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {recordUma?.name || `育成马娘 ${aggregate.cardId || '-'}`}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {formatReportTime(aggregate.startedAt)} 至{' '}
+                  {formatReportTime(aggregate.endedAt)} · 合并{' '}
+                  {selectedCareerRecords.length} 次托管
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {aggregate.errors.length ? (
+            <div className="mt-4 space-y-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              {aggregate.errors.map((error) => (
+                <p key={error}>{error}</p>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">完成次数</p>
+              <strong className="mt-1 block text-xl text-slate-900">
+                {aggregate.count}
+              </strong>
+            </div>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">比赛大差</p>
+              <strong className="mt-1 block text-xl text-amber-700">
+                {aggregate.largeMarginCount} 次
+              </strong>
+            </div>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">宝石掉落</p>
+              <strong className="mt-1 block text-xl text-violet-700">
+                {aggregate.jewelDropCount} 次 / {aggregate.jewelsEarned} 个
+              </strong>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {attributeItems.map(([key, label]) => (
+              <div
+                key={key}
+                className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-center"
+              >
+                <p className="text-xs text-indigo-500">平均{label}</p>
+                <strong className="mt-1 block text-lg text-indigo-900">
+                  {formatMetric(aggregate.attributesAverage[key])}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className={panelClass('overflow-hidden')}>
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h3 className="font-bold">每次育成结果</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              当天每次育成单独一行，仅显示静态结果。
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {showUmaRlTraining &&
-            health?.umarl?.installed &&
-            !['queued', 'running'].includes(umarlTraining?.state || '') ? (
-              <button
-                type="button"
-                onClick={() => startUmaRlTraining([selectedCareerReport.id])}
-                disabled={busy === 'umarl-train'}
-                className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-              >
-                用此记录训练 UmaRL
-              </button>
-            ) : null}
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${selectedCareerReport.status === 'error' ? 'bg-red-100 text-red-700' : selectedCareerReport.status === 'finished' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
-            >
-              {careerReportStatusLabel(selectedCareerReport.status)}
-            </span>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
-          <span>结束于 {turnDateLabel(selectedCareerReport.final_turn)}</span>
-          <span>比赛 {selectedCareerReport.race_count || 0} 场</span>
-          <span>
-            宝石掉落 {selectedCareerReport.jewel_drop_count || 0} 次，共{' '}
-            {selectedCareerReport.jewels_earned || 0} 个
-          </span>
-        </div>
-        {selectedCareerReport.error_message ? (
-          <p className="mt-4 border-t border-red-100 pt-4 text-sm text-red-700">
-            {selectedCareerReport.error_message}
-          </p>
-        ) : null}
-      </section>
+          {aggregate.rows.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">次数</th>
+                    <th className="px-3 py-3 font-medium">状态</th>
+                    {attributeItems.map(([key, label]) => (
+                      <th key={key} className="px-3 py-3 font-medium">
+                        {label}
+                      </th>
+                    ))}
+                    <th className="px-3 py-3 font-medium">比赛大差</th>
+                    <th className="px-3 py-3 font-medium">宝石掉落</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {aggregate.rows.map(({ run, current }, index) => {
+                    const status = runStatus(run, current);
+                    return (
+                      <tr key={run.run_id || `current-${index}`}>
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                          {current ? '-' : index + 1}
+                        </td>
+                        <td className={`px-3 py-3 ${status.className}`}>
+                          {status.label}
+                          {run.last_error ? (
+                            <span className="mt-1 block max-w-40 truncate text-xs text-red-500">
+                              {run.last_error}
+                            </span>
+                          ) : null}
+                        </td>
+                        {attributeItems.map(([key]) => (
+                          <td key={key} className="px-3 py-3 text-slate-700">
+                            {run.attributes?.[key] || 0}
+                          </td>
+                        ))}
+                        <td className="px-3 py-3 text-amber-700">
+                          {run.large_margin_count || 0} 次
+                        </td>
+                        <td className="px-3 py-3 text-violet-700">
+                          {run.jewel_drop_count || 0} 次 /{' '}
+                          {run.jewels_earned || 0} 个
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-12 text-center text-sm text-slate-400">
+              当天没有可显示的育成结果
+            </p>
+          )}
+        </section>
 
-      <section className={panelClass('overflow-hidden')}>
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h3 className="font-bold">详细流程</h3>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {(selectedCareerReport.turns || []).map((turn) => {
-            const logEvents = (turn.events || []).filter(
-              (event) =>
-                event.event === 'log' &&
-                !HIDDEN_RUNNER_LOG_ACTIONS.has(String(event.action || '')),
-            );
-            const apiCalls = (turn.api_calls || []).filter(
-              (call) => !String(call.endpoint || '').includes('race_end'),
-            );
-            if (
-              !logEvents.length &&
-              !apiCalls.length &&
-              !turn.selected_action
-            ) {
-              return null;
-            }
-            return (
-              <article
-                key={turn.turn}
-                className="grid gap-3 px-5 py-4 lg:grid-cols-[210px_minmax(0,1fr)]"
-              >
-                <p className="whitespace-nowrap font-semibold text-indigo-600">
-                  {turnDateLabel(turn.turn)}
-                </p>
-                <div className="min-w-0 space-y-2">
-                  {logEvents.map((event, index) => (
-                    <div
-                      key={`${event.action}-${index}`}
-                      className="grid gap-1 text-sm sm:grid-cols-[110px_minmax(0,1fr)]"
-                    >
-                      <span className="font-medium text-slate-700">
-                        {describeLogAction(String(event.action || ''))}
+        <section className={panelClass('p-5')}>
+          <h3 className="font-bold text-slate-900">同比赛的大差情况</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            列出当天跑过的 G1、G2、G3；数字仅显示大差次数。
+          </p>
+          {aggregate.g123Races.length ? (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {aggregate.g123Races.map((raceRow) => {
+                const race =
+                  raceById.get(raceRow.raceId) ||
+                  raceByProgramAndTurn.get(
+                    `${raceRow.programId}:${raceRow.turn}`,
+                  ) ||
+                  raceByProgramId.get(raceRow.programId);
+                return (
+                  <div
+                    key={`${raceRow.raceId}:${raceRow.programId}:${raceRow.turn}`}
+                    className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50/60 p-2"
+                  >
+                    {race?.thumbnail_id ? (
+                      <AssetIcon
+                        path={`race_thumb/${race.thumbnail_id}.png`}
+                        alt={race.name}
+                        className="h-11 w-16 shrink-0 rounded-md bg-slate-100 object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-white text-amber-500">
+                        <Trophy size={20} />
                       </span>
-                      <span className="text-slate-500">
-                        {describeLogDetail(String(event.detail || ''))}
-                      </span>
-                    </div>
-                  ))}
-                  {!logEvents.length && turn.selected_action ? (
-                    <p className="text-sm text-slate-600">
-                      {describeLogAction(turn.selected_action)}
-                      {turn.decision_reason
-                        ? ` · ${describeLogDetail(turn.decision_reason)}`
-                        : ''}
-                    </p>
-                  ) : null}
-                  {apiCalls.length ? (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {apiCalls.map((call, index) => (
-                        <span
-                          key={`${call.direction}-${call.endpoint}-${index}`}
-                          className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-500"
-                        >
-                          {call.direction} {call.endpoint}
-                          {call.result_code ? ` · ${call.result_code}` : ''}
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-sm text-slate-700">
+                        {race?.name || '未知比赛'}
+                      </strong>
+                      {race ? (
+                        <span className="block truncate text-xs text-slate-500">
+                          {race.date} · {race.type} · {race.terrain} ·{' '}
+                          {race.distance}
                         </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  ) : (
+                      ) : null}
+                      {raceRow.recordedAt ? (
+                        <span className="block truncate text-[11px] text-slate-400">
+                          比赛时间 {formatReportTime(raceRow.recordedAt)}
+                        </span>
+                      ) : null}
+                    </span>
+                    <strong className="shrink-0 text-amber-700">
+                      {raceRow.largeMarginCount} 次
+                    </strong>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
+              当天没有比赛大差记录
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  return (
     <section className={panelClass('p-5')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -236,7 +553,8 @@ export default function HistoryTab({
             {historyCareerSetting ? ` · ${historyCareerSetting.name}` : ''}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            保存最近 3 天内的全部养马记录。
+            仅保留最近 3 个养马日；同一详设按天聚合五维、比赛大差
+            次数、宝石掉落和完成次数；同比赛的大差情况可在每日详情底部查看。
           </p>
         </div>
         <button
@@ -252,6 +570,7 @@ export default function HistoryTab({
           刷新记录
         </button>
       </div>
+
       <label className="mt-5 block max-w-xl text-sm font-medium text-slate-700">
         选择详设
         <select
@@ -267,370 +586,139 @@ export default function HistoryTab({
           ))}
         </select>
       </label>
+
       {!historyCareerSetting ? (
         <p className="py-14 text-center text-sm text-slate-400">
           选择养马详设后，才会显示该详设的养马记录
         </p>
       ) : (
         <>
-          {showUmaRlTraining && health?.umarl?.installed ? (
-            <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-violet-950">
-                    使用养马记录训练 UmaRL
-                  </h3>
-                  <p className="mt-1 text-xs text-violet-700">
-                    训练会从所选记录提取局面；没有模型时先用手写策略冷启动，
-                    随后进行多代 on-policy PPO。每代更新退化时会自动回滚。
-                  </p>
-                  <p className="mt-1 text-xs text-violet-600">
-                    当前模型：
-                    {umarlSettingModelAvailable
-                      ? '已训练，将用于此详设之后的 UmaRL 决策'
-                      : umarlSettingModelAvailable === false
-                        ? '尚未训练，暂用手写后续策略'
-                        : '正在读取'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={refreshUmaRlTraining}
-                    disabled={busy === 'umarl-refresh'}
-                    className="flex items-center gap-2 rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+          <div className="mt-5 space-y-4">
+            {groupRecordsByDate(historyCareerRecords).map(
+              ([dateKey, records]) => {
+                const aggregate = aggregateRecords(records);
+                const recordUma = dashboard.umas.find(
+                  (uma) => uma.id === aggregate.cardId,
+                );
+                return (
+                  <section
+                    key={dateKey}
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-white"
                   >
-                    <RefreshCw
-                      size={14}
-                      className={busy === 'umarl-refresh' ? 'animate-spin' : ''}
-                    />
-                    刷新训练进度
-                  </button>
-                  {['queued', 'running'].includes(
-                    umarlTraining?.state || '',
-                  ) ? (
-                    <button
-                      type="button"
-                      onClick={cancelUmaRlTraining}
-                      disabled={busy === 'umarl-cancel'}
-                      className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 disabled:opacity-50"
-                    >
-                      请求取消
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        startUmaRlTraining(selectedTrainingReportIds)
-                      }
-                      disabled={
-                        !selectedTrainingReportIds.length ||
-                        busy === 'umarl-train' ||
-                        !health.umarl.training_available
-                      }
-                      className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                    >
-                      {busy === 'umarl-train'
-                        ? '正在提交…'
-                        : `开始训练（${selectedTrainingReportIds.length} 份）`}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-violet-600">
-                训练状态不会自动刷新；需要查看进度时请点击“刷新训练进度”。
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <label className="text-xs text-violet-800">
-                  每代探索轨迹
-                  <input
-                    type="number"
-                    min={1}
-                    max={100000}
-                    value={umarlTrainEpisodes}
-                    onChange={(event) =>
-                      setUmaRlTrainEpisodes(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-                <label className="text-xs text-violet-800">
-                  训练代数
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={umarlTrainGenerations}
-                    onChange={(event) =>
-                      setUmaRlTrainGenerations(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-                <label className="text-xs text-violet-800">
-                  每代 Epoch
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={umarlTrainEpochs}
-                    onChange={(event) =>
-                      setUmaRlTrainEpochs(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-                <label className="text-xs text-violet-800">
-                  Batch Size
-                  <input
-                    type="number"
-                    min={1}
-                    max={8192}
-                    value={umarlTrainBatchSize}
-                    onChange={(event) =>
-                      setUmaRlTrainBatchSize(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-                <label className="text-xs text-violet-800">
-                  最多历史局面
-                  <input
-                    type="number"
-                    min={1}
-                    max={2048}
-                    value={umarlTrainMaxStates}
-                    onChange={(event) =>
-                      setUmaRlTrainMaxStates(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-                <label className="text-xs text-violet-800">
-                  Rollout Workers
-                  <input
-                    type="number"
-                    min={0}
-                    max={64}
-                    value={umarlTrainRolloutWorkers}
-                    onChange={(event) =>
-                      setUmaRlTrainRolloutWorkers(Number(event.target.value))
-                    }
-                    className="mt-1 w-full rounded border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
-                  />
-                </label>
-              </div>
-              {umarlTraining ? (
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs text-violet-800">
-                    <span>{umarlTraining.detail || umarlTraining.state}</span>
-                    <span>{umarlTraining.progress || 0}%</span>
-                  </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-violet-100">
-                    <div
-                      className="h-full bg-violet-500 transition-all"
-                      style={{
-                        width: `${Math.max(0, Math.min(100, umarlTraining.progress || 0))}%`,
-                      }}
-                    />
-                  </div>
-                  {umarlTraining.error ? (
-                    <p className="mt-2 text-xs text-red-600">
-                      {umarlTraining.error}
-                    </p>
-                  ) : null}
-                  {(umarlTraining.metrics?.actor_eval_pairs || 0) > 0 ? (
-                    <p className="mt-2 text-xs text-violet-700">
-                      最近一代评测：新策略平均{' '}
-                      {Math.round(
-                        umarlTraining.metrics?.actor_candidate_mean || 0,
-                      )}
-                      ，旧策略平均{' '}
-                      {Math.round(
-                        umarlTraining.metrics?.actor_incumbent_mean || 0,
-                      )}
-                      ，提升{' '}
-                      {(umarlTraining.metrics?.actor_mean_improvement || 0) >= 0
-                        ? '+'
-                        : ''}
-                      {Math.round(
-                        umarlTraining.metrics?.actor_mean_improvement || 0,
-                      )}
-                      ，胜率{' '}
-                      {(
-                        (umarlTraining.metrics?.actor_win_rate || 0) * 100
-                      ).toFixed(1)}
-                      %，
-                      {umarlTraining.metrics?.actor_update_accepted
-                        ? '接受更新'
-                        : '已回滚'}
-                    </p>
-                  ) : null}
-                  {(umarlTraining.logs || []).length ? (
-                    <div className="mt-3 overflow-hidden rounded-lg border border-violet-200 bg-slate-950 text-slate-200">
-                      <div className="border-b border-slate-800 px-3 py-2 text-xs font-medium text-violet-300">
-                        训练日志
-                      </div>
-                      <div className="max-h-64 overflow-auto px-3 py-2 font-mono text-[11px] leading-5">
-                        {(umarlTraining.logs || [])
-                          .slice()
-                          .reverse()
-                          .map((row) => (
-                            <div key={row.id} className="flex gap-2">
-                              <span className="flex-none text-slate-500">
-                                {row.time}
-                              </span>
-                              <span className="flex-none text-violet-400">
-                                [{row.stage}]
-                              </span>
-                              <span className="min-w-0 break-words">
-                                {row.message}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {historyCareerReports.length ? (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-slate-600">
-                共 {historyCareerReports.length} 份记录，已选择{' '}
-                {selectedTrainingReportIds.length} 份
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedTrainingReportIds(
-                      historyCareerReports.map((report) => report.id),
-                    )
-                  }
-                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                >
-                  全选
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTrainingReportIds([])}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                >
-                  清空
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {historyCareerReports.map((report) => {
-              const reportUma = dashboard.umas.find(
-                (uma) => uma.id === report.card_id,
-              );
-              const reportIconPath = reportUma
-                ? horseIconPath(
-                    reportUma.id,
-                    reportUma.rarity,
-                    reportUma.race_cloth_id,
-                  )
-                : undefined;
-              return (
-                <div
-                  key={report.id}
-                  className={`relative rounded-lg border bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm ${
-                    selectedTrainingReportIds.includes(report.id)
-                      ? 'border-violet-400 ring-2 ring-violet-100'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <label className="absolute right-3 top-3 z-10 flex cursor-pointer items-center gap-1.5 rounded bg-white/90 px-2 py-1 text-xs text-slate-600 shadow-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedTrainingReportIds.includes(report.id)}
-                      onChange={(event) =>
-                        setSelectedTrainingReportIds((current) =>
-                          event.target.checked
-                            ? [...new Set([...current, report.id])]
-                            : current.filter((item) => item !== report.id),
-                        )
-                      }
-                      className="accent-violet-600"
-                    />
-                    训练样本
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => openCareerReport(report.id)}
-                    disabled={busy === `history-${report.id}`}
-                    className="w-full text-left disabled:opacity-50"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="h-16 w-16 flex-none overflow-hidden rounded-lg bg-slate-100">
-                        {reportIconPath ? (
-                          <AssetIcon
-                            path={reportIconPath}
-                            alt={reportUma?.name || '育成马娘'}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Trophy size={22} className="m-5 text-slate-300" />
-                        )}
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <h3 className="font-semibold text-slate-800">
+                        {formatRecordDate(dateKey)}
+                      </h3>
+                      <span className="flex items-center gap-3">
+                        <span className="text-xs text-slate-500">
+                          {aggregate.count} 次育成 · {records.length} 次托管
+                        </span>
+                        <button
+                          type="button"
+                          disabled={busy === 'history-delete'}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                              )
+                            ) {
+                              deleteCareerHistory(
+                                records.map((record) => record.id),
+                              );
+                            }
+                          }}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          title="删除当天记录"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-start justify-between gap-2">
-                          <strong className="truncate text-slate-900">
-                            {reportUma?.name ||
-                              `育成马娘 ${report.card_id || '-'}`}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCareerRecords(records)}
+                      className="grid w-full gap-4 px-4 py-3 text-left transition hover:bg-indigo-50/40 lg:grid-cols-[minmax(220px,1.2fr)_minmax(300px,1.6fr)_minmax(300px,1.5fr)] lg:items-center"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="h-14 w-14 flex-none overflow-hidden rounded-lg bg-slate-100">
+                          {recordUma ? (
+                            <AssetIcon
+                              path={
+                                horseIconPath(
+                                  recordUma.id,
+                                  recordUma.rarity,
+                                  recordUma.race_cloth_id,
+                                ) || ''
+                              }
+                              alt={recordUma.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Trophy
+                              size={20}
+                              className="m-[18px] text-slate-300"
+                            />
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <strong className="block truncate text-slate-900">
+                            {recordUma?.name ||
+                              `育成马娘 ${aggregate.cardId || '-'}`}
                           </strong>
+                          <span className="mt-1 block text-xs text-slate-500">
+                            {formatReportTime(aggregate.startedAt)} 至{' '}
+                            {formatReportTime(aggregate.endedAt)}
+                          </span>
+                          <span className="mt-1 block text-xs text-slate-400">
+                            点击查看当天每一次育成结果
+                          </span>
+                        </span>
+                      </span>
+
+                      <span className="grid grid-cols-5 gap-1 text-center text-[11px] text-slate-500">
+                        {attributeItems.map(([key, label]) => (
                           <span
-                            className={`mr-20 flex-none text-xs ${report.status === 'error' ? 'text-red-600' : report.status === 'finished' ? 'text-emerald-600' : 'text-slate-500'}`}
+                            key={key}
+                            className="rounded bg-slate-50 px-1 py-1.5"
                           >
-                            {careerReportStatusLabel(report.status)}
+                            <strong className="block text-xs text-slate-700">
+                              {formatMetric(aggregate.attributesAverage[key])}
+                            </strong>
+                            {label}
                           </span>
+                        ))}
+                      </span>
+
+                      <span className="grid grid-cols-3 gap-2 text-center text-xs text-slate-500">
+                        <span>
+                          <strong className="block text-sm text-slate-800">
+                            {aggregate.count}
+                          </strong>
+                          完成
                         </span>
-                        <span className="mt-1 block text-xs text-slate-500">
-                          {formatReportTime(report.started_at)}
+                        <span>
+                          <strong className="block text-sm text-amber-700">
+                            {aggregate.largeMarginCount}
+                          </strong>
+                          大差
                         </span>
-                        <span className="mt-1 block truncate text-xs text-slate-400">
-                          {report.preset_name || '未命名预设'} ·{' '}
-                          {turnDateLabel(report.final_turn)}
+                        <span>
+                          <strong className="flex items-center justify-center gap-1 text-sm text-violet-700">
+                            <Gem size={12} />
+                            {aggregate.jewelDropCount}/{aggregate.jewelsEarned}
+                          </strong>
+                          掉落/宝石
                         </span>
-                        {!report.career_setting_id ? (
-                          <span className="mt-1 block text-[11px] text-amber-600">
-                            旧记录：按角色与预设归入此详设
-                          </span>
-                        ) : null}
                       </span>
-                    </div>
-                    <div className="mt-4 grid grid-cols-3 border-t border-slate-100 pt-3 text-center text-xs">
-                      <span>
-                        <strong className="block text-sm text-slate-800">
-                          {report.race_count || 0}
-                        </strong>
-                        比赛
-                      </span>
-                      <span>
-                        <strong className="block text-sm text-violet-700">
-                          {report.jewel_drop_count || 0}
-                        </strong>
-                        宝石掉落
-                      </span>
-                      <span>
-                        <strong className="block text-sm text-violet-700">
-                          {report.jewels_earned || 0}
-                        </strong>
-                        宝石
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
+                    </button>
+                  </section>
+                );
+              },
+            )}
           </div>
-          {!historyCareerReports.length && busy !== 'history' ? (
+          {!historyCareerRecords.length && busy !== 'history' ? (
             <p className="py-14 text-center text-sm text-slate-400">
-              该详设最近 3 天内暂无养马记录
+              该详设暂无养马记录
             </p>
           ) : null}
         </>

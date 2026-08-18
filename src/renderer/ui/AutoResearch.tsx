@@ -52,9 +52,11 @@ import {
   LOCAL_PRESETS_KEY,
   MONTH_OPTIONS,
   needsRelogin,
+  normalizeRaceSelection,
   normalizeServer,
   normalizeSkillLearningSettings,
   normalizeSkillSelections,
+  normalizeTargetAttributeStages,
   normalizeTurnList,
   numberArray,
   panelClass,
@@ -71,8 +73,7 @@ import {
   AuthResponse,
   AutoResearchTab,
   CapturedCredential,
-  CareerReport,
-  CareerReportSummary,
+  CareerSessionRecord,
   CareerSetting,
   LoginProgress,
   LoginProgressResponse,
@@ -81,17 +82,16 @@ import {
   RaceOption,
   Runner,
   RunMode,
+  SessionAccount,
   SessionResponse,
   SkillLearningSetting,
   SkillOption,
   SkillSelectionEntry,
   SupportInfo,
-  UmaRlTrainingStatus,
+  TargetAttributeStage,
 } from 'renderer/components/autoResearch/types';
 
 import { loadUMDB } from 'renderer/utils/umdb';
-
-const SHOW_UMARL_TRAINING = false;
 
 const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
   umas: [],
@@ -127,7 +127,7 @@ const preferNewerRunner = (
 };
 
 export default function AutoResearch() {
-  const [activeTab, setActiveTab] = useState<AutoResearchTab>('accounts');
+  const [activeTab, setActiveTab] = useState<AutoResearchTab>('career');
   const [serverAddress, setServerAddress] = useState(
     () => localStorage.getItem('autoResearch.server') || DEFAULT_SERVER,
   );
@@ -136,6 +136,7 @@ export default function AutoResearch() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [captured, setCaptured] = useState<CapturedCredential[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [preparedAccountId, setPreparedAccountId] = useState('');
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [presets, setPresets] = useState<Preset[]>(() => [
     createDefaultPreset(),
@@ -153,7 +154,6 @@ export default function AutoResearch() {
   );
   const [disconnectingAccountId, setDisconnectingAccountId] = useState('');
   const sessionTokens = useRef(new Map<string, string>());
-  const autoConnectAttempted = useRef(false);
   const autoLoginAttempted = useRef('');
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
@@ -221,8 +221,12 @@ export default function AutoResearch() {
   const [uraAiTargetAttributes, setUraAiTargetAttributes] = useState(
     DEFAULT_EXPECT_ATTRIBUTE,
   );
+  const [uraAiTargetAttributeStages, setUraAiTargetAttributeStages] = useState<
+    TargetAttributeStage[]
+  >([]);
+  const [targetAttributeStageYearOffset, setTargetAttributeStageYearOffset] =
+    useState(0);
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
-  const [raceSearch, setRaceSearch] = useState('');
   const [umaSearch, setUmaSearch] = useState('');
   const [parentSearch, setParentSearch] = useState('');
   const [supportSearch, setSupportSearch] = useState('');
@@ -234,31 +238,11 @@ export default function AutoResearch() {
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
   const [newCareerPresetName, setNewCareerPresetName] = useState('');
-  const [careerHistory, setCareerHistory] = useState<CareerReportSummary[]>([]);
+  const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
   const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
-  const historyCareerSettingIdRef = useRef(historyCareerSettingId);
-  historyCareerSettingIdRef.current = historyCareerSettingId;
-  const umarlTrainingRequestRef = useRef<{
-    key: string;
-    controller: AbortController;
-    promise: Promise<void>;
-  } | null>(null);
-  const [selectedTrainingReportIds, setSelectedTrainingReportIds] = useState<
-    string[]
-  >([]);
-  const [selectedCareerReport, setSelectedCareerReport] =
-    useState<CareerReport | null>(null);
-  const [umarlTraining, setUmaRlTraining] =
-    useState<UmaRlTrainingStatus | null>(null);
-  const [umarlSettingModelAvailable, setUmaRlSettingModelAvailable] = useState<
-    boolean | null
+  const [selectedCareerRecords, setSelectedCareerRecords] = useState<
+    CareerSessionRecord[] | null
   >(null);
-  const [umarlTrainEpisodes, setUmaRlTrainEpisodes] = useState(2048);
-  const [umarlTrainGenerations, setUmaRlTrainGenerations] = useState(10);
-  const [umarlTrainEpochs, setUmaRlTrainEpochs] = useState(6);
-  const [umarlTrainBatchSize, setUmaRlTrainBatchSize] = useState(512);
-  const [umarlTrainMaxStates, setUmaRlTrainMaxStates] = useState(160);
-  const [umarlTrainRolloutWorkers, setUmaRlTrainRolloutWorkers] = useState(4);
 
   const skillPriorityNames = useMemo(
     () => skillSelections.flatMap((entry) => entry.skill_names),
@@ -364,7 +348,7 @@ export default function AutoResearch() {
       ),
     [accountCareerSettings, historyCareerSettingId],
   );
-  const historyCareerReports = useMemo(() => {
+  const historyCareerRecords = useMemo(() => {
     if (!historyCareerSetting) return [];
     return careerHistory.filter((report) => {
       if (report.career_setting_id) {
@@ -563,19 +547,6 @@ export default function AutoResearch() {
     selectedParent2,
     selectedUma,
   ]);
-  const filteredRaces = useMemo(() => {
-    const keyword = raceSearch.trim().toLowerCase();
-    return races
-      .filter(
-        (race) =>
-          !keyword ||
-          `${race.name} ${race.date} ${race.venue} ${race.type}`
-            .toLowerCase()
-            .includes(keyword),
-      )
-      .sort(compareRaces);
-  }, [raceSearch, races]);
-
   const request = useCallback(
     async <T,>(
       path: string,
@@ -596,6 +567,41 @@ export default function AutoResearch() {
         );
       }
       return body as T;
+    },
+    [server],
+  );
+
+  const streamLoginProgress = useCallback(
+    async (
+      loginId: string,
+      onProgress: (progress: LoginProgressResponse) => void,
+      signal: AbortSignal,
+    ) => {
+      const response = await fetch(
+        `${server}/api/auth/login-progress/${encodeURIComponent(loginId)}/stream`,
+        { signal },
+      );
+      if (!response.ok || !response.body) {
+        throw new Error(`login progress stream HTTP ${response.status}`);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (!signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const lines =
+          `${buffer}${decoder.decode(value, { stream: true })}`.split('\n');
+        buffer = lines.pop() || '';
+        lines.forEach((line) => {
+          if (!line.trim()) return;
+          try {
+            onProgress(JSON.parse(line) as LoginProgressResponse);
+          } catch {
+            // Keep the stream alive if a proxy splits or corrupts one record.
+          }
+        });
+      }
     },
     [server],
   );
@@ -885,7 +891,7 @@ export default function AutoResearch() {
       try {
         const result = await accountRequest<{
           success: boolean;
-          reports: CareerReportSummary[];
+          reports: CareerSessionRecord[];
         }>(accountId, '/api/account/career/history');
         setCareerHistory(result.reports || []);
       } catch (caught) {
@@ -897,164 +903,30 @@ export default function AutoResearch() {
     [accountRequest],
   );
 
-  const openCareerReport = async (reportId: string) => {
-    if (!selectedAccountId) return;
-    setBusy(`history-${reportId}`);
-    setError('');
-    try {
-      const result = await accountRequest<{
-        success: boolean;
-        report: CareerReport;
-      }>(
-        selectedAccountId,
-        `/api/account/career/history/${encodeURIComponent(reportId)}`,
-      );
-      setSelectedCareerReport(result.report);
-    } catch (caught) {
-      setError((caught as Error).message);
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const loadUmaRlTraining = useCallback(
-    (careerSettingId: string): Promise<void> => {
-      if (
-        !selectedAccountId ||
-        !careerSettingId ||
-        !sessionTokens.current.has(selectedAccountId)
-      ) {
-        return Promise.resolve();
+  const deleteCareerHistory = useCallback(
+    async (reportIds: string[]) => {
+      if (!selectedAccountId || !reportIds.length) return;
+      setBusy('history-delete');
+      setError('');
+      try {
+        const result = await accountRequest<{
+          success: boolean;
+          reports: CareerSessionRecord[];
+        }>(selectedAccountId, '/api/account/career/history/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report_ids: reportIds }),
+        });
+        setCareerHistory(result.reports || []);
+        setSelectedCareerRecords(null);
+      } catch (caught) {
+        setError((caught as Error).message);
+      } finally {
+        setBusy('');
       }
-      const accountId = selectedAccountId;
-      const requestKey = `${accountId}:${careerSettingId}`;
-      const existing = umarlTrainingRequestRef.current;
-      if (existing?.key === requestKey) {
-        return existing.promise;
-      }
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 10000);
-      const promise = (async () => {
-        try {
-          const result = await accountRequest<{
-            success: boolean;
-            training: UmaRlTrainingStatus;
-            umarl?: Record<string, unknown>;
-          }>(
-            accountId,
-            `/api/account/umarl/training?career_setting_id=${encodeURIComponent(careerSettingId)}`,
-            { signal: controller.signal },
-          );
-          if (
-            selectedAccountIdRef.current !== accountId ||
-            historyCareerSettingIdRef.current !== careerSettingId
-          ) {
-            return;
-          }
-          setUmaRlTraining(result.training);
-          if (result.umarl) {
-            setUmaRlSettingModelAvailable(
-              Boolean(result.umarl.model_available),
-            );
-            setHealth((current: any) => ({ ...current, umarl: result.umarl }));
-          }
-        } catch (caught) {
-          if ((caught as Error).name !== 'AbortError') {
-            setError((caught as Error).message);
-          }
-        } finally {
-          window.clearTimeout(timeout);
-        }
-      })().finally(() => {
-        if (umarlTrainingRequestRef.current?.controller === controller) {
-          umarlTrainingRequestRef.current = null;
-        }
-      });
-      umarlTrainingRequestRef.current = {
-        key: requestKey,
-        controller,
-        promise,
-      };
-      return promise;
     },
     [accountRequest, selectedAccountId],
   );
-
-  const startUmaRlTraining = async (reportIds: string[]) => {
-    if (!selectedAccountId || !historyCareerSetting || !reportIds.length) {
-      return;
-    }
-    setBusy('umarl-train');
-    setError('');
-    try {
-      const result = await accountRequest<{
-        success: boolean;
-        training: UmaRlTrainingStatus;
-        umarl?: Record<string, unknown>;
-      }>(selectedAccountId, '/api/account/umarl/training', {
-        method: 'POST',
-        body: JSON.stringify({
-          career_setting_id: historyCareerSetting.id,
-          career_setting_name: historyCareerSetting.name,
-          preset_name: historyCareerSetting.preset_name,
-          card_id: historyCareerSetting.card_id,
-          report_ids: reportIds,
-          episodes: umarlTrainEpisodes,
-          generations: umarlTrainGenerations,
-          epochs: umarlTrainEpochs,
-          batch_size: umarlTrainBatchSize,
-          rollout_workers: umarlTrainRolloutWorkers,
-          max_states: umarlTrainMaxStates,
-        }),
-      });
-      setUmaRlTraining(result.training);
-      if (result.umarl) {
-        setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
-        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
-      }
-    } catch (caught) {
-      setError((caught as Error).message);
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const cancelUmaRlTraining = async () => {
-    if (!selectedAccountId || !historyCareerSettingId) return;
-    setBusy('umarl-cancel');
-    try {
-      const result = await accountRequest<{
-        success: boolean;
-        training: UmaRlTrainingStatus;
-        umarl?: Record<string, unknown>;
-      }>(selectedAccountId, '/api/account/umarl/training/cancel', {
-        method: 'POST',
-        body: JSON.stringify({
-          career_setting_id: historyCareerSettingId,
-        }),
-      });
-      setUmaRlTraining(result.training);
-      if (result.umarl) {
-        setUmaRlSettingModelAvailable(Boolean(result.umarl.model_available));
-        setHealth((current: any) => ({ ...current, umarl: result.umarl }));
-      }
-    } catch (caught) {
-      setError((caught as Error).message);
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const refreshUmaRlTraining = async () => {
-    if (!historyCareerSettingId) return;
-    setBusy('umarl-refresh');
-    setError('');
-    try {
-      await loadUmaRlTraining(historyCareerSettingId);
-    } finally {
-      setBusy('');
-    }
-  };
 
   const connect = useCallback(
     async (address?: string) => {
@@ -1095,13 +967,6 @@ export default function AutoResearch() {
     },
     [serverAddress],
   );
-
-  useEffect(() => {
-    if (autoConnectAttempted.current) return;
-    autoConnectAttempted.current = true;
-    const storedServer = localStorage.getItem('autoResearch.server');
-    if (storedServer) connect(storedServer).catch(() => undefined);
-  }, [connect]);
 
   useEffect(() => {
     loadUMDB().catch(() => undefined);
@@ -1261,8 +1126,13 @@ export default function AutoResearch() {
     setUraAiTargetAttributes(
       numberArray(uraAi.target_attributes, DEFAULT_EXPECT_ATTRIBUTE),
     );
-    setSelectedRaceIds((preset.extra_race_list || []).map(Number));
-  }, [presetName, presets]);
+    setUraAiTargetAttributeStages(
+      normalizeTargetAttributeStages(uraAi.target_attribute_stages),
+    );
+    setSelectedRaceIds(
+      normalizeRaceSelection((preset.extra_race_list || []).map(Number), races),
+    );
+  }, [presetName, presets, races]);
 
   useEffect(() => {
     if (!selectedAccountId) {
@@ -1308,8 +1178,6 @@ export default function AutoResearch() {
   }, [careerSettings, selectedAccount?.uid, selectedCareerSettingId]);
 
   useEffect(() => {
-    umarlTrainingRequestRef.current?.controller.abort();
-    umarlTrainingRequestRef.current = null;
     setSelectedCareerSettingId('');
     setCareerSettingName('');
     setCareerPresetName('');
@@ -1318,27 +1186,12 @@ export default function AutoResearch() {
     setNewCareerPresetName('');
     setCareerHistory([]);
     setHistoryCareerSettingId('');
-    setSelectedTrainingReportIds([]);
-    setSelectedCareerReport(null);
-    setUmaRlTraining(null);
-    setUmaRlSettingModelAvailable(null);
+    setSelectedCareerRecords(null);
   }, [selectedAccountId]);
 
   useEffect(() => {
-    umarlTrainingRequestRef.current?.controller.abort();
-    umarlTrainingRequestRef.current = null;
-    setSelectedCareerReport(null);
-    setSelectedTrainingReportIds([]);
-    setUmaRlTraining(null);
-    setUmaRlSettingModelAvailable(null);
+    setSelectedCareerRecords(null);
   }, [historyCareerSettingId]);
-
-  useEffect(() => {
-    const available = new Set(historyCareerReports.map((report) => report.id));
-    setSelectedTrainingReportIds((current) =>
-      current.filter((reportId) => available.has(reportId)),
-    );
-  }, [historyCareerReports]);
 
   useEffect(() => {
     if (
@@ -1352,28 +1205,6 @@ export default function AutoResearch() {
   }, [
     activeTab,
     loadCareerHistory,
-    selectedAccount?.runtime.logged_in,
-    selectedAccountId,
-  ]);
-
-  useEffect(() => {
-    if (
-      activeTab !== 'history' ||
-      !SHOW_UMARL_TRAINING ||
-      !health?.umarl?.installed ||
-      !selectedAccountId ||
-      !historyCareerSettingId ||
-      !selectedAccount?.runtime.logged_in
-    ) {
-      return undefined;
-    }
-    loadUmaRlTraining(historyCareerSettingId).catch(() => undefined);
-    return undefined;
-  }, [
-    activeTab,
-    health?.umarl?.installed,
-    historyCareerSettingId,
-    loadUmaRlTraining,
     selectedAccount?.runtime.logged_in,
     selectedAccountId,
   ]);
@@ -1543,6 +1374,21 @@ export default function AutoResearch() {
     setManualAccessKey('');
   };
 
+  const prepareAccountBeforeServer = async (accountId: string) => {
+    setBusy(`prepare-${accountId}`);
+    setError('');
+    try {
+      await window.electron.autoResearch.credential(accountId);
+      setSelectedAccountId(accountId);
+      setPreparedAccountId(accountId);
+      localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
   const importUsersDb = async (file: File) => {
     setBusy('users-db');
     setError('');
@@ -1625,7 +1471,7 @@ export default function AutoResearch() {
           throw new Error('另一个账号正在登录，请等待当前登录完成');
         }
         const startedAt = Date.now();
-        let polling = true;
+        const progressController = new AbortController();
         setSelectedAccountId(accountId);
         setLoginProgress({
           accountId,
@@ -1649,32 +1495,32 @@ export default function AutoResearch() {
           setLoginProgress((current) =>
             current?.loginId === loginId ? { ...current, elapsed } : current,
           );
-          request<LoginProgressResponse>(
-            `/api/auth/login-progress/${encodeURIComponent(loginId)}`,
-          )
-            .then((progress) => {
-              if (!polling || !progress.found) return;
-              if (progress.done) {
-                polling = false;
-                window.clearInterval(progressTimer);
-              }
-              setLoginProgress((current) =>
-                current?.loginId === loginId
-                  ? {
-                      ...current,
-                      stage: progress.stage || current.stage,
-                      endpoint: progress.endpoint || '',
-                      detail: progress.detail || current.detail,
-                      delay: Number(progress.delay || 0),
-                      elapsed,
-                      done: Boolean(progress.done),
-                      error: String(progress.error || ''),
-                    }
-                  : current,
-              );
-            })
-            .catch(() => undefined);
-        }, 500);
+        }, 250);
+        const progressStream = streamLoginProgress(
+          loginId,
+          (progress) => {
+            if (!progress.found) return;
+            const elapsed = Math.max(
+              0,
+              Math.floor((Date.now() - startedAt) / 1000),
+            );
+            setLoginProgress((current) =>
+              current?.loginId === loginId
+                ? {
+                    ...current,
+                    stage: progress.stage || current.stage,
+                    endpoint: progress.endpoint || '',
+                    detail: progress.detail || current.detail,
+                    delay: Number(progress.delay || 0),
+                    elapsed,
+                    done: Boolean(progress.done),
+                    error: String(progress.error || ''),
+                  }
+                : current,
+            );
+          },
+          progressController.signal,
+        ).catch(() => undefined);
         try {
           const credential = (await window.electron.autoResearch.credential(
             accountId,
@@ -1691,8 +1537,9 @@ export default function AutoResearch() {
           sessionTokens.current.set(accountId, authenticated.token);
           return authenticated;
         } finally {
-          polling = false;
+          progressController.abort();
           window.clearInterval(progressTimer);
+          await progressStream.catch(() => undefined);
         }
       };
       if (action === 'login') {
@@ -1726,7 +1573,7 @@ export default function AutoResearch() {
           }
           const refreshId = `refresh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
           const startedAt = Date.now();
-          let polling = true;
+          const progressController = new AbortController();
           setLoginProgress({
             accountId,
             loginId: refreshId,
@@ -1749,32 +1596,32 @@ export default function AutoResearch() {
                 ? { ...current, elapsed }
                 : current,
             );
-            request<LoginProgressResponse>(
-              `/api/auth/login-progress/${encodeURIComponent(refreshId)}`,
-            )
-              .then((progress) => {
-                if (!polling || !progress.found) return;
-                if (progress.done) {
-                  polling = false;
-                  window.clearInterval(progressTimer);
-                }
-                setLoginProgress((current) =>
-                  current?.loginId === refreshId
-                    ? {
-                        ...current,
-                        stage: progress.stage || current.stage,
-                        endpoint: progress.endpoint || '',
-                        detail: progress.detail || current.detail,
-                        delay: Number(progress.delay || 0),
-                        elapsed,
-                        done: Boolean(progress.done),
-                        error: String(progress.error || ''),
-                      }
-                    : current,
-                );
-              })
-              .catch(() => undefined);
-          }, 500);
+          }, 250);
+          const progressStream = streamLoginProgress(
+            refreshId,
+            (progress) => {
+              if (!progress.found) return;
+              const elapsed = Math.max(
+                0,
+                Math.floor((Date.now() - startedAt) / 1000),
+              );
+              setLoginProgress((current) =>
+                current?.loginId === refreshId
+                  ? {
+                      ...current,
+                      stage: progress.stage || current.stage,
+                      endpoint: progress.endpoint || '',
+                      detail: progress.detail || current.detail,
+                      delay: Number(progress.delay || 0),
+                      elapsed,
+                      done: Boolean(progress.done),
+                      error: String(progress.error || ''),
+                    }
+                  : current,
+              );
+            },
+            progressController.signal,
+          ).catch(() => undefined);
           try {
             return await accountRequest<SessionResponse>(
               accountId,
@@ -1785,8 +1632,9 @@ export default function AutoResearch() {
               },
             );
           } finally {
-            polling = false;
+            progressController.abort();
             window.clearInterval(progressTimer);
+            await progressStream.catch(() => undefined);
           }
         };
         if (!sessionTokens.current.has(accountId)) {
@@ -1853,6 +1701,7 @@ export default function AutoResearch() {
         }
       } else if (result?.success) {
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+        if (action === 'login') setActiveTab('career');
       }
     } catch (caught) {
       setError((caught as Error).message);
@@ -1874,6 +1723,18 @@ export default function AutoResearch() {
   };
 
   accountActionRef.current = accountAction;
+
+  const exitAutoResearchLogin = async () => {
+    if (selectedAccountId && sessionTokens.current.has(selectedAccountId)) {
+      await accountAction(selectedAccountId, 'logout');
+    }
+    setServer('');
+    setHealth(null);
+    setSession(null);
+    setPreparedAccountId('');
+    setActiveTab('career');
+    autoLoginAttempted.current = '';
+  };
 
   useEffect(() => {
     if (
@@ -1982,7 +1843,7 @@ export default function AutoResearch() {
         localStorage.removeItem(LAST_ACCOUNT_KEY);
       }
       autoLoginAttempted.current = `${server}|${accountId}`;
-      setActiveTab('accounts');
+      setActiveTab('career');
     } catch (caught) {
       if (needsRelogin(caught)) {
         sessionTokens.current.delete(accountId);
@@ -2152,15 +2013,20 @@ export default function AutoResearch() {
         target_attributes: uraAiTargetAttributes.map((value) =>
           Math.max(0, Math.trunc(value)),
         ),
+        target_attribute_stages: normalizeTargetAttributeStages(
+          uraAiTargetAttributeStages,
+        ),
       },
-      extra_race_list: [...selectedRaceIds].sort((leftId, rightId) => {
-        const left = races.find((race) => race.id === leftId);
-        const right = races.find((race) => race.id === rightId);
-        if (left && right) return compareRaces(left, right);
-        if (left) return -1;
-        if (right) return 1;
-        return leftId - rightId;
-      }),
+      extra_race_list: normalizeRaceSelection(selectedRaceIds, races).sort(
+        (leftId, rightId) => {
+          const left = races.find((race) => race.id === leftId);
+          const right = races.find((race) => race.id === rightId);
+          if (left && right) return compareRaces(left, right);
+          if (left) return -1;
+          if (right) return 1;
+          return leftId - rightId;
+        },
+      ),
     };
   };
 
@@ -2941,46 +2807,266 @@ export default function AutoResearch() {
 
   if (!server) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
-        <div className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-          <div className="flex items-center gap-3 text-indigo-600">
-            <Server size={30} />
+      <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <header className="flex min-h-[60px] items-end border-b border-gray-200 pb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                连接 UmaAutoResearch
-              </h1>
-              <p className="text-sm text-slate-500">
-                UmaAutoResearch实现暂不开源
+              <div className="flex items-center gap-2 text-indigo-600">
+                <Activity size={24} />
+                <h1 className="text-xl font-semibold text-gray-800">
+                  自动育成
+                </h1>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                第一步准备登录账号，第二步填写自动育成服务器网址。
               </p>
             </div>
+          </header>
+
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+            <aside className="space-y-4">
+              <section className={panelClass('p-4')}>
+                <h2 className="flex items-center gap-2 font-bold">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
+                    1
+                  </span>
+                  准备登录账号
+                </h2>
+                <div className="mt-4">
+                  <p className="text-sm font-semibold text-slate-700">
+                    方法一：导入 users.db
+                  </p>
+                  <p className="mt-0.5 break-all text-xs text-slate-400">
+                    文件路径：
+                    /data/user/0/com.bilibili.umamusu/databases/users.db
+                  </p>
+                  <div
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragging(true);
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={onDrop}
+                    className={`mt-2 rounded-xl border-2 border-dashed p-4 text-center text-sm ${
+                      dragging
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-slate-200'
+                    }`}
+                  >
+                    <Database
+                      className="mx-auto mb-2 text-slate-400"
+                      size={24}
+                    />
+                    <p>拖入手机导出的 users.db</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      需要 Root 权限或能够访问应用数据目录。
+                    </p>
+                    <label className="mt-3 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50">
+                      <Upload className="mr-1" size={14} />
+                      选择文件
+                      <input
+                        type="file"
+                        accept=".db,application/x-sqlite3"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) importUsersDb(file);
+                          event.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-sm font-semibold text-slate-700">
+                    方法二：手动填写
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    直接填写游戏账号的 UID 和 access_key。
+                  </p>
+                  <div className="mt-2 grid gap-2">
+                    <input
+                      value={manualUid}
+                      onChange={(event) => setManualUid(event.target.value)}
+                      placeholder="uid"
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={manualAccessKey}
+                      onChange={(event) =>
+                        setManualAccessKey(event.target.value)
+                      }
+                      placeholder="access_key"
+                      type="password"
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={addManual}
+                      disabled={Boolean(busy)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      手动添加
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-sm font-semibold text-slate-700">
+                    方法三：通过 Localify 自动捕获
+                  </p>
+                  <ol className="mt-2 space-y-2 text-xs text-slate-600">
+                    <li className="flex items-start gap-2">
+                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
+                        1
+                      </span>
+                      <span>开启 Localify。</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
+                        2
+                      </span>
+                      <span>
+                        打开 <strong>Dump MessagePack</strong>，并启用其中的{' '}
+                        <strong>Dump request</strong>。
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
+                        3
+                      </span>
+                      <span>重新登录游戏，UmaShow 会自动捕获并保存账号。</span>
+                    </li>
+                  </ol>
+                  <div
+                    className={`mt-3 rounded-lg px-3 py-2 text-xs ${
+                      captured.length
+                        ? 'bg-emerald-50 text-emerald-800'
+                        : 'bg-indigo-50 text-indigo-700'
+                    }`}
+                  >
+                    {captured.length
+                      ? `已经通过请求捕获 ${captured.length} 个登录凭据，账号会自动出现在右侧列表。`
+                      : '等待游戏请求；捕获成功后账号会自动出现在右侧列表。'}
+                  </div>
+                </div>
+              </section>
+            </aside>
+
+            <main className="space-y-4 min-w-0">
+              <section className={panelClass('p-4')}>
+                <h2 className="flex items-center gap-2 font-bold">
+                  <Users size={18} />
+                  选择并登录账号
+                </h2>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {accounts.map((account) => (
+                    <button
+                      type="button"
+                      key={account.id}
+                      onClick={() => {
+                        setSelectedAccountId(account.id);
+                        setPreparedAccountId('');
+                        setError('');
+                      }}
+                      disabled={Boolean(busy)}
+                      className={`rounded-xl border p-3 text-left transition disabled:opacity-50 ${
+                        selectedAccountId === account.id
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : 'border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
+                      <p className="truncate font-semibold">
+                        {account.label || `UID ${account.uid}`}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {account.uid} · {account.accessKeyPreview}
+                      </p>
+                    </button>
+                  ))}
+                  {!accounts.length ? (
+                    <p className="col-span-full py-8 text-center text-sm text-slate-400">
+                      请先添加一个账号。
+                    </p>
+                  ) : null}
+                </div>
+                {selectedAccount && preparedAccountId !== selectedAccount.id ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      prepareAccountBeforeServer(selectedAccount.id)
+                    }
+                    disabled={Boolean(busy)}
+                    className="mt-4 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    <LogIn size={16} />
+                    {busy === `prepare-${selectedAccount.id}`
+                      ? '正在准备账号…'
+                      : '登录账号'}
+                  </button>
+                ) : null}
+              </section>
+
+              {selectedAccount && preparedAccountId === selectedAccount.id ? (
+                <section className={panelClass('p-5')}>
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-emerald-100 p-2 text-emerald-700">
+                      <Check size={20} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold">账号已经准备好</h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {selectedAccount.label || `UID ${selectedAccount.uid}`}
+                      </p>
+                    </div>
+                  </div>
+                  <label
+                    className="mt-5 block text-sm font-semibold text-slate-700"
+                    htmlFor="auto-server"
+                  >
+                    填写自动育成服务器网址
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      id="auto-server"
+                      value={serverAddress}
+                      onChange={(event) => setServerAddress(event.target.value)}
+                      onKeyDown={(event) =>
+                        event.key === 'Enter' &&
+                        connect().catch(() => undefined)
+                      }
+                      className="min-w-0 flex-1 rounded-md border border-gray-200 px-4 py-3 outline-none focus:border-indigo-400"
+                      placeholder={DEFAULT_SERVER}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => connect().catch(() => undefined)}
+                      disabled={busy === 'connect'}
+                      className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      <Server size={16} />
+                      {busy === 'connect' ? '连接中…' : '连接并进入'}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    连接成功后会使用上方准备好的账号自动登录服务端。
+                  </p>
+                </section>
+              ) : (
+                <section className={panelClass('p-12 text-center')}>
+                  <LogIn className="mx-auto text-slate-300" size={42} />
+                  <p className="mt-3 text-slate-500">
+                    完成第一步后，会在这里填写自动育成服务器网址。
+                  </p>
+                </section>
+              )}
+            </main>
           </div>
-          <label
-            className="mt-8 block text-sm font-semibold text-slate-700"
-            htmlFor="auto-server"
-          >
-            服务器地址
-          </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="auto-server"
-              value={serverAddress}
-              onChange={(event) => setServerAddress(event.target.value)}
-              onKeyDown={(event) =>
-                event.key === 'Enter' && connect().catch(() => undefined)
-              }
-              className="min-w-0 flex-1 rounded-md border border-gray-200 px-4 py-3 outline-none focus:border-indigo-400"
-              placeholder={DEFAULT_SERVER}
-            />
-            <button
-              type="button"
-              onClick={() => connect().catch(() => undefined)}
-              disabled={busy === 'connect'}
-              className="rounded-md bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {busy === 'connect' ? '连接中…' : '连接'}
-            </button>
-          </div>
-          {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
         </div>
       </div>
     );
@@ -3497,14 +3583,12 @@ export default function AutoResearch() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setServer('');
-                setHealth(null);
-              }}
+              onClick={() => exitAutoResearchLogin().catch(() => undefined)}
               disabled={Boolean(loginProgress || disconnectingAccountId)}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              更换服务器
+              <LogOut className="mr-1 inline" size={15} />
+              退出登录
             </button>
           </div>
         </header>
@@ -3515,7 +3599,6 @@ export default function AutoResearch() {
             aria-label="自动育成设置"
           >
             {[
-              { id: 'accounts' as const, label: '账号', icon: Users },
               { id: 'presets' as const, label: '预设', icon: Settings2 },
               { id: 'career' as const, label: '详设', icon: ListChecks },
               { id: 'progress' as const, label: '当前养马', icon: Activity },
@@ -4068,6 +4151,16 @@ export default function AutoResearch() {
                     health={health}
                     uraAiTargetAttributes={uraAiTargetAttributes}
                     setUraAiTargetAttributes={setUraAiTargetAttributes}
+                    uraAiTargetAttributeStages={uraAiTargetAttributeStages}
+                    setUraAiTargetAttributeStages={
+                      setUraAiTargetAttributeStages
+                    }
+                    targetAttributeStageYearOffset={
+                      targetAttributeStageYearOffset
+                    }
+                    setTargetAttributeStageYearOffset={
+                      setTargetAttributeStageYearOffset
+                    }
                     uraAiTimeBudget={uraAiTimeBudget}
                     setUraAiTimeBudget={setUraAiTimeBudget}
                     uraAiMinRollouts={uraAiMinRollouts}
@@ -4078,9 +4171,7 @@ export default function AutoResearch() {
                     setUraAiWorkers={setUraAiWorkers}
                     uraAiRiskFactor={uraAiRiskFactor}
                     setUraAiRiskFactor={setUraAiRiskFactor}
-                    raceSearch={raceSearch}
-                    setRaceSearch={setRaceSearch}
-                    filteredRaces={filteredRaces}
+                    races={races}
                     selectedRaceIds={selectedRaceIds}
                     setSelectedRaceIds={setSelectedRaceIds}
                   />
@@ -4183,12 +4274,8 @@ export default function AutoResearch() {
                 {dashboard && activeTab === 'history' ? (
                   <HistoryTab
                     dashboard={dashboard}
-                    selectedCareerReport={selectedCareerReport}
-                    setSelectedCareerReport={setSelectedCareerReport}
-                    health={health}
-                    showUmaRlTraining={SHOW_UMARL_TRAINING}
-                    umarlTraining={umarlTraining}
-                    startUmaRlTraining={startUmaRlTraining}
+                    selectedCareerRecords={selectedCareerRecords}
+                    setSelectedCareerRecords={setSelectedCareerRecords}
                     busy={busy}
                     historyCareerSetting={historyCareerSetting}
                     loadCareerHistory={loadCareerHistory}
@@ -4196,25 +4283,9 @@ export default function AutoResearch() {
                     historyCareerSettingId={historyCareerSettingId}
                     setHistoryCareerSettingId={setHistoryCareerSettingId}
                     accountCareerSettings={accountCareerSettings}
-                    umarlSettingModelAvailable={umarlSettingModelAvailable}
-                    cancelUmaRlTraining={cancelUmaRlTraining}
-                    refreshUmaRlTraining={refreshUmaRlTraining}
-                    selectedTrainingReportIds={selectedTrainingReportIds}
-                    setSelectedTrainingReportIds={setSelectedTrainingReportIds}
-                    umarlTrainEpisodes={umarlTrainEpisodes}
-                    setUmaRlTrainEpisodes={setUmaRlTrainEpisodes}
-                    umarlTrainGenerations={umarlTrainGenerations}
-                    setUmaRlTrainGenerations={setUmaRlTrainGenerations}
-                    umarlTrainEpochs={umarlTrainEpochs}
-                    setUmaRlTrainEpochs={setUmaRlTrainEpochs}
-                    umarlTrainBatchSize={umarlTrainBatchSize}
-                    setUmaRlTrainBatchSize={setUmaRlTrainBatchSize}
-                    umarlTrainMaxStates={umarlTrainMaxStates}
-                    setUmaRlTrainMaxStates={setUmaRlTrainMaxStates}
-                    umarlTrainRolloutWorkers={umarlTrainRolloutWorkers}
-                    setUmaRlTrainRolloutWorkers={setUmaRlTrainRolloutWorkers}
-                    historyCareerReports={historyCareerReports}
-                    openCareerReport={openCareerReport}
+                    historyCareerRecords={historyCareerRecords}
+                    deleteCareerHistory={deleteCareerHistory}
+                    races={races}
                   />
                 ) : null}
               </>

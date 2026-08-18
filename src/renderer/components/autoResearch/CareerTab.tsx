@@ -220,7 +220,7 @@ export default function CareerTab(props: CareerTabProps) {
                 ) : (
                   <CircleStop size={16} />
                 )}
-                {runnerStopping ? '正在停止…' : '停止自动操作'}
+                {runnerStopping ? '正在暂停…' : '暂停自动操作'}
               </button>
             </>
           ) : null}
@@ -491,7 +491,7 @@ export default function CareerTab(props: CareerTabProps) {
                 ) : (
                   <CircleStop size={17} />
                 )}
-                {runnerStopping ? '正在停止…' : '停止自动操作'}
+                {runnerStopping ? '正在暂停…' : '暂停自动操作'}
               </button>
             ) : (
               <>

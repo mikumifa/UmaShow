@@ -1,0 +1,6787 @@
+.successionPlannerPage {
+  --uma-bg: #f5f6f8;
+  --uma-surface: #ffffff;
+  --uma-surface-soft: #f8fafc;
+  --uma-surface-muted: #eef2f7;
+  --uma-border: #d7dce5;
+  --uma-border-strong: #b8c0cc;
+  --uma-text: #18202b;
+  --uma-muted: #5f6b7a;
+  --uma-subtle: #8a94a3;
+  --uma-accent: #1f66d1;
+  --uma-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --uma-mono: 'Consolas', 'Microsoft YaHei UI', 'Microsoft YaHei', monospace;
+  min-height: 100vh;
+  padding: 18px;
+  background: var(--uma-bg);
+  color: var(--uma-text);
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+}
+
+.successionPlannerPage *,
+.successionPlannerPage *::before,
+.successionPlannerPage *::after {
+  box-sizing: border-box;
+}
+
+.successionPlannerPage button,
+.successionPlannerPage input,
+.successionPlannerPage select {
+  font: inherit;
+}
+
+.successionIndexStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--uma-border);
+  border-radius: 10px;
+  background: var(--uma-surface);
+  box-shadow: var(--uma-shadow);
+}
+
+.successionIndexStatus h1,
+.successionIndexStatus p {
+  margin: 0;
+}
+
+.successionIndexStatus h1 {
+  font-size: 22px;
+}
+
+.successionIndexStatus p {
+  margin-top: 3px;
+  color: var(--uma-muted);
+  font-size: 13px;
+}
+
+.successionIndexStatus > div:last-child {
+  display: flex;
+  min-width: 290px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: right;
+}
+
+.successionIndexStatus > div:last-child.captured {
+  background: #ecfdf3;
+  color: #087443;
+}
+
+.successionIndexStatus > div:last-child.waiting {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.successionIndexStatus span {
+  font-size: 12px;
+}
+
+.successionLoadedHeading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.successionAddPlayersButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #818cf8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.successionAddPlayersButton:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.successionPlanner {
+  --succession-paternal: #1687a7;
+  --succession-paternal-soft: #e7f7fb;
+  --succession-maternal: #d95d8b;
+  --succession-maternal-soft: #fff0f5;
+  --succession-gold: #d68b12;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.successionCapturedPickerDialog {
+  width: min(1240px, calc(100vw - 28px));
+}
+
+.successionMatchingCapturedDialog {
+  width: min(1320px, calc(100vw - 28px));
+}
+
+.successionMatchingCapturedDialog .successionCapturedPickerGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.successionCapturedPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  grid-auto-flow: row;
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: start;
+  min-height: 0;
+  flex: 1 1 auto;
+  gap: 10px;
+  max-height: min(68vh, 720px);
+  overflow: auto;
+  padding: 12px;
+}
+
+.successionCapturedPickerCard {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 11px;
+  border: 1px solid var(--uma-border);
+  border-radius: 9px;
+  background: var(--uma-surface);
+  color: var(--uma-text);
+  text-align: left;
+  cursor: pointer;
+  isolation: isolate;
+}
+
+.successionCapturedPickerCard:hover,
+.successionCapturedPickerCard:focus-visible {
+  border-color: var(--uma-accent);
+  background: #f5f9ff;
+}
+
+.successionCapturedPickerCard:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--uma-accent) 32%, transparent);
+  outline-offset: 2px;
+}
+
+.successionCapturedPickerCard.viewOnly {
+  cursor: default;
+}
+
+.successionCapturedPickerCard.viewOnly:hover {
+  border-color: var(--uma-border);
+  background: var(--uma-surface);
+}
+
+.successionCapturedPickerSelf {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.successionCapturedPickerSelf > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.successionCapturedPortrait {
+  display: block;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  overflow: hidden;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+
+.successionCapturedPortrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.successionCapturedIdentity {
+  flex: 1;
+}
+
+.successionCapturedMemberDetails {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.successionCapturedMatchFactorRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.successionCapturedMatchFactorRow .successionCapturedMemberDetails {
+  min-width: 0;
+}
+
+.successionCapturedMatchFactorRow .successionCandidateCopyViewerId {
+  min-height: 25px;
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid #c4b5fd;
+  border-radius: 5px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCapturedFactorCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.successionCapturedFactorCounts > span {
+  padding: 3px 6px;
+  border: 1px solid;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionCapturedFactorCounts b {
+  color: inherit;
+}
+
+.successionCapturedFactorCounts .stat {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.successionCapturedFactorCounts .distance {
+  border-color: #fbcfe8;
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.successionCapturedFactorCounts .unique {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.successionCapturedFactorCounts .white {
+  border-color: #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+}
+
+.successionCandidateCapturedSource {
+  color: #7c3aed !important;
+  font-size: 9px !important;
+  font-weight: 800;
+}
+
+.successionCapturedCompatibility {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.successionCapturedCompatibility > span {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+}
+
+.successionCapturedCompatibility small,
+.successionCapturedCompatibility em {
+  color: #64748b;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.successionCapturedCompatibility em {
+  display: grid;
+  gap: 1px;
+}
+
+.successionCapturedCompatibility strong {
+  color: #1d4ed8;
+  font-size: 12px;
+}
+
+.successionCapturedPickerSelf strong,
+.successionCapturedPickerSelf span,
+.successionCapturedPickerSelf em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedPickerSelf span {
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionCapturedPickerSelf em {
+  color: #b45309;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.successionCapturedPickerParents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--uma-border);
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionCapturedPickerParents > section {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.successionMatchingCapturedDialog
+  .successionCapturedPickerParents
+  .successionCapturedMemberDetails {
+  width: 100%;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--uma-border);
+}
+
+.successionMatchingCapturedDialog
+  .successionCapturedPickerParents
+  .successionCapturedFactorCounts {
+  width: 100%;
+}
+
+.successionCapturedParentHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.successionCapturedParentHeader .successionCapturedPortrait {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+}
+
+.successionCapturedParentHeader > span {
+  display: grid;
+  min-width: 0;
+}
+
+.successionCapturedParentHeader small {
+  font-size: 9px;
+}
+
+.successionCapturedParentHeader strong {
+  overflow: hidden;
+  color: var(--uma-text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedPickerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionCapturedPickerActions button {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+.successionCapturedPickerActions .successionUseCapturedUma {
+  margin-left: auto;
+}
+
+.successionCapturedPickerEmpty {
+  padding: 42px 20px;
+  color: var(--uma-muted);
+  text-align: center;
+}
+
+.successionCapturedOwnershipWarning {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid #fdba74;
+  border-radius: 7px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .successionPlannerPage {
+    padding: 10px;
+  }
+
+  .successionCapturedPickerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .successionMatchingCapturedDialog .successionCapturedPickerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCapturedPickerParents {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCapturedPickerActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .successionCapturedPickerActions button,
+  .successionCapturedPickerActions .successionUseCapturedUma {
+    width: 100%;
+    max-width: none;
+  }
+
+  .successionIndexStatus {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .successionIndexStatus > div:last-child {
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.successionPlanner small {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+.successionHero,
+.successionTargetPanel,
+.successionPanel,
+.successionLockedState {
+  border: 1px solid var(--uma-border);
+  border-radius: 10px;
+  background: var(--uma-surface);
+  box-shadow: var(--uma-shadow);
+}
+
+.successionHero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  padding: 24px 26px;
+  background:
+    radial-gradient(
+      circle at 88% 12%,
+      rgba(255, 207, 102, 0.27),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 72% 100%,
+      rgba(219, 39, 119, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(125deg, #ffffff 0%, #f8fbff 55%, #fff9ef 100%);
+}
+
+.successionHero h1,
+.successionHero p,
+.successionSectionIntro h2,
+.successionSectionIntro p,
+.successionSectionHeading h2,
+.successionSectionHeading p {
+  margin: 0;
+}
+
+.successionHero h1 {
+  margin: 4px 0 6px;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.successionHero p {
+  color: var(--uma-muted);
+  font-size: 15px;
+}
+
+.successionEyebrow,
+.successionSectionIntro > span,
+.successionSectionHeading > div > span,
+.successionProbabilityCard > span {
+  color: var(--succession-gold);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.successionHeroActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.successionHeroActions > span {
+  color: var(--uma-muted);
+  font-size: 12px;
+}
+
+.successionSteps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.successionSteps li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  color: var(--uma-subtle);
+  font-weight: 700;
+}
+
+.successionSteps li:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  left: 98px;
+  height: 1px;
+  background: var(--uma-border);
+  content: '';
+}
+
+.successionSteps b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--uma-border-strong);
+  border-radius: 50%;
+  background: var(--uma-surface);
+  font-size: 12px;
+}
+
+.successionSteps li.active {
+  color: var(--uma-text);
+}
+
+.successionSteps li.active b {
+  border-color: var(--uma-accent);
+  background: var(--uma-accent);
+  color: #fff;
+}
+
+.successionTargetPanel,
+.successionPanel {
+  padding: 16px;
+}
+
+.successionTargetPanel {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(380px, 1.2fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.successionSectionIntro,
+.successionSectionHeading > div:first-child {
+  min-width: 0;
+}
+
+.successionSectionIntro h2,
+.successionSectionHeading h2 {
+  margin-top: 3px;
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.successionSectionIntro p,
+.successionSectionHeading p {
+  margin-top: 6px;
+  color: var(--uma-muted);
+  font-size: 13px;
+}
+
+.successionUmaSelect {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: var(--uma-surface-soft);
+}
+
+.successionUmaSelect.selected {
+  border-color: #b7c8e7;
+  background: #f7faff;
+}
+
+.successionUmaSelectTitle {
+  position: relative;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionUmaSelectTitle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionUmaSelectActions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.successionUmaSelectTitle .successionUmaSelectActions button {
+  position: static;
+  min-height: 22px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--uma-subtle);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.successionUmaSelectTitle
+  .successionUmaSelectActions
+  .successionUseCapturedUma {
+  color: var(--uma-accent);
+  font-weight: 800;
+}
+
+.successionUmaSelectTitle
+  .successionUmaSelectActions
+  .successionCopySelectedViewerId {
+  color: #7c3aed;
+  font-weight: 800;
+}
+
+.successionUmaSelectTitle
+  .successionUmaSelectActions
+  .successionCancelCapturedUma {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.successionUmaSelectTitle
+  .successionUmaSelectActions
+  .successionFixedDressSwitch {
+  color: #087f5b;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.successionFixedDressDialog {
+  width: min(760px, 100%);
+}
+
+.successionFixedDressGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  min-height: 0;
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.successionFixedDressOption {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 9px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--uma-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--uma-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.successionFixedDressOption:hover,
+.successionFixedDressOption.selected {
+  border-color: #059669;
+  background: #ecfdf5;
+}
+
+.successionFixedDressPortrait {
+  grid-row: 1 / 3;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.successionFixedDressOption strong,
+.successionFixedDressOption small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionFixedDressOption small {
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionFixedDressOption > svg {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: #059669;
+}
+
+.successionFixedDressFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  border-top: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionSelectedUma {
+  min-width: 0;
+}
+
+.successionSelectedUma > div {
+  min-width: 0;
+}
+
+.successionSelectedUma strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionUmaCompatibility {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-width: 48px;
+  padding-left: 8px;
+  border-left: 1px solid var(--uma-border);
+  text-align: right;
+}
+
+.successionUmaCompatibility small,
+.successionUmaCompatibility strong {
+  display: block;
+}
+
+.successionUmaCompatibility small {
+  color: var(--uma-muted);
+  font-size: 9px;
+}
+
+.successionUmaCompatibility strong {
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.successionUmaTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 92px;
+  padding: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+}
+
+.successionUmaTrigger:hover {
+  border-color: var(--uma-accent);
+  background: #f7faff;
+}
+
+.successionUmaTrigger:disabled {
+  opacity: 1;
+  color: inherit;
+  cursor: default;
+}
+
+.successionUmaTrigger:disabled:hover {
+  background: transparent;
+}
+
+.successionUmaTrigger .successionPortrait {
+  width: 52px;
+  height: 52px;
+}
+
+.successionUmaPlaceholder,
+.successionUmaPlaceholder strong,
+.successionUmaPlaceholder small {
+  display: block;
+}
+
+.successionUmaPlaceholder,
+.successionSelectedUma {
+  flex: 1 1 auto;
+}
+
+.successionUmaPlaceholder small {
+  margin-top: 3px;
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionPickerOverlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.successionPickerDialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  max-height: min(88vh, 900px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  background: var(--uma-surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
+}
+
+.successionPlayerScanDialog {
+  width: min(860px, 100%);
+}
+
+.successionPlayerScanBody {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.successionPlayerScanBody > section {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--uma-border);
+}
+
+.successionPlayerScanSectionTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.successionPlayerScanSectionTitle strong {
+  font-size: 14px;
+}
+
+.successionPlayerScanSectionTitle span {
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionPlayerScanSectionTitle > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.successionPlayerScanAccounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.successionPlayerScanAccounts button {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--uma-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.successionPlayerScanAccounts button:hover,
+.successionPlayerScanAccounts button.selected {
+  border-color: #818cf8;
+  background: #eef2ff;
+}
+
+.successionPlayerScanAccounts button.selected {
+  box-shadow: inset 3px 0 #6366f1;
+}
+
+.successionPlayerScanAccounts button span {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--uma-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionPlayerScanEmpty {
+  margin: 0;
+  color: var(--uma-muted);
+  font-size: 12px;
+}
+
+.successionPlayerScanTargets textarea {
+  width: 100%;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--uma-text);
+  outline: none;
+}
+
+.successionPlayerScanTargets textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.successionPlayerScanFooter button {
+  border: 1px solid #6366f1;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.successionPlayerScanTargets textarea {
+  min-height: 150px;
+  resize: vertical;
+  padding: 11px 12px;
+  font-family: var(--uma-mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+
+.successionPlayerScanProgress,
+.successionPlayerScanMessage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.successionPlayerScanProgress {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.successionPlayerScanMessage.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.successionPlayerScanMessage.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.successionPlayerScanSavedToolbar {
+  display: flex;
+  gap: 6px;
+}
+
+.successionPlayerScanSavedToolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--uma-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--uma-text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.successionPlayerScanSavedToolbar button:hover {
+  border-color: #818cf8;
+  color: #4338ca;
+}
+
+.successionPlayerScanSavedToolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.successionPlayerScanSavedToolbar button.danger {
+  color: #b91c1c;
+}
+
+.successionPlayerScanSavedToolbar button.danger:hover {
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.successionPlayerScanFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 22px;
+  background: var(--uma-surface-soft);
+}
+
+.successionPlayerScanFooter span {
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionPlayerScanFooter button {
+  min-width: 150px;
+  padding: 9px 15px;
+}
+
+.successionPlayerScanAccounts button:disabled,
+.successionPlayerScanFooter button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.successionPickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px 15px;
+  border-bottom: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionPickerHeader span {
+  color: #6366f1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.successionPickerHeader h3,
+.successionPickerHeader p {
+  margin: 0;
+}
+
+.successionPickerHeader h3 {
+  margin-top: 3px;
+  font-size: 24px;
+}
+
+.successionPickerHeader p {
+  margin-top: 4px;
+  color: var(--uma-muted);
+  font-size: 12px;
+}
+
+.successionPickerClose {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.successionPickerToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--uma-border);
+  background: var(--uma-surface-soft);
+}
+
+.successionPickerSearch {
+  position: relative;
+  display: block;
+}
+
+.successionPickerSearch input {
+  width: 100%;
+  min-height: 40px;
+  padding-left: 12px;
+  border-radius: 9px;
+}
+
+.successionPickerMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.successionPickerMeta span {
+  margin-right: auto;
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionPickerMeta button {
+  min-height: 27px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.successionPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  overflow-y: auto;
+  padding: 16px 22px 22px;
+  background: #eef2f7;
+}
+
+.successionPickerCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 102px;
+  padding: 9px 11px;
+  border-color: var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.successionPickerCard:hover {
+  border-color: var(--uma-accent);
+  background: #f8fbff;
+  transform: translateY(-1px);
+}
+
+.successionPickerCard.selected {
+  border-color: #818cf8;
+  background: #eef2ff;
+  box-shadow: 0 0 0 2px #e0e7ff;
+}
+
+.successionPickerCard.selected .successionPickerCardBody > strong {
+  padding-right: 27px;
+}
+
+.successionPickerCard.occupied {
+  border-style: dashed;
+  background: #f4f5f7;
+  opacity: 0.78;
+}
+
+.successionPickerCard.occupied:hover {
+  border-color: var(--uma-border);
+  background: #f4f5f7;
+  transform: none;
+}
+
+.successionPickerCard.occupied .successionPickerCardBody > strong {
+  padding-right: 58px;
+}
+
+.successionPickerCard .successionPortrait.large {
+  width: 64px;
+  height: 64px;
+}
+
+.successionPickerCardBody {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.successionPickerCardBody > strong {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.successionPickerCard > em {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.successionPickerCard > em.occupied {
+  width: auto;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #7c8492;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.successionAptitudeRows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.successionAptitudeRow {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.successionAptitudeRow > div {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.successionAptitudeRow span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: var(--uma-surface-muted);
+}
+
+.successionAptitudeRow small {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.successionAptitudeRow .successionRankIcon {
+  height: 20px;
+}
+
+.successionAptitudeRows.picker {
+  gap: 1px;
+  margin-top: 3px;
+}
+
+.successionAptitudeRows.picker .successionAptitudeRow > div {
+  gap: 2px;
+}
+
+.successionAptitudeRows.picker .successionAptitudeRow span {
+  padding: 0 3px;
+}
+
+.successionAptitudeRows.picker .successionAptitudeRow small {
+  font-size: 14px;
+}
+
+.successionAptitudeRows.picker .successionAptitudeRow .successionRankIcon {
+  height: 19px;
+}
+
+.successionPickerEmpty {
+  grid-column: 1 / -1;
+  padding: 58px 20px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.successionPickerEmpty p {
+  margin: 4px 0 12px;
+  color: var(--uma-muted);
+}
+
+.successionPickerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--uma-border);
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionPickerFooter button {
+  min-width: 76px;
+  border-color: #18202b;
+  background: #18202b;
+  color: #fff;
+}
+
+.successionPickerFooter button:hover {
+  border-color: #334155;
+  background: #334155;
+}
+
+.successionPortrait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #e8eef8;
+  box-shadow:
+    0 0 0 1px var(--uma-border),
+    0 2px 8px rgba(30, 41, 59, 0.12);
+  object-fit: cover;
+}
+
+.successionPortrait.large {
+  width: 76px;
+  height: 76px;
+  font-size: 24px;
+}
+
+.successionPortrait.empty,
+.successionPortrait.fallback {
+  color: var(--uma-muted);
+  font-weight: 800;
+}
+
+.successionFactorIcon,
+.successionRankIcon {
+  display: inline-block;
+  flex: 0 0 auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.successionFactorIcon {
+  width: 58px;
+  height: 32px;
+}
+
+.successionFactorIcon.compact {
+  width: 31px;
+  height: 17px;
+}
+
+.successionRankIcon {
+  width: auto;
+  height: 31px;
+}
+
+.successionRankIcon.compact {
+  height: 17px;
+}
+
+.successionRankFallback {
+  font-family: var(--uma-mono);
+}
+
+.successionFactorStarStack {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.successionFactorStarSources {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.successionFactorStarSources i {
+  display: inline-flex;
+  align-items: center;
+  font-style: normal;
+}
+
+.successionFactorStarSources img {
+  width: 48px;
+  height: auto;
+  object-fit: contain;
+}
+
+.successionFactorStarSources em {
+  margin-left: -5px;
+  color: #b42368;
+  font-family: var(--uma-mono);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionFactorStarStack b {
+  flex: 0 0 auto;
+  font-family: var(--uma-mono);
+  font-size: 11px;
+}
+
+.successionFactorStarStack.compact {
+  gap: 2px;
+}
+
+.successionFactorStarStack.compact .successionFactorStarSources {
+  gap: 0;
+}
+
+.successionFactorStarStack.compact .successionFactorStarSources img {
+  width: 29px;
+}
+
+.successionFactorStarStack.compact .successionFactorStarSources em {
+  margin-left: -4px;
+  font-size: 8px;
+}
+
+.successionFactorStarStack.compact b {
+  font-size: 9px;
+}
+
+.successionCandidateAptitudes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.successionCandidateAptitudes span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: var(--uma-surface-muted);
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.successionCandidateAptitudes small {
+  color: var(--uma-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.successionTargetSummary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border-left: 3px solid var(--uma-accent);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f6ff, #fff);
+}
+
+.successionTargetSummary > div:nth-child(2) {
+  min-width: 100px;
+}
+
+.successionTargetSummary > div:nth-child(2) strong,
+.successionTargetSummary > div:nth-child(2) span {
+  display: block;
+}
+
+.successionTargetSummary > div:nth-child(2) strong {
+  font-size: 17px;
+}
+
+.successionTargetSummary > div:nth-child(2) span {
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionTargetAptitudes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(42px, 1fr));
+  gap: 3px;
+  width: 100%;
+}
+
+.successionAptitude {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  border: 1px solid var(--uma-border);
+  border-radius: 5px;
+  background: #fff;
+}
+
+.successionAptitude small {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionAptitude .successionRankIcon {
+  height: 23px;
+}
+
+.successionLockedState {
+  padding: 44px 20px;
+  text-align: center;
+}
+
+.successionLockedState > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--uma-surface-muted);
+  color: var(--uma-subtle);
+  font-weight: 800;
+}
+
+.successionLockedState strong,
+.successionLockedState p {
+  display: block;
+  margin: 0;
+}
+
+.successionLockedState p {
+  margin-top: 5px;
+  color: var(--uma-muted);
+}
+
+.successionSectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 11px;
+}
+
+.successionTargetSetup {
+  position: relative;
+  display: grid;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.successionTargetSetup.hasTarget {
+  grid-template-columns: minmax(0, 620px);
+  justify-content: center;
+}
+
+.successionTargetSetup:not(.hasTarget) {
+  display: flex;
+  justify-content: center;
+}
+
+.successionTargetSetup.hasTarget::after {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  width: 2px;
+  height: 14px;
+  background: var(--uma-border-strong);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionTargetBar {
+  position: relative;
+  display: grid;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.successionTargetBar.hasTarget {
+  display: block;
+  height: 100%;
+}
+
+.successionTargetInline {
+  width: min(460px, 100%);
+  min-width: 0;
+}
+
+.successionTargetSetup.hasTarget .successionTargetInline {
+  width: 100%;
+  height: 100%;
+}
+
+.successionTargetSetup.hasTarget .successionTargetInline .successionUmaSelect {
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.successionTargetInline .successionUmaSelect.selected {
+  border-color: var(--uma-border-strong);
+  background: #fff;
+}
+
+.successionTargetInline .successionAptitudeRows.compact {
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.successionTargetInline .successionAptitudeRow span {
+  padding: 0 3px;
+}
+
+.successionTargetInline .successionAptitudeRow .successionRankIcon {
+  height: 18px;
+}
+
+.successionResetLineage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--uma-border);
+  border-radius: 999px;
+  background: var(--uma-surface-soft);
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionResetLineage:hover {
+  border-color: var(--uma-border-strong);
+  background: #fff;
+  color: var(--uma-text);
+}
+
+.successionResetLineage span {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.successionGlobalInheritance {
+  height: 100%;
+  min-width: 0;
+}
+
+.successionTargetHint {
+  padding: 18px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 7px;
+  background: var(--uma-surface-soft);
+  color: var(--uma-muted);
+  text-align: center;
+}
+
+.successionLineageGrid,
+.successionRoutes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.successionLineageGrid {
+  position: relative;
+  width: min(1180px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.successionLineageGrid::before {
+  position: absolute;
+  top: -14px;
+  right: 25%;
+  left: 25%;
+  height: 14px;
+  border-top: 2px solid var(--uma-border-strong);
+  border-right: 2px solid var(--uma-border-strong);
+  border-left: 2px solid var(--uma-border-strong);
+  content: '';
+}
+
+.successionBranch {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.successionBranchModeSwitch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  border-top: 1px solid #b7dde7;
+  background: transparent;
+}
+
+.successionUmaSelect.withModeSelector > .successionBranchModeSwitch {
+  position: static;
+  width: 100%;
+  min-height: 116px;
+  flex: 1 1 auto;
+  margin-top: 2px;
+  transform: none;
+}
+
+.successionUmaSelect.withModeSelector > .successionUmaTrigger {
+  min-height: 54px;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 7px;
+  text-align: center;
+}
+
+.successionUmaSelect.withModeSelector
+  .successionSelectedUma
+  .successionAptitudeRows {
+  display: none;
+}
+
+.successionUmaSelect.withModeSelector .successionSelectedUma {
+  overflow: hidden;
+}
+
+.successionUmaSelect.withModeSelector .successionSelectedUma > strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionGrandparents
+  .successionUmaSelect.withModeSelector
+  .successionUmaCompatibility {
+  display: none;
+}
+
+.successionBranchModeSwitch button {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 58px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--uma-muted);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.successionBranchModeSwitch button:hover {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--uma-text);
+}
+
+.successionBranchModeSwitch button + button {
+  border-top: 1px solid #b7dde7;
+  border-left: 0;
+}
+
+.successionBranchModeSwitch button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.successionBranch.paternal .successionBranchModeSwitch button.selected {
+  background: var(--succession-paternal-soft);
+  color: var(--succession-paternal);
+  box-shadow: inset 0 -3px 0 var(--succession-paternal);
+}
+
+.successionBranch.maternal .successionBranchModeSwitch {
+  border-color: #f0bfd1;
+}
+
+.successionBranch.maternal .successionBranchModeSwitch button + button {
+  border-top-color: #f0bfd1;
+}
+
+.successionBranch.maternal .successionBranchModeSwitch button.selected {
+  background: var(--succession-maternal-soft);
+  color: var(--succession-maternal);
+  box-shadow: inset 0 -3px 0 var(--succession-maternal);
+}
+
+.successionBranch.maternal {
+  background: transparent;
+}
+
+.successionBranchLineage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.successionBranchLineage > .successionLineageUmaSetting {
+  width: clamp(280px, 82%, 460px);
+  max-width: 100%;
+  justify-self: center;
+}
+
+.successionBranchLineage > .successionLineageUmaSetting::after {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  background: color-mix(in srgb, var(--succession-paternal) 45%, transparent);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionGrandparents {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.successionGrandparents::before {
+  position: absolute;
+  top: 0;
+  right: 25%;
+  left: 25%;
+  height: 14px;
+  border-top: 2px solid
+    color-mix(in srgb, var(--succession-paternal) 45%, transparent);
+  border-right: 2px solid
+    color-mix(in srgb, var(--succession-paternal) 45%, transparent);
+  border-left: 2px solid
+    color-mix(in srgb, var(--succession-paternal) 45%, transparent);
+  content: '';
+}
+
+.successionBranch.maternal
+  .successionBranchLineage
+  > .successionLineageUmaSetting::after {
+  background: color-mix(in srgb, var(--succession-maternal) 45%, transparent);
+}
+
+.successionBranch.maternal .successionGrandparents::before {
+  border-color: color-mix(in srgb, var(--succession-maternal) 45%, transparent);
+}
+
+.successionBranch.paternal .successionUmaSelectTitle > span {
+  color: var(--succession-paternal);
+}
+
+.successionBranch.maternal .successionUmaSelectTitle > span {
+  color: var(--succession-maternal);
+}
+
+.successionBranch.maternal .successionUmaSelect {
+  border-color: #efd8e1;
+  background: #fffafd;
+}
+
+.successionBranch.maternal .successionUmaSelect.selected {
+  border-color: #efbfd1;
+  background: color-mix(in srgb, var(--succession-maternal-soft) 64%, #fff);
+}
+
+.successionLineageUmaSetting {
+  position: relative;
+  min-width: 0;
+  border-radius: 9px;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+  transform-origin: center;
+}
+
+.successionLineageUmaSetting[draggable='true'] .successionUmaTrigger {
+  cursor: grab;
+}
+
+.successionLineageUmaSetting[draggable='true'] .successionUmaTrigger:active {
+  cursor: grabbing;
+}
+
+.successionLineageUmaSetting.dragging {
+  z-index: 2;
+  opacity: 0.92;
+  background: #f8f7ff;
+  transform: scale(0.96);
+}
+
+.successionLineageDragPreview {
+  position: fixed !important;
+  z-index: -1;
+  top: 0;
+  left: -10000px;
+  box-sizing: border-box;
+  min-height: 68px;
+  padding: 6px !important;
+  border: 2px solid color-mix(in srgb, var(--uma-accent) 72%, #fff) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: 0 10px 24px rgb(79 70 229 / 24%) !important;
+  opacity: 1 !important;
+  pointer-events: none;
+  transform: scale(0.94);
+  transform-origin: center;
+}
+
+.successionLineageUmaSetting.dropTarget {
+  z-index: 3;
+  background: #f1efff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--uma-accent) 48%, transparent);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.successionLineageUmaSetting.dropTarget .successionUmaSelect {
+  background: #f8f7ff;
+}
+
+.successionLineageUmaDetails {
+  display: grid;
+  min-width: 0;
+  margin-top: 1px;
+}
+
+.successionLineageUmaDetails.trained {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 5px;
+}
+
+.successionLineageUmaDetails .successionRouteCard {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.successionTrainedFactorButton {
+  display: flex;
+  height: 62px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  box-sizing: border-box;
+  padding: 5px 7px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--uma-muted);
+  text-align: left;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.successionTrainedFactorButton > span {
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.successionTrainedFactorButton > strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--uma-text);
+}
+
+.successionTrainedFactorButton > strong b {
+  font-family: var(--uma-mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.successionTrainedFactorButton > em {
+  color: #b45309;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionTrainedFactorButton.configured {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--uma-accent) 36%, var(--uma-border));
+  background: transparent;
+}
+
+.successionTrainedFactorButton:hover {
+  border-color: var(--uma-accent);
+  background: color-mix(in srgb, var(--uma-accent) 7%, #fff);
+}
+
+.successionTrainedFactorModal {
+  width: min(680px, calc(100vw - 28px));
+}
+
+.successionTrainedFactorModalBody {
+  display: grid;
+  gap: 15px;
+  padding: 17px 19px 19px;
+}
+
+.successionTrainedFactorModalBody > section {
+  display: grid;
+  gap: 8px;
+}
+
+.successionTrainedFactorModalBody > section > strong {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionTrainedFactorTypes {
+  display: grid;
+  gap: 8px;
+}
+
+.successionTrainedFactorTypes > div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.successionTrainedFactorTypes > div > span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.successionTrainedFactorTypes > div > div {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.successionTrainedFactorTypes button,
+.successionTrainedFactorStars button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 5px 7px;
+  border: 1px solid var(--uma-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--uma-text);
+  font-weight: 900;
+}
+
+.successionTrainedFactorTypes button.selected,
+.successionTrainedFactorStars button.selected {
+  border-color: var(--uma-accent);
+  background: #eef0ff;
+  color: var(--uma-accent);
+  box-shadow: inset 0 0 0 1px var(--uma-accent);
+}
+
+.successionTrainedFactorTypes button b {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionTrainedFactorStars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.successionTrainedFactorModalBody > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 13px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionTrainedFactorModalBody > footer span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--uma-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.successionTrainedFactorModalBody > footer button {
+  min-width: 92px;
+  min-height: 38px;
+  border: 1px solid var(--uma-accent);
+  border-radius: 7px;
+  background: var(--uma-accent);
+  color: #fff;
+  font-weight: 900;
+}
+
+.successionTrainedUmaSummary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 36px;
+  padding: 5px 7px;
+  border-top: 1px solid var(--uma-border);
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionTrainedFactorSummary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.successionTrainedFactorItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.successionTrainedFactorItem > small {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.successionTrainedFactorItem .successionCandidateFactor {
+  font-size: 13px;
+}
+
+.successionTrainedFactorItem .successionCandidateFactor b {
+  font-size: 14px;
+}
+
+.successionTrainedRoute {
+  white-space: nowrap;
+}
+
+.successionTrainedUmaSummary > em {
+  overflow: hidden;
+  margin-left: auto;
+  color: var(--uma-accent);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionInheritanceModal.successionTrainedUmaModal {
+  width: min(1180px, calc(100vw - 28px));
+  max-width: none;
+  max-height: min(850px, calc(100vh - 28px));
+}
+
+.successionTrainedUmaModalBody {
+  overflow-y: auto;
+  padding: 15px;
+}
+
+.successionTrainedUmaTree {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+}
+
+.successionTrainedUmaTreeRoot {
+  position: relative;
+  width: min(430px, 46%);
+  margin: 0 auto;
+}
+
+.successionTrainedUmaTreeRoot::after {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  width: 2px;
+  height: 16px;
+  background: var(--uma-border-strong);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionTrainedUmaTreeChildren {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  padding-top: 30px;
+}
+
+.successionTrainedUmaTreeChildren::before {
+  position: absolute;
+  top: 15px;
+  right: 25%;
+  left: 25%;
+  border-top: 2px solid var(--uma-border-strong);
+  content: '';
+}
+
+.successionTrainedUmaTreeChild {
+  position: relative;
+  min-width: 0;
+}
+
+.successionTrainedUmaTreeChild::before {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  width: 2px;
+  height: 15px;
+  background: var(--uma-border-strong);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionTrainedMemberEditor {
+  min-width: 0;
+}
+
+.successionTrainedMemberEditor .successionUmaSelect {
+  box-sizing: border-box;
+  height: auto;
+  min-height: 0;
+  background: #fff;
+}
+
+.successionTrainedUmaModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 15px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionTrainedUmaModalFooter > span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionTrainedUmaModalFooter > div {
+  display: flex;
+  gap: 7px;
+}
+
+.successionTrainedUmaModalFooter button {
+  min-height: 38px;
+  padding: 6px 13px;
+  border: 1px solid var(--uma-accent);
+  border-radius: 7px;
+  background: var(--uma-accent);
+  color: #fff;
+  font-weight: 900;
+}
+
+.successionTrainedUmaModalFooter button.secondary {
+  border-color: var(--uma-border-strong);
+  background: #fff;
+  color: var(--uma-text);
+}
+
+.successionTrainedUmaModalFooter button:disabled {
+  border-color: #b8bdca;
+  background: #b8bdca;
+  cursor: not-allowed;
+}
+
+.successionLineageUmaSetting > .successionUmaSelect {
+  box-sizing: border-box;
+  height: 178px;
+  min-height: 178px;
+  padding: 6px;
+}
+
+.successionLineageUmaSetting > .successionUmaSelect.withModeSelector {
+  min-height: 178px;
+}
+
+.successionLineageUmaSetting > .successionUmaSelect .successionUmaTrigger {
+  gap: 6px;
+  min-height: 82px;
+  padding: 3px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionUmaTrigger
+  .successionPortrait {
+  width: 42px;
+  height: 42px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionAptitudeRows.compact {
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionAptitudeRow
+  > div {
+  gap: 2px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionAptitudeRow
+  span {
+  padding: 0 2px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionAptitudeRow
+  .successionRankIcon {
+  height: 16px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionUmaCompatibility {
+  min-width: 42px;
+  padding-left: 5px;
+}
+
+.successionLineageUmaSetting
+  > .successionUmaSelect
+  .successionUmaCompatibility
+  strong {
+  font-size: 16px;
+}
+
+.successionInheritanceAptitudes {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 9px 10px 10px;
+  border: 1px solid #cbd5f5;
+  border-radius: 8px;
+  background: #f8f9ff;
+}
+
+.successionInheritanceAptitudes > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.successionInheritanceAptitudes > header strong {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionInheritanceAptitudes > header span {
+  color: var(--uma-accent);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.successionInheritanceBudget {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.successionInheritanceBudget b {
+  font-family: var(--uma-mono);
+  font-size: 12px;
+}
+
+.successionInheritanceBudget i {
+  color: var(--uma-subtle);
+  font-style: normal;
+}
+
+.successionInheritanceGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.successionInheritanceGroup {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.successionInheritanceGroup > span {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionInheritanceGroup > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.successionInheritanceChoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.successionInheritanceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 29px;
+  padding: 3px 7px 3px 6px;
+  border: 1px solid #dce6e9;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--uma-muted);
+}
+
+.successionInheritanceToggle:hover:not(:disabled) {
+  border-color: var(--uma-accent);
+}
+
+.successionInheritanceToggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.successionInheritanceToggle b {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.successionInheritanceToggle i {
+  display: none;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionInheritanceToggle.selected {
+  border-color: var(--uma-accent);
+  background: #eef2ff;
+  color: #4338ca;
+  box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.08);
+}
+
+.successionInheritanceToggle.selected i {
+  display: inline;
+}
+
+.successionInheritanceTargetSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 29px;
+  padding: 3px 6px;
+  border: 1px solid #cbd5f5;
+  border-radius: 6px;
+  background: #fff;
+  color: #4338ca;
+}
+
+.successionInheritanceTargetSummary i {
+  color: var(--uma-accent);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.successionInheritanceTargetSummary:hover {
+  border-color: var(--uma-accent);
+  background: #f8f9ff;
+}
+
+.successionInheritanceTargetSummary small {
+  color: var(--uma-subtle);
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionInheritanceModalOverlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.successionInheritanceModal {
+  width: min(620px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
+}
+
+.successionInheritanceModal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px 19px 13px;
+  border-bottom: 1px solid var(--uma-border);
+}
+
+.successionInheritanceModal > header span {
+  color: var(--uma-accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.successionInheritanceModal > header .successionModalChineseLabel {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.successionInheritanceModal > header h3 {
+  margin: 2px 0 0;
+  font-size: 22px;
+}
+
+.successionInheritanceModal > header > button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--uma-border);
+  border-radius: 50%;
+  background: var(--uma-surface-soft);
+  color: var(--uma-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.successionInheritanceModalSummary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 19px;
+  background: #f8f9ff;
+}
+
+.successionInheritanceModalSummary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--uma-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionInheritanceModalSummary > i {
+  color: var(--uma-accent);
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionInheritanceModalSummary > b {
+  margin-left: auto;
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionInheritanceRankChoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 16px 19px 19px;
+}
+
+.successionInheritanceRankChoices > button {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 10px;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--uma-text);
+  text-align: left;
+}
+
+.successionInheritanceRankChoices > button:hover:not(:disabled),
+.successionInheritanceRankChoices > button.selected {
+  border-color: var(--uma-accent);
+  background: #f3f4ff;
+}
+
+.successionInheritanceRankChoices > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.successionInheritanceRankChoices > button > span {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.successionInheritanceRankChoices > button > span i {
+  color: var(--uma-accent);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionInheritanceRankChoices strong {
+  font-size: 13px;
+}
+
+.successionInheritanceRankChoices small {
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionProbabilityModal {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+}
+
+.successionProbabilityModal > header span {
+  color: #6557b8;
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+
+.successionProbabilityModal > header h3 {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.successionProbabilityModal .successionInheritanceModalSummary span {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.successionProbabilityModal .successionInheritanceModalSummary > b {
+  color: #667085;
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.successionProbabilityModal .successionInheritanceRankChoices strong {
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.successionProbabilityModal .successionInheritanceRankChoices small {
+  color: #667085;
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.successionInheritanceRankChoices em {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  color: #b42318;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionRouteCard {
+  margin-top: 1px;
+}
+
+.successionRouteControls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+
+.successionRouteSettingColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 92px;
+  padding: 10px;
+  border: 1px solid #b7dde7;
+  border-radius: 8px;
+  background: var(--succession-paternal-soft);
+}
+
+.successionRouteCard.maternal .successionRouteSettingColumn {
+  border-color: #f0bfd1;
+  background: var(--succession-maternal-soft);
+}
+
+.successionRouteOptionGroup,
+.successionMinimumOptionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.successionRouteOptionGroup > span,
+.successionMinimumOptionGroup > span {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionRouteChoices,
+.successionMinimumChoices {
+  display: grid;
+  gap: 4px;
+}
+
+.successionRouteChoices {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.successionMinimumChoices {
+  grid-template-columns: repeat(4, 30px);
+  width: max-content;
+}
+
+.successionRouteChoices button,
+.successionMinimumChoices button {
+  min-height: 32px;
+  padding: 4px 7px;
+  border: 1px solid rgba(22, 135, 167, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #176b82;
+}
+
+.successionRouteCard.maternal .successionRouteChoices button,
+.successionRouteCard.maternal .successionMinimumChoices button {
+  border-color: rgba(217, 93, 139, 0.2);
+  color: #a63861;
+}
+
+.successionRouteChoices button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 72px;
+  white-space: nowrap;
+}
+
+.successionRouteChoices button strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.successionMinimumChoices button {
+  padding: 4px;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionRouteChoices button.selected,
+.successionMinimumChoices button.selected {
+  border-color: var(--succession-paternal);
+  background: var(--succession-paternal);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(22, 135, 167, 0.18);
+}
+
+.successionRouteCard.maternal .successionRouteChoices button.selected,
+.successionRouteCard.maternal .successionMinimumChoices button.selected {
+  border-color: var(--succession-maternal);
+  background: var(--succession-maternal);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(217, 93, 139, 0.18);
+}
+
+.successionMinimumChoices button:disabled {
+  opacity: 0.42;
+}
+
+.successionRouteNeeds {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 5px;
+  min-height: 28px;
+  margin-top: 6px;
+}
+
+.successionRouteNeeds span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 7px;
+  border: 1px solid rgba(22, 135, 167, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #176b82;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionRouteNeeds i {
+  color: var(--uma-muted);
+  font-style: normal;
+}
+
+.successionRouteCard.maternal .successionRouteNeeds span {
+  border-color: rgba(217, 93, 139, 0.2);
+  color: #a63861;
+}
+
+.successionRouteCompatibility {
+  display: flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  gap: 5px;
+  margin: 6px 0 0;
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.successionRouteCompatibility strong {
+  color: var(--succession-paternal);
+  font-family: var(--uma-mono);
+  font-size: 16px;
+}
+
+.successionRouteCard.maternal .successionRouteCompatibility strong {
+  color: var(--succession-maternal);
+}
+
+.successionRouteSummaryButton {
+  display: block;
+  width: 100%;
+  min-height: 82px;
+  padding: 9px 10px;
+  border: 1px solid #b7dde7;
+  border-radius: 8px;
+  background: var(--succession-paternal-soft);
+  color: var(--uma-text);
+  text-align: left;
+}
+
+.successionRouteCard.maternal .successionRouteSummaryButton {
+  border-color: #f0bfd1;
+  background: var(--succession-maternal-soft);
+}
+
+.successionRouteSummaryButton:hover {
+  border-color: var(--succession-paternal);
+  box-shadow: 0 2px 8px rgba(22, 135, 167, 0.12);
+}
+
+.successionRouteCard.maternal .successionRouteSummaryButton:hover {
+  border-color: var(--succession-maternal);
+  box-shadow: 0 2px 8px rgba(217, 93, 139, 0.12);
+}
+
+.successionRouteCard.compact .successionRouteSummaryButton {
+  height: 50px;
+  min-height: 50px;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 3px 2px 1px;
+  border: 0;
+  border-top: 1px solid var(--uma-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.successionRouteCard.compact .successionRouteSummaryButton:hover {
+  background: color-mix(in srgb, var(--succession-paternal) 8%, #fff);
+  box-shadow: 0 4px 12px rgba(22, 135, 167, 0.16);
+  transform: translateY(-1px);
+}
+
+.successionRouteCard.maternal.compact .successionRouteSummaryButton:hover {
+  background: color-mix(in srgb, var(--succession-maternal) 8%, #fff);
+  box-shadow: 0 4px 12px rgba(217, 93, 139, 0.16);
+}
+
+.successionUmaSelect > .successionRouteCard.compact {
+  margin-top: 1px;
+}
+
+.successionUmaSelect
+  > .successionRouteCard.compact
+  .successionRouteSummaryButton:hover {
+  border-color: var(--uma-border);
+  background: color-mix(in srgb, var(--uma-accent) 7%, #fff);
+  box-shadow: 0 4px 12px rgba(47, 61, 93, 0.18);
+}
+
+.successionRouteCard.compact .successionRouteSummaryButton > header {
+  margin-bottom: 2px;
+}
+
+.successionRouteCard.compact .successionRouteSummaryButton > header strong {
+  font-size: 13px;
+}
+
+.successionRouteCard.compact .successionRouteSummaryButton > header span,
+.successionRouteCard.compact .successionRouteSummaryButton > header em {
+  font-size: 11px;
+}
+
+.successionRouteCard.compact .successionRouteSummaryNeeds > span {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+.successionRouteCard.compact .successionRouteSummaryNeeds {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.successionRouteCard.compact .successionRouteSummaryNeeds::-webkit-scrollbar {
+  display: none;
+}
+
+.successionRouteCard.compact .successionRouteSummaryNeeds .successionRankIcon {
+  height: 16px;
+}
+
+.successionRouteSummaryButton > header {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.successionRouteSummaryButton > header span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionRouteCard.paternal .successionDefaultRouteLabel {
+  color: var(--succession-paternal);
+}
+
+.successionRouteCard.maternal .successionDefaultRouteLabel {
+  color: var(--succession-maternal);
+}
+
+.successionRouteSummaryButton > header strong {
+  color: var(--succession-paternal);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.successionRouteCard.maternal .successionRouteSummaryButton > header strong {
+  color: var(--succession-maternal);
+}
+
+.successionRouteSummaryButton > header em {
+  margin-left: auto;
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.successionRouteSummaryNeeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.successionRouteSummaryNeeds > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border: 1px solid rgba(22, 135, 167, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #176b82;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionRouteCard.maternal .successionRouteSummaryNeeds > span {
+  border-color: rgba(217, 93, 139, 0.2);
+  color: #a63861;
+}
+
+.successionRouteSummaryNeeds i {
+  color: var(--uma-muted);
+  font-style: normal;
+}
+
+.successionRouteSummaryNeeds .successionRankIcon {
+  height: 20px;
+}
+
+.successionRouteModal {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: min(88vh, 820px);
+}
+
+.successionRouteModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 15px 18px 18px;
+  background: #f4f6fb;
+}
+
+.successionRouteModalPresets,
+.successionRouteAptitudeMinimums {
+  padding: 13px;
+  border: 1px solid var(--uma-border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.successionRouteModalPresets > header,
+.successionRouteAptitudeMinimums > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.successionRouteModalPresets > header strong,
+.successionRouteAptitudeMinimums > header strong {
+  color: var(--uma-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.successionRouteModalPresets > header span,
+.successionRouteAptitudeMinimums > header span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionRouteModalPresets > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.successionRouteModalPresets > div > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-height: 44px;
+  padding: 7px 9px;
+  border-color: var(--uma-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--uma-text);
+}
+
+.successionRouteModalPresets > div > button.selected {
+  border-color: var(--uma-accent);
+  background: #f0efff;
+  box-shadow: 0 0 0 1px #ddd6fe;
+}
+
+.successionRouteModalPresets button strong {
+  font-size: 13px;
+}
+
+.successionRouteModalPresets button small {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionRouteAptitudeMinimums > div {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.successionRouteAptitudeMinimums > div > section {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.successionRouteAptitudeMinimums > div > section > span {
+  padding-top: 8px;
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionRouteAptitudeMinimums > div > section > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.successionRouteAptitudeMinimums > div > section > div > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 7px;
+  background: var(--uma-surface-soft);
+}
+
+.successionRouteAptitudeMinimums div > strong {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionRouteAptitudeMinimums [role='radiogroup'] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(30px, 1fr));
+  gap: 3px;
+}
+
+.successionRouteAptitudeMinimums [role='radio'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 31px;
+  padding: 3px;
+  border-color: #d9deea;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.successionRouteAptitudeMinimums [role='radio'].selected {
+  border-color: var(--uma-accent);
+  background: #ebe9ff;
+  box-shadow: 0 0 0 1px #ddd6fe;
+}
+
+.successionRouteAptitudeMinimums [role='radio']:disabled {
+  cursor: not-allowed;
+  border-color: #e5e7eb;
+  background: #eef0f3;
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.42;
+}
+
+.successionRouteAptitudeMinimums [role='radio'] .successionRankIcon {
+  height: 21px;
+}
+
+.successionRouteModalEmpty {
+  padding: 28px 16px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.successionRouteModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionRouteModalFooter span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionRouteModalFooter button {
+  min-width: 78px;
+  border-color: #18202b;
+  background: #18202b;
+  color: #fff;
+}
+
+.successionRouteModalFooter > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.successionRouteModalFooter .successionRouteFactorSummary {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.successionRouteFactorSummary > strong {
+  margin-right: 2px;
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionRouteFactorSummary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px 3px 4px;
+  border: 1px solid #f1bfd2;
+  border-radius: 6px;
+  background: #fff2f7;
+}
+
+.successionRouteFactorSummary > span b {
+  color: #b42361;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionRouteFactorSummary > em {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.successionRouteModalActions {
+  flex: 0 0 auto;
+}
+
+.successionRouteModalFooter button.secondary {
+  border-color: var(--uma-border-strong);
+  background: #fff;
+  color: var(--uma-text);
+}
+
+.successionFactorLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.successionFactorTable {
+  overflow: hidden;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+}
+
+.successionFactorRow {
+  display: grid;
+  grid-template-columns: 88px minmax(300px, 1fr) 82px 108px;
+  gap: 7px;
+  align-items: center;
+  min-height: 58px;
+  padding: 6px 9px;
+  border-left: 3px solid #e34f91;
+  background: #fff;
+}
+
+.successionFactorRow + .successionFactorRow {
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionFactorName small,
+.successionProjectedRank small,
+.successionFactorProbability small {
+  display: block;
+}
+
+.successionFactorName small,
+.successionProjectedRank small,
+.successionFactorProbability small {
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionFactorName {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.successionFactorName > .successionFactorIcon {
+  width: 52px;
+  height: 29px;
+}
+
+.successionFactorName small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.successionStarChoices {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(58px, 1fr));
+  gap: 4px;
+}
+
+.successionStarChoices button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 34px;
+  padding: 2px 5px;
+  font-size: 12px;
+}
+
+.successionStarChoices button.selected {
+  border-color: #e34f91;
+  background: #fff0f7;
+  color: #b42368;
+}
+
+.successionProjectedRank,
+.successionFactorProbability {
+  text-align: right;
+}
+
+.successionProjectedRank .successionRankIcon {
+  height: 30px;
+}
+
+.successionProjectedRank strong,
+.successionFactorProbability strong {
+  font-family: var(--uma-mono);
+  font-size: 19px;
+}
+
+.successionProjectedRank strong {
+  color: #db2777;
+}
+
+.successionFactorProbability strong {
+  color: var(--uma-accent);
+}
+
+.successionProbabilityCard {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border-radius: 8px;
+  background: #18202b;
+  color: #fff;
+}
+
+.successionCompatibilityScore {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 5px 0 10px;
+}
+
+.successionCompatibilityScore strong {
+  color: #ffc857;
+  font-family: var(--uma-mono);
+  font-size: 44px;
+  line-height: 1;
+}
+
+.successionCompatibilityScore small {
+  color: #c8d0dc;
+}
+
+.successionProbabilityCard dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.successionProbabilityCard dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.successionProbabilityCard dt {
+  color: #adb8c8;
+}
+
+.successionProbabilityCard dd {
+  margin: 0;
+  font-family: var(--uma-mono);
+  font-weight: 800;
+}
+
+.successionAnyChance {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  padding-top: 11px;
+}
+
+.successionAnyChance small {
+  color: #adb8c8;
+}
+
+.successionAnyChance strong {
+  color: #ff8ebe;
+  font-family: var(--uma-mono);
+  font-size: 27px;
+}
+
+.successionProbabilityCard p {
+  margin: 7px 0 0;
+  color: #adb8c8;
+  font-size: 10px;
+}
+
+.successionCompleteDesign {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #cfd6e8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.successionCompleteDesign > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.successionCompleteDesign > header strong,
+.successionCompleteDesign > header span {
+  display: block;
+}
+
+.successionCompleteDesign > header strong {
+  font-size: 15px;
+}
+
+.successionCompleteDesign > header span {
+  margin-top: 2px;
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionOptimalProbability {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  flex: 0 0 auto;
+}
+
+.successionOptimalProbability > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--uma-surface-muted);
+  color: var(--uma-text);
+  white-space: nowrap;
+}
+
+.successionOptimalProbability > span i {
+  color: var(--uma-text);
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.successionOptimalProbability > span .successionRankIcon {
+  width: auto;
+  height: 20px;
+}
+
+.successionOptimalProbability small {
+  color: var(--uma-muted);
+  font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.successionOptimalProbability strong {
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 20px !important;
+  font-weight: 900;
+}
+
+.successionConfiguredSkillBadge {
+  padding: 2px 6px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.successionCalculationActions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.successionCapturedReuseControls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.successionCapturedReuseControls > button {
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1px solid #c4b5fd;
+  border-radius: 7px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCapturedReuseControls > button.active {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.successionCapturedReuseControls label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 5px;
+  min-height: 42px;
+  padding: 4px 8px;
+  border: 1px solid #ddd6fe;
+  border-radius: 7px;
+  background: #faf5ff;
+  color: #5b21b6;
+  cursor: pointer;
+}
+
+.successionCapturedReuseControls label input {
+  grid-row: 1 / span 2;
+  margin: 0;
+  accent-color: #7c3aed;
+}
+
+.successionCapturedReuseControls label span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionCapturedReuseControls label small {
+  color: #7c6aa6;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.successionCalculationActions .successionResetLineage,
+.successionCalculationActions .successionCalculationSettingsButton,
+.successionCalculationActions .successionCalculateButton {
+  min-height: 42px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+
+.successionCalculationActions .successionResetLineage {
+  padding-right: 14px;
+  padding-left: 14px;
+  border-radius: 7px;
+}
+
+.successionCalculationSettingsButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 84px;
+  padding: 6px 12px;
+  border: 1px solid #a5b4fc;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 800;
+}
+
+.successionCalculationSettingsButton:hover:not(:disabled) {
+  border-color: #6366f1;
+  background: #e0e7ff;
+}
+
+.successionCalculationSettingsButton i {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #eef2ff;
+  border-radius: 50%;
+  background: #7c3aed;
+}
+
+.successionCalculateButton {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--uma-accent);
+  border-radius: 7px;
+  background: var(--uma-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.successionCalculateButton:disabled {
+  border-color: #b8bdca;
+  background: #b8bdca;
+  cursor: wait;
+}
+
+.successionCalculationProgress {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.successionCalculationProgress span,
+.successionCalculationHint {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionCalculationProgress progress {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  accent-color: var(--uma-accent);
+}
+
+.successionCalculationProgress > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.successionCalculationProgress > header strong,
+.successionCalculationProgress > header span {
+  display: block;
+}
+
+.successionCalculationProgress > header strong {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionCalculationProgress > header span {
+  margin-top: 2px;
+  color: var(--uma-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.successionCalculationProgress > header b {
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.successionCalculationProgress ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.successionCalculationProgress li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #8990a0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionCalculationProgress li i {
+  display: inline-grid;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--uma-border);
+  border-radius: 50%;
+  background: #fff;
+  font-family: var(--uma-mono);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.successionCalculationProgress li.active {
+  color: var(--uma-text);
+  font-weight: 900;
+}
+
+.successionCalculationProgress li.active i {
+  border-color: var(--uma-accent);
+  background: var(--uma-accent);
+  color: #fff;
+}
+
+.successionCalculationProgress li.completed {
+  color: #3b8065;
+}
+
+.successionCalculationProgress li.completed i {
+  border-color: #77b49d;
+  background: #eaf7f1;
+  color: #2d745a;
+}
+
+.successionCalculationHint {
+  margin: 7px 0 0;
+}
+
+.successionCalculationPanel {
+  display: grid;
+  justify-items: stretch;
+  gap: 10px;
+  width: min(1180px, 100%);
+  margin-top: 12px;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.successionCalculationWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+
+.successionCalculationWorkspace.compact {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.successionCalculationWorkspace.compact
+  .successionCapturedOwnershipWarning {
+  grid-column: 1;
+  margin-top: 0;
+}
+
+.successionCalculationPlanning {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.65fr) minmax(0, 1.35fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.successionFactorJumpOption {
+  height: auto;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 9px 10px 10px;
+  border: 1px solid #cbd5f5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.successionFactorJumpOption > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.successionFactorJumpOption > header strong {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionFactorJumpInfoButton {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 1px solid #cbd5f5;
+  border-radius: 50%;
+  background: #f8f9ff;
+  color: var(--uma-accent);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.successionFactorJumpInfoButton:hover {
+  border-color: var(--uma-accent);
+  background: #eef0ff;
+}
+
+.successionFactorJumpChoices {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.successionFactorJumpChoices button {
+  flex: 0 0 auto;
+  min-height: 29px;
+  padding: 3px 6px;
+  border: 1px solid #dce6e9;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--uma-muted);
+  font-family: var(--uma-mono);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionFactorJumpChoices .successionFactorJumpRankChoice {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  padding: 3px 5px;
+}
+
+.successionFactorJumpRankChoice .successionRankIcon {
+  height: 23px;
+}
+
+.successionFactorJumpChoices button:hover,
+.successionFactorJumpChoices button.selected {
+  border-color: var(--uma-accent);
+  background: #eef0ff;
+  color: var(--uma-accent);
+}
+
+.successionFactorProductionTargets {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionFactorProductionTargets
+  .successionCalculationProbabilityTargets.embedded {
+  height: auto;
+  min-height: 38px;
+}
+
+.successionFactorJumpModalBody {
+  padding: 17px 19px 19px;
+  color: var(--uma-text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.successionFactorJumpModalBody > p {
+  margin: 0 0 13px;
+  font-weight: 800;
+}
+
+.successionFactorJumpModalBody > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 9px;
+  padding: 11px;
+  border: 1px solid var(--uma-border);
+  border-radius: 7px;
+  background: #f8f9ff;
+}
+
+.successionFactorJumpModalBody > div strong {
+  color: var(--uma-accent);
+  font-weight: 900;
+}
+
+.successionFactorJumpModalBody > div span {
+  font-weight: 700;
+}
+
+.successionFactorJumpModalBody > footer {
+  margin-top: 13px;
+  padding: 10px 11px;
+  border-radius: 7px;
+  background: #fff7e7;
+  color: #76530b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.successionFactorJumpModalBody small {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.successionCalculationInheritance {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.successionCalculationInheritance .successionInheritanceAptitudes {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  background: #fff;
+}
+
+.successionCalculationInheritance .successionInheritanceGroups {
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+}
+
+.successionInheritanceProbabilitySection {
+  flex: 0 0 auto;
+  min-height: 45px;
+  box-sizing: border-box;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionCalculationControls {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #cbd5f5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.successionCalculationControls > span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.successionCalculationActions .successionCalculateButton {
+  width: 100%;
+}
+
+.successionUmaExclusionList {
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 7px;
+  background: var(--uma-surface-soft);
+}
+
+.successionUmaExclusionList > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.successionUmaExclusionList > header > span {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionUmaExclusionList > header > button {
+  min-height: 28px;
+  padding: 3px 9px;
+  border-color: #cbd5e1;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionUmaExclusionSummary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 30px;
+}
+
+.successionUmaExclusionSummary > strong,
+.successionUmaExclusionSummary > em {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.successionUmaExclusionSummary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 4px 3px 3px;
+  border: 1px solid #fecdd3;
+  border-radius: 999px;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.successionUmaExclusionSummary .successionPortrait {
+  width: 24px;
+  height: 24px;
+  border-width: 1px;
+}
+
+.successionUmaExclusionSummary b {
+  max-width: 72px;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionUmaExclusionSummary span > button {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #be123c;
+  font-size: 17px;
+}
+
+.successionExclusionDialog {
+  width: min(760px, 100%);
+}
+
+.successionExclusionToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--uma-border);
+  background: var(--uma-surface-soft);
+}
+
+.successionExclusionToolbar > span {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.successionExclusionToolbar > span b {
+  color: #be123c;
+  font-size: 14px;
+}
+
+.successionExclusionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  overflow-y: auto;
+  padding: 14px 20px 20px;
+  background: #eef2f7;
+}
+
+.successionExclusionGrid > button {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 6px 8px;
+  border-color: var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.successionExclusionGrid > button:hover:not(:disabled) {
+  border-color: #fb7185;
+  background: #fff7f8;
+}
+
+.successionExclusionGrid > button.selected {
+  border-color: #fb7185;
+  background: #fff1f2;
+  box-shadow: 0 0 0 1px #fecdd3;
+}
+
+.successionExclusionGrid .successionPortrait {
+  width: 36px;
+  height: 36px;
+}
+
+.successionExclusionGrid strong {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--uma-text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionExclusionGrid em {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionExclusionGrid button.selected em {
+  color: #be123c;
+}
+
+.successionCalculationProbabilityTargets {
+  width: 100%;
+  height: 56px;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.successionCalculationProbabilityTargets.embedded {
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.successionCalculationProbabilityTargets.embedded button {
+  min-height: 30px;
+  padding: 3px 5px 3px 8px;
+}
+
+.successionCalculationProbabilityTargets > div {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.successionCalculationProbabilityTargets > div > button,
+.successionCalculationProbabilityTargets > div > strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.successionProbabilityTargets.successionCalculationProbabilityTargets > span {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionProbabilityTargets.successionCalculationProbabilityTargets button {
+  min-height: 34px;
+  padding: 5px 7px 5px 10px;
+}
+
+.successionProbabilityTargets.successionCalculationProbabilityTargets button b {
+  font-size: 13px;
+}
+
+.successionProbabilityTargets.successionCalculationProbabilityTargets
+  button
+  em {
+  font-size: 17px;
+}
+
+.successionProbabilityTargets.successionCalculationProbabilityTargets
+  > div
+  > strong {
+  color: var(--uma-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.successionCalculationPanel .successionCalculationProgress {
+  width: min(100%, 680px);
+  margin-top: 0;
+  justify-self: center;
+}
+
+.successionProbabilityTargets {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  padding: 6px 7px;
+  border-radius: 6px;
+  background: var(--uma-surface-soft);
+}
+
+.successionProbabilityTargets > span {
+  flex: 0 0 auto;
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.successionProbabilityTargets > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.successionProbabilityTargets button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 3px 5px 3px 8px;
+  border: 1px solid var(--uma-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--uma-text);
+}
+
+.successionProbabilityTargets button:hover {
+  border-color: var(--uma-accent);
+  background: #f2efff;
+}
+
+.successionProbabilityTargets button b {
+  font-size: 10px;
+}
+
+.successionProbabilityTargets button em {
+  color: var(--uma-accent);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionProbabilityTargetOption {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.successionProbabilityTargetRank {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 6px;
+  border-left: 1px solid
+    color-mix(in srgb, var(--uma-accent) 24%, var(--uma-border));
+}
+
+.successionCompleteDesignIssues {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 7px 8px;
+  border: 1px solid #f0b9c1;
+  border-radius: 6px;
+  background: #fff4f5;
+  color: #981b30;
+  font-size: 10px;
+}
+
+.successionCompleteDesignIssues strong {
+  font-size: 12px;
+}
+
+.successionCompleteTree {
+  display: grid;
+  gap: 24px;
+  width: min(1180px, 100%);
+  min-width: 0;
+  margin-right: auto;
+  margin-left: auto;
+  padding-top: 12px;
+}
+
+.successionCompleteGeneration {
+  position: relative;
+}
+
+.successionCompleteGeneration > strong {
+  position: absolute;
+  z-index: 2;
+  top: -15px;
+  left: 4px;
+  display: block;
+  margin: 0;
+  padding: 0 4px;
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 11px;
+}
+
+.successionCompleteGeneration > div {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.successionCompleteGeneration.generation1 > div {
+  grid-template-columns: repeat(2, minmax(240px, 340px));
+  justify-content: space-around;
+}
+
+.successionCompleteGeneration.generation2 > div {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.successionCompleteGeneration.generation3 > div {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.successionCompleteGeneration article {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 7px;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--uma-border);
+  border-radius: 8px;
+  background: var(--uma-surface-soft);
+}
+
+.successionCompleteGeneration.generation2 article::before,
+.successionCompleteGeneration.generation3 article::before {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  height: 12px;
+  border-left: 2px solid #d3d7e4;
+  content: '';
+}
+
+.successionCompleteGeneration.generation2 article:nth-child(odd)::after {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: calc(100% + 8px);
+  height: 10px;
+  background:
+    linear-gradient(#d3d7e4 0 0) center top / 2px 10px no-repeat,
+    linear-gradient(#d3d7e4 0 0) center bottom / 100% 2px no-repeat;
+  content: '';
+}
+
+.successionCompleteGeneration.generation3 article::before {
+  top: -24px;
+  height: 24px;
+}
+
+.successionCompleteGeneration article.missing {
+  border-color: #efb7c0;
+  background: #fff4f5;
+}
+
+.successionCompleteGeneration article.requirementOnly {
+  border-style: dashed;
+  background: #fcfbff;
+}
+
+.successionCompleteGeneration article > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+}
+
+.successionCompleteGeneration article > header b {
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 13px;
+}
+
+.successionCompleteGeneration article > header small {
+  color: var(--uma-muted);
+  font-size: 8px;
+}
+
+.successionCandidateHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.successionCandidateHeaderMeta small {
+  font-size: 11px !important;
+  font-weight: 800;
+}
+
+.successionCandidateFactor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #fff0f7;
+  color: #a8205a;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCandidateFactor b {
+  font-family: var(--uma-mono);
+  font-size: 13px;
+}
+
+.successionCandidateHeaderMeta .successionCandidateCopyViewerId {
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid #c4b5fd;
+  border-radius: 4px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCandidateFactor.free {
+  padding-inline: 5px;
+  background: #eceff5;
+  color: #596174;
+  text-align: center;
+}
+
+.successionCompleteGeneration article > header .successionCandidateBlacklist {
+  margin-left: auto;
+  min-height: 25px;
+  padding: 2px 7px;
+  border-color: #fecdd3;
+  border-radius: 999px;
+  background: #fff7f8;
+  color: #be123c;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCompleteGeneration
+  article
+  > header
+  .successionCandidateBlacklist:hover:not(:disabled) {
+  border-color: #fb7185;
+  background: #ffe4e6;
+}
+
+.successionCompleteGeneration
+  article
+  > header
+  .successionCandidateBlacklist:disabled {
+  border-color: var(--uma-border);
+  background: var(--uma-surface-muted);
+  color: var(--uma-muted);
+}
+
+.successionCompleteGeneration article > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.successionCompleteGeneration article > .successionCandidateOption,
+.successionCompleteGeneration article > .successionCandidateOptions {
+  grid-column: 1 / -1;
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.successionCandidateOptions {
+  gap: 0 !important;
+}
+
+.successionCandidateOptionChoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.successionCandidateOptionChoice:first-child {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.successionCandidateOr {
+  display: flex;
+  align-items: center;
+  margin: 7px 8px 7px 0;
+  padding-right: 8px;
+  border-right: 1px solid var(--uma-border);
+  color: var(--uma-accent);
+  font-size: 13px;
+}
+
+.successionCandidateOption {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.successionCandidateOptionChoice + .successionCandidateOptionChoice {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--uma-border);
+}
+
+.successionCandidateOptionIdentity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.successionCompleteGeneration.generation2
+  .successionCandidateOptionIdentity {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.successionCompleteGeneration.generation2 .successionCandidateActions {
+  width: 100%;
+  flex-basis: 100%;
+}
+
+.successionCandidateActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.successionCandidateOptionIdentity .successionCandidateViewCaptured {
+  min-height: 25px;
+  padding: 2px 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCandidateOptionIdentity
+  .successionCandidateViewCaptured:hover:not(:disabled) {
+  border-color: #60a5fa;
+  background: #dbeafe;
+}
+
+.successionCandidateOptionIdentity .successionCandidateViewCaptured:disabled {
+  border-color: var(--uma-border);
+  background: var(--uma-surface-muted);
+  color: var(--uma-muted);
+}
+
+.successionCandidateOptionIdentity .successionCandidateBlacklist {
+  margin-left: 0;
+  min-height: 25px;
+  padding: 2px 7px;
+  border-color: #fecdd3;
+  border-radius: 999px;
+  background: #fff7f8;
+  color: #be123c;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCandidateOptionIdentity
+  .successionCandidateBlacklist:hover:not(:disabled) {
+  border-color: #fb7185;
+  background: #ffe4e6;
+}
+
+.successionCandidateOptionIdentity .successionCandidateBlacklist:disabled {
+  border-color: var(--uma-border);
+  background: var(--uma-surface-muted);
+  color: var(--uma-muted);
+}
+
+.successionCompleteGeneration article .successionPortrait {
+  width: 48px;
+  height: 48px;
+}
+
+.successionCandidateIdentity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.successionCandidateIdentity > strong {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCandidateCompatibility {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-top: 2px;
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCandidateCompatibility b {
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionCandidateJumpRequirement {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 5px;
+  padding: 3px 6px;
+  border: 1px solid #f1c7d8;
+  border-radius: 5px;
+  background: #fff0f7;
+  color: #8d3151;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.successionCandidateJumpRequirement strong {
+  color: #a8205a;
+  font-weight: 900;
+}
+
+.successionCandidateJumpRequirement b {
+  color: #b42368;
+  font-family: var(--uma-mono);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.successionCandidateJumpRequirement i {
+  color: var(--uma-accent);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionCompleteGeneration article > span {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  align-self: center;
+  margin: 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #fff0f7;
+  color: #a8205a;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--uma-border);
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements > div {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements small {
+  width: auto;
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements b {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #fff0f7;
+  color: #a8205a;
+  font-family: var(--uma-mono);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.successionCompleteGeneration article .successionUpstreamRequirements em {
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.successionCompleteGeneration article > span b {
+  font-family: var(--uma-mono);
+  font-size: 13px;
+}
+
+.successionCompleteGeneration article > span.free {
+  display: block;
+  padding-inline: 5px;
+  background: #eceff5;
+  color: #596174;
+  text-align: center;
+}
+
+.successionCompleteGeneration.generation3 article {
+  column-gap: 3px;
+  padding: 4px;
+}
+
+.successionCompleteGeneration.generation3 article > header {
+  margin-bottom: 2px;
+}
+
+.successionCompleteGeneration.generation3 article > header b {
+  font-size: 12px;
+}
+
+.successionCompleteGeneration.generation3 article .successionPortrait {
+  width: 24px;
+  height: 24px;
+}
+
+.successionCompleteGeneration.generation3 article > div > strong {
+  font-size: 9px;
+}
+
+.successionCompleteGeneration.generation3 article > span {
+  gap: 2px;
+  padding: 2px 3px;
+  font-size: 9px;
+}
+
+.successionCompleteGeneration.generation3 article > span b {
+  font-size: 10px;
+}
+
+.successionRequirementBranches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: min(1180px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.successionRequirementBranch {
+  overflow: hidden;
+  border: 1px solid #b7dde7;
+  border-radius: 9px;
+  background: #f7fcfd;
+}
+
+.successionRequirementBranch.maternal {
+  border-color: #f0bfd1;
+  background: #fff9fb;
+}
+
+.successionRequirementBranch > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #cfe8ee;
+  background: var(--succession-paternal-soft);
+}
+
+.successionRequirementBranch.maternal > header {
+  border-bottom-color: #f5d7e2;
+  background: var(--succession-maternal-soft);
+}
+
+.successionRequirementBranch > header span,
+.successionRequirementBranch > header strong {
+  display: block;
+}
+
+.successionRequirementBranch > header span {
+  color: var(--succession-paternal);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionRequirementBranch.maternal > header span {
+  color: var(--succession-maternal);
+}
+
+.successionRequirementBranch > header strong {
+  margin-top: 2px;
+}
+
+.successionRequirementBranch > header b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--succession-paternal);
+  font-size: 11px;
+}
+
+.successionRequirementBranch.maternal > header b {
+  color: var(--succession-maternal);
+}
+
+.successionRequirementTree {
+  padding: 7px;
+}
+
+.successionRequirementTreeRoot {
+  position: relative;
+  width: 100%;
+  margin: 0 auto 16px;
+}
+
+.successionRequirementTreeRoot::after {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  background: var(--uma-border-strong);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionRequirementTreeChildren {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.successionRequirementTreeChildren::before {
+  position: absolute;
+  top: -8px;
+  right: 25%;
+  left: 25%;
+  border-top: 2px solid var(--uma-border-strong);
+  content: '';
+}
+
+.successionRequirementTreeNode {
+  position: relative;
+  min-width: 0;
+}
+
+.successionRequirementTreeNode::before {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  background: var(--uma-border-strong);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.successionOptimalBranch {
+  margin-top: 10px;
+}
+
+.successionOptimalResult {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.successionOptimalResults {
+  display: grid;
+  gap: 12px;
+  width: min(1180px, 100%);
+  margin-top: 12px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.successionOptimalResults.singleBranchResults {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.successionOptimalResults.singleBranchResults
+  > .successionOptimalResultsNotice {
+  grid-column: 1 / -1;
+}
+
+.successionOptimalResults .successionOptimalResult {
+  margin-top: 0;
+}
+
+.successionOptimalResultsNotice {
+  padding: 9px 11px;
+  border: 1px solid #e6c56a;
+  border-radius: 8px;
+  background: #fff9e7;
+  color: #76530b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.successionOptimalResultsNotice.factorTargets {
+  border-color: #99d7bd;
+  background: #eefbf5;
+  color: #076249;
+}
+
+.successionOptimalBranches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.successionOptimalBranches.singleBranch {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.successionAllBranchesFixed {
+  grid-column: 1 / -1;
+  padding: 18px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 8px;
+  background: var(--uma-surface-soft);
+  color: var(--uma-muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.successionOptimalBranches.hasAlternatives {
+  align-items: start;
+}
+
+.successionOptimalResult .successionOptimalBranch {
+  margin-top: 0;
+}
+
+.successionOptimalResult .successionOptimalBranch > header {
+  min-height: 39px;
+}
+
+.successionStandaloneIssue {
+  margin-top: 12px;
+}
+
+.successionOptimalBranch > header strong {
+  font-size: 14px;
+}
+
+.successionOptimalBranch .successionCompleteDesignIssues {
+  margin: 7px;
+}
+
+.successionOptimalTree .successionRequirementTreeRoot {
+  width: min(76%, 340px);
+}
+
+.successionOptimalTree .successionRequirementTreeChildren {
+  align-items: stretch;
+}
+
+.successionOptimalBranch.hasAlternatives:not(.hasMatchingAlternativeCounts)
+  .successionRequirementTreeChildren {
+  align-items: start;
+}
+
+.successionOptimalTree .successionRequirementTreeNode {
+  display: flex;
+}
+
+.successionOptimalTree .successionRequirementTreeNode > article {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.successionOptimalTree .successionCompleteGeneration article::before,
+.successionOptimalTree .successionCompleteGeneration article::after {
+  display: none;
+}
+
+.successionOptimalBranch .successionUpstreamRequirements > div,
+.successionOptimalBranch .successionUpstreamRequirements > em {
+  flex-basis: 100%;
+}
+
+.successionOptimalBranch .successionCombinedRequirement small {
+  color: #8d3151;
+}
+
+.successionOptimalTreePlaceholder {
+  margin: 7px;
+  padding: 14px 10px;
+  border: 1px dashed var(--uma-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.successionPositionRequirement {
+  overflow: hidden;
+  border: 1px solid var(--uma-border);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.successionPositionRequirement > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--uma-border);
+}
+
+.successionRequirementSourceTitle {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--uma-border);
+  background: var(--succession-paternal-soft);
+  color: var(--succession-paternal);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionPositionRequirement.maternal .successionRequirementSourceTitle {
+  background: var(--succession-maternal-soft);
+  color: var(--succession-maternal);
+}
+
+.successionRequirementPositionMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 31px;
+  padding: 5px 8px;
+}
+
+.successionRequirementPositionMeta > strong {
+  font-size: 13px;
+}
+
+.successionRequirementUma {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.successionRequirementUma .successionPortrait {
+  width: 27px;
+  height: 27px;
+}
+
+.successionRequirementUma b {
+  overflow: hidden;
+  max-width: 110px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.successionRequirementState {
+  margin: 7px;
+  padding: 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.successionRequirementState.muted {
+  background: var(--uma-surface-soft);
+  color: var(--uma-muted);
+}
+
+.successionRequirementState.ready {
+  background: #effaf2;
+  color: #277342;
+  font-weight: 700;
+}
+
+.successionRequirementState.impossible {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: #fff1f2;
+  color: #a11d33;
+}
+
+.successionRequirementState.impossible > strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.successionImpossibleRequirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.successionImpossibleRequirements > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid #f3bac3;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.successionImpossibleRequirements > span > strong {
+  color: #8f1d31;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionImpossibleRequirements > span > b {
+  color: #8f1d31;
+  font-size: 10px;
+}
+
+.successionImpossibleRequirements > span > i {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-style: normal;
+}
+
+.successionImpossibleRequirements > span > i > em {
+  color: #b94b5d;
+  width: 9px;
+  margin: 0;
+  font-size: 22px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 0.8;
+  text-align: center;
+}
+
+.successionRequirementNeeds {
+  padding: 7px 7px 0;
+}
+
+.successionRequirementNeeds > small,
+.successionRequirementCandidates > small {
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.successionRequirementNeeds > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.successionRequirementNeeds > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: #fff0f7;
+  color: #a8205a;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionRequirementStarCount {
+  flex: 0 0 auto;
+  color: #b42368;
+  font-family: var(--uma-mono);
+  font-size: 12px;
+}
+
+.successionRequirementNeeds > div > span > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #c45782;
+  font-family: var(--uma-mono);
+  font-size: 9px;
+}
+
+.successionRequirementNeeds > div > span > b i {
+  font-style: normal;
+}
+
+.successionRequirementSources {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px 7px 0;
+}
+
+.successionRequirementSources > div {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 2px 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid var(--uma-border);
+  border-radius: 6px;
+  background: var(--uma-surface-soft);
+}
+
+.successionRequirementSources > div > span {
+  grid-column: 1 / -1;
+  color: var(--uma-muted);
+  font-size: 9px;
+}
+
+.successionRequirementSources .successionPortrait {
+  width: 26px;
+  height: 26px;
+}
+
+.successionRequirementSources strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.successionRequirementSources small {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.successionRequirementSources small b {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.successionRequirementSources small b.ready {
+  background: #e5f7eb;
+  color: #277342;
+}
+
+.successionRequirementSources small b.missing {
+  background: #ffe4e7;
+  color: #a11d33;
+}
+
+.successionRequirementSources em {
+  grid-column: 1 / -1;
+  color: var(--uma-subtle);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.successionRequirementCandidates {
+  padding: 6px 7px 7px;
+}
+
+.successionRequirementCandidates > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.successionRequirementCandidates article {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid var(--uma-border);
+  border-radius: 5px;
+  background: var(--uma-surface-soft);
+}
+
+.successionRequirementCandidates article .successionPortrait {
+  width: 29px;
+  height: 29px;
+}
+
+.successionRequirementCandidates article > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.successionRequirementCandidates article strong,
+.successionRequirementCandidates article small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionRequirementCandidates article strong {
+  font-size: 10px;
+}
+
+.successionRequirementCandidates article small {
+  color: var(--uma-accent);
+  font-size: 8px;
+}
+
+.successionRequirementCandidates article > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.successionRequirementCandidates article b {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #a8205a;
+  font-size: 8px;
+}
+
+.successionRequirementCandidates p {
+  margin: 5px 0 0;
+  color: var(--uma-muted);
+  font-size: 10px;
+}
+
+.successionRequirementFreeFill {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 6px 7px 7px;
+  padding: 5px 6px;
+  border: 1px dashed #c8bbec;
+  border-radius: 5px;
+  background: #f8f5ff;
+  color: #5d4b8b;
+  font-size: 9px;
+}
+
+.successionRequirementFreeFill strong {
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
+.successionCandidateLegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  max-width: 44%;
+}
+
+.successionCandidateLegend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #fff0f7;
+  color: #b42368;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionCandidateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.successionCandidateCard {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--uma-border);
+  border-radius: 7px;
+  background: var(--uma-surface-soft);
+}
+
+.successionCandidateBody {
+  min-width: 0;
+  width: 100%;
+}
+
+.successionCandidateTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.successionCandidateTitle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCandidateTitle span {
+  flex: 0 0 auto;
+  color: var(--uma-accent);
+  font-family: var(--uma-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.successionCandidateTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.successionCandidateTags b,
+.successionCandidateTags span {
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.successionCandidateTags b {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #ffe1ef;
+  color: #a8205a;
+}
+
+.successionCandidateTags b i {
+  font-style: normal;
+}
+
+.successionCandidateTags span {
+  background: #e5f4fa;
+  color: #176b82;
+}
+
+.successionCandidateEmpty {
+  padding: 34px 16px;
+  border: 1px dashed var(--uma-border-strong);
+  border-radius: 8px;
+  background: var(--uma-surface-soft);
+  text-align: center;
+}
+
+.successionCandidateEmpty.success {
+  border-color: #9bd0ac;
+  background: #effaf2;
+}
+
+.successionCandidateEmpty strong,
+.successionCandidateEmpty p {
+  display: block;
+  margin: 0;
+}
+
+.successionCandidateEmpty p {
+  margin-top: 4px;
+  color: var(--uma-muted);
+}
+
+.successionCalculationSettingsBackdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.successionCalculationSettingsDialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(980px, 100%);
+  max-height: min(860px, calc(100vh - 44px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 76px rgba(15, 23, 42, 0.38);
+}
+
+.successionCalculationSettingsDialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionCalculationSettingsDialog > header span {
+  color: var(--uma-accent);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.successionCalculationSettingsDialog > header h2 {
+  margin: 2px 0 0;
+  color: var(--uma-text);
+  font-size: 22px;
+}
+
+.successionCalculationSettingsDialog > header p {
+  margin: 5px 0 0;
+  color: var(--uma-muted);
+  font-size: 12px;
+}
+
+.successionCalculationSettingsDialog > header > button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--uma-border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--uma-muted);
+  font-size: 23px;
+  line-height: 1;
+}
+
+.successionCalculationSettingsBody {
+  display: grid;
+  gap: 0;
+  overflow-y: auto;
+  padding: 0 20px;
+}
+
+.successionCalculationSettingsBody > section {
+  padding: 17px 0;
+}
+
+.successionCalculationSettingsBody > section + section {
+  border-top: 1px solid #e2e8f0;
+}
+
+.successionCalculationSettingsBody > section > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.successionCalculationSettingsBody > section > header strong {
+  color: var(--uma-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.successionCalculationSettingsBody > section > header span {
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.successionCalculationSettingsBody .successionCalculationControls {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.successionCalculationSettingsBody .successionUmaExclusionList {
+  min-height: 92px;
+  padding: 0;
+  background: transparent;
+}
+
+.successionCalculationSettingsBody .successionFactorJumpOption,
+.successionCalculationSettingsBody .successionInheritanceAptitudes {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.successionCapturedReuseControls.settings {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.successionCapturedReuseControls.settings
+  .successionSettingsSwitchRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 58px;
+  box-sizing: border-box;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.successionCapturedReuseControls.settings
+  .successionSettingsSwitchRow
+  + .successionSettingsSwitchRow {
+  border-top: 1px solid #edf1f5;
+}
+
+.successionSettingsSwitch {
+  position: relative;
+  display: block;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  transition: background 0.16s ease;
+}
+
+.successionSettingsSwitch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+  transition: transform 0.16s ease;
+}
+
+.successionSettingsSwitchRow.isOn .successionSettingsSwitch {
+  background: #7c3aed;
+}
+
+.successionSettingsSwitchRow.isOn .successionSettingsSwitch i {
+  transform: translateX(18px);
+}
+
+.successionSettingsSwitchRow:focus-visible .successionSettingsSwitch {
+  outline: 3px solid rgba(124, 58, 237, 0.2);
+  outline-offset: 2px;
+}
+
+.successionSettingsSwitchRow:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.successionSettingsSwitchCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.successionSettingsSwitchCopy strong {
+  color: var(--uma-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.successionSettingsSwitchCopy small {
+  color: var(--uma-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700;
+  white-space: normal !important;
+}
+
+.successionCapturedOwnershipWarning.settings {
+  margin: 8px 0 0;
+}
+
+.successionCalculationSettingsDialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--uma-border);
+  background: #fff;
+}
+
+.successionCalculationSettingsDialog > footer span {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.successionCalculationSettingsDialog > footer button {
+  min-width: 88px;
+  min-height: 36px;
+  border: 1px solid var(--uma-accent);
+  border-radius: 7px;
+  background: var(--uma-accent);
+  color: #fff;
+  font-weight: 800;
+}
+
+.successionCapturedSkillPriority {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 1px solid #e2e8f0;
+  transition: opacity 0.16s ease;
+}
+
+.successionCapturedSkillPriority.disabled {
+  min-height: 132px;
+  overflow: hidden;
+  border-top-color: transparent;
+  border-radius: 10px;
+  opacity: 1;
+}
+
+.successionCapturedSkillPriority.disabled::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #fff;
+  content: '开启“只使用已育成马娘”后设置技能优先级';
+  font-size: 13px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.successionCapturedSkillPriority > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.successionCapturedSkillPriority > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.successionCapturedSkillPriority > header strong {
+  color: var(--uma-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.successionCapturedSkillPriority > header small {
+  color: var(--uma-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.successionCapturedSkillPriority > header > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #6366f1;
+  border-radius: 8px;
+  background: #6366f1;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionCapturedSkillPriority > header > button:hover:not(:disabled) {
+  border-color: #4f46e5;
+  background: #4f46e5;
+}
+
+.successionCapturedSkillPriorityList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  min-height: 78px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 3px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.successionCapturedSkillPriorityList > div {
+  display: grid;
+  grid-template-columns: 28px 38px minmax(0, 1fr) 18px 30px;
+  align-items: center;
+  gap: 8px;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid #dbe3ec;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--uma-text);
+  cursor: grab;
+  transition:
+    border-color 0.14s ease,
+    opacity 0.14s ease;
+}
+
+.successionCapturedSkillPriorityList > div:hover {
+  border-color: #a5b4fc;
+}
+
+.successionCapturedSkillPriorityList > div.dragging {
+  border-color: #818cf8;
+  opacity: 0.45;
+}
+
+.successionCapturedSkillPriorityList > div > b {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4338ca;
+  font-family: var(--uma-mono);
+  font-size: 11px;
+}
+
+.successionCapturedSkillPriorityList > div > svg {
+  color: #cbd5e1;
+}
+
+.successionCapturedSkillPriorityList > div > button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+}
+
+.successionCapturedSkillPriorityList > div > button:hover:not(:disabled) {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.successionCapturedSkillPriorityList > button {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionCapturedSkillPriorityList > button:hover:not(:disabled) {
+  border-color: #818cf8;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.successionCapturedSkillIcon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.successionCapturedSkillIconImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.successionCapturedSkillIcon i {
+  color: #6366f1;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.successionCapturedSkillCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.successionCapturedSkillCopy strong {
+  overflow: hidden;
+  color: var(--uma-text);
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionCapturedSkillCopy small {
+  color: var(--uma-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+
+@media (max-width: 1180px) {
+  .successionTrainedUmaTreeRoot {
+    width: min(430px, 54%);
+  }
+
+  .successionTrainedUmaTreeChildren {
+    gap: 16px;
+  }
+
+  .successionTargetPanel {
+    grid-template-columns: minmax(230px, 0.8fr) minmax(260px, 1fr);
+  }
+
+  .successionTargetSummary {
+    grid-column: 1 / -1;
+  }
+
+  .successionFactorLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .successionProbabilityCard {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.55fr) minmax(220px, 0.8fr) minmax(
+        220px,
+        0.7fr
+      );
+    gap: 18px;
+  }
+
+  .successionProbabilityCard > span {
+    grid-column: 1 / -1;
+  }
+
+  .successionAnyChance {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .successionProbabilityCard p {
+    grid-column: 1 / -1;
+  }
+
+  .successionCandidateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .successionTrainedUmaTreeRoot {
+    width: min(430px, 68%);
+  }
+
+  .successionHero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .successionSteps li:not(:last-child)::after {
+    display: none;
+  }
+
+  .successionLineageGrid,
+  .successionRoutes,
+  .successionRequirementBranches,
+  .successionOptimalBranches,
+  .successionOptimalResults.singleBranchResults {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCalculationWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .successionLineageGrid::before {
+    display: none;
+  }
+
+  .successionTargetSetup.hasTarget {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .successionTargetSetup.hasTarget::after {
+    display: none;
+  }
+
+  .successionRequirementTreeRoot::after,
+  .successionRequirementTreeChildren::before,
+  .successionRequirementTreeNode::before,
+  .successionRequirementTreeNode::after {
+    display: none;
+  }
+
+  .successionFactorRow {
+    grid-template-columns: 90px minmax(280px, 1fr) 90px 105px;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .successionCalculationSettingsBackdrop {
+    align-items: stretch;
+    padding: 8px;
+  }
+
+  .successionCalculationSettingsDialog {
+    max-height: none;
+    border-radius: 9px;
+  }
+
+  .successionCalculationSettingsDialog > header,
+  .successionCalculationSettingsDialog > footer {
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+
+  .successionCalculationSettingsBody {
+    padding: 0 13px;
+  }
+
+  .successionCalculationSettingsBody > section {
+    padding: 14px 0;
+  }
+
+  .successionCalculationSettingsBody > section > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .successionCalculationSettingsBody > section > header span {
+    text-align: left;
+  }
+
+  .successionCapturedSkillPriority > header {
+    align-items: flex-start;
+  }
+
+  .successionCapturedSkillPriorityList {
+    grid-template-columns: 1fr;
+  }
+
+  .successionTrainedUmaTreeRoot {
+    width: 100%;
+  }
+
+  .successionTrainedUmaTreeRoot::after,
+  .successionTrainedUmaTreeChildren::before,
+  .successionTrainedUmaTreeChild::before {
+    display: none;
+  }
+
+  .successionTrainedUmaTreeChildren {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-top: 10px;
+  }
+
+  .successionTrainedUmaModalFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .successionTrainedUmaModalFooter > div,
+  .successionTrainedUmaModalFooter button {
+    width: 100%;
+  }
+
+  .successionCalculationPlanning {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCalculationInheritance {
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid #e2e8f0;
+    border-left: 0;
+  }
+
+  .successionFactorJumpModalBody > div {
+    grid-template-columns: 1fr;
+  }
+
+  .successionBranchLineage > .successionLineageUmaSetting {
+    width: 100%;
+  }
+
+  .successionLineageUmaSetting > .successionUmaSelect {
+    height: auto;
+    min-height: 0;
+  }
+
+  .successionRouteCard.compact .successionRouteSummaryButton {
+    height: auto;
+    min-height: 62px;
+    overflow: visible;
+  }
+
+  .successionRouteCard.compact .successionRouteSummaryButton > header {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .successionBranchLineage > .successionLineageUmaSetting::after,
+  .successionGrandparents::before {
+    display: none;
+  }
+
+  .successionGrandparents {
+    padding-top: 0;
+  }
+
+  .successionCalculationProbabilityTargets.embedded {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+    height: auto;
+    min-height: 38px;
+  }
+
+  .successionProbabilityTargets.successionCalculationProbabilityTargets > span {
+    width: 100%;
+    line-height: 1.45;
+  }
+
+  .successionProbabilityTargets.successionCalculationProbabilityTargets > div {
+    width: 100%;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+  }
+
+  .successionRouteModalPresets > header,
+  .successionRouteAptitudeMinimums > header,
+  .successionRouteModalFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .successionRouteModalPresets > div,
+  .successionRouteAptitudeMinimums > div > section > div {
+    grid-template-columns: 1fr;
+  }
+
+  .successionRouteAptitudeMinimums > div > section {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .successionRouteAptitudeMinimums > div > section > span {
+    padding-top: 0;
+  }
+
+  .successionRouteModalFooter button {
+    width: 100%;
+  }
+
+  .successionExclusionToolbar {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .successionExclusionToolbar > span {
+    white-space: normal;
+  }
+
+  .successionExclusionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .successionHero,
+  .successionTargetPanel,
+  .successionPanel {
+    padding: 11px;
+  }
+
+  .successionHeroActions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .successionSteps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .successionSteps li {
+    min-height: 34px;
+  }
+
+  .successionTargetPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .successionTargetSummary {
+    grid-column: auto;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .successionTargetAptitudes {
+    grid-template-columns: repeat(3, minmax(42px, 1fr));
+  }
+
+  .successionSectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .successionTargetBar {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .successionTargetBar.hasTarget {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .successionCompleteDesign > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .successionOptimalResult > header {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .successionOptimalTree .successionRequirementTreeRoot {
+    width: 100%;
+  }
+
+  .successionCalculationProgress ol {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCompleteTree {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    padding-top: 0;
+  }
+
+  .successionCompleteGeneration > strong {
+    position: static;
+    margin-bottom: 5px;
+    padding: 0;
+    background: transparent;
+  }
+
+  .successionCompleteGeneration + .successionCompleteGeneration {
+    padding-top: 9px;
+    border-top: 1px solid var(--uma-border);
+  }
+
+  .successionCompleteGeneration > div,
+  .successionCompleteGeneration.generation1 > div,
+  .successionCompleteGeneration.generation2 > div,
+  .successionCompleteGeneration.generation3 > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    gap: 5px;
+  }
+
+  .successionCompleteGeneration article {
+    grid-row: auto !important;
+  }
+
+  .successionCompleteGeneration.generation2 article::before,
+  .successionCompleteGeneration.generation2 article::after,
+  .successionCompleteGeneration.generation3 article::before,
+  .successionCompleteGeneration.generation3 article::after {
+    display: none;
+  }
+
+  .successionInheritanceModalSummary {
+    flex-wrap: wrap;
+  }
+
+  .successionInheritanceModalSummary > b {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .successionInheritanceRankChoices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+.successionCalculationActions .successionResetLineage,
+.successionCalculationActions .successionCalculationSettingsButton,
+.successionCalculationActions .successionCalculateButton {
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .successionCalculationActions {
+    grid-template-columns: 1fr;
+  }
+
+  .successionCapturedReuseControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .successionCapturedReuseControls > button,
+  .successionCapturedReuseControls label {
+    width: 100%;
+  }
+
+  .successionRouteControls {
+    grid-template-columns: 1fr;
+  }
+
+  .successionMinimumChoices {
+    grid-template-columns: repeat(4, minmax(30px, 1fr));
+  }
+
+  .successionBranchLineage {
+    grid-template-columns: 1fr;
+  }
+
+  .successionGrandparents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .successionRequirementSources,
+  .successionRequirementCandidates > div {
+    grid-template-columns: 1fr;
+  }
+
+  .successionRequirementTreeRoot {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .successionRequirementTreeRoot::after {
+    display: none;
+  }
+
+  .successionRequirementTreeChildren {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding-left: 0;
+  }
+
+  .successionRequirementTreeChildren::before {
+    display: none;
+  }
+
+  .successionRequirementTreeNode::before {
+    display: none;
+  }
+
+  .successionRequirementTreeNode::after {
+    display: none;
+  }
+
+  .successionUmaSelect {
+    width: 100%;
+  }
+
+  .successionPickerOverlay {
+    align-items: stretch;
+    padding: 8px;
+  }
+
+  .successionPickerDialog {
+    max-height: none;
+    border-radius: 9px;
+  }
+
+  .successionPickerHeader {
+    padding: 14px;
+  }
+
+  .successionPickerHeader h3 {
+    font-size: 20px;
+  }
+
+  .successionPickerToolbar {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .successionPickerFilterRow {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .successionPickerFilterRow > span {
+    flex-basis: auto;
+    padding-top: 0;
+  }
+
+  .successionPickerFilterGroups {
+    gap: 6px 8px;
+  }
+
+  .successionPickerMeta {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .successionPickerMeta span {
+    flex: 1 0 100%;
+  }
+
+  .successionPickerGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 10px;
+  }
+
+  .successionPickerCard {
+    align-items: center;
+    min-height: 100px;
+    padding: 8px;
+  }
+
+  .successionPickerCard .successionPortrait.large {
+    width: 56px;
+    height: 56px;
+  }
+
+  .successionPickerFooter {
+    padding: 8px 12px;
+  }
+
+  .successionFactorTable {
+    overflow: visible;
+    border: none;
+  }
+
+  .successionFactorRow {
+    grid-template-columns: 72px minmax(0, 1fr);
+    width: auto;
+    min-height: 92px;
+    padding: 6px;
+    border: 1px solid var(--uma-border);
+    border-left: 3px solid #e34f91;
+    border-radius: 7px;
+  }
+
+  .successionFactorRow + .successionFactorRow {
+    margin-top: 5px;
+    border-top: 1px solid var(--uma-border);
+  }
+
+  .successionStarChoices {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .successionStarChoices button {
+    padding-right: 2px;
+    padding-left: 2px;
+    font-size: 10px;
+  }
+
+  .successionProjectedRank {
+    grid-column: 1;
+    text-align: left;
+  }
+
+  .successionFactorProbability {
+    grid-column: 2;
+    text-align: right;
+  }
+
+  .successionProbabilityCard {
+    display: flex;
+  }
+
+  .successionAnyChance {
+    padding-top: 14px;
+  }
+
+  .successionCandidateLegend {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .successionCandidateGrid {
+    grid-template-columns: 1fr;
+  }
+}

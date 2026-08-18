@@ -8,6 +8,7 @@ import { persistLeaderboardSnapshotFromPacket } from './LeaderboardRanking';
 import { handleRaceInfo } from './RaceInfo';
 import { handleTrainingHistoryInfo } from './TrainingHistory';
 import { captureAutoResearchCredentials } from './AutoResearchCredentials';
+import { captureSuccessionIndex } from './SuccessionIndex';
 
 export interface ExpressServerController {
   getPort: () => number;
@@ -56,6 +57,9 @@ export async function startExpressServer(
           }
           if (packetType === 'request') {
             captureAutoResearchCredentials(decoded, _mainWindow);
+          }
+          if (packetType === 'response') {
+            captureSuccessionIndex(decoded, _mainWindow);
           }
           persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
           handleTrainingHistoryInfo(decoded, _mainWindow);

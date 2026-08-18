@@ -193,6 +193,14 @@ export default class MenuBuilder {
           },
         },
         {
+          label: '继承规划',
+          click: () => {
+            this.mainWindow.webContents.send('navigate-to', {
+              path: '/succession',
+            });
+          },
+        },
+        {
           label: 'Training History',
           click: () => {
             this.mainWindow.webContents.send('navigate-to', {
@@ -307,6 +315,14 @@ export default class MenuBuilder {
         click: () => {
           this.mainWindow.webContents.send('navigate-to', {
             path: '/auto-research',
+          });
+        },
+      },
+      {
+        label: '继承规划',
+        click: () => {
+          this.mainWindow.webContents.send('navigate-to', {
+            path: '/succession',
           });
         },
       },

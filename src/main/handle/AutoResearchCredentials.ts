@@ -124,6 +124,21 @@ function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
   return result.map(publicAccount);
 }
 
+export function getAutoResearchAccountCredential(id: string) {
+  const account = readAccounts().find((item) => item.id === id);
+  if (!account) throw new Error('本地账号不存在');
+  return {
+    uid: account.uid,
+    accessKey: unprotectSecret(account.protectedAccessKey),
+  };
+}
+
+export function saveAutoResearchAccountCredential(
+  credential: CapturedAutoResearchCredential,
+) {
+  return upsertAccounts([credential]);
+}
+
 function importUsersDb(contentBase64: string) {
   const bytes = Buffer.from(contentBase64, 'base64');
   if (!bytes.length || bytes.length > 32 * 1024 * 1024) {
@@ -231,12 +246,7 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     return accounts.map(publicAccount);
   });
   ipcMain.handle('autoresearch:account-credential', (_, id: string) => {
-    const account = readAccounts().find((item) => item.id === id);
-    if (!account) throw new Error('本地账号不存在');
-    return {
-      uid: account.uid,
-      accessKey: unprotectSecret(account.protectedAccessKey),
-    };
+    return getAutoResearchAccountCredential(id);
   });
   ipcMain.handle(
     'autoresearch:accounts-import-users-db',

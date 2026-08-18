@@ -20,6 +20,8 @@ import { handleVenusModel } from './handle/VenusModel';
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
 import { handleAutoResearchUiSettings } from './handle/AutoResearchUiSettings';
+import { handleSuccessionIndex } from './handle/SuccessionIndex';
+import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -133,6 +135,8 @@ handleVenusModel(ipcMain);
 handleLeaderboardRanking(ipcMain);
 handleAutoResearchCredentials(ipcMain);
 handleAutoResearchUiSettings(ipcMain);
+handleSuccessionIndex(ipcMain);
+handleSuccessionPlayerScan(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**

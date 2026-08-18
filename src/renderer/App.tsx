@@ -9,10 +9,11 @@ import RaceStats from 'renderer/ui/RaceStats';
 import TrainingHistory from 'renderer/ui/TrainingHistory';
 import LeaderboardAnalysis from 'renderer/ui/LeaderboardAnalysis';
 import AutoResearch from 'renderer/ui/AutoResearch';
+import SuccessionPlanner from 'renderer/ui/SuccessionPlanner';
 
 export default function App() {
   return (
-    <div className="min-h-screen select-none">
+    <div className="min-h-screen select-none font-sans">
       <style>
         {`
           img {
@@ -75,6 +76,17 @@ export default function App() {
               element={
                 <KeepAlive name="AutoResearch" cacheKey="AutoResearch">
                   <AutoResearch />
+                </KeepAlive>
+              }
+            />
+            <Route
+              path="/succession"
+              element={
+                <KeepAlive
+                  name="SuccessionPlanner"
+                  cacheKey="SuccessionPlanner"
+                >
+                  <SuccessionPlanner />
                 </KeepAlive>
               }
             />

@@ -8,6 +8,7 @@ import {
   SessionAccount,
   SkillLearningSetting,
   SkillSelectionEntry,
+  TargetAttributeStage,
 } from './types';
 
 export const DEFAULT_SERVER = 'http://127.0.0.1:18765';
@@ -83,6 +84,7 @@ export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
       workers: 4,
       risk_factor: 0,
       target_attributes: [...DEFAULT_EXPECT_ATTRIBUTE],
+      target_attribute_stages: [],
     },
   };
 }
@@ -211,6 +213,27 @@ export function numberArray(
   });
 }
 
+export function normalizeTargetAttributeStages(
+  value: TargetAttributeStage[] | undefined,
+): TargetAttributeStage[] {
+  const stagesByTurn = new Map<number, TargetAttributeStage>();
+  (Array.isArray(value) ? value : []).forEach((rawStage) => {
+    const turn = Math.trunc(Number(rawStage?.turn));
+    if (!Number.isFinite(turn) || turn < 1 || turn > 76) return;
+    if (!Array.isArray(rawStage?.target_attributes)) return;
+    stagesByTurn.set(turn, {
+      turn,
+      target_attributes: numberArray(
+        rawStage.target_attributes,
+        [0, 0, 0, 0, 0],
+      ).map((attribute) => Math.max(0, Math.trunc(attribute))),
+    });
+  });
+  return [...stagesByTurn.values()].sort(
+    (left, right) => left.turn - right.turn,
+  );
+}
+
 export function normalizeTurnList(value: string | number[] | undefined) {
   const rows = Array.isArray(value)
     ? value
@@ -322,6 +345,22 @@ export function compareRaces(left: RaceOption, right: RaceOption) {
   );
 }
 
+export function normalizeRaceSelection(raceIds: number[], races: RaceOption[]) {
+  const raceById = new Map(races.map((race) => [race.id, race]));
+  const seenIds = new Set<number>();
+  const seenTurns = new Set<number>();
+
+  return raceIds.map(Number).filter((raceId) => {
+    if (!Number.isFinite(raceId) || seenIds.has(raceId)) return false;
+    seenIds.add(raceId);
+    const race = raceById.get(raceId);
+    if (!race) return true;
+    if (seenTurns.has(race.turn)) return false;
+    seenTurns.add(race.turn);
+    return true;
+  });
+}
+
 export function describeRunnerAction(value?: string) {
   const action = String(value || '').trim();
   if (!action) return '等待开始';
@@ -413,6 +452,8 @@ export function describeLogAction(value: string) {
     race_out: '离开比赛',
     race_rank: '比赛结果',
     race_rank_retry: '再次比赛',
+    g123_eight_length_win: '比赛大差',
+    比赛大差: '比赛大差',
     race_clock: '使用闹钟',
     race_clock_failed: '闹钟使用失败',
     race_reject: '无法报名比赛',
@@ -443,6 +484,12 @@ export function describeLogAction(value: string) {
 
 export function describeLogDetail(value: string) {
   const detail = String(value || '');
+  const largeMarginMatch = detail.match(
+    /race_id (\d+), margin_lengths ([\d.]+)/,
+  );
+  if (largeMarginMatch) {
+    return `比赛 ID ${largeMarginMatch[1]} · 大差 ${largeMarginMatch[2]} 马身`;
+  }
   const trainingMatch = detail.match(
     /^training (Speed|Stamina|Power|Guts|Wit)/,
   );

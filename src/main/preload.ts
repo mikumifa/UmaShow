@@ -177,8 +177,44 @@ const electronHandler = {
       };
     },
   },
+  successionPlayerScan: {
+    list: () => ipcRenderer.invoke('succession-player-scan:list'),
+    clear: () => ipcRenderer.invoke('succession-player-scan:clear'),
+    scan: (accountId: string, playerIds: string) =>
+      ipcRenderer.invoke('succession-player-scan:scan', accountId, playerIds),
+    onProgress(
+      callback: (data: {
+        stage: 'login' | 'load' | 'scan';
+        detail: string;
+        viewerId?: string;
+        current?: number;
+        total?: number;
+      }) => void,
+    ) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('succession-player-scan:progress', subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          'succession-player-scan:progress',
+          subscription,
+        );
+      };
+    },
+  },
   packetListener: {
     getPort: () => ipcRenderer.invoke('server:get-port'),
+    getSuccessionIndex: () => ipcRenderer.invoke('succession-index:get'),
+    onSuccessionIndex(callback: (data: any) => void) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+
+      ipcRenderer.on('succession-index:update', subscription);
+
+      return () => {
+        ipcRenderer.removeListener('succession-index:update', subscription);
+      };
+    },
     onLog(callback: (data: any) => void) {
       const subscription = (_event: IpcRendererEvent, data: any) =>
         callback(data);

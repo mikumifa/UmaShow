@@ -80,7 +80,7 @@ export default function ProgressTab({
                   className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerSessionWaiting ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                 >
                   {runnerStopping
-                    ? '正在停止…'
+                    ? '正在暂停…'
                     : runnerSessionWaiting
                       ? '等待重新登录'
                       : automationActive
@@ -106,7 +106,7 @@ export default function ProgressTab({
                   <Activity size={15} className="text-indigo-500" />
                 )}
                 {runnerStopping
-                  ? '已收到停止请求，正在等待当前操作完成'
+                  ? '正在终止独立育成进程'
                   : runnerSessionWaiting
                     ? `账号可能正在其他位置操作，${waitTimeLabel(runner?.session_wait_seconds)}后重新登录`
                     : liveActivityLabel ||
@@ -132,7 +132,7 @@ export default function ProgressTab({
 
         {runnerStopping ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            自动运行会在当前接口处理结束后停止；当前育成不会被放弃，之后仍可继续。
+            自动育成运行在独立进程中，暂停会立即结束自动操作；当前育成不会被放弃，之后仍可继续。
           </div>
         ) : null}
 
@@ -239,7 +239,7 @@ export default function ProgressTab({
                   ) : (
                     <CircleStop size={15} />
                   )}
-                  {runnerStopping ? '正在停止…' : '停止自动运行'}
+                  {runnerStopping ? '正在暂停…' : '暂停自动运行'}
                 </button>
               </div>
             ) : null}
@@ -267,7 +267,7 @@ export default function ProgressTab({
             </span>
           </div>
         </div>
-        <div className="max-h-[560px] overflow-auto">
+        <div className="max-h-[560px] cursor-text select-text overflow-auto">
           {(runner?.log || [])
             .filter((row) => !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action))
             .slice()

@@ -13,6 +13,10 @@ module.exports = {
     'text-ground-4',
   ],
   theme: {
+    fontFamily: {
+      sans: ['Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'sans-serif'],
+      mono: ['Consolas', 'Microsoft YaHei UI', 'Microsoft YaHei', 'monospace'],
+    },
     extend: {
       colors: {
         sky: colors.sky,

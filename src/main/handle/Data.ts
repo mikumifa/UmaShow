@@ -11,6 +11,7 @@ import {
   RaceInstance,
   Skill,
   UMDatabase,
+  WinsSaddle_WinSaddleType,
 } from 'umdb/data_pb';
 import { Story } from 'umdb/UMDatabaseUtils';
 import type {
@@ -42,6 +43,24 @@ export const UMDB = {
   raceInstances: {} as Record<number, RaceInstance>,
   skills: {} as Record<number, Skill>,
   interestingRaceInstances: [] as RaceInstance[],
+  successionG1SaddleIds: [] as number[],
+  successionFactorMeta: {} as Record<
+    number,
+    {
+      id: number;
+      groupId: number;
+      stars: 1 | 2 | 3;
+      factorType: 3 | 4 | 5;
+      name: string;
+      skillGroupIds: number[];
+      skillTargets: Array<{
+        groupId: number;
+        name: string;
+        iconId: number;
+        level?: number;
+      }>;
+    }
+  >,
   stories: [] as Story[],
 };
 
@@ -53,6 +72,11 @@ export function UMDBload() {
       path.join(process.cwd(), 'support_card_meta.generated.json'),
     ];
     const umdbJsonPath = path.join(ASSETS_PATH, 'data', 'umdb.json');
+    const successionFactorMetaPath = path.join(
+      ASSETS_PATH,
+      'data',
+      'succession_factor_meta.json',
+    );
     const supportCardMetaPath = supportCardMetaPaths.find((candidate) =>
       fs.existsSync(candidate),
     );
@@ -70,6 +94,7 @@ export function UMDBload() {
     UMDB.skillTipNames = {};
     UMDB.cardRarityData = {};
     UMDB.cardTalentRates = {};
+    UMDB.successionFactorMeta = {};
     if (fs.existsSync(umdbJsonPath)) {
       const umdbJson = JSON.parse(fs.readFileSync(umdbJsonPath, 'utf-8')) as {
         charaEffectTexts?: Record<string, string>;
@@ -133,6 +158,50 @@ export function UMDBload() {
         ),
       );
     }
+    if (fs.existsSync(successionFactorMetaPath)) {
+      const factorMeta = JSON.parse(
+        fs.readFileSync(successionFactorMetaPath, 'utf-8'),
+      ) as Record<
+        string,
+        {
+          id: number;
+          groupId: number;
+          stars: 1 | 2 | 3;
+          factorType: 3 | 4 | 5;
+          name: string;
+          skillGroupIds?: number[];
+          skillTargets?: Array<{
+            groupId?: number;
+            name?: string;
+            iconId?: number;
+            level?: number;
+          }>;
+        }
+      >;
+      UMDB.successionFactorMeta = Object.fromEntries(
+        Object.entries(factorMeta).map(([factorId, factor]) => [
+          Number(factorId),
+          {
+            ...factor,
+            id: Number(factor.id || factorId),
+            groupId: Number(factor.groupId || 0),
+            skillGroupIds: (factor.skillGroupIds || []).map(Number),
+            skillTargets: (factor.skillTargets || []).flatMap((target) => {
+              const groupId = Number(target.groupId || 0);
+              if (!groupId) return [];
+              return [
+                {
+                  groupId,
+                  name: String(target.name || `技能组 ${groupId}`),
+                  iconId: Number(target.iconId || 0),
+                  level: Number(target.level || 0),
+                },
+              ];
+            }),
+          },
+        ]),
+      );
+    }
     if (supportCardMetaPath) {
       supportCardMetaFile = JSON.parse(
         fs.readFileSync(supportCardMetaPath, 'utf-8'),
@@ -165,6 +234,10 @@ export function UMDBload() {
     UMDB.interestingRaceInstances = _.sortedUniq(
       umdb.winsSaddle.flatMap((ws) => ws.raceInstanceId),
     ).map((id) => UMDB.raceInstances[id]);
+    UMDB.successionG1SaddleIds = umdb.winsSaddle
+      .filter((winsSaddle) => winsSaddle.type === WinsSaddle_WinSaddleType.G1)
+      .map((winsSaddle) => Number(winsSaddle.id || 0))
+      .filter((id) => id > 0);
     // ---- stories
     UMDB.stories = umdb.story.map((story) => {
       const o: Story = { id: story.id!, name: story.name! };

@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 import {
   Check,
   Download,
@@ -14,7 +14,9 @@ import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { AutoResearchSkill, skillIconPath } from './SkillSelector';
 import {
   DEFAULT_PRESET_NAME,
+  compareRaces,
   MONTH_OPTIONS,
+  normalizeRaceSelection,
   panelClass,
   scrollToSection,
   skillPurchaseTurn,
@@ -29,6 +31,7 @@ import {
   RaceOption,
   SkillLearningSetting,
   SkillSelectionEntry,
+  TargetAttributeStage,
 } from './types';
 
 type PresetsTabProps = {
@@ -79,6 +82,12 @@ type PresetsTabProps = {
   health: any;
   uraAiTargetAttributes: number[];
   setUraAiTargetAttributes: Dispatch<SetStateAction<number[]>>;
+  uraAiTargetAttributeStages: TargetAttributeStage[];
+  setUraAiTargetAttributeStages: Dispatch<
+    SetStateAction<TargetAttributeStage[]>
+  >;
+  targetAttributeStageYearOffset: number;
+  setTargetAttributeStageYearOffset: Dispatch<SetStateAction<number>>;
   uraAiTimeBudget: number;
   setUraAiTimeBudget: Dispatch<SetStateAction<number>>;
   uraAiMinRollouts: number;
@@ -89,9 +98,7 @@ type PresetsTabProps = {
   setUraAiWorkers: Dispatch<SetStateAction<number>>;
   uraAiRiskFactor: number;
   setUraAiRiskFactor: Dispatch<SetStateAction<number>>;
-  raceSearch: string;
-  setRaceSearch: Dispatch<SetStateAction<string>>;
-  filteredRaces: RaceOption[];
+  races: RaceOption[];
   selectedRaceIds: number[];
   setSelectedRaceIds: Dispatch<SetStateAction<number[]>>;
 };
@@ -143,6 +150,10 @@ export default function PresetsTab(props: PresetsTabProps) {
     health,
     uraAiTargetAttributes,
     setUraAiTargetAttributes,
+    uraAiTargetAttributeStages,
+    setUraAiTargetAttributeStages,
+    targetAttributeStageYearOffset,
+    setTargetAttributeStageYearOffset,
     uraAiTimeBudget,
     setUraAiTimeBudget,
     uraAiMinRollouts,
@@ -153,12 +164,60 @@ export default function PresetsTab(props: PresetsTabProps) {
     setUraAiWorkers,
     uraAiRiskFactor,
     setUraAiRiskFactor,
-    raceSearch,
-    setRaceSearch,
-    filteredRaces,
+    races,
     selectedRaceIds,
     setSelectedRaceIds,
   } = props;
+  const [selectedRaceTurn, setSelectedRaceTurn] = useState<number | null>(null);
+  const racesByTurn = new Map<number, RaceOption[]>();
+  races.forEach((race) => {
+    const turnRaces = racesByTurn.get(race.turn) || [];
+    turnRaces.push(race);
+    racesByTurn.set(race.turn, turnRaces);
+  });
+  const racesForSelectedDate = selectedRaceTurn
+    ? [...(racesByTurn.get(selectedRaceTurn) || [])].sort(compareRaces)
+    : [];
+
+  const toggleTargetAttributeStage = (turn: number) => {
+    setUraAiTargetAttributeStages((current) => {
+      if (current.some((stage) => stage.turn === turn)) {
+        return current.filter((stage) => stage.turn !== turn);
+      }
+      const nextStage = [...current]
+        .sort((left, right) => left.turn - right.turn)
+        .find((stage) => stage.turn > turn);
+      return [
+        ...current,
+        {
+          turn,
+          target_attributes: [
+            ...(nextStage?.target_attributes || uraAiTargetAttributes),
+          ],
+        },
+      ].sort((left, right) => left.turn - right.turn);
+    });
+  };
+
+  const updateTargetAttributeStage = (
+    turn: number,
+    attributeIndex: number,
+    value: number,
+  ) => {
+    setUraAiTargetAttributeStages((current) =>
+      current.map((stage) =>
+        stage.turn === turn
+          ? {
+              ...stage,
+              target_attributes: stage.target_attributes.map(
+                (attribute, index) =>
+                  index === attributeIndex ? value : attribute,
+              ),
+            }
+          : stage,
+      ),
+    );
+  };
   return !presetEditorOpen ? (
     <section className={panelClass('p-5')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -231,7 +290,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     </label>
                   )}
                   <p className="mt-2 text-xs text-gray-500">
-                    URA · 手写策略 + 蒙特卡洛 · {skillCount} 个优先技能 ·{' '}
+                    URA · {skillCount} 个优先技能 ·{' '}
                     {(preset.extra_race_list || []).length} 场额外赛事
                   </p>
                   {referencedCount ? (
@@ -695,38 +754,20 @@ export default function PresetsTab(props: PresetsTabProps) {
           </section>
         </div>
 
-        <section
-          id="preset-training"
-          className="mt-4 scroll-mt-28 rounded-xl border border-violet-200 bg-violet-50/50 p-4"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-violet-950">
-                手写策略 + 蒙特卡洛
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-violet-700">
-                手写策略负责模拟后续育成，蒙特卡洛比较当前合法动作。
-              </p>
-            </div>
-            <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-xs text-violet-700">
-              {health?.umarl?.installed
-                ? `UmaRL ${health.umarl.version || '-'}`
-                : '未安装 UmaRL'}
-            </span>
-          </div>
-
+        <section id="preset-training" className="mt-4 scroll-mt-28">
           {health?.umarl?.installed ? (
-            <div className="mt-4 space-y-4">
-              <div className="rounded-xl border border-violet-200 bg-white p-4">
-                <p className="text-sm font-semibold text-violet-950">
-                  目标属性
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-800">
+                  最终目标属性
                 </p>
-                <p className="mt-1 text-xs leading-5 text-violet-700">
-                  超过目标后的属性收益会自动降权。填写 0 可关闭单项约束。
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  所有阶段结束后使用这组属性线。达到单项属性线后不再选择对应训练；填写
+                  0 可关闭单项约束。
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {STAT_LABELS.map((label, index) => (
-                    <label key={label} className="text-xs text-violet-800">
+                    <label key={label} className="text-xs text-slate-600">
                       {label}
                       <input
                         type="number"
@@ -742,18 +783,152 @@ export default function PresetsTab(props: PresetsTabProps) {
                             ),
                           )
                         }
-                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-2 py-2 text-sm text-slate-800"
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800"
                       />
                     </label>
                   ))}
                 </div>
+
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        分阶段目标属性
+                      </p>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                        选中日期并填写阶段属性线；到该日期为止使用这组目标，之后自动切换到下一阶段，最后使用上方最终目标。
+                      </p>
+                    </div>
+                    {uraAiTargetAttributeStages.length ? (
+                      <button
+                        type="button"
+                        onClick={() => setUraAiTargetAttributeStages([])}
+                        className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                      >
+                        清空阶段
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 flex gap-1 rounded-lg bg-slate-100 p-1">
+                    {SKILL_PURCHASE_YEAR_OPTIONS.map((year) => (
+                      <button
+                        key={year.offset}
+                        type="button"
+                        onClick={() =>
+                          setTargetAttributeStageYearOffset(year.offset)
+                        }
+                        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                          targetAttributeStageYearOffset === year.offset
+                            ? 'bg-white text-indigo-700 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {year.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-4 2xl:grid-cols-6">
+                    {MONTH_OPTIONS.map((month) => (
+                      <div
+                        key={month}
+                        className="rounded-lg border border-slate-200 bg-slate-50 p-1.5"
+                      >
+                        <p className="mb-1 text-center text-[11px] font-medium text-slate-500">
+                          {month}月
+                        </p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {([1, 2] as const).map((half) => {
+                            const turn = skillPurchaseTurn(
+                              targetAttributeStageYearOffset,
+                              month,
+                              half,
+                            );
+                            const selected = uraAiTargetAttributeStages.some(
+                              (stage) => stage.turn === turn,
+                            );
+                            return (
+                              <button
+                                key={half}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => toggleTargetAttributeStage(turn)}
+                                className={`rounded px-1 py-1 text-[11px] font-medium ${
+                                  selected
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700'
+                                }`}
+                              >
+                                {half === 1 ? '上' : '下'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    {uraAiTargetAttributeStages.map((stage) => (
+                      <div
+                        key={stage.turn}
+                        className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-slate-700">
+                            截至 {skillPurchaseTurnLabel(stage.turn)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleTargetAttributeStage(stage.turn)
+                            }
+                            title="删除此阶段"
+                            className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                          {STAT_LABELS.map((label, index) => (
+                            <label
+                              key={label}
+                              className="text-[11px] text-slate-600"
+                            >
+                              {label}
+                              <input
+                                type="number"
+                                min={0}
+                                step={10}
+                                value={stage.target_attributes[index] ?? 0}
+                                onChange={(event) =>
+                                  updateTargetAttributeStage(
+                                    stage.turn,
+                                    index,
+                                    Number(event.target.value),
+                                  )
+                                }
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {!uraAiTargetAttributeStages.length ? (
+                      <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
+                        尚未设置阶段目标，当前会全程使用最终目标属性。
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
-              <details className="rounded-xl border border-violet-100 bg-white">
-                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-violet-950">
+              <details className="rounded-xl border border-slate-200 bg-white">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
                   高级采样设置
                 </summary>
-                <div className="grid gap-3 border-t border-violet-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
                   {[
                     [
                       '每回合秒数',
@@ -791,7 +966,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                   ].map(([label, value, setter, step, min, max]) => (
                     <label
                       key={String(label)}
-                      className="text-xs text-violet-800"
+                      className="text-xs text-slate-600"
                     >
                       {String(label)}
                       <input
@@ -805,12 +980,12 @@ export default function PresetsTab(props: PresetsTabProps) {
                             Number(event.target.value),
                           )
                         }
-                        className="mt-1 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-800"
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
                       />
                     </label>
                   ))}
                 </div>
-                <p className="px-4 pb-4 text-xs leading-5 text-violet-600">
+                <p className="px-4 pb-4 text-xs leading-5 text-slate-500">
                   当前快速模式的有效范围为 0.5–2 秒、32–128 次最少模拟和 32–256
                   次最多模拟。
                 </p>
@@ -829,72 +1004,206 @@ export default function PresetsTab(props: PresetsTabProps) {
             </div>
           )}
         </section>
-        <div
-          id="preset-races"
-          className="mt-5 flex scroll-mt-28 flex-wrap items-end justify-between gap-3"
-        >
-          <label className="min-w-[260px] flex-1 text-sm">
-            搜索预设比赛
-            <input
-              value={raceSearch}
-              onChange={(event) => setRaceSearch(event.target.value)}
-              placeholder="赛事名、日期、赛场或等级"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            />
-          </label>
-          <div className="text-right">
-            <p className="text-sm text-slate-500">
-              已选择 {selectedRaceIds.length} 场
-            </p>
-            <p className="mt-1 text-xs text-indigo-600">
-              所选比赛可参加时必须执行，UmaRL 不会改选其他行动
-            </p>
+        <section id="preset-races" className="mt-5 scroll-mt-28">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-slate-900">预设比赛</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                先选择育成日期，再选择该日期要参加的一场比赛。
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-slate-500">
+                已选择 {selectedRaceIds.length} 场
+              </p>
+              <p className="mt-1 text-xs text-indigo-600">
+                所选比赛可参加时必须执行，UmaRL 不会改选其他行动
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="mt-3 grid max-h-[440px] gap-2 overflow-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredRaces.map((race) => {
-            const checked = selectedRaceIds.includes(race.id);
-            return (
-              <label
-                key={race.id}
-                className={`flex cursor-pointer gap-3 rounded-xl border p-2 ${
-                  checked
-                    ? 'border-indigo-400 bg-indigo-50'
-                    : 'border-slate-100 bg-white'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() =>
-                    setSelectedRaceIds((current) =>
-                      checked
-                        ? current.filter((id) => id !== race.id)
-                        : [...current, race.id],
-                    )
-                  }
-                  className="mt-1"
-                />
-                <AssetIcon
-                  path={`race_thumb/${race.thumbnail_id}.png`}
-                  alt={race.name}
-                  className="h-14 w-20 rounded-lg bg-slate-100 object-cover"
-                />
-                <span className="min-w-0 text-xs">
-                  <strong className="block truncate text-sm">
-                    {race.name}
-                  </strong>
-                  <span className="block text-slate-500">
-                    {race.date} · {race.type} · {race.venue}
-                  </span>
-                  <span className="text-slate-400">
-                    {race.terrain} · {race.distance}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
+
+          <div className="mt-4 space-y-5">
+            {SKILL_PURCHASE_YEAR_OPTIONS.map((year) => (
+              <div key={year.offset}>
+                <div className="mb-2 flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-slate-800">
+                    {year.label}
+                  </h4>
+                  <span className="h-px flex-1 bg-slate-200" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+                  {MONTH_OPTIONS.map((month) => (
+                    <div
+                      key={month}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-1.5"
+                    >
+                      <p className="mb-1 text-center text-[11px] font-medium text-slate-500">
+                        {month}月
+                      </p>
+                      <div className="grid grid-cols-2 gap-1">
+                        {([1, 2] as const).map((half) => {
+                          const turn = skillPurchaseTurn(
+                            year.offset,
+                            month,
+                            half,
+                          );
+                          const selected = selectedRaceTurn === turn;
+                          const turnRaces = racesByTurn.get(turn) || [];
+                          const selectedRace = turnRaces.find((race) =>
+                            selectedRaceIds.includes(race.id),
+                          );
+                          return (
+                            <button
+                              key={half}
+                              type="button"
+                              aria-pressed={selected}
+                              aria-label={`${skillPurchaseTurnLabel(turn)}${
+                                selectedRace
+                                  ? `，已选择${selectedRace.name}`
+                                  : '，未选择比赛'
+                              }`}
+                              onClick={() => setSelectedRaceTurn(turn)}
+                              className={`relative aspect-[2/1] min-w-0 overflow-hidden rounded text-[10px] transition ${
+                                selected
+                                  ? 'bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500'
+                                  : 'bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700'
+                              }`}
+                            >
+                              {selectedRace ? (
+                                <AssetIcon
+                                  path={`race_thumb/${selectedRace.thumbnail_id}.png`}
+                                  alt={selectedRace.name}
+                                  title={selectedRace.name}
+                                  className="absolute inset-0 h-full w-full object-contain"
+                                />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center opacity-50">
+                                  {half === 1 ? '上半' : '下半'} ·{' '}
+                                  {turnRaces.length ? '未选择' : '无赛事'}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        {selectedRaceTurn ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${skillPurchaseTurnLabel(selectedRaceTurn)}比赛选择`}
+              className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h3 className="font-bold text-slate-900">
+                    {skillPurchaseTurnLabel(selectedRaceTurn)}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    该日期最多选择一场比赛，共 {racesForSelectedDate.length}{' '}
+                    场可选
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRaceTurn(null)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  完成
+                </button>
+              </div>
+              {racesForSelectedDate.some((race) =>
+                selectedRaceIds.includes(race.id),
+              ) ? (
+                <div className="border-b border-slate-100 px-5 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const raceIdsForDate = new Set(
+                        racesForSelectedDate.map((race) => race.id),
+                      );
+                      setSelectedRaceIds((current) =>
+                        current.filter((id) => !raceIdsForDate.has(id)),
+                      );
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-800"
+                  >
+                    取消该日选择
+                  </button>
+                </div>
+              ) : null}
+              <div className="overflow-y-auto p-4">
+                {racesForSelectedDate.length ? (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {racesForSelectedDate.map((race) => {
+                      const checked = selectedRaceIds.includes(race.id);
+                      return (
+                        <label
+                          key={race.id}
+                          className={`flex cursor-pointer gap-3 rounded-xl border p-2 ${
+                            checked
+                              ? 'border-indigo-400 bg-indigo-50'
+                              : 'border-slate-100 bg-white hover:border-slate-200'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`preset-race-${selectedRaceTurn}`}
+                            checked={checked}
+                            onChange={() => {
+                              const raceIdsForDate = new Set(
+                                racesForSelectedDate.map((item) => item.id),
+                              );
+                              setSelectedRaceIds((current) =>
+                                normalizeRaceSelection(
+                                  [
+                                    ...current.filter(
+                                      (id) => !raceIdsForDate.has(id),
+                                    ),
+                                    race.id,
+                                  ],
+                                  races,
+                                ),
+                              );
+                            }}
+                            className="mt-1"
+                          />
+                          <AssetIcon
+                            path={`race_thumb/${race.thumbnail_id}.png`}
+                            alt={race.name}
+                            className="h-10 w-20 shrink-0 rounded-lg object-contain"
+                          />
+                          <span className="min-w-0 text-xs">
+                            <strong className="block truncate text-sm">
+                              {race.name}
+                            </strong>
+                            <span className="block text-slate-500">
+                              {race.type} · {race.venue}
+                            </span>
+                            <span className="text-slate-400">
+                              {race.terrain} · {race.distance}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-lg bg-slate-50 px-3 py-10 text-center text-sm text-slate-400">
+                    该日期没有可选比赛
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
           <div>
             <h3 className="font-semibold text-indigo-950">预设配置完成后</h3>

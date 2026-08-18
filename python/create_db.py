@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 import argparse
 import base64
 import gzip
@@ -7,8 +9,6 @@ import sqlite3
 import os
 import re
 from collections import defaultdict
-from google.protobuf import json_format
-import proto.data_pb2 as data_pb2
 
 SOURCE_ICON_DIR = r"D:\Apps\umas\export\Texture2D"
 SUPPORT_CARD_SPECIALTY_RATE_TYPE = 19
@@ -797,15 +797,134 @@ def populate_live_songs(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
         pb.live_song.append(r)
 
 
+def build_succession_factor_meta(cursor: sqlite3.Cursor) -> dict:
+    """Build the factor catalogue used by the succession planner.
+
+    `succession_factor_effect.target_type = 41` grants a skill hint. Keeping
+    its skill group lets a race factor and the corresponding skill factor act
+    as alternative sources for the same requested skill. Only rarity-1 output
+    skills are inheritable here: this keeps ordinary skills and the base
+    unique skills granted by green factors, while excluding gold/evolved
+    skills and higher unique variants.
+    """
+    cursor.execute(
+        """SELECT sf.factor_id, sf.factor_group_id, sf.rarity, sf.factor_type,
+                  factor_text.text
+           FROM succession_factor AS sf
+           JOIN text_data AS factor_text
+             ON factor_text.category = 147
+            AND factor_text."index" = sf.factor_id
+           WHERE sf.factor_type IN (3, 4, 5)
+           ORDER BY sf.factor_type, sf.factor_group_id, sf.rarity;"""
+    )
+    factors = {
+        str(factor_id): {
+            "id": factor_id,
+            "groupId": factor_group_id,
+            "stars": rarity,
+            "factorType": factor_type,
+            "name": name,
+            "skillGroupIds": [],
+            "skillTargets": [],
+        }
+        for factor_id, factor_group_id, rarity, factor_type, name in cursor.fetchall()
+    }
+
+    cursor.execute(
+        """SELECT sf.factor_id, skill.group_id, skill.icon_id, skill.group_rate,
+                  skill_text.text
+           FROM succession_factor AS sf
+           JOIN succession_factor_effect AS effect
+             ON effect.factor_group_id = sf.factor_group_id
+            AND effect.effect_id = sf.rarity
+            AND effect.target_type = 41
+           JOIN skill_data AS skill ON skill.id = effect.value_1
+           JOIN text_data AS skill_text
+             ON skill_text.category = 47
+            AND skill_text."index" = skill.id
+           WHERE sf.factor_type IN (3, 4, 5)
+             AND skill.rarity = 1
+           ORDER BY sf.factor_id, skill.group_id;"""
+    )
+    for (
+        factor_id,
+        skill_group_id,
+        skill_icon_id,
+        skill_level,
+        skill_name,
+    ) in cursor.fetchall():
+        factor = factors.get(str(factor_id))
+        if factor is None:
+            continue
+        if skill_group_id not in factor["skillGroupIds"]:
+            factor["skillGroupIds"].append(skill_group_id)
+        if not any(
+            target["groupId"] == skill_group_id
+            for target in factor["skillTargets"]
+        ):
+            factor["skillTargets"].append(
+                {
+                    "groupId": skill_group_id,
+                    "name": skill_name,
+                    "iconId": skill_icon_id,
+                    "level": skill_level,
+                }
+            )
+
+    return factors
+
+
+def build_succession_skill_meta(factors: dict) -> dict:
+    """Build a compact renderer fallback for skill names and icons."""
+    skills = {}
+    for factor in factors.values():
+        for target in factor.get("skillTargets", []):
+            key = str(target["groupId"])
+            current = skills.get(key)
+            target_level = target.get("level", 0)
+            target_priority = target_level if target_level > 0 else 1
+            current_level = current.get("level", 0) if current else 0
+            current_priority = current_level if current_level > 0 else 1
+            if current is None or target_priority < current_priority:
+                skills[key] = {
+                    "groupId": target["groupId"],
+                    "name": target["name"],
+                    "iconId": target["iconId"],
+                    "level": target_level,
+                }
+    return skills
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path", default="master.mdb")
     parser.add_argument("--version", default="test")
     parser.add_argument("--skill_data_out", default="assets/data/skill_data.json")
     parser.add_argument("--only_skill_data", action="store_true")
+    parser.add_argument(
+        "--succession_factor_meta_out",
+        default="assets/data/succession_factor_meta.json",
+    )
+    parser.add_argument(
+        "--succession_skill_meta_out",
+        default="src/renderer/data/succession_skill_meta.json",
+    )
+    parser.add_argument("--only_succession_factor_meta", action="store_true")
     args = parser.parse_args()
 
     cursor = open_db(args.db_path)
+    succession_factor_meta = build_succession_factor_meta(cursor)
+    os.makedirs(os.path.dirname(args.succession_factor_meta_out) or ".", exist_ok=True)
+    with open(args.succession_factor_meta_out, "w", encoding="utf-8") as f:
+        json.dump(succession_factor_meta, f, ensure_ascii=False, indent=2)
+    succession_skill_meta = build_succession_skill_meta(succession_factor_meta)
+    os.makedirs(os.path.dirname(args.succession_skill_meta_out) or ".", exist_ok=True)
+    with open(args.succession_skill_meta_out, "w", encoding="utf-8") as f:
+        json.dump(succession_skill_meta, f, ensure_ascii=False, indent=2)
+
+    if args.only_succession_factor_meta:
+        return
+
     skill_data = build_skill_data(cursor)
     permanent_skill_report = analyze_permanent_skill_alternatives(skill_data)
     print_permanent_skill_alternative_report(permanent_skill_report)
@@ -815,6 +934,10 @@ def main():
 
     if args.only_skill_data:
         return
+
+    global data_pb2, json_format
+    from google.protobuf import json_format
+    import proto.data_pb2 as data_pb2
 
     pb = data_pb2.UMDatabase()
     pb.version = args.version
