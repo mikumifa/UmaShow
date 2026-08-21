@@ -8,6 +8,7 @@ import {
   capturedBlueFactorTotals,
   capturedMemberMatchesSlotConstraint,
   capturedReuseCombinationValid,
+  capturedReusePairPolicy,
   capturedSelectedSkillFactorCount,
   capturedUmaMatchesGeneratedCandidate,
   combinedSkillTargetProbability,
@@ -95,6 +96,25 @@ describe('capturedReuseCombinationValid', () => {
         branch(1004, 'rental', ['rental:9:2'], ['rental'], [1004, 1002, 1006]),
       ),
     ).toBe(false);
+  });
+});
+
+describe('capturedReusePairPolicy', () => {
+  test('uses one canonical direction only when the branches are interchangeable', () => {
+    expect(capturedReusePairPolicy('own', true)).toEqual({
+      includePaternal: true,
+      includeMaternalRentals: true,
+      canonicalizeOwnPair: true,
+    });
+    expect(capturedReusePairPolicy('rental', true).includePaternal).toBe(false);
+  });
+
+  test('keeps a borrowed paternal candidate when the branches have fixed roles', () => {
+    expect(capturedReusePairPolicy('rental', false)).toEqual({
+      includePaternal: true,
+      includeMaternalRentals: false,
+      canonicalizeOwnPair: false,
+    });
   });
 });
 

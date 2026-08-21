@@ -339,6 +339,18 @@ export function capturedReuseCombinationValid(
   return !(first.parentSource === 'rental' && second.parentSource === 'rental');
 }
 
+export function capturedReusePairPolicy(
+  paternalSource: 'own' | 'rental',
+  branchesInterchangeable: boolean,
+) {
+  return {
+    includePaternal:
+      !branchesInterchangeable || paternalSource === 'own',
+    includeMaternalRentals: paternalSource === 'own',
+    canonicalizeOwnPair: branchesInterchangeable,
+  };
+}
+
 export function capturedMemberMatchesSlotConstraint(
   member: Pick<CapturedLineageMember, 'umaId' | 'cardId'>,
   constraint: {
@@ -8351,9 +8363,6 @@ function SuccessionPlanner({
       const maternalCandidates = capturedUmas
         .filter((candidate) => branchAcceptsCandidate(candidate, 'maternal'))
         .map((candidate) => prepareBranchCandidate(candidate, 'maternal'));
-      const paternalOwnCandidates = paternalCandidates.filter(
-        ({ candidate }) => candidate.source === 'own',
-      );
       const candidateOrderKey = ({ candidate }: (typeof paternalCandidates)[number]) =>
         `${String(candidate.umaId).padStart(10, '0')}:${candidate.selectionId}`;
       const maternalOwnCandidates = maternalCandidates
@@ -8364,31 +8373,44 @@ function SuccessionPlanner({
       const maternalRentalCandidates = maternalCandidates.filter(
         ({ candidate }) => candidate.source === 'rental',
       );
-      const ownPairRows = paternalOwnCandidates.map((paternal) => {
-        const paternalOrderKey = candidateOrderKey(paternal);
-        let low = 0;
-        let high = maternalOwnCandidates.length;
-        while (low < high) {
-          const middle = Math.floor((low + high) / 2);
-          if (
-            candidateOrderKey(maternalOwnCandidates[middle]) <=
-            paternalOrderKey
-          ) {
-            low = middle + 1;
-          } else {
-            high = middle;
+      const pairRows = paternalCandidates
+        .filter(({ candidate }) =>
+          capturedReusePairPolicy(candidate.source, branchesInterchangeable)
+            .includePaternal,
+        )
+        .map((paternal) => {
+          const pairPolicy = capturedReusePairPolicy(
+            paternal.candidate.source,
+            branchesInterchangeable,
+          );
+          const paternalOrderKey = candidateOrderKey(paternal);
+          let low = 0;
+          if (pairPolicy.canonicalizeOwnPair) {
+            let high = maternalOwnCandidates.length;
+            while (low < high) {
+              const middle = Math.floor((low + high) / 2);
+              if (
+                candidateOrderKey(maternalOwnCandidates[middle]) <=
+                paternalOrderKey
+              ) {
+                low = middle + 1;
+              } else {
+                high = middle;
+              }
+            }
           }
-        }
-        return {
-          paternal,
-          maternalOwnStartIndex: low,
-          pairCount:
-            maternalRentalCandidates.length +
-            maternalOwnCandidates.length -
-            low,
-        };
-      });
-      const totalPairs = ownPairRows.reduce(
+          const maternalRentalCount = pairPolicy.includeMaternalRentals
+            ? maternalRentalCandidates.length
+            : 0;
+          return {
+            paternal,
+            maternalOwnStartIndex: low,
+            maternalRentalCount,
+            pairCount:
+              maternalRentalCount + maternalOwnCandidates.length - low,
+          };
+        });
+      const totalPairs = pairRows.reduce(
         (total, row) => total + row.pairCount,
         0,
       );
@@ -8431,16 +8453,16 @@ function SuccessionPlanner({
           (processedPairs === batchStartIndex ||
             window.performance.now() - batchStartedAt < 12)
         ) {
-          const pairRow = ownPairRows[pairRowIndex];
+          const pairRow = pairRows[pairRowIndex];
           if (!pairRow) break;
           const paternal = pairRow.paternal;
           const maternal =
-            pairRowOffset < maternalRentalCandidates.length
+            pairRowOffset < pairRow.maternalRentalCount
               ? maternalRentalCandidates[pairRowOffset]
               : maternalOwnCandidates[
                   pairRow.maternalOwnStartIndex +
                     pairRowOffset -
-                    maternalRentalCandidates.length
+                    pairRow.maternalRentalCount
                 ];
           processedPairs += 1;
           pairRowOffset += 1;
