@@ -334,8 +334,8 @@ export function capturedReuseCombinationValid(
   if (!first.parentId || first.parentId === second.parentId) return false;
   const selectionIds = [...first.selectionIds, ...second.selectionIds];
   if (new Set(selectionIds).size !== selectionIds.length) return false;
-  const umaIds = [...first.umaIds, ...second.umaIds];
-  if (new Set(umaIds).size !== umaIds.length) return false;
+  if (new Set(first.umaIds).size !== first.umaIds.length) return false;
+  if (new Set(second.umaIds).size !== second.umaIds.length) return false;
   return !(first.parentSource === 'rental' && second.parentSource === 'rental');
 }
 
@@ -344,8 +344,7 @@ export function capturedReusePairPolicy(
   branchesInterchangeable: boolean,
 ) {
   return {
-    includePaternal:
-      !branchesInterchangeable || paternalSource === 'own',
+    includePaternal: !branchesInterchangeable || paternalSource === 'own',
     includeMaternalRentals: paternalSource === 'own',
     canonicalizeOwnPair: branchesInterchangeable,
   };
@@ -359,9 +358,12 @@ export function capturedMemberMatchesSlotConstraint(
     trainedUmaId?: number;
     fixedDressCardId?: number;
     excluded?: boolean;
+    allowTarget?: boolean;
   },
 ) {
-  if (member.umaId === constraint.targetId) return false;
+  if (!constraint.allowTarget && member.umaId === constraint.targetId) {
+    return false;
+  }
   const fixed = Boolean(constraint.fixedUmaId || constraint.trainedUmaId);
   if (constraint.excluded && !fixed) return false;
   if (constraint.fixedUmaId && constraint.fixedUmaId !== member.umaId) {
@@ -492,6 +494,28 @@ const BRANCH_SLOTS: Record<BranchKey, LineageSlot[]> = {
   paternal: ['father', 'paternalA', 'paternalB'],
   maternal: ['mother', 'maternalA', 'maternalB'],
 };
+const LINEAGE_CONFLICT_SLOTS: Record<LineageSlot, LineageSlot[]> = {
+  father: ['mother', 'paternalA', 'paternalB'],
+  mother: ['father', 'maternalA', 'maternalB'],
+  paternalA: ['father', 'paternalB'],
+  paternalB: ['father', 'paternalA'],
+  maternalA: ['mother', 'maternalB'],
+  maternalB: ['mother', 'maternalA'],
+};
+
+export function lineageSlotExcludedUmaIds(
+  targetId: number,
+  lineage: Record<LineageSlot, number>,
+  slot: LineageSlot,
+) {
+  const ids = [
+    ...(slot === 'father' || slot === 'mother' ? [targetId] : []),
+    ...LINEAGE_CONFLICT_SLOTS[slot].map(
+      (conflictSlot) => lineage[conflictSlot],
+    ),
+  ];
+  return [...new Set(ids.filter((id) => id && id !== lineage[slot]))];
+}
 const SLOT_LABELS: Record<LineageSlot, string> = {
   father: '父亲 A',
   mother: '母亲 B',
@@ -1058,10 +1082,10 @@ export function normalizeSuccessionIndex(
     if (!uniqueRows.has(row.selectionId)) uniqueRows.set(row.selectionId, row);
   });
   return [...uniqueRows.values()].sort(
-      (left, right) =>
-        (left.source === right.source ? 0 : left.source === 'own' ? -1 : 1) ||
-        right.rankScore - left.rankScore,
-    );
+    (left, right) =>
+      (left.source === right.source ? 0 : left.source === 'own' ? -1 : 1) ||
+      right.rankScore - left.rankScore,
+  );
 }
 
 export function mergeScannedSuccessionPlayers(
@@ -1231,10 +1255,9 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
     ];
     const excludedCapturedSelectionIds = [
       ...new Set<string>(
-        (
-          Array.isArray(stored.excludedCapturedSelectionIds)
-            ? stored.excludedCapturedSelectionIds
-            : []
+        (Array.isArray(stored.excludedCapturedSelectionIds)
+          ? stored.excludedCapturedSelectionIds
+          : []
         )
           .map(String)
           .filter(Boolean),
@@ -2945,7 +2968,9 @@ function TrainedUmaSettingModal({
   const renderMemberEditor = (member: TrainedLineageMember, index: number) => {
     const allowedCurrentIds = new Set(memberIds);
     const memberExclude = [
-      ...exclude.filter((id) => !allowedCurrentIds.has(id)),
+      ...(index === 0
+        ? exclude.filter((id) => !allowedCurrentIds.has(id))
+        : []),
       ...members
         .filter((_, memberIndex) => memberIndex !== index)
         .map((item) => item.umaId)
@@ -3224,8 +3249,7 @@ export function capturedDetailFactorOrder(
   factorMeta: Record<number, SuccessionFactorMeta> = {},
 ) {
   const remainingFactors = factors.filter(
-    (factor) =>
-      factor.id !== blueFactorId && factor.id !== aptitudeFactorId,
+    (factor) => factor.id !== blueFactorId && factor.id !== aptitudeFactorId,
   );
   const isUnique = (factor: CapturedInheritanceFactor) =>
     factor.id >= 10_000_000 || factorMeta[factor.id]?.factorType === 3;
@@ -3235,7 +3259,11 @@ export function capturedDetailFactorOrder(
   ];
 }
 
-function CapturedMemberAllFactors({ member }: { member: CapturedLineageMember }) {
+function CapturedMemberAllFactors({
+  member,
+}: {
+  member: CapturedLineageMember;
+}) {
   const factorMeta = UMDB.successionFactorMeta as Record<
     number,
     SuccessionFactorMeta
@@ -3254,8 +3282,7 @@ function CapturedMemberAllFactors({ member }: { member: CapturedLineageMember })
         </span>
       ) : null}
       <span className="aptitude">
-        {APTITUDE_LABELS[member.factor.type]}{' '}
-        <b>{member.factor.stars}★</b>
+        {APTITUDE_LABELS[member.factor.type]} <b>{member.factor.stars}★</b>
       </span>
       {remainingFactors.map((factor, index) => {
         const meta = factorMeta[factor.id];
@@ -3271,8 +3298,7 @@ function CapturedMemberAllFactors({ member }: { member: CapturedLineageMember })
             key={`${factor.id}:${index}`}
             title={`因子 ID ${factor.id}`}
           >
-            {meta?.name || `因子 ${factor.id}`}{' '}
-            <b>{factor.stars}★</b>
+            {meta?.name || `因子 ${factor.id}`} <b>{factor.stars}★</b>
           </span>
         );
       })}
@@ -3331,7 +3357,9 @@ function CapturedUmaDetailModal({
                 <CapturedMemberPortrait member={member} />
                 <span>
                   <small>{label}</small>
-                  <strong>{UMDB.cards[member.cardId]?.name || member.name}</strong>
+                  <strong>
+                    {UMDB.cards[member.cardId]?.name || member.name}
+                  </strong>
                   <em>{member.name}</em>
                 </span>
               </header>
@@ -3378,8 +3406,7 @@ function CapturedUmaPickerModal({
 }) {
   const [search, setSearch] = useState('');
   const [candidatePage, setCandidatePage] = useState(0);
-  const [detailCandidate, setDetailCandidate] =
-    useState<CapturedTrainedUma>();
+  const [detailCandidate, setDetailCandidate] = useState<CapturedTrainedUma>();
   const keyword = search.trim().toLowerCase();
   const excluded = new Set(exclude);
   const visible = candidates.filter((candidate) => {
@@ -3450,9 +3477,7 @@ function CapturedUmaPickerModal({
         <header className="successionPickerHeader">
           <div>
             <h3>选择已有马娘</h3>
-            <p>
-              点击候选卡片直接选择；“查看详细”可查看本体、父辈与全部因子。
-            </p>
+            <p>点击候选卡片直接选择；“查看详细”可查看本体、父辈与全部因子。</p>
           </div>
           <button
             type="button"
@@ -3501,37 +3526,37 @@ function CapturedUmaPickerModal({
             </div>
             <div className="successionCapturedPickerGrid">
               {pagedVisible.map((candidate) => {
-              const dressName = UMDB.cards[candidate.cardId]?.name;
-              const previews = compatibilityPreviews(candidate);
-              return (
-                <article
-                  className="successionCapturedPickerCard"
-                  key={candidate.selectionId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSave(capturedSetting(candidate, routeId))}
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSave(capturedSetting(candidate, routeId));
-                    }
-                  }}
-                >
-                  <div className="successionCapturedPickerSelf">
-                    <CapturedMemberPortrait member={candidate} />
-                    <div className="successionCapturedIdentity">
-                      <strong>{dressName || candidate.name}</strong>
-                      <span>
-                        {dressName && dressName !== candidate.name
-                          ? `${candidate.name} · `
-                          : ''}
-                        {candidate.source === 'own'
-                          ? '自己的马娘'
-                          : `借用 · ${candidate.ownerName}`}
-                        {candidate.rankScore
-                          ? ` · 评分 ${candidate.rankScore}`
-                          : ''}
+                const dressName = UMDB.cards[candidate.cardId]?.name;
+                const previews = compatibilityPreviews(candidate);
+                return (
+                  <article
+                    className="successionCapturedPickerCard"
+                    key={candidate.selectionId}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSave(capturedSetting(candidate, routeId))}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSave(capturedSetting(candidate, routeId));
+                      }
+                    }}
+                  >
+                    <div className="successionCapturedPickerSelf">
+                      <CapturedMemberPortrait member={candidate} />
+                      <div className="successionCapturedIdentity">
+                        <strong>{dressName || candidate.name}</strong>
+                        <span>
+                          {dressName && dressName !== candidate.name
+                            ? `${candidate.name} · `
+                            : ''}
+                          {candidate.source === 'own'
+                            ? '自己的马娘'
+                            : `借用 · ${candidate.ownerName}`}
+                          {candidate.rankScore
+                            ? ` · 评分 ${candidate.rankScore}`
+                            : ''}
                         </span>
                       </div>
                       <button
@@ -3545,61 +3570,61 @@ function CapturedUmaPickerModal({
                         查看详细
                       </button>
                     </div>
-                  <CapturedMemberDetails member={candidate} />
-                  {previews.length ? (
-                    <div className="successionCapturedCompatibility">
-                      {previews.map((preview) => (
-                        <span
-                          key={preview.label}
-                          title={
-                            preview.g1Details?.length
-                              ? `基础相性 ${preview.base} + ${preview.g1Details
-                                  .map(
-                                    (detail) =>
-                                      `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
-                                  )
-                                  .join('\n')}\n总计 ${preview.total}`
-                              : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
-                          }
+                    <CapturedMemberDetails member={candidate} />
+                    {previews.length ? (
+                      <div className="successionCapturedCompatibility">
+                        {previews.map((preview) => (
+                          <span
+                            key={preview.label}
+                            title={
+                              preview.g1Details?.length
+                                ? `基础相性 ${preview.base} + ${preview.g1Details
+                                    .map(
+                                      (detail) =>
+                                        `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
+                                    )
+                                    .join('\n')}\n总计 ${preview.total}`
+                                : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
+                            }
+                          >
+                            <small>{preview.label}</small>
+                            <strong>契合度 {preview.total}</strong>
+                            <em>
+                              {preview.g1Details?.length
+                                ? preview.g1Details.map((detail) => (
+                                    <span key={detail.label}>
+                                      {detail.detailed
+                                        ? detail.label
+                                        : `${detail.label}（路线估算）`}
+                                      {' · '}共同 G1 {detail.count}
+                                    </span>
+                                  ))
+                                : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
+                            </em>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="successionCapturedPickerParents">
+                      {candidate.parents.map((parent, index) => (
+                        <section
+                          key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`}
                         >
-                          <small>{preview.label}</small>
-                          <strong>契合度 {preview.total}</strong>
-                          <em>
-                            {preview.g1Details?.length
-                              ? preview.g1Details.map((detail) => (
-                                  <span key={detail.label}>
-                                    {detail.detailed
-                                      ? detail.label
-                                      : `${detail.label}（路线估算）`}
-                                    {' · '}共同 G1 {detail.count}
-                                  </span>
-                                ))
-                              : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
-                          </em>
-                        </span>
+                          <div className="successionCapturedParentHeader">
+                            <CapturedMemberPortrait member={parent} />
+                            <span>
+                              <small>父辈 {index + 1}</small>
+                              <strong>
+                                {UMDB.cards[parent.cardId]?.name || parent.name}
+                              </strong>
+                            </span>
+                          </div>
+                          <CapturedMemberDetails member={parent} />
+                        </section>
                       ))}
                     </div>
-                  ) : null}
-                  <div className="successionCapturedPickerParents">
-                    {candidate.parents.map((parent, index) => (
-                      <section
-                        key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`}
-                      >
-                        <div className="successionCapturedParentHeader">
-                          <CapturedMemberPortrait member={parent} />
-                          <span>
-                            <small>父辈 {index + 1}</small>
-                            <strong>
-                              {UMDB.cards[parent.cardId]?.name || parent.name}
-                            </strong>
-                          </span>
-                        </div>
-                        <CapturedMemberDetails member={parent} />
-                      </section>
-                    ))}
-                  </div>
-                </article>
-              );
+                  </article>
+                );
               })}
             </div>
           </>
@@ -3632,8 +3657,7 @@ function MatchingCapturedUmaModal({
   const [search, setSearch] = useState('');
   const [copiedViewerId, setCopiedViewerId] = useState(0);
   const [candidatePage, setCandidatePage] = useState(0);
-  const [detailCandidate, setDetailCandidate] =
-    useState<CapturedTrainedUma>();
+  const [detailCandidate, setDetailCandidate] = useState<CapturedTrainedUma>();
   const keyword = search.trim().toLowerCase();
   const visible = candidates.filter((candidate) => {
     if (!keyword) return true;
@@ -3745,82 +3769,85 @@ function MatchingCapturedUmaModal({
             </div>
             <div className="successionCapturedPickerGrid">
               {pagedVisible.map((candidate) => {
-              const dressName = UMDB.cards[candidate.cardId]?.name;
-              return (
-                <article
-                  className="successionCapturedPickerCard"
-                  key={candidate.selectionId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setDetailCandidate(candidate)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setDetailCandidate(candidate);
-                    }
-                  }}
-                >
-                  <div className="successionCapturedPickerSelf">
-                    <CapturedMemberPortrait member={candidate} />
-                    <div className="successionCapturedIdentity">
-                      <strong>{dressName || candidate.name}</strong>
-                      <span>
-                        {dressName && dressName !== candidate.name
-                          ? `${candidate.name} · `
-                          : ''}
-                        {candidate.source === 'own'
-                          ? '自己的马娘'
-                          : `借用 · ${candidate.ownerName}`}
-                        {candidate.rankScore
-                          ? ` · 评分 ${candidate.rankScore}`
-                          : ''}
-                      </span>
+                const dressName = UMDB.cards[candidate.cardId]?.name;
+                return (
+                  <article
+                    className="successionCapturedPickerCard"
+                    key={candidate.selectionId}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDetailCandidate(candidate)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setDetailCandidate(candidate);
+                      }
+                    }}
+                  >
+                    <div className="successionCapturedPickerSelf">
+                      <CapturedMemberPortrait member={candidate} />
+                      <div className="successionCapturedIdentity">
+                        <strong>{dressName || candidate.name}</strong>
+                        <span>
+                          {dressName && dressName !== candidate.name
+                            ? `${candidate.name} · `
+                            : ''}
+                          {candidate.source === 'own'
+                            ? '自己的马娘'
+                            : `借用 · ${candidate.ownerName}`}
+                          {candidate.rankScore
+                            ? ` · 评分 ${candidate.rankScore}`
+                            : ''}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="successionCapturedMatchFactorRow">
-                    <CapturedMemberDetails member={candidate} />
-                    {candidate.source === 'rental' && candidate.viewerId ? (
-                      <button
-                        type="button"
-                        className="successionCandidateCopyViewerId"
-                        title={`${candidate.ownerName} · 玩家 ID ${candidate.viewerId}`}
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          try {
-                            await copyText(String(candidate.viewerId));
-                            setCopiedViewerId(candidate.viewerId);
-                            window.setTimeout(() => setCopiedViewerId(0), 1400);
-                          } catch {
-                            setCopiedViewerId(0);
-                          }
-                        }}
-                      >
-                        {copiedViewerId === candidate.viewerId
-                          ? '已复制'
-                          : '复制 ID'}
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="successionCapturedPickerParents">
-                    {candidate.parents.map((parent, index) => (
-                      <section
-                        key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}:${index}`}
-                      >
-                        <div className="successionCapturedParentHeader">
-                          <CapturedMemberPortrait member={parent} />
-                          <span>
-                            <small>父辈 {index + 1}</small>
-                            <strong>
-                              {UMDB.cards[parent.cardId]?.name || parent.name}
-                            </strong>
-                          </span>
-                        </div>
-                        <CapturedMemberDetails member={parent} />
-                      </section>
-                    ))}
-                  </div>
-                </article>
-              );
+                    <div className="successionCapturedMatchFactorRow">
+                      <CapturedMemberDetails member={candidate} />
+                      {candidate.source === 'rental' && candidate.viewerId ? (
+                        <button
+                          type="button"
+                          className="successionCandidateCopyViewerId"
+                          title={`${candidate.ownerName} · 玩家 ID ${candidate.viewerId}`}
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            try {
+                              await copyText(String(candidate.viewerId));
+                              setCopiedViewerId(candidate.viewerId);
+                              window.setTimeout(
+                                () => setCopiedViewerId(0),
+                                1400,
+                              );
+                            } catch {
+                              setCopiedViewerId(0);
+                            }
+                          }}
+                        >
+                          {copiedViewerId === candidate.viewerId
+                            ? '已复制'
+                            : '复制 ID'}
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="successionCapturedPickerParents">
+                      {candidate.parents.map((parent, index) => (
+                        <section
+                          key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}:${index}`}
+                        >
+                          <div className="successionCapturedParentHeader">
+                            <CapturedMemberPortrait member={parent} />
+                            <span>
+                              <small>父辈 {index + 1}</small>
+                              <strong>
+                                {UMDB.cards[parent.cardId]?.name || parent.name}
+                              </strong>
+                            </span>
+                          </div>
+                          <CapturedMemberDetails member={parent} />
+                        </section>
+                      ))}
+                    </div>
+                  </article>
+                );
               })}
             </div>
           </>
@@ -4706,7 +4733,8 @@ function UmaExclusionList({
                         <CapturedMemberPortrait member={candidate} />
                         <span>
                           <b>
-                            {UMDB.cards[candidate.cardId]?.name || candidate.name}
+                            {UMDB.cards[candidate.cardId]?.name ||
+                              candidate.name}
                           </b>
                           <small>
                             {candidate.source === 'own'
@@ -4942,7 +4970,9 @@ function CapturedBlacklistHoverDetails({
               <CapturedMemberPortrait member={member} />
               <span>
                 <small>{label}</small>
-                <strong>{UMDB.cards[member.cardId]?.name || member.name}</strong>
+                <strong>
+                  {UMDB.cards[member.cardId]?.name || member.name}
+                </strong>
               </span>
             </div>
             <CapturedMemberDetails member={member} />
@@ -5072,7 +5102,8 @@ function CompleteDesignCandidateIdentity({
           if (capturedCandidate) setCapturedDetailOpen(true);
         }}
         onKeyDown={(event) => {
-          if (event.target !== event.currentTarget || !capturedCandidate) return;
+          if (event.target !== event.currentTarget || !capturedCandidate)
+            return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             setCapturedDetailOpen(true);
@@ -5711,11 +5742,14 @@ function SuccessionPlanner({
     null,
   );
   const calculationRunToken = useRef(0);
-  const capturedReusePairFilterRef = useRef<{
-    inputKey: string;
-    allowedPairKeys: Set<string>;
-    truncated: boolean;
-  } | undefined>(undefined);
+  const capturedReusePairFilterRef = useRef<
+    | {
+        inputKey: string;
+        allowedPairKeys: Set<string>;
+        truncated: boolean;
+      }
+    | undefined
+  >(undefined);
   const excludedCapturedSelectionIdSet = useMemo(
     () => new Set(excludedCapturedSelectionIds),
     [excludedCapturedSelectionIds.join('|')],
@@ -5727,6 +5761,9 @@ function SuccessionPlanner({
           !excludedCapturedSelectionIdSet.has(candidate.selectionId),
       ),
     [allCapturedUmas, excludedCapturedSelectionIds.join('|')],
+  );
+  const hasOwnCapturedUma = allCapturedUmas.some(
+    (candidate) => candidate.source === 'own',
   );
 
   useEffect(() => {
@@ -6013,16 +6050,8 @@ function SuccessionPlanner({
     calculationRequestId > 0 &&
     calculationInputKey === currentCalculationInputKey;
   const selectedLineageIds = Object.values(lineage).filter(Boolean);
-  const excludedIdsForSlot = (slot: LineageSlot) => {
-    const isParent = slot === 'father' || slot === 'mother';
-    const sameBranchGrandparents = slot.startsWith('paternal')
-      ? [lineage.paternalA, lineage.paternalB]
-      : [lineage.maternalA, lineage.maternalB];
-    const ids = isParent
-      ? [targetId, ...selectedLineageIds]
-      : [targetId, lineage.father, lineage.mother, ...sameBranchGrandparents];
-    return [...new Set(ids.filter((id) => id && id !== lineage[slot]))];
-  };
+  const excludedIdsForSlot = (slot: LineageSlot) =>
+    lineageSlotExcludedUmaIds(targetId, lineage, slot);
   const selectedRoutes = {
     paternal: ROUTES.find((route) => route.id === routes.paternal) || ROUTES[0],
     maternal: ROUTES.find((route) => route.id === routes.maternal) || ROUTES[1],
@@ -6484,6 +6513,7 @@ function SuccessionPlanner({
         trainedUmaId: trainedMember?.umaId,
         fixedDressCardId,
         excluded: excludedUmaIdSet.has(member.umaId),
+        allowTarget: slot !== parent,
       });
     };
     const capturedPosition = (
@@ -6613,7 +6643,7 @@ function SuccessionPlanner({
       const assignment = effectiveAssignmentForSlot(slot);
       return data.umas
         .filter((candidate) => {
-          if (candidate.id === targetId) return false;
+          if (slot === parent && candidate.id === targetId) return false;
           const fixedCandidate =
             lineage[slot] === candidate.id ||
             Boolean(allowedFixedUmas?.some((uma) => uma.id === candidate.id));
@@ -7880,199 +7910,202 @@ function SuccessionPlanner({
         }
       }
       for (const [paternal, maternal] of candidateSummaryPairs()) {
+        if (
+          branchFactorPlansEquivalent &&
+          paternal.orderKey > maternal.orderKey
+        ) {
+          continue;
+        }
+        const paternalSummary = paternal.representative;
+        const maternalSummary = maternal.representative;
+        if (paternalSummary.parentId === maternalSummary.parentId) continue;
+        if (capturedReuseMode !== 'off') {
+          const preparedPairFilter = capturedReusePairFilterRef.current;
+          const paternalSelectionId =
+            paternalSummary.strategy.capturedSelectionIds?.[0] || '';
+          const maternalSelectionId =
+            maternalSummary.strategy.capturedSelectionIds?.[0] || '';
           if (
-            branchFactorPlansEquivalent &&
-            paternal.orderKey > maternal.orderKey
+            preparedPairFilter?.inputKey === currentCalculationInputKey &&
+            !preparedPairFilter.allowedPairKeys.has(
+              `${paternalSelectionId}|${maternalSelectionId}`,
+            )
           ) {
             continue;
           }
-          const paternalSummary = paternal.representative;
-          const maternalSummary = maternal.representative;
-          if (capturedReuseMode !== 'off') {
-            const preparedPairFilter = capturedReusePairFilterRef.current;
-            const paternalSelectionId =
-              paternalSummary.strategy.capturedSelectionIds?.[0] || '';
-            const maternalSelectionId =
-              maternalSummary.strategy.capturedSelectionIds?.[0] || '';
-            if (
-              preparedPairFilter?.inputKey === currentCalculationInputKey &&
-              !preparedPairFilter.allowedPairKeys.has(
-                `${paternalSelectionId}|${maternalSelectionId}`,
-              )
-            ) {
-              continue;
-            }
-            const identity = (
-              summary: BranchProbabilitySummary,
-            ): CapturedReuseBranchIdentity => {
-              const directParent = summary.strategy.positions.find(
-                (position) => position.generation === 1,
-              );
-              return {
-                parentId: summary.parentId,
-                parentSource: directParent?.capturedSource || 'planned',
-                selectionIds: summary.strategy.capturedSelectionIds || [],
-                sources: summary.strategy.capturedSources || [],
-                umaIds: summary.strategy.positions
-                  .filter(
-                    (position) => position.generation <= 2 && position.uma?.id,
-                  )
-                  .map((position) => position.uma!.id),
-              };
+          const identity = (
+            summary: BranchProbabilitySummary,
+          ): CapturedReuseBranchIdentity => {
+            const directParent = summary.strategy.positions.find(
+              (position) => position.generation === 1,
+            );
+            return {
+              parentId: summary.parentId,
+              parentSource: directParent?.capturedSource || 'planned',
+              selectionIds: summary.strategy.capturedSelectionIds || [],
+              sources: summary.strategy.capturedSources || [],
+              umaIds: summary.strategy.positions
+                .filter(
+                  (position) => position.generation <= 2 && position.uma?.id,
+                )
+                .map((position) => position.uma!.id),
             };
-            if (
-              !capturedReuseCombinationValid(
-                identity(paternalSummary),
-                identity(maternalSummary),
-              )
-            ) {
-              continue;
-            }
-            if (
-              !capturedBlueFactorMinimumsSatisfied(capturedBlueFactorMinimums, [
-                paternalSummary.strategy.capturedBlueFactorTotals ||
-                  INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
-                maternalSummary.strategy.capturedBlueFactorTotals ||
-                  INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
-              ])
-            ) {
-              continue;
-            }
-            if (
-              activeCapturedFactorTargets.some(
-                (_, index) =>
-                  !paternalSummary.capturedTargetAvailability[index] &&
-                  !maternalSummary.capturedTargetAvailability[index],
-              )
-            ) {
-              continue;
-            }
+          };
+          if (
+            !capturedReuseCombinationValid(
+              identity(paternalSummary),
+              identity(maternalSummary),
+            )
+          ) {
+            continue;
           }
           if (
-            !demandSatisfied(guaranteedFactorDemand, [
-              ...paternalSummary.factors,
-              ...maternalSummary.factors,
+            !capturedBlueFactorMinimumsSatisfied(capturedBlueFactorMinimums, [
+              paternalSummary.strategy.capturedBlueFactorTotals ||
+                INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
+              maternalSummary.strategy.capturedBlueFactorTotals ||
+                INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
             ])
           ) {
             continue;
           }
-          const factors = combinedProbabilityFactors(
-            paternalSummary,
-            maternalSummary,
-          );
-          const probabilityKey = factors
-            .map(
-              (factor) =>
-                `${factor.type}:${factor.stars}:${factor.compatibility}`,
-            )
-            .sort()
-            .join('|');
-          let probability = probabilityCache.get(probabilityKey);
-          if (probability === undefined) {
-            probability = probabilityOfReachingTargets(
-              factors,
-              probabilityTargetTypes,
-              probabilityRequiredRaises,
-            );
-            probabilityCache.set(probabilityKey, probability);
-          }
-          let targetProbabilities: number[] = [];
-          if (activeCapturedFactorTargets.length) {
-            const parentPairCompatibility = relationScore(
-              paternalSummary.parentId,
-              maternalSummary.parentId,
-            );
-            targetProbabilities = activeCapturedFactorTargets.map(
-              (factorTarget, targetIndex) => {
-                const parentMissProbability = (
-                  summary: BranchProbabilitySummary,
-                ) => {
-                  const localCompatibility =
-                    Object.values(summary.positionCompatibilities).find(
-                      (detail) => detail.parent,
-                    )?.total || 0;
-                  return (
-                    1 -
-                    capturedFactorTargetProbability(
-                      summary.capturedParentFactors.map((factor) => ({
-                        factor,
-                        generation: 1 as const,
-                        compatibility:
-                          localCompatibility + parentPairCompatibility,
-                      })),
-                      factorTarget,
-                      successionFactorMeta,
-                    )
-                  );
-                };
-                const missProbability =
-                  paternalSummary
-                    .capturedAncestorTargetMissProbabilities[targetIndex] *
-                  maternalSummary
-                    .capturedAncestorTargetMissProbabilities[targetIndex] *
-                  parentMissProbability(paternalSummary) *
-                  parentMissProbability(maternalSummary);
-                return 1 - missProbability;
-              },
-            );
-            if (targetProbabilities.some((value) => value <= 0)) continue;
-          }
-          const combinedProbability = combinedSkillTargetProbability(
-            probability,
-            targetProbabilities,
-          );
           if (
-            capturedReuseMode === 'off'
-              ? combinedProbability < MIN_DISPLAYED_PROBABILITY
-              : combinedProbability <= 0
+            activeCapturedFactorTargets.some(
+              (_, index) =>
+                !paternalSummary.capturedTargetAvailability[index] &&
+                !maternalSummary.capturedTargetAvailability[index],
+            )
           ) {
             continue;
           }
-          if (capturedReuseMode !== 'off') {
-            rankedCapturedMatches.push({
-              probability: combinedProbability,
-              targetProbabilities,
-              match: {
-                plan: completeDesignGroup.plan,
-                paternal,
-                maternal,
-              },
-            });
-            continue;
-          }
-          const priorityComparison = compareCombinedProbabilityPriority(
-            combinedProbability,
-            targetProbabilities,
-            bestCombinedProbability,
-            bestSkillProbabilities,
+        }
+        if (
+          !demandSatisfied(guaranteedFactorDemand, [
+            ...paternalSummary.factors,
+            ...maternalSummary.factors,
+          ])
+        ) {
+          continue;
+        }
+        const factors = combinedProbabilityFactors(
+          paternalSummary,
+          maternalSummary,
+        );
+        const probabilityKey = factors
+          .map(
+            (factor) =>
+              `${factor.type}:${factor.stars}:${factor.compatibility}`,
+          )
+          .sort()
+          .join('|');
+        let probability = probabilityCache.get(probabilityKey);
+        if (probability === undefined) {
+          probability = probabilityOfReachingTargets(
+            factors,
+            probabilityTargetTypes,
+            probabilityRequiredRaises,
           );
-          if (priorityComparison > 0) {
-            bestCombinedProbability = combinedProbability;
-            bestSkillProbabilities = targetProbabilities;
-            bestMatches.length = 0;
-            bestMatchByKey.clear();
-            bestMatchKeys.clear();
-            bestMatchCount = 0;
-            const match = {
+          probabilityCache.set(probabilityKey, probability);
+        }
+        let targetProbabilities: number[] = [];
+        if (activeCapturedFactorTargets.length) {
+          const parentPairCompatibility = relationScore(
+            paternalSummary.parentId,
+            maternalSummary.parentId,
+          );
+          targetProbabilities = activeCapturedFactorTargets.map(
+            (factorTarget, targetIndex) => {
+              const parentMissProbability = (
+                summary: BranchProbabilitySummary,
+              ) => {
+                const localCompatibility =
+                  Object.values(summary.positionCompatibilities).find(
+                    (detail) => detail.parent,
+                  )?.total || 0;
+                return (
+                  1 -
+                  capturedFactorTargetProbability(
+                    summary.capturedParentFactors.map((factor) => ({
+                      factor,
+                      generation: 1 as const,
+                      compatibility:
+                        localCompatibility + parentPairCompatibility,
+                    })),
+                    factorTarget,
+                    successionFactorMeta,
+                  )
+                );
+              };
+              const missProbability =
+                paternalSummary.capturedAncestorTargetMissProbabilities[
+                  targetIndex
+                ] *
+                maternalSummary.capturedAncestorTargetMissProbabilities[
+                  targetIndex
+                ] *
+                parentMissProbability(paternalSummary) *
+                parentMissProbability(maternalSummary);
+              return 1 - missProbability;
+            },
+          );
+          if (targetProbabilities.some((value) => value <= 0)) continue;
+        }
+        const combinedProbability = combinedSkillTargetProbability(
+          probability,
+          targetProbabilities,
+        );
+        if (
+          capturedReuseMode === 'off'
+            ? combinedProbability < MIN_DISPLAYED_PROBABILITY
+            : combinedProbability <= 0
+        ) {
+          continue;
+        }
+        if (capturedReuseMode !== 'off') {
+          rankedCapturedMatches.push({
+            probability: combinedProbability,
+            targetProbabilities,
+            match: {
               plan: completeDesignGroup.plan,
               paternal,
               maternal,
-            };
-            recordBestMatch(
-              match,
-              bestMatchKey(paternal, maternal, branchFactorPlansEquivalent),
-            );
-          } else if (priorityComparison === 0) {
-            const match = {
-              plan: completeDesignGroup.plan,
-              paternal,
-              maternal,
-            };
-            recordBestMatch(
-              match,
-              bestMatchKey(paternal, maternal, branchFactorPlansEquivalent),
-            );
-          }
+            },
+          });
+          continue;
+        }
+        const priorityComparison = compareCombinedProbabilityPriority(
+          combinedProbability,
+          targetProbabilities,
+          bestCombinedProbability,
+          bestSkillProbabilities,
+        );
+        if (priorityComparison > 0) {
+          bestCombinedProbability = combinedProbability;
+          bestSkillProbabilities = targetProbabilities;
+          bestMatches.length = 0;
+          bestMatchByKey.clear();
+          bestMatchKeys.clear();
+          bestMatchCount = 0;
+          const match = {
+            plan: completeDesignGroup.plan,
+            paternal,
+            maternal,
+          };
+          recordBestMatch(
+            match,
+            bestMatchKey(paternal, maternal, branchFactorPlansEquivalent),
+          );
+        } else if (priorityComparison === 0) {
+          const match = {
+            plan: completeDesignGroup.plan,
+            paternal,
+            maternal,
+          };
+          recordBestMatch(
+            match,
+            bestMatchKey(paternal, maternal, branchFactorPlansEquivalent),
+          );
+        }
       }
     }
 
@@ -8085,7 +8118,11 @@ function SuccessionPlanner({
           right.targetProbabilities,
         );
         return comparison === 0
-          ? bestMatchKey(left.match.paternal, left.match.maternal, false).localeCompare(
+          ? bestMatchKey(
+              left.match.paternal,
+              left.match.maternal,
+              false,
+            ).localeCompare(
               bestMatchKey(right.match.paternal, right.match.maternal, false),
             )
           : -comparison;
@@ -8251,9 +8288,9 @@ function SuccessionPlanner({
             targetId,
             fixedUmaId: lineage[slot],
             trainedUmaId: trainedMember?.umaId,
-            fixedDressCardId:
-              trainedMember?.cardId || fixedDressSlots[slot],
+            fixedDressCardId: trainedMember?.cardId || fixedDressSlots[slot],
             excluded: excludedUmaIdSet.has(member.umaId),
+            allowTarget: slot !== slots[0],
           });
         });
       };
@@ -8335,14 +8372,15 @@ function SuccessionPlanner({
             umaIds: members.map((member) => member.umaId),
           } satisfies CapturedReuseBranchIdentity,
           blueFactorTotals: capturedBlueFactorTotals(members),
-          targetAvailability: effectiveCapturedFactorTargets.map((factorTarget) =>
-            inheritanceFactors.some((factor) =>
-              capturedFactorMatchesTarget(
-                factor,
-                factorTarget,
-                successionFactorMeta,
+          targetAvailability: effectiveCapturedFactorTargets.map(
+            (factorTarget) =>
+              inheritanceFactors.some((factor) =>
+                capturedFactorMatchesTarget(
+                  factor,
+                  factorTarget,
+                  successionFactorMeta,
+                ),
               ),
-            ),
           ),
           probabilityFactors,
           parentLocalCompatibility,
@@ -8363,7 +8401,9 @@ function SuccessionPlanner({
       const maternalCandidates = capturedUmas
         .filter((candidate) => branchAcceptsCandidate(candidate, 'maternal'))
         .map((candidate) => prepareBranchCandidate(candidate, 'maternal'));
-      const candidateOrderKey = ({ candidate }: (typeof paternalCandidates)[number]) =>
+      const candidateOrderKey = ({
+        candidate,
+      }: (typeof paternalCandidates)[number]) =>
         `${String(candidate.umaId).padStart(10, '0')}:${candidate.selectionId}`;
       const maternalOwnCandidates = maternalCandidates
         .filter(({ candidate }) => candidate.source === 'own')
@@ -8374,9 +8414,10 @@ function SuccessionPlanner({
         ({ candidate }) => candidate.source === 'rental',
       );
       const pairRows = paternalCandidates
-        .filter(({ candidate }) =>
-          capturedReusePairPolicy(candidate.source, branchesInterchangeable)
-            .includePaternal,
+        .filter(
+          ({ candidate }) =>
+            capturedReusePairPolicy(candidate.source, branchesInterchangeable)
+              .includePaternal,
         )
         .map((paternal) => {
           const pairPolicy = capturedReusePairPolicy(
@@ -8406,8 +8447,7 @@ function SuccessionPlanner({
             paternal,
             maternalOwnStartIndex: low,
             maternalRentalCount,
-            pairCount:
-              maternalRentalCount + maternalOwnCandidates.length - low,
+            pairCount: maternalRentalCount + maternalOwnCandidates.length - low,
           };
         });
       const totalPairs = pairRows.reduce(
@@ -8472,18 +8512,15 @@ function SuccessionPlanner({
           }
           if (!paternal || !maternal) continue;
           if (
-            !capturedReuseCombinationValid(
-              paternal.identity,
-              maternal.identity,
-            )
+            !capturedReuseCombinationValid(paternal.identity, maternal.identity)
           ) {
             continue;
           }
           if (
-            !capturedBlueFactorMinimumsSatisfied(
-              capturedBlueFactorMinimums,
-              [paternal.blueFactorTotals, maternal.blueFactorTotals],
-            )
+            !capturedBlueFactorMinimumsSatisfied(capturedBlueFactorMinimums, [
+              paternal.blueFactorTotals,
+              maternal.blueFactorTotals,
+            ])
           ) {
             continue;
           }
@@ -8536,9 +8573,7 @@ function SuccessionPlanner({
           }
           const targetProbabilities = effectiveCapturedFactorTargets.map(
             (factorTarget, targetIndex) => {
-              const parentMissProbability = (
-                prepared: typeof paternal,
-              ) =>
+              const parentMissProbability = (prepared: typeof paternal) =>
                 1 -
                 capturedFactorTargetProbability(
                   prepared.candidate.inheritanceFactors.map((factor) => ({
@@ -8574,8 +8609,10 @@ function SuccessionPlanner({
               candidate.combinedProbability,
               candidate.targetProbabilities,
             );
-            return comparison > 0 ||
-              (comparison === 0 && pairKey < candidate.pairKey);
+            return (
+              comparison > 0 ||
+              (comparison === 0 && pairKey < candidate.pairKey)
+            );
           });
           const rankedCandidate = {
             pairKey,
@@ -9031,6 +9068,42 @@ function SuccessionPlanner({
     );
   };
 
+  const resetCalculationSettings = () => {
+    calculationRunToken.current += 1;
+    setInheritanceAptitudes([...INITIAL_INHERITANCE_APTITUDES]);
+    setAllowInRaceFactorJump(false);
+    setInRaceFactorJumpMinimumRank(6);
+    setProbabilityTargetRanks({});
+    setConfiguredProbabilityTargetTypes([]);
+    setExcludedUmaIds([]);
+    setExcludedCapturedSelectionIds([]);
+    setCapturedReuseMode('off');
+    setCapturedBlueFactorMinimums({
+      ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
+    });
+    setCapturedFactorTargets([]);
+    setCapturedSkillPickerOpen(false);
+    setCalculationInputKey('');
+    setCalculationRequestId(0);
+    setCompletedCalculation(undefined);
+    setCalculationResultPage(0);
+    setCalculationPairProgress({ current: 0, total: 0 });
+    setCalculationProgress(0);
+    setCalculationStage(0);
+
+    if (target) {
+      const nextTargets: InheritanceTargets = {};
+      INITIAL_INHERITANCE_APTITUDES.forEach((type) => {
+        if (target.aptitudes[type] < 7) {
+          nextTargets[type] = target.aptitudes[type] + 1;
+        }
+      });
+      setInheritanceTargets(nextTargets);
+    } else {
+      setInheritanceTargets({ ...INITIAL_INHERITANCE_TARGETS });
+    }
+  };
+
   const resetLineage = () => {
     calculationRunToken.current += 1;
     setLineage({ ...INITIAL_LINEAGE });
@@ -9086,12 +9159,11 @@ function SuccessionPlanner({
   };
   const trainedModalExcludedIds = (slot: LineageSlot) => {
     const replacedSlots = new Set([slot, ...(SLOT_UPSTREAM_SLOTS[slot] || [])]);
-    return [
-      targetId,
-      ...TARGET_FACTOR_SLOTS.filter((item) => !replacedSlots.has(item)).map(
-        (item) => lineage[item],
-      ),
-    ].filter(Boolean);
+    const remainingLineage = { ...lineage };
+    replacedSlots.forEach((replacedSlot) => {
+      remainingLineage[replacedSlot] = 0;
+    });
+    return lineageSlotExcludedUmaIds(targetId, remainingLineage, slot);
   };
   const capturedCompatibilityPreviews = (
     slot: LineageSlot,
@@ -9201,7 +9273,7 @@ function SuccessionPlanner({
                 label="养成马娘"
                 value={targetId}
                 required
-                exclude={selectedLineageIds}
+                exclude={[lineage.father, lineage.mother].filter(Boolean)}
                 onChange={updateTarget}
               />
             </div>
@@ -9723,12 +9795,23 @@ function SuccessionPlanner({
                     </div>
                     <footer>
                       <span>设置会自动保存并用于下一次计算</span>
-                      <button
-                        type="button"
-                        onClick={() => setCalculationSettingsOpen(false)}
-                      >
-                        完成
-                      </button>
+                      <div className="successionCalculationSettingsFooterActions">
+                        <button
+                          className="successionCalculationSettingsReset"
+                          type="button"
+                          disabled={isCalculating}
+                          onClick={resetCalculationSettings}
+                        >
+                          <RefreshCw size={15} aria-hidden="true" />
+                          重置
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCalculationSettingsOpen(false)}
+                        >
+                          完成
+                        </button>
+                      </div>
                     </footer>
                   </section>
                 </div>
@@ -9836,12 +9919,14 @@ function SuccessionPlanner({
                       上一匹
                     </button>
                     <strong>
-                      {calculationResultPage + 1} / {completeFactorDesigns.length}
+                      {calculationResultPage + 1} /{' '}
+                      {completeFactorDesigns.length}
                     </strong>
                     <button
                       type="button"
                       disabled={
-                        calculationResultPage >= completeFactorDesigns.length - 1
+                        calculationResultPage >=
+                        completeFactorDesigns.length - 1
                       }
                       onClick={() =>
                         setCalculationResultPage((current) => current + 1)
@@ -9885,6 +9970,11 @@ function SuccessionPlanner({
             ) : calculationComplete ? (
               <div className="successionCompleteDesignIssues successionStandaloneIssue">
                 <strong>未找到可行的种马路线</strong>
+                {!hasOwnCapturedUma && (
+                  <span>
+                    请进入“优俊少女名人堂”，让程序获取自己的马娘信息。
+                  </span>
+                )}
               </div>
             ) : null}
           </>
@@ -9908,7 +9998,8 @@ export default function SuccessionPlannerPage() {
   const [playerScanOpen, setPlayerScanOpen] = useState(false);
   const [playerIdsText, setPlayerIdsText] = useState('');
   const [updateExistingPlayers, setUpdateExistingPlayers] = useState(
-    () => localStorage.getItem('succession.playerScan.updateExisting') !== 'false',
+    () =>
+      localStorage.getItem('succession.playerScan.updateExisting') !== 'false',
   );
   const scannedImportInputRef = useRef<HTMLInputElement>(null);
   const [scanProgress, setScanProgress] =
@@ -10143,7 +10234,6 @@ export default function SuccessionPlannerPage() {
           >
             <header className="successionPickerHeader">
               <div>
-                <span>PLAYER SCANNER</span>
                 <h3>增加更多马娘</h3>
               </div>
               <button
@@ -10234,7 +10324,6 @@ export default function SuccessionPlannerPage() {
                   <div className="successionPlayerScanSectionTitle">
                     <div>
                       <strong>已持久化 {scannedPlayers.length} 位玩家</strong>
-                      <span>下次启动 UmaShow 会自动继续载入</span>
                     </div>
                     <div className="successionPlayerScanSavedToolbar">
                       <button
@@ -10299,7 +10388,7 @@ export default function SuccessionPlannerPage() {
                   }}
                 />
                 <i aria-hidden="true" />
-                <span>更新已有数据</span>
+                <span>是否在扫描到已有玩家时候更新数据（关闭则跳过）</span>
               </label>
               <button
                 type="button"

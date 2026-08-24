@@ -14,6 +14,7 @@ import {
   combinedSkillTargetProbability,
   compareCombinedProbabilityPriority,
   detailedCommonG1Count,
+  lineageSlotExcludedUmaIds,
   mergeScannedSuccessionPlayers,
   normalizeSuccessionIndex,
   probabilityAtLeastOnce,
@@ -95,7 +96,51 @@ describe('capturedReuseCombinationValid', () => {
         branch(1001, 'own', ['own:0:1'], ['own'], [1001, 1002, 1003]),
         branch(1004, 'rental', ['rental:9:2'], ['rental'], [1004, 1002, 1006]),
       ),
+    ).toBe(true);
+    expect(
+      capturedReuseCombinationValid(
+        branch(1001, 'own', ['own:0:1'], ['own'], [1001, 1002, 1003]),
+        branch(1001, 'rental', ['rental:9:2'], ['rental'], [1001, 1004, 1005]),
+      ),
     ).toBe(false);
+  });
+});
+
+describe('lineageSlotExcludedUmaIds', () => {
+  const lineage = {
+    father: 1001,
+    mother: 1002,
+    paternalA: 1003,
+    paternalB: 1004,
+    maternalA: 1005,
+    maternalB: 1006,
+  };
+
+  test('limits duplicates to direct parent groups', () => {
+    expect(lineageSlotExcludedUmaIds(1000, lineage, 'father')).toEqual([
+      1000, 1002, 1003, 1004,
+    ]);
+    expect(lineageSlotExcludedUmaIds(1000, lineage, 'paternalA')).toEqual([
+      1001, 1004,
+    ]);
+    expect(lineageSlotExcludedUmaIds(1000, lineage, 'maternalB')).toEqual([
+      1002, 1005,
+    ]);
+  });
+
+  test('allows target and cross-branch characters in grandparent slots', () => {
+    const repeated = {
+      ...lineage,
+      paternalA: 1000,
+      maternalA: 1001,
+      maternalB: 1003,
+    };
+    expect(lineageSlotExcludedUmaIds(1000, repeated, 'paternalA')).toEqual([
+      1001, 1004,
+    ]);
+    expect(lineageSlotExcludedUmaIds(1000, repeated, 'maternalA')).toEqual([
+      1002, 1003,
+    ]);
   });
 });
 
@@ -119,6 +164,21 @@ describe('capturedReusePairPolicy', () => {
 });
 
 describe('captured slot constraints', () => {
+  test('allows the target character again in an ancestor slot', () => {
+    expect(
+      capturedMemberMatchesSlotConstraint(
+        { umaId: 1001, cardId: 100101 },
+        { targetId: 1001, allowTarget: true },
+      ),
+    ).toBe(true);
+    expect(
+      capturedMemberMatchesSlotConstraint(
+        { umaId: 1001, cardId: 100101 },
+        { targetId: 1001 },
+      ),
+    ).toBe(false);
+  });
+
   test('a selected position fixes the character type but not the outfit', () => {
     expect(
       capturedMemberMatchesSlotConstraint(

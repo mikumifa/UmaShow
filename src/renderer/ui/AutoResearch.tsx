@@ -623,18 +623,21 @@ export default function AutoResearch() {
       })),
     );
     const lastAccountId = localStorage.getItem(LAST_ACCOUNT_KEY) || '';
-    setSelectedAccountId((current) => {
-      if (current && localAccounts.some((account) => account.id === current)) {
-        return current;
-      }
-      if (
-        lastAccountId &&
-        localAccounts.some((account) => account.id === lastAccountId)
-      ) {
-        return lastAccountId;
-      }
-      return '';
-    });
+    const currentAccountId = selectedAccountIdRef.current;
+    const nextAccountId =
+      currentAccountId &&
+      localAccounts.some((account) => account.id === currentAccountId)
+        ? currentAccountId
+        : lastAccountId &&
+            localAccounts.some((account) => account.id === lastAccountId)
+          ? lastAccountId
+          : '';
+    setSelectedAccountId(nextAccountId);
+    if (nextAccountId === lastAccountId) {
+      setPreparedAccountId(nextAccountId);
+    } else if (!nextAccountId) {
+      setPreparedAccountId('');
+    }
   }, []);
 
   const updateRuntime = useCallback(
@@ -2818,7 +2821,7 @@ export default function AutoResearch() {
                 </h1>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                第一步准备登录账号，第二步填写自动育成服务器网址。
+                选择账号后，填写自动育成服务器网址即可连接。
               </p>
             </div>
           </header>
@@ -2836,7 +2839,7 @@ export default function AutoResearch() {
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
                     1
                   </span>
-                  准备登录账号
+                  添加账号
                 </h2>
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-slate-700">
@@ -2962,7 +2965,7 @@ export default function AutoResearch() {
               <section className={panelClass('p-4')}>
                 <h2 className="flex items-center gap-2 font-bold">
                   <Users size={18} />
-                  选择并登录账号
+                  选择账号
                 </h2>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {accounts.map((account) => (
@@ -2970,9 +2973,9 @@ export default function AutoResearch() {
                       type="button"
                       key={account.id}
                       onClick={() => {
-                        setSelectedAccountId(account.id);
-                        setPreparedAccountId('');
-                        setError('');
+                        prepareAccountBeforeServer(account.id).catch(
+                          () => undefined,
+                        );
                       }}
                       disabled={Boolean(busy)}
                       className={`rounded-xl border p-3 text-left transition disabled:opacity-50 ${
@@ -2995,21 +2998,6 @@ export default function AutoResearch() {
                     </p>
                   ) : null}
                 </div>
-                {selectedAccount && preparedAccountId !== selectedAccount.id ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      prepareAccountBeforeServer(selectedAccount.id)
-                    }
-                    disabled={Boolean(busy)}
-                    className="mt-4 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    <LogIn size={16} />
-                    {busy === `prepare-${selectedAccount.id}`
-                      ? '正在准备账号…'
-                      : '登录账号'}
-                  </button>
-                ) : null}
               </section>
 
               {selectedAccount && preparedAccountId === selectedAccount.id ? (
@@ -3061,7 +3049,7 @@ export default function AutoResearch() {
                 <section className={panelClass('p-12 text-center')}>
                   <LogIn className="mx-auto text-slate-300" size={42} />
                   <p className="mt-3 text-slate-500">
-                    完成第一步后，会在这里填写自动育成服务器网址。
+                    选择一个账号后，会在这里填写自动育成服务器网址。
                   </p>
                 </section>
               )}
