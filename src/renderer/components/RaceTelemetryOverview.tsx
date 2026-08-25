@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { RaceMetaInfo } from 'types/gameTypes';
-import courseDataJson from '../../../assets/data/course_data.json';
 import {
   RaceSimulateEventData_SimulateEventType,
   type RaceSimulateEventData,
@@ -9,10 +8,11 @@ import {
 import {
   filterCharaSkills,
   filterCharaTargetedSkills,
+  getExternalSkillTargetFrameOrders,
 } from 'umdb/RaceDataUtils';
-import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 import { UMDB } from 'renderer/utils/umdb';
 import { resolveRaceSkillDurationParam } from 'renderer/utils/skillConditionEvaluator';
+import courseDataJson from '../../../assets/data/course_data.json';
 import AssetIcon from './trainingHistory/AssetIcon';
 
 type MetricKey = 'speed' | 'acceleration' | 'hp' | 'lane';
@@ -100,7 +100,6 @@ const minimumSkillGapPx = 4;
 const chartLeftRatio = (chartPadding.left / chartWidth) * 100;
 const chartRightRatio = (chartPadding.right / chartWidth) * 100;
 const raceTrackLeftPercent = 8;
-const raceTrackUsableWidthPercent = 84;
 const raceTrackOverflowLeftWidthPercent = 10;
 const raceTrackPixelsPerMeter = 32;
 const finishAreaLeftPercent = 92;
@@ -1176,6 +1175,94 @@ export default function RaceTelemetryOverview({
     );
   };
 
+  const getRaceTrackHorsePosition = (horse: TelemetryHorseSnapshot) => {
+    const horseResult = raceData.horseResult[horse.frameOrder];
+    const finishOrder = horseResult?.finishOrder ?? 0;
+    const finishTime = horseResult?.finishTimeRaw ?? Number.POSITIVE_INFINITY;
+    const finished = currentTime >= finishTime;
+    let xPercent = distanceToRaceTrackXPercent(
+      horse.distance,
+      horse.frameOrder,
+    );
+    let yPercent = clamp((horse.lanePosition / 5500) * 100, 4, 96);
+
+    if (finished) {
+      xPercent = finishAreaLeftPercent + finishAreaWidthPercent * 0.42;
+      yPercent =
+        horseCount <= 1
+          ? 50
+          : 12 + (finishOrder / Math.max(horseCount - 1, 1)) * 76;
+    }
+
+    return {
+      xPercent,
+      yPercent,
+    };
+  };
+
+  const activeInterferenceConnections = raceData.event.flatMap(
+    (wrapper, eventIndex) => {
+      const { event } = wrapper;
+      if (!event) return [];
+
+      const targetFrameOrders = getExternalSkillTargetFrameOrders(
+        event,
+        horseCount,
+      );
+      if (targetFrameOrders.length === 0) return [];
+
+      const startTime = event.frameTime ?? 0;
+      const resolvedDuration = resolveRaceSkillDurationParam(
+        event.param[1],
+        event.frameTime,
+        event.param[2],
+        inferredDistance,
+      );
+      const durationSeconds = resolvedDuration.isPermanent
+        ? Math.max(maxTime - startTime, 0.8)
+        : Math.max((resolvedDuration.durationParam ?? 0) / 10000, 0.8);
+      if (
+        currentTime < startTime ||
+        currentTime > startTime + durationSeconds
+      ) {
+        return [];
+      }
+
+      const sourceFrameOrder = Number(event.param[0]);
+      const sourceHorse = currentSnapshot.horses[sourceFrameOrder];
+      if (
+        !sourceHorse ||
+        !visibleRaceTrackFrameOrderSet.has(sourceFrameOrder)
+      ) {
+        return [];
+      }
+
+      const sourcePosition = getRaceTrackHorsePosition(sourceHorse);
+      const skillId = Number(event.param[1]);
+      const skillName = umdb.skillName(skillId) || `Skill ${skillId}`;
+      return targetFrameOrders.flatMap((targetFrameOrder) => {
+        const targetHorse = currentSnapshot.horses[targetFrameOrder];
+        if (
+          !targetHorse ||
+          !visibleRaceTrackFrameOrderSet.has(targetFrameOrder)
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            key: `${eventIndex}-${sourceFrameOrder}-${targetFrameOrder}-${skillId}`,
+            skillName,
+            sourceFrameOrder,
+            targetFrameOrder,
+            sourcePosition,
+            targetPosition: getRaceTrackHorsePosition(targetHorse),
+          },
+        ];
+      });
+    },
+  );
+
   const toggleRaceTrackFrameOrderVisibility = (frameOrder: number) => {
     setVisibleRaceTrackFrameOrders((previous) => {
       const next = new Set(
@@ -1216,14 +1303,16 @@ export default function RaceTelemetryOverview({
         skillId: skillEvent.param[1],
         time: skillEvent.frameTime ?? 0,
         name:
-          umdb.skillName(skillEvent.param[1]) ||
-          `Skill ${skillEvent.param[1]}`,
+          umdb.skillName(skillEvent.param[1]) || `Skill ${skillEvent.param[1]}`,
         durationLabel: formatSkillDuration(effectiveDurationParam),
         isPermanent: resolvedDuration.isPermanent,
         inferredFromSkillData: resolvedDuration.inferredFromSkillData,
         baseDurations: resolvedDuration.baseDurations,
         durationSeconds,
-        displayDurationSeconds: Math.max(durationSeconds, minimumDisplaySeconds),
+        displayDurationSeconds: Math.max(
+          durationSeconds,
+          minimumDisplaySeconds,
+        ),
         kind,
         isRangeKnown: true,
         sourceName:
@@ -1604,7 +1693,13 @@ export default function RaceTelemetryOverview({
                     点击名称切换聚焦对象。
                   </p>
                 </div>
-                <div className="text-xs text-slate-500">{horseCount} 人</div>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 border-t-2 border-dashed border-rose-600" />
+                    闸技能影响线
+                  </span>
+                  <span>{horseCount} 人</span>
+                </div>
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                 {rankingRows.map((row) => {
@@ -1662,7 +1757,7 @@ export default function RaceTelemetryOverview({
                                     : raceNumberAccent,
                               }}
                             >
-                              {row.frameOrder + 1}
+                              {liveRank ?? row.frameOrder + 1}
                             </span>
                           </div>
                           <div className="min-w-0 flex-1 truncate text-sm font-semibold">
@@ -1804,23 +1899,23 @@ export default function RaceTelemetryOverview({
                       visibleRaceTrackFrameOrderSet.has(line.frameOrder),
                     )
                     .map((line) => {
-                    const selected = line.frameOrder === selectedHorse;
-                    return (
-                      <path
-                        key={line.frameOrder}
-                        d={line.path}
-                        fill="none"
-                        stroke={line.color}
-                        strokeWidth={selected ? 4 : 1.6}
-                        strokeOpacity={selected ? 1 : 0.22}
-                        style={{
-                          filter: selected
-                            ? `drop-shadow(0 0 6px ${line.color}66)`
-                            : 'none',
-                        }}
-                      />
-                    );
-                  })}
+                      const selected = line.frameOrder === selectedHorse;
+                      return (
+                        <path
+                          key={line.frameOrder}
+                          d={line.path}
+                          fill="none"
+                          stroke={line.color}
+                          strokeWidth={selected ? 4 : 1.6}
+                          strokeOpacity={selected ? 1 : 0.22}
+                          style={{
+                            filter: selected
+                              ? `drop-shadow(0 0 6px ${line.color}66)`
+                              : 'none',
+                          }}
+                        />
+                      );
+                    })}
 
                   {raceData.horseResult.map((horseResult, frameOrder) => {
                     const finishTime = horseResult.finishTimeRaw;
@@ -2182,7 +2277,9 @@ export default function RaceTelemetryOverview({
                                     }}
                                     title={title}
                                   >
-                                    <div className="truncate">{displayName}</div>
+                                    <div className="truncate">
+                                      {displayName}
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -2294,24 +2391,56 @@ export default function RaceTelemetryOverview({
                       />
                     ))}
 
+                    {activeInterferenceConnections.length > 0 ? (
+                      <svg className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible">
+                        <defs>
+                          <marker
+                            id="interference-arrow"
+                            markerWidth="8"
+                            markerHeight="8"
+                            refX="6"
+                            refY="3"
+                            orient="auto"
+                            markerUnits="strokeWidth"
+                          >
+                            <path d="M0,0 L0,6 L7,3 z" fill="#e11d48" />
+                          </marker>
+                        </defs>
+                        {activeInterferenceConnections.map((connection) => (
+                          <g key={connection.key}>
+                            <line
+                              x1={`${connection.sourcePosition.xPercent}%`}
+                              y1={`${connection.sourcePosition.yPercent}%`}
+                              x2={`${connection.targetPosition.xPercent}%`}
+                              y2={`${connection.targetPosition.yPercent}%`}
+                              stroke="#e11d48"
+                              strokeWidth="2.4"
+                              strokeDasharray="7 4"
+                              markerEnd="url(#interference-arrow)"
+                              opacity="0.9"
+                            />
+                            <title>
+                              {`${connection.skillName}: ${buildHorseName(
+                                displayNames[connection.sourceFrameOrder] ?? '',
+                                connection.sourceFrameOrder,
+                              )} → ${buildHorseName(
+                                displayNames[connection.targetFrameOrder] ?? '',
+                                connection.targetFrameOrder,
+                              )}`}
+                            </title>
+                          </g>
+                        ))}
+                      </svg>
+                    ) : null}
+
                     {displayedRaceTrackHorses.map((horse) => {
                       const finishOrder =
                         raceData.horseResult[horse.frameOrder]?.finishOrder ??
                         0;
-                      const finishTime =
-                        raceData.horseResult[horse.frameOrder]?.finishTimeRaw ??
-                        Number.POSITIVE_INFINITY;
-                      const finished = currentTime >= finishTime;
-                      const xPercent = distanceToRaceTrackXPercent(
-                        horse.distance,
+                      const position = getRaceTrackHorsePosition(horse);
+                      const liveRank = liveRankByFrameOrder.get(
                         horse.frameOrder,
                       );
-                      const yPercent = finished
-                        ? horseCount <= 1
-                          ? 50
-                          : 12 +
-                            (finishOrder / Math.max(horseCount - 1, 1)) * 76
-                        : clamp((horse.lanePosition / 5500) * 100, 4, 96);
                       const selected = horse.frameOrder === selectedHorse;
 
                       return (
@@ -2319,14 +2448,10 @@ export default function RaceTelemetryOverview({
                           key={horse.frameOrder}
                           className="absolute"
                           style={{
-                            left: `${
-                              finished
-                                ? finishAreaLeftPercent +
-                                  finishAreaWidthPercent * 0.42
-                                : xPercent
-                            }%`,
-                            top: `${yPercent}%`,
+                            left: `${position.xPercent}%`,
+                            top: `${position.yPercent}%`,
                             transform: 'translate(-50%, -50%)',
+                            zIndex: 10,
                           }}
                         >
                           <button
@@ -2367,7 +2492,7 @@ export default function RaceTelemetryOverview({
                                     palette[horse.frameOrder % palette.length],
                                 }}
                               >
-                                {horse.frameOrder + 1}
+                                {liveRank ?? finishOrder + 1}
                               </div>
                             )}
                             <div
@@ -2378,7 +2503,7 @@ export default function RaceTelemetryOverview({
                                   : raceNumberAccent,
                               }}
                             >
-                              {horse.frameOrder + 1}
+                              {liveRank ?? finishOrder + 1}
                             </div>
                           </button>
                         </div>

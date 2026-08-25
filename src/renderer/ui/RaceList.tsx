@@ -29,6 +29,14 @@ const fallbackArchives: RaceArchive[] = [
   },
 ];
 
+function archiveNameKey(name: string) {
+  return String(name ?? '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('zh-CN');
+}
+
 function getHorseRank(horse: Record<string, unknown>, fallbackIndex: number) {
   const rankFields = [
     horse.rank,
@@ -55,7 +63,11 @@ function getHorseFinishRank(
     frameOrder > 0
   ) {
     const finishOrder = finishOrderByFrameOrder.get(frameOrder - 1);
-    if (finishOrder != null && Number.isFinite(finishOrder) && finishOrder >= 0) {
+    if (
+      finishOrder != null &&
+      Number.isFinite(finishOrder) &&
+      finishOrder >= 0
+    ) {
       return finishOrder + 1;
     }
   }
@@ -66,7 +78,8 @@ function getHorseFinishRank(
 function getHorseIconPath(horse: Record<string, unknown>) {
   const charaId = Number(horse.chara_id);
   const raceDressId = Number(horse.race_dress_id);
-  if (!Number.isFinite(charaId) || !Number.isFinite(raceDressId)) return undefined;
+  if (!Number.isFinite(charaId) || !Number.isFinite(raceDressId))
+    return undefined;
   return `trained_chr_icon/${charaId}_${raceDressId}.png`;
 }
 
@@ -78,9 +91,22 @@ function getOrderIconPath(rank: number) {
 function getHorseDisplayName(horse: Record<string, unknown>) {
   const charaId = Number(horse.chara_id);
   const cardId = Number(horse.card_id);
-  const charaName = Number.isFinite(charaId) ? UMDB.charas[charaId]?.name : undefined;
-  const cardName = Number.isFinite(cardId) ? UMDB.cards[cardId]?.name : undefined;
-  return charaName ?? cardName ?? String(horse.owner_trainer_name ?? horse.trainer_name ?? horse.viewer_id ?? 'Unknown');
+  const charaName = Number.isFinite(charaId)
+    ? UMDB.charas[charaId]?.name
+    : undefined;
+  const cardName = Number.isFinite(cardId)
+    ? UMDB.cards[cardId]?.name
+    : undefined;
+  return (
+    charaName ??
+    cardName ??
+    String(
+      horse.owner_trainer_name ??
+        horse.trainer_name ??
+        horse.viewer_id ??
+        'Unknown',
+    )
+  );
 }
 
 function getHorseOwnerName(horse: Record<string, unknown>) {
@@ -176,7 +202,9 @@ function HorseHoverCard({
     {
       label: '力',
       value:
-        horseNumberField(horse, 'pow') ?? horseNumberField(horse, 'power') ?? '-',
+        horseNumberField(horse, 'pow') ??
+        horseNumberField(horse, 'power') ??
+        '-',
     },
     { label: '根', value: horseNumberField(horse, 'guts') ?? '-' },
     { label: '智', value: horseNumberField(horse, 'wiz') ?? '-' },
@@ -334,6 +362,19 @@ export default function RaceList() {
   }, [loadArchives]);
 
   useEffect(() => {
+    const requestedArchiveId = (location.state as { archiveId?: string } | null)
+      ?.archiveId;
+    if (!requestedArchiveId) return;
+    loadArchives()
+      .then(() => {
+        setActiveArchiveId(requestedArchiveId);
+        setTargetArchiveId(requestedArchiveId);
+        return undefined;
+      })
+      .catch(() => undefined);
+  }, [loadArchives, location.state]);
+
+  useEffect(() => {
     loadUMDB()
       .then(() => setUmdbReady(true))
       .catch(() => setUmdbReady(false));
@@ -342,10 +383,24 @@ export default function RaceList() {
   useEffect(() => {
     loadFiles();
     const unsubscribe = window.electron.packetListener.onNew(() => {
+      loadArchives();
       loadFiles();
     });
     return () => unsubscribe?.();
-  }, [loadFiles]);
+  }, [loadArchives, loadFiles]);
+
+  useEffect(() => {
+    const unsubscribe = window.electron.race.onArchivesChanged(
+      async ({ archiveId }) => {
+        await loadArchives();
+        if (archiveId) {
+          setActiveArchiveId(archiveId);
+          setTargetArchiveId(archiveId);
+        }
+      },
+    );
+    return () => unsubscribe?.();
+  }, [loadArchives]);
 
   useEffect(() => {
     setSelected(new Set());
@@ -380,8 +435,13 @@ export default function RaceList() {
     if (!name) return;
     try {
       const config = await window.electron.race.createArchive(name);
-      setArchives(config.archives ?? fallbackArchives);
-      const createdId = config.archives?.[config.archives.length - 1]?.id;
+      const nextArchives = config.archives ?? fallbackArchives;
+      setArchives(nextArchives);
+      const createdId =
+        nextArchives.find(
+          (archive: RaceArchive) =>
+            archiveNameKey(archive.name) === archiveNameKey(name),
+        )?.id ?? nextArchives[nextArchives.length - 1]?.id;
       setTargetArchiveId(createdId);
       setActiveArchiveId(createdId);
       setNewArchiveName('');
@@ -682,7 +742,8 @@ export default function RaceList() {
                           key={`${item.filename}-${rank}-${String(horse.viewer_id ?? '')}-${String(horse.card_id ?? '')}`}
                           className="group/horse relative flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-white/80 px-2 py-1"
                           onMouseEnter={(event) => {
-                            const rect = event.currentTarget.getBoundingClientRect();
+                            const rect =
+                              event.currentTarget.getBoundingClientRect();
                             setHoveredHorsePreview({
                               horse,
                               iconPath: getHorseIconPath(horse),
@@ -715,7 +776,11 @@ export default function RaceList() {
                             {getHorseIconPath(horse) ? (
                               <AssetIcon
                                 path={getHorseIconPath(horse)!}
-                                alt={umdbReady ? getHorseDisplayName(horse) : getHorseOwnerName(horse)}
+                                alt={
+                                  umdbReady
+                                    ? getHorseDisplayName(horse)
+                                    : getHorseOwnerName(horse)
+                                }
                                 className="h-full w-full object-cover"
                               />
                             ) : (

@@ -21,6 +21,7 @@ import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials'
 import { handleAutoResearchUiSettings } from './handle/AutoResearchUiSettings';
 import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
+import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';
 import { getServerPort, setServerPort } from './config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -135,6 +136,7 @@ handleAutoResearchCredentials(ipcMain);
 handleAutoResearchUiSettings(ipcMain);
 handleSuccessionIndex(ipcMain);
 handleSuccessionPlayerScan(ipcMain);
+handlePracticeRaceSimulation(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 
 /**

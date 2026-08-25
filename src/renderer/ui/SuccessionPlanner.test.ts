@@ -9,6 +9,7 @@ import {
   capturedMemberMatchesSlotConstraint,
   capturedReuseCombinationValid,
   capturedReusePairPolicy,
+  capturedTraversalCandidates,
   capturedSelectedSkillFactorCount,
   capturedUmaMatchesGeneratedCandidate,
   combinedSkillTargetProbability,
@@ -160,6 +161,24 @@ describe('capturedReusePairPolicy', () => {
       includeMaternalRentals: false,
       canonicalizeOwnPair: false,
     });
+  });
+});
+
+describe('capturedTraversalCandidates', () => {
+  const candidates = [
+    { selectionId: 'own:1', source: 'own' as const },
+    { selectionId: 'rental:friend', source: 'rental' as const },
+    { selectionId: 'rental:extra', source: 'rental' as const },
+  ];
+
+  test('keeps only owned records when borrowing is disabled', () => {
+    expect(capturedTraversalCandidates(candidates, true)).toEqual([
+      candidates[0],
+    ]);
+  });
+
+  test('keeps friends and extra records when borrowing is enabled', () => {
+    expect(capturedTraversalCandidates(candidates, false)).toEqual(candidates);
   });
 });
 

@@ -76,6 +76,45 @@ const electronHandler = {
     ) => ipcRenderer.invoke('race:stats-cache-set', archiveId, payload),
     assignArchive: (names: string[], archiveId: string) =>
       ipcRenderer.invoke('race:archive-assign', names, archiveId),
+    repeatSimulation: (payload: {
+      accountId: string;
+      archiveName: string;
+      count: number;
+      source: {
+        raceMetaInfo: Record<string, unknown>;
+        horses: Record<string, unknown>[];
+      };
+    }) => ipcRenderer.invoke('race:repeat-simulation', payload),
+    onRepeatSimulationProgress(
+      callback: (data: {
+        stage: 'login' | 'prepare' | 'simulate' | 'save' | 'complete';
+        detail: string;
+        current?: number;
+        total?: number;
+        archiveId?: string;
+        archiveName?: string;
+      }) => void,
+    ) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('race:repeat-simulation:progress', subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          'race:repeat-simulation:progress',
+          subscription,
+        );
+      };
+    },
+    onArchivesChanged(
+      callback: (data: { archiveId?: string; archiveName?: string }) => void,
+    ) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('race:archives-changed', subscription);
+      return () => {
+        ipcRenderer.removeListener('race:archives-changed', subscription);
+      };
+    },
   },
   trainingHistory: {
     list: () => ipcRenderer.invoke('training-history:list'),

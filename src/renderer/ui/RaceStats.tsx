@@ -7,8 +7,13 @@ import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import * as UMDatabaseUtils from 'umdb/UMDatabaseUtils';
 import { RaceSimulateEventData_SimulateEventType } from 'umdb/race_data_pb';
-import { getCharaActivatedSkillIds } from 'umdb/RaceDataUtils';
+import {
+  getCharaActivatedSkillIds,
+  getCharaSkillImpactSummary,
+  type SkillImpactSummary,
+} from 'umdb/RaceDataUtils';
 import { CharaSkill, fromRaceHorseData } from 'umdb/TrainedCharaData';
+import { isInterferenceSkill } from 'renderer/utils/skillConditionEvaluator';
 import RacePageLayout, {
   raceHeaderButtonClass,
 } from 'renderer/components/RacePageLayout';
@@ -43,6 +48,17 @@ type SkillStatRow = ProcStatRow & {
   skillId: number;
 };
 
+type InterferenceSkillStatAccumulator = ProcStatAccumulator & {
+  skillId: number;
+  activationCount: number;
+  affectedHorseCount: number;
+};
+
+type InterferenceSkillStatRow = ProcStatRow &
+  InterferenceSkillStatAccumulator & {
+    averageAffectedCount?: number;
+  };
+
 type HorseSummaryData = {
   key: string;
   name: string;
@@ -57,6 +73,7 @@ type HorseSummaryData = {
   winAppearances: number;
   procStats: ProcStatRow[];
   skillStats: SkillStatRow[];
+  interferenceSkillStats: InterferenceSkillStatRow[];
   iconPath?: string;
 };
 
@@ -70,6 +87,7 @@ type HorseEntry = {
   trainedSkills: CharaSkill[];
   activatedSkillIds: Set<number>;
   activatedEventTypes: Set<number>;
+  skillImpacts: Map<number, SkillImpactSummary>;
 };
 
 type MutableHorseSummary = Omit<
@@ -78,6 +96,7 @@ type MutableHorseSummary = Omit<
 > & {
   procStatMap: Map<string, ProcStatAccumulator>;
   skillStatMap: Map<number, SkillStatRow>;
+  interferenceSkillStatMap: Map<number, InterferenceSkillStatAccumulator>;
 };
 
 type StatRow = {
@@ -140,7 +159,7 @@ const fallbackArchives: RaceArchive[] = [
   },
 ];
 
-const STATS_CACHE_VERSION = 5;
+const STATS_CACHE_VERSION = 6;
 
 const horseEventDefinitions: ProcStatDefinition[] = [
   {
@@ -398,6 +417,7 @@ function getHorseSummary(
     winAppearances: 0,
     procStats: [],
     skillStats: [],
+    interferenceSkillStats: [],
     iconPath: getHorseIconPath(charaId, raceDressId),
   };
 }
@@ -409,6 +429,7 @@ function createMutableHorseSummary(
     ...summary,
     procStatMap: new Map(),
     skillStatMap: new Map(),
+    interferenceSkillStatMap: new Map(),
   };
 }
 
@@ -430,6 +451,12 @@ function cloneMutableHorseSummary(
     ),
     skillStatMap: new Map(
       [...summary.skillStatMap.entries()].map(([key, value]) => [
+        key,
+        { ...value },
+      ]),
+    ),
+    interferenceSkillStatMap: new Map(
+      [...summary.interferenceSkillStatMap.entries()].map(([key, value]) => [
         key,
         { ...value },
       ]),
@@ -462,6 +489,37 @@ function bumpProcStat(
     stat.winCount += 1;
     if (triggered) stat.winTriggeredCount += 1;
   }
+}
+
+function bumpInterferenceSkillStats(
+  summary: MutableHorseSummary,
+  entry: HorseEntry,
+  isWin: boolean,
+) {
+  entry.trainedSkills.forEach((skill) => {
+    const skillId = Number(skill.skillId);
+    const impact = entry.skillImpacts.get(skillId);
+    if (
+      !isInterferenceSkill(skillId) &&
+      (impact?.affectedHorseCount ?? 0) === 0
+    ) {
+      return;
+    }
+
+    const stat = summary.interferenceSkillStatMap.get(skillId) ?? {
+      ...createProcStatAccumulator(
+        `interference-skill-${skillId}`,
+        getSkillDisplayLabel(skillId),
+      ),
+      skillId,
+      activationCount: 0,
+      affectedHorseCount: 0,
+    };
+    bumpProcStat(stat, entry.activatedSkillIds.has(skillId), isWin);
+    stat.activationCount += impact?.activationCount ?? 0;
+    stat.affectedHorseCount += impact?.affectedHorseCount ?? 0;
+    summary.interferenceSkillStatMap.set(skillId, stat);
+  });
 }
 
 function finalizeProcStat<T extends ProcStatAccumulator>(
@@ -519,6 +577,7 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
   let finalHpByFrame = new Map<number, number>();
   let activatedSkillIdsByFrame = new Map<number, Set<number>>();
   let activatedEventTypesByFrame = new Map<number, Set<number>>();
+  let skillImpactsByFrame = new Map<number, Map<number, SkillImpactSummary>>();
 
   if (item.scenario) {
     try {
@@ -556,11 +615,18 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
           ),
         ]),
       );
+      skillImpactsByFrame = new Map(
+        raceData.horseResult.map((_, frameOrder) => [
+          frameOrder,
+          getCharaSkillImpactSummary(raceData, frameOrder),
+        ]),
+      );
     } catch {
       finishOrderByFrame = new Map<number, number>();
       finalHpByFrame = new Map<number, number>();
       activatedSkillIdsByFrame = new Map<number, Set<number>>();
       activatedEventTypesByFrame = new Map<number, Set<number>>();
+      skillImpactsByFrame = new Map<number, Map<number, SkillImpactSummary>>();
     }
   }
 
@@ -600,6 +666,9 @@ function getHorseEntries(item: RaceRecord): HorseEntry[] {
           activatedSkillIdsByFrame.get(frameOrder) ?? new Set<number>(),
         activatedEventTypes:
           activatedEventTypesByFrame.get(frameOrder) ?? new Set<number>(),
+        skillImpacts:
+          skillImpactsByFrame.get(frameOrder) ??
+          new Map<number, SkillImpactSummary>(),
       },
     ];
   });
@@ -660,6 +729,20 @@ function finalizeHorseSummary(horse: MutableHorseSummary): HorseSummaryData {
           b.totalCount - a.totalCount ||
           a.label.localeCompare(b.label),
       ),
+    interferenceSkillStats: [...horse.interferenceSkillStatMap.values()]
+      .map((stat) => ({
+        ...finalizeProcStat(stat),
+        averageAffectedCount:
+          stat.activationCount > 0
+            ? stat.affectedHorseCount / stat.activationCount
+            : undefined,
+      }))
+      .sort(
+        (a, b) =>
+          b.triggerRate - a.triggerRate ||
+          (b.averageAffectedCount ?? 0) - (a.averageAffectedCount ?? 0) ||
+          a.label.localeCompare(b.label),
+      ),
     iconPath: horse.iconPath,
   };
 }
@@ -684,7 +767,7 @@ function buildDetailRows(items: RaceRecord[]) {
   items.forEach((item) => {
     const entries = getHorseEntries(item);
     entries.forEach((entry) => {
-      const typeKey = entry.typeKey;
+      const { typeKey } = entry;
       const existingSummary =
         summaryByType.get(typeKey) ??
         createMutableHorseSummary({
@@ -731,6 +814,7 @@ function buildDetailRows(items: RaceRecord[]) {
         bumpProcStat(stat, entry.activatedSkillIds.has(skillId), entry.isWin);
         existingSummary.skillStatMap.set(skillId, stat);
       });
+      bumpInterferenceSkillStats(existingSummary, entry, entry.isWin);
 
       if (entry.finalHp != null) {
         existingSummary.finalHpTotal += entry.finalHp;
@@ -787,6 +871,7 @@ function buildDetailRows(items: RaceRecord[]) {
         bumpProcStat(stat, entry.activatedSkillIds.has(skillId), entry.isWin);
         allHorseSummary!.skillStatMap.set(skillId, stat);
       });
+      bumpInterferenceSkillStats(allHorseSummary, entry, entry.isWin);
 
       if (entry.finalHp != null) {
         allHorseSummary.finalHpTotal += entry.finalHp;
@@ -898,6 +983,7 @@ function buildStatsForSize(items: RaceRecord[], size: number) {
           bumpProcStat(stat, entry.activatedSkillIds.has(skillId), isWin);
           horse.skillStatMap.set(skillId, stat);
         });
+        bumpInterferenceSkillStats(horse, entry, isWin);
 
         if (entry.finalHp != null) {
           horse.finalHpTotal += entry.finalHp;
@@ -1180,6 +1266,27 @@ function sortSkillStats(
     | 'label'
     | 'triggerRate'
     | 'winTriggerRate'
+    | 'winRateLift'
+    | 'informationGain'
+  >,
+) {
+  return [...rows].sort((a, b) => {
+    const value =
+      sort.key === 'label'
+        ? compareValues(a.label, b.label, sort.direction)
+        : compareValues(a[sort.key], b[sort.key], sort.direction);
+    if (value !== 0) return value;
+    return compareValues(a.label, b.label, 'asc');
+  });
+}
+
+function sortInterferenceSkillStats(
+  rows: InterferenceSkillStatRow[],
+  sort: TableSort<
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'averageAffectedCount'
     | 'winRateLift'
     | 'informationGain'
   >,
@@ -1708,6 +1815,141 @@ function SkillStatsTable({
   );
 }
 
+function InterferenceSkillStatsTable({
+  rows,
+  sort,
+  onSort,
+}: {
+  rows: InterferenceSkillStatRow[];
+  sort: TableSort<
+    | 'label'
+    | 'triggerRate'
+    | 'winTriggerRate'
+    | 'averageAffectedCount'
+    | 'winRateLift'
+    | 'informationGain'
+  >;
+  onSort: (
+    key:
+      | 'label'
+      | 'triggerRate'
+      | 'winTriggerRate'
+      | 'averageAffectedCount'
+      | 'winRateLift'
+      | 'informationGain',
+  ) => void;
+}) {
+  const sortedRows = useMemo(
+    () => sortInterferenceSkillStats(rows, sort),
+    [rows, sort],
+  );
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-rose-200">
+      <table className="min-w-full text-sm">
+        <thead className="bg-rose-50 text-xs text-gray-500">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium">
+              <SortHeader
+                label="闸技能"
+                active={sort.key === 'label'}
+                onClick={() => onSort('label')}
+              />
+            </th>
+            <th className="px-3 py-2 text-right font-medium">
+              <SortHeader
+                label="全部场次"
+                active={sort.key === 'triggerRate'}
+                onClick={() => onSort('triggerRate')}
+                align="right"
+              />
+            </th>
+            <th className="px-3 py-2 text-right font-medium">
+              <SortHeader
+                label="胜利场次"
+                active={sort.key === 'winTriggerRate'}
+                onClick={() => onSort('winTriggerRate')}
+                align="right"
+              />
+            </th>
+            <th className="px-3 py-2 text-right font-medium">
+              <SortHeader
+                label="平均影响马娘"
+                active={sort.key === 'averageAffectedCount'}
+                onClick={() => onSort('averageAffectedCount')}
+                align="right"
+                title="实际命中的马娘总数 ÷ 技能发动次数"
+              />
+            </th>
+            <th className="px-3 py-2 text-right font-medium">
+              <SortHeader
+                label="信息增益"
+                active={sort.key === 'informationGain'}
+                onClick={() => onSort('informationGain')}
+                align="right"
+                title={informationGainTooltip}
+              />
+            </th>
+            <th className="px-3 py-2 text-right font-medium">
+              <SortHeader
+                label="胜率提升"
+                active={sort.key === 'winRateLift'}
+                onClick={() => onSort('winRateLift')}
+                align="right"
+                title={winRateLiftTooltip}
+              />
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-rose-100 bg-white">
+          {sortedRows.map((row) => (
+            <tr key={row.skillId}>
+              <td className="px-3 py-2 text-gray-800">
+                <SkillNameCell skillId={row.skillId} label={row.label} />
+              </td>
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-amber-700">
+                {percent(row.triggerRate)} (
+                {ratioText(row.triggeredCount, row.totalCount)})
+              </td>
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-rose-700">
+                {percent(row.winTriggerRate)} (
+                {ratioText(row.winTriggeredCount, row.winCount)})
+              </td>
+              <td
+                className="px-3 py-2 text-right font-mono text-fuchsia-700"
+                title={`${row.affectedHorseCount} 次命中 / ${row.activationCount} 次发动`}
+              >
+                {row.averageAffectedCount == null
+                  ? '-'
+                  : row.averageAffectedCount.toFixed(2)}
+              </td>
+              <td className="px-3 py-2 text-right font-sans tabular-nums text-cyan-700">
+                <InformationGainValue
+                  value={row.informationGain}
+                  detail={informationGainDetail(row)}
+                />
+              </td>
+              <td className="px-3 py-2 text-right font-sans tabular-nums">
+                <WinRateLiftValue
+                  value={row.winRateLift}
+                  detail={winRateLiftDetail(row)}
+                />
+              </td>
+            </tr>
+          ))}
+          {sortedRows.length === 0 && (
+            <tr>
+              <td className="px-3 py-8 text-center text-gray-400" colSpan={6}>
+                暂无闸技能统计
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function HorseSkillsModal({
   horse,
   onClose,
@@ -1739,10 +1981,24 @@ function HorseSkillsModal({
     key: 'informationGain',
     direction: 'desc',
   });
+  const [interferenceSkillSort, setInterferenceSkillSort] = useState<
+    TableSort<
+      | 'label'
+      | 'triggerRate'
+      | 'winTriggerRate'
+      | 'averageAffectedCount'
+      | 'winRateLift'
+      | 'informationGain'
+    >
+  >({
+    key: 'triggerRate',
+    direction: 'desc',
+  });
 
   useEffect(() => {
     setEventSort({ key: 'informationGain', direction: 'desc' });
     setSkillSort({ key: 'informationGain', direction: 'desc' });
+    setInterferenceSkillSort({ key: 'triggerRate', direction: 'desc' });
   }, [horse?.key]);
 
   useEffect(() => {
@@ -1781,6 +2037,21 @@ function HorseSkillsModal({
       | 'informationGain',
   ) => {
     setSkillSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
+  };
+
+  const toggleInterferenceSkillSort = (
+    key:
+      | 'label'
+      | 'triggerRate'
+      | 'winTriggerRate'
+      | 'averageAffectedCount'
+      | 'winRateLift'
+      | 'informationGain',
+  ) => {
+    setInterferenceSkillSort((prev) => ({
       key,
       direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
     }));
@@ -1845,6 +2116,17 @@ function HorseSkillsModal({
               rows={horse.procStats}
               sort={eventSort}
               onSort={toggleEventSort}
+            />
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm font-medium text-gray-900">
+              闸技能发动率
+            </div>
+            <InterferenceSkillStatsTable
+              rows={horse.interferenceSkillStats}
+              sort={interferenceSkillSort}
+              onSort={toggleInterferenceSkillSort}
             />
           </div>
 

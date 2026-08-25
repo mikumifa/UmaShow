@@ -6,6 +6,8 @@ import log from 'electron-log';
 import { RaceArchive, RaceMetaInfo, RaceRecord } from 'types/gameTypes';
 import { jsonReplacer } from 'main/util';
 import { RACE_DIR } from 'main/paths';
+import { enrichPracticeRaceHorses } from './PracticeRaceRequest';
+import archiveNameKey from './RaceArchiveName';
 
 type RacePayload = {
   scenario: string;
@@ -156,6 +158,108 @@ function migrateLegacyArchivedRecords(config: RaceArchiveConfig) {
   });
 }
 
+function uniqueMergedRaceRecordPath(
+  targetDir: string,
+  filename: string,
+  sourceArchiveId: string,
+) {
+  const directTarget = path.join(targetDir, filename);
+  if (!fs.existsSync(directTarget)) return directTarget;
+
+  const parsed = path.parse(filename);
+  const safeSourceId = sourceArchiveId.replace(/[^\w\u4e00-\u9fa5-]+/g, '_');
+  let suffix = 1;
+  let candidate = path.join(
+    targetDir,
+    `${parsed.name}_merged_${safeSourceId}_${suffix}${parsed.ext}`,
+  );
+  while (fs.existsSync(candidate)) {
+    suffix += 1;
+    candidate = path.join(
+      targetDir,
+      `${parsed.name}_merged_${safeSourceId}_${suffix}${parsed.ext}`,
+    );
+  }
+  return candidate;
+}
+
+function mergeArchiveRecords(source: RaceArchive, target: RaceArchive) {
+  const sourceDir = archiveDirPath(source.id);
+  const targetDir = archiveDirPath(target.id);
+  if (sourceDir === targetDir || !fs.existsSync(sourceDir)) return true;
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  let mergedAllRecords = true;
+  raceRecordFilesInDir(sourceDir).forEach((sourceFile) => {
+    const targetFile = uniqueMergedRaceRecordPath(
+      targetDir,
+      path.basename(sourceFile),
+      source.id,
+    );
+    try {
+      const record = JSON.parse(
+        fs.readFileSync(sourceFile, 'utf-8'),
+      ) as RaceRecord;
+      record.archiveId = target.id;
+      record.filename = path.basename(targetFile);
+      record.fullPath = targetFile;
+      fs.writeFileSync(targetFile, JSON.stringify(record, jsonReplacer, 2), {
+        encoding: 'utf-8',
+        flag: 'wx',
+      });
+      try {
+        fs.unlinkSync(sourceFile);
+      } catch (error) {
+        fs.unlinkSync(targetFile);
+        throw error;
+      }
+    } catch (error) {
+      mergedAllRecords = false;
+      log.error(
+        `[RaceData] Failed to merge archive record ${sourceFile}:`,
+        error,
+      );
+    }
+  });
+
+  removeStatsCache(source.id);
+  removeStatsCache(target.id);
+  return mergedAllRecords;
+}
+
+function mergeDuplicateArchives(config: RaceArchiveConfig) {
+  const canonicalByName = new Map<string, RaceArchive>();
+  const archives: RaceArchive[] = [];
+  let changed = false;
+
+  config.archives.forEach((archive) => {
+    const key = archiveNameKey(archive.name);
+    const canonical = canonicalByName.get(key);
+    if (!canonical) {
+      canonicalByName.set(key, archive);
+      archives.push(archive);
+      return;
+    }
+
+    if (!mergeArchiveRecords(archive, canonical)) {
+      archives.push(archive);
+      return;
+    }
+
+    changed = true;
+    log.info(
+      `[RaceData] Merged duplicate archive ${archive.id} into ${canonical.id} (${canonical.name})`,
+    );
+  });
+
+  return {
+    config: { archives },
+    changed,
+  };
+}
+
 function readArchiveConfig(runMigration = true): RaceArchiveConfig {
   ensureArchiveDir();
   const fallback: RaceArchiveConfig = {
@@ -174,14 +278,42 @@ function readArchiveConfig(runMigration = true): RaceArchiveConfig {
     if (!archives.some((archive) => archive.id === DEFAULT_ARCHIVE_ID)) {
       archives.unshift(defaultArchive());
     }
-    const result = { archives };
+    let result = { archives };
     ensureArchiveFolders(result);
-    if (runMigration) migrateLegacyArchivedRecords(result);
+    if (runMigration) {
+      migrateLegacyArchivedRecords(result);
+      const merged = mergeDuplicateArchives(result);
+      result = merged.config;
+      if (merged.changed) {
+        writeArchiveConfig(result);
+      }
+    }
     return result;
   } catch (e) {
     log.error('[RaceData] Failed to parse archive config:', e);
     return fallback;
   }
+}
+
+export function createRaceArchive(name: string) {
+  const trimmedName = String(name ?? '').trim();
+  if (!trimmedName) throw new Error('存档名称不能为空');
+
+  const config = readArchiveConfig();
+  const existingArchive = config.archives.find(
+    (archive) => archiveNameKey(archive.name) === archiveNameKey(trimmedName),
+  );
+  if (existingArchive) return existingArchive;
+
+  const archive = {
+    id: sanitizeArchiveId(trimmedName),
+    name: trimmedName,
+    createdAt: Date.now(),
+  };
+  config.archives.push(archive);
+  ensureArchiveFolders(config);
+  writeArchiveConfig(config);
+  return archive;
 }
 
 function findRaceRecordFile(filename: string) {
@@ -318,7 +450,7 @@ function extractDirectPayloads(candidates: any[]): RacePayload[] {
     ) {
       results.push({
         scenario: raceScenario,
-        horses: raceHorseData,
+        horses: enrichPracticeRaceHorses(raceHorseData, candidate),
         meta: raceMetaInfo,
         raceNum: candidate?.race_num,
         roomKey: resolveRoomKeyFromCandidate(candidate),
@@ -334,7 +466,7 @@ function extractDirectPayloads(candidates: any[]): RacePayload[] {
     ) {
       results.push({
         scenario: roomInfoScenario,
-        horses: raceHorseData,
+        horses: enrichPracticeRaceHorses(raceHorseData, candidate),
         meta: roomInfoMeta,
         raceNum: candidate?.race_num,
         roomKey: resolveRoomKeyFromCandidate(candidate),
@@ -471,14 +603,22 @@ function dedupePayloads(payloads: RacePayload[]): RacePayload[] {
   });
 }
 
-function persistPayloads(payloads: RacePayload[], win: BrowserWindow) {
+function persistPayloads(
+  payloads: RacePayload[],
+  archiveId: string,
+  notify?: (record: RaceRecord) => void,
+) {
   const now = Date.now();
-  const targetDir = archiveDirPath(DEFAULT_ARCHIVE_ID);
+  const config = readArchiveConfig(false);
+  if (!config.archives.some((archive) => archive.id === archiveId)) {
+    throw new Error('目标比赛存档不存在');
+  }
+  const targetDir = archiveDirPath(archiveId);
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  payloads.forEach((payload, index) => {
+  const records = payloads.map((payload, index) => {
     const raceNum = payload.raceNum ?? index + 1;
     const filename = `race_info_${now}_r${raceNum}_${index}.json`;
     const filepath = path.join(targetDir, filename);
@@ -487,7 +627,7 @@ function persistPayloads(payloads: RacePayload[], win: BrowserWindow) {
       filename,
       fullPath: filepath,
       createdAt: payload.meta?.start_time ?? new Date().toISOString(),
-      archiveId: DEFAULT_ARCHIVE_ID,
+      archiveId,
       raceMetaInfo: {
         race_instance_id: payload.meta?.race_instance_id ?? -1,
         season: payload.meta?.season ?? -1,
@@ -506,13 +646,15 @@ function persistPayloads(payloads: RacePayload[], win: BrowserWindow) {
       JSON.stringify(record, jsonReplacer, 2),
       'utf-8',
     );
-    removeStatsCache(DEFAULT_ARCHIVE_ID);
     log.info(`[RaceData] Saved to ${filepath}`);
-    win.webContents.send('race:new', record);
+    notify?.(record);
+    return record;
   });
+  removeStatsCache(archiveId);
+  return records;
 }
 
-export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
+function collectRacePayloads(decodedData: any) {
   const root = decodedData?.data ?? decodedData;
   const candidates = Array.isArray(root) ? root : [root];
 
@@ -520,12 +662,30 @@ export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
 
   const directPayloads = extractDirectPayloads(candidates);
   const completedPayloads = tryCompletePendingPayloads(candidates);
-  const payloads = dedupePayloads([...directPayloads, ...completedPayloads]);
+  return dedupePayloads([...directPayloads, ...completedPayloads]);
+}
+
+export function persistRaceInfoToArchive(
+  decodedData: any,
+  archiveId: string,
+  notify?: (record: RaceRecord) => void,
+) {
+  const payloads = collectRacePayloads(decodedData);
+  if (payloads.length === 0) {
+    throw new Error('练习接口没有返回可保存的 RaceData');
+  }
+  return persistPayloads(payloads, archiveId, notify);
+}
+
+export function handleRaceInfo(decodedData: any, win: BrowserWindow) {
+  const payloads = collectRacePayloads(decodedData);
 
   if (payloads.length === 0) return;
 
   try {
-    persistPayloads(payloads, win);
+    persistPayloads(payloads, DEFAULT_ARCHIVE_ID, (record) => {
+      win.webContents.send('race:new', record);
+    });
   } catch (e: any) {
     log.error(`[RaceData] Save failed: ${e.message}`);
   }
@@ -636,16 +796,8 @@ export function handleRaceList(ipcMain: IpcMain) {
     const trimmedName = String(name ?? '').trim();
     if (!trimmedName) return readArchiveConfig();
 
-    const config = readArchiveConfig();
-    const archive = {
-      id: sanitizeArchiveId(trimmedName),
-      name: trimmedName,
-      createdAt: Date.now(),
-    };
-    config.archives.push(archive);
-    ensureArchiveFolders(config);
-    writeArchiveConfig(config);
-    return config;
+    createRaceArchive(trimmedName);
+    return readArchiveConfig();
   });
 
   ipcMain.handle('race:archive-delete', async (_, archiveId: string) => {

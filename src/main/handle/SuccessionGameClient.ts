@@ -189,6 +189,10 @@ export class SuccessionGameClient {
     return { uid: this.user.uid, accessKey: this.user.accessKey };
   }
 
+  get viewerId() {
+    return this.user.viewerId;
+  }
+
   private devicePayload(viewerId?: number) {
     return {
       viewer_id: viewerId ?? Number(this.user.viewerId),
@@ -355,6 +359,21 @@ export class SuccessionGameClient {
       userInfo: data.user_info_summary || { viewer_id: Number(viewerId) },
       practicePartner: data.practice_partner_info,
     };
+  }
+
+  async preparePracticeRace() {
+    return this.call('practice_race/index');
+  }
+
+  async startPracticeRace(payload: Record<string, unknown>) {
+    return this.call('practice_race/race_start', payload);
+  }
+
+  async endPracticeRace() {
+    return this.call('practice_race/race_end', {
+      is_save: 0,
+      overwrite_race_id: 0,
+    });
   }
 }
 

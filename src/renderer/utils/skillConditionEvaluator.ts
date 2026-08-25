@@ -80,6 +80,16 @@ export function getSkillBaseDurations(skillId: number | string) {
   return getSkillAlternatives(skillId).map((alternative) => alternative.baseDuration);
 }
 
+const selfOrAllySkillTargets = new Set([1, 7, 11, 22]);
+
+export function isInterferenceSkill(skillId: number | string) {
+  return getSkillAlternatives(skillId).some((alternative) =>
+    alternative.effects.some(
+      (effect) => !selfOrAllySkillTargets.has(effect.target),
+    ),
+  );
+}
+
 export function resolveRaceSkillDurationParam(
   skillId: number | string,
   frameTime: number | undefined,

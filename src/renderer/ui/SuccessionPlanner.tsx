@@ -350,6 +350,14 @@ export function capturedReusePairPolicy(
   };
 }
 
+export function capturedTraversalCandidates<
+  T extends { source: 'own' | 'rental' },
+>(candidates: T[], disableRental: boolean) {
+  return disableRental
+    ? candidates.filter((candidate) => candidate.source === 'own')
+    : candidates;
+}
+
 export function capturedMemberMatchesSlotConstraint(
   member: Pick<CapturedLineageMember, 'umaId' | 'cardId'>,
   constraint: {
@@ -1209,6 +1217,7 @@ type StoredSuccessionSettings = {
   slotRouteOverrides: SlotRouteOverrides;
   trainedUmaSettings: TrainedUmaSettings;
   capturedReuseMode: CapturedReuseMode;
+  disableCapturedRental: boolean;
   capturedBlueFactorMinimums: CapturedBlueFactorMinimums;
   capturedFactorTargets: CapturedFactorTarget[];
   fixedDressSlots: FixedDressSlots;
@@ -1232,6 +1241,7 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
     slotRouteOverrides: {},
     trainedUmaSettings: {},
     capturedReuseMode: 'off' as CapturedReuseMode,
+    disableCapturedRental: false,
     capturedBlueFactorMinimums: { ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS },
     capturedFactorTargets: [] as CapturedFactorTarget[],
     fixedDressSlots: {} as FixedDressSlots,
@@ -1412,6 +1422,7 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
       stored.capturedReuseMode === 'parents'
         ? 'parents'
         : 'off';
+    const disableCapturedRental = stored.disableCapturedRental === true;
     const capturedBlueFactorMinimums = {
       ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
     };
@@ -1484,6 +1495,7 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
       slotRouteOverrides,
       trainedUmaSettings,
       capturedReuseMode,
+      disableCapturedRental,
       capturedBlueFactorMinimums,
       capturedFactorTargets,
       fixedDressSlots,
@@ -5706,6 +5718,9 @@ function SuccessionPlanner({
   const [capturedReuseMode, setCapturedReuseMode] = useState<CapturedReuseMode>(
     initialSettings.capturedReuseMode,
   );
+  const [disableCapturedRental, setDisableCapturedRental] = useState(
+    initialSettings.disableCapturedRental,
+  );
   const [capturedBlueFactorMinimums, setCapturedBlueFactorMinimums] =
     useState<CapturedBlueFactorMinimums>(
       initialSettings.capturedBlueFactorMinimums,
@@ -5762,6 +5777,10 @@ function SuccessionPlanner({
       ),
     [allCapturedUmas, excludedCapturedSelectionIds.join('|')],
   );
+  const calculationCapturedUmas = useMemo(
+    () => capturedTraversalCandidates(capturedUmas, disableCapturedRental),
+    [capturedUmas, disableCapturedRental],
+  );
   const hasOwnCapturedUma = allCapturedUmas.some(
     (candidate) => candidate.source === 'own',
   );
@@ -5788,6 +5807,7 @@ function SuccessionPlanner({
           slotRouteOverrides,
           trainedUmaSettings,
           capturedReuseMode,
+          disableCapturedRental,
           capturedBlueFactorMinimums,
           capturedFactorTargets,
           fixedDressSlots,
@@ -5810,6 +5830,7 @@ function SuccessionPlanner({
     slotRouteOverrides,
     trainedUmaSettings,
     capturedReuseMode,
+    disableCapturedRental,
     capturedBlueFactorMinimums,
     capturedFactorTargets,
     fixedDressSlots,
@@ -5883,10 +5904,10 @@ function SuccessionPlanner({
     capturedParentSettings.length === 2 &&
     capturedParentSettings.every((setting) => setting.source === 'rental');
   const capturedReuseUnavailable =
-    capturedReuseMode !== 'off' && capturedUmas.length < 2;
+    capturedReuseMode !== 'off' && calculationCapturedUmas.length < 2;
   const capturedFactorSources = useMemo(
     () =>
-      capturedUmas.flatMap((candidate) =>
+      calculationCapturedUmas.flatMap((candidate) =>
         [candidate, ...candidate.parents].flatMap((member) =>
           member.inheritanceFactors.map((factor) => ({
             factor,
@@ -5894,7 +5915,7 @@ function SuccessionPlanner({
           })),
         ),
       ),
-    [capturedUmas],
+    [calculationCapturedUmas],
   );
   const capturedFactorTargetOptions = useMemo(() => {
     const options = new Map<string, CapturedFactorTargetOption>();
@@ -5998,7 +6019,7 @@ function SuccessionPlanner({
   const capturedReuseInputKey =
     capturedReuseMode === 'off'
       ? ''
-      : capturedUmas
+      : calculationCapturedUmas
           .map((candidate) =>
             [
               candidate.selectionId,
@@ -6040,6 +6061,7 @@ function SuccessionPlanner({
     slotRouteOverrides,
     trainedUmaSettings,
     capturedReuseMode,
+    disableCapturedRental,
     capturedBlueFactorMinimums,
     capturedFactorTargets: effectiveCapturedFactorTargets,
     fixedDressSlots,
@@ -6574,7 +6596,7 @@ function SuccessionPlanner({
               }),
             )
           : undefined;
-      return capturedUmas
+      return calculationCapturedUmas
         .filter(
           (candidate) =>
             !allowedSelectionIds ||
@@ -7316,7 +7338,7 @@ function SuccessionPlanner({
     JSON.stringify(fixedDressSlots),
     capturedReuseMode,
     JSON.stringify(capturedBlueFactorMinimums),
-    capturedUmas,
+    calculationCapturedUmas,
   ]);
   const probabilityTargetTypes = inheritanceAptitudes;
   const guaranteedFactorDemand: FactorDemand = Object.fromEntries(
@@ -8395,10 +8417,10 @@ function SuccessionPlanner({
           ),
         };
       };
-      const paternalCandidates = capturedUmas
+      const paternalCandidates = calculationCapturedUmas
         .filter((candidate) => branchAcceptsCandidate(candidate, 'paternal'))
         .map((candidate) => prepareBranchCandidate(candidate, 'paternal'));
-      const maternalCandidates = capturedUmas
+      const maternalCandidates = calculationCapturedUmas
         .filter((candidate) => branchAcceptsCandidate(candidate, 'maternal'))
         .map((candidate) => prepareBranchCandidate(candidate, 'maternal'));
       const candidateOrderKey = ({
@@ -9078,6 +9100,7 @@ function SuccessionPlanner({
     setExcludedUmaIds([]);
     setExcludedCapturedSelectionIds([]);
     setCapturedReuseMode('off');
+    setDisableCapturedRental(false);
     setCapturedBlueFactorMinimums({
       ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
     });
@@ -9758,11 +9781,36 @@ function SuccessionPlanner({
                               className="successionCapturedOwnershipWarning settings"
                               role="alert"
                             >
-                              只使用已育成马娘至少需要两匹可用记录。
+                              {disableCapturedRental
+                                ? '禁用借用后至少需要两匹自己的已育成马娘。'
+                                : '只使用已育成马娘至少需要两匹可用记录。'}
                             </div>
                           )}
                           {capturedReuseMode !== 'off' && (
                             <>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={disableCapturedRental}
+                                className={`successionSettingsSwitchRow isSubSetting${disableCapturedRental ? ' isOn' : ''}`}
+                                disabled={isCalculating}
+                                onClick={() =>
+                                  setDisableCapturedRental((current) => !current)
+                                }
+                              >
+                                <span
+                                  className="successionSettingsSwitch"
+                                  aria-hidden="true"
+                                >
+                                  <i />
+                                </span>
+                                <span className="successionSettingsSwitchCopy">
+                                  <strong>禁用借用</strong>
+                                  <small>
+                                    只遍历自己的已育成马娘，不使用好友或额外添加记录
+                                  </small>
+                                </span>
+                              </button>
                               <CapturedBlueFactorMinimumEditor
                                 minimums={capturedBlueFactorMinimums}
                                 onChange={(type, stars) =>
