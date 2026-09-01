@@ -1,5 +1,12 @@
 /* eslint-disable no-nested-ternary */
-import { Activity, CircleStop, Database, Gem, RefreshCw } from 'lucide-react';
+import {
+  Activity,
+  CircleStop,
+  Database,
+  Gem,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
   dailyJewelScheduleStatusLabel,
@@ -30,6 +37,7 @@ type ProgressTabProps = {
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   hasRunPlan: boolean;
   stopCareer: () => Promise<void>;
+  abandonCareer: () => Promise<void>;
 };
 
 export default function ProgressTab({
@@ -47,6 +55,7 @@ export default function ProgressTab({
   dailyJewelSchedule,
   hasRunPlan,
   stopCareer,
+  abandonCareer,
 }: ProgressTabProps) {
   const liveActivity = runner?.live_activity;
   const liveActivityLabel =
@@ -120,6 +129,30 @@ export default function ProgressTab({
                 <span>干劲 {currentRunnerStats.motivation ?? '-'}</span>
               </div>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={stopCareer}
+              disabled={runnerStopping || busy === 'stop'}
+              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {runnerStopping ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <CircleStop size={16} />
+              )}
+              {runnerStopping ? '正在暂停…' : '暂停自动操作'}
+            </button>
+            <button
+              type="button"
+              onClick={abandonCareer}
+              disabled={busy === 'abandon'}
+              className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
+            </button>
           </div>
         </div>
 
@@ -216,32 +249,15 @@ export default function ProgressTab({
                       : `本次 ${runner.run_plan.completed_jewel_drops}/${runner.run_plan.target} 次掉落`}
               </span>
             </div>
-            {automationActive ? (
-              <div className="flex flex-wrap gap-2">
-                {runnerSessionWaiting ? (
-                  <button
-                    type="button"
-                    onClick={releaseSessionWait}
-                    disabled={busy === 'release-session-wait'}
-                    className="rounded-md bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-                  >
-                    {busy === 'release-session-wait' ? '正在继续…' : '立即继续'}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={stopCareer}
-                  disabled={runnerStopping || busy === 'stop'}
-                  className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {runnerStopping ? (
-                    <RefreshCw size={15} className="animate-spin" />
-                  ) : (
-                    <CircleStop size={15} />
-                  )}
-                  {runnerStopping ? '正在暂停…' : '暂停自动运行'}
-                </button>
-              </div>
+            {automationActive && runnerSessionWaiting ? (
+              <button
+                type="button"
+                onClick={releaseSessionWait}
+                disabled={busy === 'release-session-wait'}
+                className="rounded-md bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {busy === 'release-session-wait' ? '正在继续…' : '立即继续'}
+              </button>
             ) : null}
           </div>
         ) : null}

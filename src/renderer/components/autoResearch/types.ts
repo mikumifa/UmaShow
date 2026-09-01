@@ -231,12 +231,7 @@ export type Dashboard = {
   friend_exclude_ids: number[];
 };
 
-export type AutoResearchTab =
-  | 'accounts'
-  | 'presets'
-  | 'career'
-  | 'progress'
-  | 'history';
+export type AutoResearchTab = 'accounts' | 'presets' | 'career' | 'history';
 
 export type CareerSessionAttributes = {
   speed: number;

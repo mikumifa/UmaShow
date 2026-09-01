@@ -20,7 +20,6 @@ import {
 } from './SelectionCards';
 import { panelClass, scrollToSection } from './shared';
 import {
-  AutoResearchTab,
   CareerSetting,
   Dashboard,
   Preset,
@@ -38,7 +37,6 @@ type CareerTabProps = {
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
   createCareerSave: () => void;
   careerSettingName: string;
-  navigateToTab: (tab: AutoResearchTab, target?: string) => void;
   automationActive: boolean;
   stopCareer: () => Promise<void>;
   runnerStopping: boolean;
@@ -112,7 +110,6 @@ export default function CareerTab(props: CareerTabProps) {
     setNewCareerSaveName,
     createCareerSave,
     careerSettingName,
-    navigateToTab,
     automationActive,
     stopCareer,
     runnerStopping,
@@ -201,28 +198,19 @@ export default function CareerTab(props: CareerTabProps) {
         </div>
         <div className="flex flex-wrap gap-2">
           {automationActive ? (
-            <>
-              <button
-                type="button"
-                onClick={() => navigateToTab('progress')}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                查看养马进度
-              </button>
-              <button
-                type="button"
-                onClick={stopCareer}
-                disabled={runnerStopping || busy === 'stop'}
-                className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {runnerStopping ? (
-                  <RefreshCw size={16} className="animate-spin" />
-                ) : (
-                  <CircleStop size={16} />
-                )}
-                {runnerStopping ? '正在暂停…' : '暂停自动操作'}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={stopCareer}
+              disabled={runnerStopping || busy === 'stop'}
+              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {runnerStopping ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <CircleStop size={16} />
+              )}
+              {runnerStopping ? '正在暂停…' : '暂停自动操作'}
+            </button>
           ) : null}
           <button
             type="button"
@@ -236,11 +224,7 @@ export default function CareerTab(props: CareerTabProps) {
         </div>
       </div>
 
-      {automationActive ? (
-        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          自动育成正在接管本次育成。需要查看回合、行动和错误时，请前往“养马进度”。
-        </div>
-      ) : matchingCareerSettings.length ? (
+      {!automationActive && matchingCareerSettings.length ? (
         <div className="mt-5 border-t border-slate-200 pt-5">
           <h3 className="font-semibold text-gray-800">
             可以继续使用的养马详设
@@ -291,7 +275,7 @@ export default function CareerTab(props: CareerTabProps) {
             ))}
           </div>
         </div>
-      ) : (
+      ) : !automationActive ? (
         <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
           <h3 className="font-semibold text-slate-800">
             没有找到可继续使用的养马详设
@@ -305,7 +289,7 @@ export default function CareerTab(props: CareerTabProps) {
             </p>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   ) : !careerSaveOpen && !automationActive ? (
     <section className={panelClass('p-5')}>

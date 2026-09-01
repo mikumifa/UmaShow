@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   Activity,
+  AlertTriangle,
   Check,
   Database,
   Gem,
@@ -45,7 +46,6 @@ import {
   DEFAULT_EXPECT_ATTRIBUTE,
   DEFAULT_PRESET_NAME,
   DEFAULT_SERVER,
-  DELETED_PRESETS_KEY,
   fileToBase64,
   getSharedStorageItem,
   LAST_ACCOUNT_KEY,
@@ -92,6 +92,43 @@ import {
 } from 'renderer/components/autoResearch/types';
 
 import { loadUMDB } from 'renderer/utils/umdb';
+import autoResearchCatalog from '../../../assets/data/auto_research_catalog.json';
+
+const localCatalog = autoResearchCatalog as {
+  skills: Record<string, SkillOption>;
+  races: RaceOption[];
+};
+
+const localAutoResearchSkills = (() => {
+  const byName = new Map<string, AutoResearchSkill>();
+  Object.entries(localCatalog.skills).forEach(([rawId, rawSkill]) => {
+    const name = String(rawSkill.name || '').trim();
+    const needSkillPoint = Number(rawSkill.need_skill_point || 0);
+    if (!name || needSkillPoint <= 0 || name.endsWith('×')) return;
+    if (!byName.has(name)) {
+      byName.set(name, {
+        id: Number(rawId),
+        name,
+        rarity: Number(rawSkill.rarity || 0),
+        group_id: Number(rawSkill.group_id || 0),
+        grade_value: Number(rawSkill.grade_value || 0),
+        need_skill_point: needSkillPoint,
+        disable_singlemode: Number(rawSkill.disable_singlemode || 0),
+        tags: Array.isArray(rawSkill.tags)
+          ? rawSkill.tags.map(Number).filter(Number.isFinite)
+          : [],
+        icon_id: Number(rawSkill.icon_id || 0),
+        skill_category: Number(rawSkill.skill_category || 0),
+      });
+    }
+  });
+  return [...byName.values()].sort(
+    (left, right) =>
+      right.rarity - left.rarity ||
+      left.skill_category - right.skill_category ||
+      left.name.localeCompare(right.name, 'zh-CN'),
+  );
+})();
 
 const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
   umas: [],
@@ -141,8 +178,8 @@ export default function AutoResearch() {
   const [presets, setPresets] = useState<Preset[]>(() => [
     createDefaultPreset(),
   ]);
-  const [races, setRaces] = useState<RaceOption[]>([]);
-  const [skills, setSkills] = useState<AutoResearchSkill[]>([]);
+  const { races } = localCatalog;
+  const skills = localAutoResearchSkills;
   const [busy, setBusy] = useState('');
   const [stoppingAccountId, setStoppingAccountId] = useState('');
   const [error, setError] = useState('');
@@ -153,8 +190,14 @@ export default function AutoResearch() {
     null,
   );
   const [disconnectingAccountId, setDisconnectingAccountId] = useState('');
+  const [
+    checkingExistingRuntimeAccountId,
+    setCheckingExistingRuntimeAccountId,
+  ] = useState('');
+  const [missingExistingRuntimeAccountId, setMissingExistingRuntimeAccountId] =
+    useState('');
   const sessionTokens = useRef(new Map<string, string>());
-  const autoLoginAttempted = useRef('');
+  const existingRuntimeAttachAttempts = useRef(new Set<string>());
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
@@ -166,14 +209,6 @@ export default function AutoResearch() {
     new Map<string, AccountOptionsResponse['options']>(),
   );
   const accountOptionsRequests = useRef(new Map<string, Promise<void>>());
-  const accountActionRef = useRef<
-    | ((
-        accountId: string,
-        action: 'login' | 'logout' | 'refresh',
-      ) => Promise<void>)
-    | null
-  >(null);
-
   const [cardId, setCardId] = useState(0);
   const [deckId, setDeckId] = useState(0);
   const [supportCardIds, setSupportCardIds] = useState<number[]>([]);
@@ -887,6 +922,72 @@ export default function AutoResearch() {
     [accountRequest, commitOverviewResponse, invalidateOverviewResponses],
   );
 
+  const attachExistingRuntime = useCallback(
+    async (accountId: string, retry = false) => {
+      if (!server || !accountId || sessionTokens.current.has(accountId)) {
+        return false;
+      }
+      const attemptKey = `${server}|${accountId}`;
+      if (!retry && existingRuntimeAttachAttempts.current.has(attemptKey)) {
+        return false;
+      }
+      existingRuntimeAttachAttempts.current.add(attemptKey);
+      setCheckingExistingRuntimeAccountId(accountId);
+      setMissingExistingRuntimeAccountId((current) =>
+        current === accountId ? '' : current,
+      );
+      try {
+        const credential = (await window.electron.autoResearch.credential(
+          accountId,
+        )) as { uid: string; accessKey: string };
+        const attached = await request<AuthResponse>('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            reuse_only: true,
+          }),
+        });
+        const attachedRunner = attached.runtime?.runner || attached.runner;
+        const hasCurrentCareer = Boolean(
+          attachedRunner?.running ||
+            attachedRunner?.run_plan?.active ||
+            attached.dashboard?.account?.career?.active,
+        );
+        if (!hasCurrentCareer) {
+          await request('/api/auth/logout', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${attached.token}` },
+            body: '{}',
+          }).catch(() => undefined);
+          setMissingExistingRuntimeAccountId(accountId);
+          return false;
+        }
+        sessionTokens.current.set(accountId, attached.token);
+        accountOptionsCache.current.delete(accountId);
+        commitOverviewResponse(accountId, attached);
+        setMissingExistingRuntimeAccountId('');
+        localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+        return true;
+      } catch (caught) {
+        if (
+          String((caught as Error).message || '').includes(
+            '服务端没有该账号正在运行的养马实例',
+          )
+        ) {
+          setMissingExistingRuntimeAccountId(accountId);
+          return false;
+        }
+        throw caught;
+      } finally {
+        setCheckingExistingRuntimeAccountId((current) =>
+          current === accountId ? '' : current,
+        );
+      }
+    },
+    [commitOverviewResponse, request, server],
+  );
+
   const loadCareerHistory = useCallback(
     async (accountId: string) => {
       if (!accountId || !sessionTokens.current.has(accountId)) return;
@@ -944,6 +1045,8 @@ export default function AutoResearch() {
         }
         localStorage.setItem('autoResearch.server', nextServer);
         sessionTokens.current.clear();
+        existingRuntimeAttachAttempts.current.clear();
+        setMissingExistingRuntimeAccountId('');
         accountOptionsCache.current.clear();
         accountOptionsRequests.current.clear();
         setAccounts((current) =>
@@ -959,7 +1062,6 @@ export default function AutoResearch() {
         );
         setSession(null);
         setServerAddress(nextServer);
-        autoLoginAttempted.current = '';
         setServer(nextServer);
         setHealth(body);
       } catch (caught) {
@@ -973,7 +1075,12 @@ export default function AutoResearch() {
 
   useEffect(() => {
     loadUMDB().catch(() => undefined);
+    let localPresets: Preset[] = [];
     try {
+      const storedPresets = JSON.parse(
+        getSharedStorageItem(LOCAL_PRESETS_KEY) || '[]',
+      );
+      if (Array.isArray(storedPresets)) localPresets = storedPresets;
       const stored = JSON.parse(
         getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
       );
@@ -981,6 +1088,26 @@ export default function AutoResearch() {
     } catch {
       setCareerSettings([]);
     }
+    const presetMap = new Map(
+      localPresets
+        .filter((preset) => preset?.name)
+        .map((preset) => [preset.name, preset]),
+    );
+    if (!presetMap.has(DEFAULT_PRESET_NAME)) {
+      presetMap.set(DEFAULT_PRESET_NAME, createDefaultPreset());
+    }
+    const nextPresets = [
+      presetMap.get(DEFAULT_PRESET_NAME) as Preset,
+      ...[...presetMap.values()].filter(
+        (preset) => preset.name !== DEFAULT_PRESET_NAME,
+      ),
+    ];
+    setPresets(nextPresets);
+    setPresetName((current) =>
+      nextPresets.some((preset) => preset.name === current)
+        ? current
+        : DEFAULT_PRESET_NAME,
+    );
   }, []);
 
   useEffect(
@@ -995,105 +1122,32 @@ export default function AutoResearch() {
   useEffect(() => {
     window.electron.autoResearch.credentials().then(setCaptured);
     loadAccounts().catch((caught) => setError((caught as Error).message));
-    return window.electron.autoResearch.onCredentialCaptured((credential) => {
-      setCaptured((current) => [
-        credential,
-        ...current.filter((item) => item.uid !== credential.uid),
-      ]);
-      loadAccounts().catch((caught) => setError((caught as Error).message));
-    });
+    const unsubscribeCredential =
+      window.electron.autoResearch.onCredentialCaptured((credential) => {
+        setCaptured((current) => [
+          credential,
+          ...current.filter((item) => item.uid !== credential.uid),
+        ]);
+        loadAccounts().catch((caught) => setError((caught as Error).message));
+      });
+    const unsubscribeLoginProgress =
+      window.electron.autoResearch.onLoginProgress((progress) => {
+        setLoginProgress((current) =>
+          current?.loginId === progress.loginId
+            ? {
+                ...current,
+                stage: `local_${progress.stage}`,
+                endpoint: '',
+                detail: progress.detail,
+              }
+            : current,
+        );
+      });
+    return () => {
+      unsubscribeCredential();
+      unsubscribeLoginProgress();
+    };
   }, [loadAccounts]);
-
-  useEffect(() => {
-    if (!server) return;
-    request<{ presets: Preset[] }>('/api/presets')
-      .then((result) => {
-        let localPresets: Preset[] = [];
-        let deletedPresetNames: string[] = [];
-        try {
-          const stored = JSON.parse(
-            getSharedStorageItem(LOCAL_PRESETS_KEY) || '[]',
-          );
-          if (Array.isArray(stored)) localPresets = stored;
-          const deleted = JSON.parse(
-            getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
-          );
-          if (Array.isArray(deleted)) deletedPresetNames = deleted;
-        } catch {
-          localPresets = [];
-          deletedPresetNames = [];
-        }
-        const merged = new Map<string, Preset>();
-        [...(result.presets || []), ...localPresets].forEach((preset) => {
-          if (
-            preset?.name &&
-            (preset.name === DEFAULT_PRESET_NAME ||
-              !deletedPresetNames.includes(preset.name))
-          ) {
-            merged.set(preset.name, preset);
-          }
-        });
-        if (!merged.has(DEFAULT_PRESET_NAME)) {
-          merged.set(DEFAULT_PRESET_NAME, createDefaultPreset());
-        }
-        const nextPresets = [
-          merged.get(DEFAULT_PRESET_NAME) as Preset,
-          ...[...merged.values()].filter(
-            (preset) => preset.name !== DEFAULT_PRESET_NAME,
-          ),
-        ];
-        setSharedStorageItem(
-          DELETED_PRESETS_KEY,
-          JSON.stringify(
-            deletedPresetNames.filter((name) => name !== DEFAULT_PRESET_NAME),
-          ),
-        );
-        setPresets(nextPresets);
-        setPresetName((current) =>
-          nextPresets.some((preset) => preset.name === current)
-            ? current
-            : DEFAULT_PRESET_NAME,
-        );
-      })
-      .catch((caught) => setError((caught as Error).message));
-    request<{ races: RaceOption[] }>('/api/races')
-      .then((result) => setRaces(result.races || []))
-      .catch((caught) => setError((caught as Error).message));
-    request<{ skills: Record<string, SkillOption> }>('/api/skills')
-      .then((result) => {
-        const byName = new Map<string, AutoResearchSkill>();
-        Object.entries(result.skills || {}).forEach(([rawId, rawSkill]) => {
-          const name = String(rawSkill.name || '').trim();
-          const needSkillPoint = Number(rawSkill.need_skill_point || 0);
-          if (!name || needSkillPoint <= 0 || name.endsWith('×')) return;
-
-          const skill: AutoResearchSkill = {
-            id: Number(rawId),
-            name,
-            rarity: Number(rawSkill.rarity || 0),
-            group_id: Number(rawSkill.group_id || 0),
-            grade_value: Number(rawSkill.grade_value || 0),
-            need_skill_point: needSkillPoint,
-            disable_singlemode: Number(rawSkill.disable_singlemode || 0),
-            tags: Array.isArray(rawSkill.tags)
-              ? rawSkill.tags.map(Number).filter(Number.isFinite)
-              : [],
-            icon_id: Number(rawSkill.icon_id || 0),
-            skill_category: Number(rawSkill.skill_category || 0),
-          };
-          if (!byName.has(name)) byName.set(name, skill);
-        });
-        setSkills(
-          [...byName.values()].sort(
-            (left, right) =>
-              right.rarity - left.rarity ||
-              left.skill_category - right.skill_category ||
-              left.name.localeCompare(right.name, 'zh-CN'),
-          ),
-        );
-      })
-      .catch((caught) => setError((caught as Error).message));
-  }, [request, server]);
 
   useEffect(() => {
     const preset = presets.find((item) => item.name === presetName);
@@ -1149,9 +1203,35 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (
+      !server ||
+      activeTab !== 'career' ||
+      !selectedAccountId ||
+      selectedAccount?.runtime.logged_in ||
+      sessionTokens.current.has(selectedAccountId) ||
+      loginProgress ||
+      disconnectingAccountId ||
+      activeLoginOperation.current
+    ) {
+      return;
+    }
+    attachExistingRuntime(selectedAccountId).catch((caught) =>
+      setError((caught as Error).message),
+    );
+  }, [
+    activeTab,
+    attachExistingRuntime,
+    disconnectingAccountId,
+    loginProgress,
+    selectedAccount?.runtime.logged_in,
+    selectedAccountId,
+    server,
+  ]);
+
+  useEffect(() => {
+    if (
       !selectedAccountId ||
       !selectedAccount?.runtime.logged_in ||
-      !['career', 'progress', 'history'].includes(activeTab)
+      !['career', 'history'].includes(activeTab)
     ) {
       return;
     }
@@ -1528,13 +1608,31 @@ export default function AutoResearch() {
           const credential = (await window.electron.autoResearch.credential(
             accountId,
           )) as { uid: string; accessKey: string };
+          let localSession: Record<string, string> | null = null;
+          try {
+            localSession = (await window.electron.autoResearch.loginSession(
+              accountId,
+              loginId,
+            )) as Record<string, string>;
+          } catch (localLoginError) {
+            setLoginProgress((current) =>
+              current?.loginId === loginId
+                ? {
+                    ...current,
+                    stage: 'backend_login',
+                    detail: `UmaShow 本地登录失败，改由 UmaAutoResearch 登录：${(localLoginError as Error).message}`,
+                  }
+                : current,
+            );
+          }
           const authenticated = await request<AuthResponse>('/api/auth/login', {
             method: 'POST',
             body: JSON.stringify({
-              uid: credential.uid,
-              access_key: credential.accessKey,
+              uid: localSession?.uid || credential.uid,
+              access_key: localSession?.access_key || credential.accessKey,
               login_id: loginId,
               force_login: forceLogin,
+              session: localSession,
             }),
           });
           sessionTokens.current.set(accountId, authenticated.token);
@@ -1546,6 +1644,8 @@ export default function AutoResearch() {
         }
       };
       if (action === 'login') {
+        const attached = await attachExistingRuntime(accountId, true);
+        if (attached) return;
         result = await authenticate(false);
       } else if (action === 'refresh') {
         let relogged = false;
@@ -1725,8 +1825,6 @@ export default function AutoResearch() {
     }
   };
 
-  accountActionRef.current = accountAction;
-
   const exitAutoResearchLogin = async () => {
     if (selectedAccountId && sessionTokens.current.has(selectedAccountId)) {
       await accountAction(selectedAccountId, 'logout');
@@ -1736,37 +1834,7 @@ export default function AutoResearch() {
     setSession(null);
     setPreparedAccountId('');
     setActiveTab('career');
-    autoLoginAttempted.current = '';
   };
-
-  useEffect(() => {
-    if (
-      !server ||
-      !accounts.length ||
-      loginProgress ||
-      activeLoginOperation.current
-    )
-      return;
-    if (
-      accounts.some((account) => account.runtime.logged_in) ||
-      sessionTokens.current.size
-    )
-      return;
-    const accountId = localStorage.getItem(LAST_ACCOUNT_KEY) || '';
-    if (!accountId) return;
-    const account = accounts.find((item) => item.id === accountId);
-    if (!account) {
-      localStorage.removeItem(LAST_ACCOUNT_KEY);
-      return;
-    }
-    setSelectedAccountId(accountId);
-    if (account.runtime.logged_in || sessionTokens.current.has(accountId))
-      return;
-    const attemptKey = `${server}|${accountId}`;
-    if (autoLoginAttempted.current === attemptKey) return;
-    autoLoginAttempted.current = attemptKey;
-    accountActionRef.current?.(accountId, 'login').catch(() => undefined);
-  }, [accounts, loginProgress, server]);
 
   const refreshOptionsIndex = async () => {
     if (!selectedAccountId) return;
@@ -1845,7 +1913,6 @@ export default function AutoResearch() {
       if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
         localStorage.removeItem(LAST_ACCOUNT_KEY);
       }
-      autoLoginAttempted.current = `${server}|${accountId}`;
       setActiveTab('career');
     } catch (caught) {
       if (needsRelogin(caught)) {
@@ -2044,7 +2111,7 @@ export default function AutoResearch() {
     }
     if (unsupportedCareer) {
       setError(
-        `当前进行中的育成剧本（scenario_id=${dashboard.account.career?.scenario_id}）暂不支持。请在游戏中手动退出本次养马，再刷新账号状态。`,
+        `当前正在育成「${dashboard.account.career?.name || '未知马娘'}」，进度为第 ${dashboard.account.career?.turn || 0} 回合，该育成暂时无法由自动操作接管。请直接在 UmaShow 中放弃本次育成后再开始新的养马。`,
       );
       return false;
     }
@@ -2315,15 +2382,6 @@ export default function AutoResearch() {
       );
       setPresets(nextPresets);
       setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
-      const deletedPresetNames = JSON.parse(
-        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
-      ) as string[];
-      setSharedStorageItem(
-        DELETED_PRESETS_KEY,
-        JSON.stringify(
-          deletedPresetNames.filter((name) => name !== preset.name),
-        ),
-      );
       setError('');
       setPresetSaved(true);
       if (presetSaveFeedbackTimer.current !== null) {
@@ -2448,19 +2506,6 @@ export default function AutoResearch() {
     const nextPresets = [...presets, createDefaultPreset(name)];
     setPresets(nextPresets);
     setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
-    let deletedPresetNames: string[] = [];
-    try {
-      const stored = JSON.parse(
-        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
-      );
-      if (Array.isArray(stored)) deletedPresetNames = stored;
-    } catch {
-      deletedPresetNames = [];
-    }
-    setSharedStorageItem(
-      DELETED_PRESETS_KEY,
-      JSON.stringify(deletedPresetNames.filter((item) => item !== name)),
-    );
     setPresetName(name);
     setPresetEditorOpen(true);
     setPresetSaved(false);
@@ -2497,26 +2542,6 @@ export default function AutoResearch() {
       JSON.stringify(nextCareerSettings),
     );
 
-    let deletedPresetNames: string[] = [];
-    try {
-      const stored = JSON.parse(
-        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
-      );
-      if (Array.isArray(stored)) deletedPresetNames = stored;
-    } catch {
-      deletedPresetNames = [];
-    }
-    setSharedStorageItem(
-      DELETED_PRESETS_KEY,
-      JSON.stringify(
-        Array.from(
-          new Set([
-            ...deletedPresetNames.filter((item) => item !== name),
-            currentName,
-          ]),
-        ),
-      ),
-    );
     if (presetName === currentName) setPresetName(name);
     if (careerPresetName === currentName) setCareerPresetName(name);
     if (newCareerPresetName === currentName) setNewCareerPresetName(name);
@@ -2548,19 +2573,6 @@ export default function AutoResearch() {
     const nextPresets = presets.filter((preset) => preset.name !== name);
     setPresets(nextPresets);
     setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
-    let deletedPresetNames: string[] = [];
-    try {
-      const stored = JSON.parse(
-        getSharedStorageItem(DELETED_PRESETS_KEY) || '[]',
-      );
-      if (Array.isArray(stored)) deletedPresetNames = stored;
-    } catch {
-      deletedPresetNames = [];
-    }
-    setSharedStorageItem(
-      DELETED_PRESETS_KEY,
-      JSON.stringify(Array.from(new Set([...deletedPresetNames, name]))),
-    );
     setPresetName(DEFAULT_PRESET_NAME);
     if (newCareerPresetName === name) setNewCareerPresetName('');
     setPresetEditorOpen(false);
@@ -2788,7 +2800,7 @@ export default function AutoResearch() {
     if (started) {
       setRunDialogOpen(false);
       setPendingRun(null);
-      navigateToTab('progress');
+      navigateToTab('career');
     }
   };
 
@@ -2808,11 +2820,11 @@ export default function AutoResearch() {
     setError('');
   };
 
-  if (!server) {
+  if (!server && activeTab !== 'presets') {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
         <div className="mx-auto max-w-6xl space-y-4">
-          <header className="flex min-h-[60px] items-end border-b border-gray-200 pb-4">
+          <header className="flex min-h-[60px] flex-wrap items-end justify-between gap-3 border-b border-gray-200 pb-4">
             <div>
               <div className="flex items-center gap-2 text-indigo-600">
                 <Activity size={24} />
@@ -2821,9 +2833,17 @@ export default function AutoResearch() {
                 </h1>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                选择账号后，填写自动育成服务器网址即可连接。
+                预设可直接在本地配置；选择马娘、继承马和卡组时再登录读取最新数据。
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('presets')}
+              className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+            >
+              <Settings2 size={16} />
+              配置预设（无需登录）
+            </button>
           </header>
 
           {error ? (
@@ -3042,7 +3062,7 @@ export default function AutoResearch() {
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-slate-400">
-                    连接成功后会使用上方准备好的账号自动登录服务端。
+                    此处只连接自动育成服务，不会登录游戏账号。进入“详设”后由你手动登录并读取最新数据。
                   </p>
                 </section>
               ) : (
@@ -3539,46 +3559,58 @@ export default function AutoResearch() {
               <h1 className="text-xl font-semibold text-gray-800">自动育成</h1>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              {server} · 游戏版本 {health?.app_ver} · 当前服务器允许运行上限{' '}
-              {health?.max_accounts}
+              {server
+                ? `${server} · 游戏版本 ${health?.app_ver} · 当前服务器允许运行上限 ${health?.max_accounts}`
+                : '本地预设编辑 · 无需连接服务器或登录游戏账号'}
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                selectedAccountId && accountAction(selectedAccountId, 'refresh')
-              }
-              disabled={
-                !selectedAccountId ||
-                Boolean(disconnectingAccountId) ||
-                Boolean(
-                  loggedInAccountId && loggedInAccountId !== selectedAccountId,
-                ) ||
-                busy === `refresh-${selectedAccountId}`
-              }
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`mr-1 inline ${busy === `refresh-${selectedAccountId}` ? 'animate-spin' : ''}`}
-                size={15}
-              />
-              {busy === `refresh-${selectedAccountId}`
-                ? '刷新中…'
-                : automationActive
-                  ? '刷新养马进度'
+          {server ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  selectedAccountId &&
+                  accountAction(selectedAccountId, 'refresh')
+                }
+                disabled={
+                  !selectedAccountId ||
+                  Boolean(disconnectingAccountId) ||
+                  Boolean(
+                    loggedInAccountId &&
+                      loggedInAccountId !== selectedAccountId,
+                  ) ||
+                  busy === `refresh-${selectedAccountId}`
+                }
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`mr-1 inline ${busy === `refresh-${selectedAccountId}` ? 'animate-spin' : ''}`}
+                  size={15}
+                />
+                {busy === `refresh-${selectedAccountId}`
+                  ? '刷新中…'
                   : '刷新当前账号'}
-            </button>
+              </button>
+              <button
+                type="button"
+                onClick={() => exitAutoResearchLogin().catch(() => undefined)}
+                disabled={Boolean(loginProgress || disconnectingAccountId)}
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <LogOut className="mr-1 inline" size={15} />
+                退出登录
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => exitAutoResearchLogin().catch(() => undefined)}
-              disabled={Boolean(loginProgress || disconnectingAccountId)}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setActiveTab('career')}
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
-              <LogOut className="mr-1 inline" size={15} />
-              退出登录
+              <Server size={16} />
+              连接自动育成服务
             </button>
-          </div>
+          )}
         </header>
 
         <div className={`${panelClass('px-3')} sticky top-0 z-30 shadow-sm`}>
@@ -3589,7 +3621,6 @@ export default function AutoResearch() {
             {[
               { id: 'presets' as const, label: '预设', icon: Settings2 },
               { id: 'career' as const, label: '详设', icon: ListChecks },
-              { id: 'progress' as const, label: '当前养马', icon: Activity },
               { id: 'history' as const, label: '养马记录', icon: History },
             ].map((tab) => {
               const IconComponent = tab.icon;
@@ -3888,7 +3919,7 @@ export default function AutoResearch() {
                               : loggedInAccountId &&
                                   loggedInAccountId !== account.id
                                 ? '已有账号登录'
-                                : '登录'}
+                                : '登录并读取'}
                         </button>
                       )}
                       <button
@@ -3971,10 +4002,41 @@ export default function AutoResearch() {
             ) : activeTab !== 'presets' &&
               (!selectedAccount?.runtime.logged_in || !dashboard) ? (
               <section className={panelClass('p-12 text-center')}>
-                <LogIn className="mx-auto text-slate-300" size={42} />
-                <p className="mt-3 text-slate-500">
-                  登录后可读取角色、卡组和育成状态。
+                {checkingExistingRuntimeAccountId === selectedAccount.id ? (
+                  <RefreshCw
+                    className="mx-auto animate-spin text-indigo-400"
+                    size={42}
+                  />
+                ) : (
+                  <LogIn className="mx-auto text-slate-300" size={42} />
+                )}
+                <h2 className="mt-3 font-bold text-slate-800">
+                  {checkingExistingRuntimeAccountId === selectedAccount.id
+                    ? '正在读取服务端已有的养马状态'
+                    : missingExistingRuntimeAccountId === selectedAccount.id
+                      ? '服务端当前没有正在运行的养马'
+                      : '登录并读取本账号的最新育成数据'}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {checkingExistingRuntimeAccountId === selectedAccount.id
+                    ? '这里只会连接已有运行实例，不会重新登录游戏，也不会影响其他地方的会话。'
+                    : missingExistingRuntimeAccountId === selectedAccount.id
+                      ? '检查已经完成，本次没有登录游戏。如需选择马娘、继承马、卡组或好友支援，请在下方手动登录。'
+                      : '如果服务端已有正在运行的养马，会直接显示当前情况；只有选择马娘、继承马、卡组和好友支援时才需要登录。'}
                 </p>
+                {missingExistingRuntimeAccountId === selectedAccount.id ? (
+                  <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm text-sky-800">
+                    已检查服务端：未发现该账号的活动育成实例。此次检查只读取服务端状态，没有接管游戏会话，也不会让其他地方掉线。
+                  </div>
+                ) : null}
+                {missingExistingRuntimeAccountId === selectedAccount.id ? (
+                  <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
+                    <AlertTriangle size={18} className="mt-0.5 flex-none" />
+                    <span>
+                      登录会接管该账号的游戏会话，可能使正在游戏客户端或其他工具中运行的同账号立即掉线。请确认其他地方已停止操作后再继续。
+                    </span>
+                  </div>
+                ) : null}
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <button
                     type="button"
@@ -3985,6 +4047,10 @@ export default function AutoResearch() {
                     disabled={Boolean(
                       loginProgress ||
                         disconnectingAccountId ||
+                        checkingExistingRuntimeAccountId ===
+                          selectedAccount.id ||
+                        missingExistingRuntimeAccountId !==
+                          selectedAccount.id ||
                         (loggedInAccountId &&
                           loggedInAccountId !== selectedAccount?.id),
                     )}
@@ -3994,12 +4060,18 @@ export default function AutoResearch() {
                       ? `登录中 ${loginProgress?.elapsed || 0}s · ${loginProgress?.detail || '正在连接登录服务'}`
                       : loginProgress
                         ? '请等待其他账号登录完成'
-                        : disconnectingAccountId
-                          ? '请等待账号退出完成'
-                          : loggedInAccountId &&
-                              loggedInAccountId !== selectedAccount?.id
-                            ? '请先退出当前账号'
-                            : '登录账号'}
+                        : checkingExistingRuntimeAccountId ===
+                            selectedAccount.id
+                          ? '正在检查已有养马'
+                          : missingExistingRuntimeAccountId !==
+                              selectedAccount.id
+                            ? '等待服务端检查'
+                            : disconnectingAccountId
+                              ? '请等待账号退出完成'
+                              : loggedInAccountId &&
+                                  loggedInAccountId !== selectedAccount?.id
+                                ? '请先退出当前账号'
+                                : '登录并读取最新数据'}
                   </button>
                   <button
                     type="button"
@@ -4056,17 +4128,17 @@ export default function AutoResearch() {
                         >
                           选择预设
                         </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            automationActive
-                              ? navigateToTab('progress')
-                              : navigateToTab('career', 'career-task')
-                          }
-                          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                        >
-                          {automationActive ? '查看养马进度' : '前往养马详设'}
-                        </button>
+                        {!automationActive ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigateToTab('career', 'career-task')
+                            }
+                            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                          >
+                            前往养马详设
+                          </button>
+                        ) : null}
                       </div>
                     </section>
                   </>
@@ -4076,17 +4148,22 @@ export default function AutoResearch() {
                   <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
                     <h2 className="font-bold">当前养马暂时无法接管</h2>
                     <p className="mt-1 text-sm">
-                      检测到进行中的剧本为 scenario_id=
-                      {dashboard.account.career?.scenario_id}，目前只支持 URA。
-                      请进入游戏手动退出这次养马，然后点击左侧“刷新”。
+                      当前正在育成「
+                      {dashboard.account.career?.name ||
+                        '未知马娘'}」，进度为第{' '}
+                      {dashboard.account.career?.turn || 0}{' '}
+                      回合。该育成暂时无法由自动操作接管，你可以直接在 UmaShow
+                      中放弃本次育成。
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => navigateToTab('progress')}
-                        className="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                        onClick={abandonCareer}
+                        disabled={busy === 'abandon'}
+                        className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
-                        查看当前进度
+                        <Trash2 size={16} />
+                        {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
                       </button>
                     </div>
                   </section>
@@ -4165,7 +4242,7 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
-                {dashboard && activeTab === 'career' ? (
+                {dashboard && activeTab === 'career' && !automationActive ? (
                   <CareerTab
                     dashboard={dashboard}
                     careerSaveOpen={careerSaveOpen}
@@ -4176,7 +4253,6 @@ export default function AutoResearch() {
                     setNewCareerSaveName={setNewCareerSaveName}
                     createCareerSave={createCareerSave}
                     careerSettingName={careerSettingName}
-                    navigateToTab={navigateToTab}
                     automationActive={automationActive}
                     stopCareer={stopCareer}
                     runnerStopping={runnerStopping}
@@ -4240,23 +4316,26 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
-                {dashboard && activeTab === 'progress' ? (
-                  <ProgressTab
-                    currentCareerActive={currentCareerActive}
-                    activeCareerIconPath={activeCareerIconPath}
-                    activeCareer={activeCareer}
-                    currentCareerUma={currentCareerUma}
-                    runner={runner}
-                    runnerStopping={runnerStopping}
-                    runnerSessionWaiting={runnerSessionWaiting}
-                    automationActive={automationActive}
-                    currentRunnerStats={currentRunnerStats}
-                    busy={busy}
-                    releaseSessionWait={releaseSessionWait}
-                    dailyJewelSchedule={dailyJewelSchedule}
-                    hasRunPlan={hasRunPlan}
-                    stopCareer={stopCareer}
-                  />
+                {dashboard && activeTab === 'career' && automationActive ? (
+                  <div id="career-progress" className="scroll-mt-28">
+                    <ProgressTab
+                      currentCareerActive={currentCareerActive}
+                      activeCareerIconPath={activeCareerIconPath}
+                      activeCareer={activeCareer}
+                      currentCareerUma={currentCareerUma}
+                      runner={runner}
+                      runnerStopping={runnerStopping}
+                      runnerSessionWaiting={runnerSessionWaiting}
+                      automationActive={automationActive}
+                      currentRunnerStats={currentRunnerStats}
+                      busy={busy}
+                      releaseSessionWait={releaseSessionWait}
+                      dailyJewelSchedule={dailyJewelSchedule}
+                      hasRunPlan={hasRunPlan}
+                      stopCareer={stopCareer}
+                      abandonCareer={abandonCareer}
+                    />
+                  </div>
                 ) : null}
 
                 {dashboard && activeTab === 'history' ? (

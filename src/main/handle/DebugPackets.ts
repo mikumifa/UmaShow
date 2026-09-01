@@ -7,11 +7,14 @@ import { jsonReplacer } from '../util';
 const MAX_DEBUG_PACKET_FILES = 50;
 const DEBUG_PACKET_FILE_PREFIXES = ['request_packet_', 'response_packet_'];
 const DEBUG_PACKET_FILE_SUFFIX = '.json';
-const COMMON_HEADER =
-  '5ccdf6135f246a2238161c64cad86ee00f1f2d90033e1f0aa7a9554f4cc06e6f';
-const COMMON_HEADER2 = '97054987b32d477f6d24a1631329765f9fc43a57';
 
 type DebugPacketType = 'request' | 'response';
+
+export interface DebugRequestMetadata {
+  COMMON_HEADER?: string;
+  COMMON_HEADER2?: string;
+  SID_SUFFIX?: string;
+}
 
 let packetSequence = 0;
 
@@ -90,6 +93,7 @@ function pruneDebugPackets() {
 export function persistDebugPacket(
   decodedData: unknown,
   packetType: DebugPacketType,
+  requestMetadata: DebugRequestMetadata = {},
 ) {
   try {
     ensureDebugPacketDir();
@@ -105,9 +109,7 @@ export function persistDebugPacket(
       JSON.stringify(
         {
           receivedAt: receivedAt.toISOString(),
-          ...(packetType === 'request'
-            ? { COMMON_HEADER, COMMON_HEADER2 }
-            : {}),
+          ...(packetType === 'request' ? requestMetadata : {}),
           data: decodedData,
         },
         jsonReplacer,

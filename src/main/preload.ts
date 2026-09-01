@@ -183,6 +183,25 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-delete', id),
     credential: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-credential', id),
+    loginSession: (id: string, loginId: string) =>
+      ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
+    onLoginProgress(
+      callback: (data: {
+        loginId: string;
+        stage: 'login' | 'load' | 'scan';
+        detail: string;
+      }) => void,
+    ) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('autoresearch:local-login-progress', subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          'autoresearch:local-login-progress',
+          subscription,
+        );
+      };
+    },
     importUsersDb: (contentBase64: string) =>
       ipcRenderer.invoke(
         'autoresearch:accounts-import-users-db',

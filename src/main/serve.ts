@@ -50,7 +50,16 @@ const handleNotifyPacket =
         },
       });
 
-      persistDebugPacket(decoded, packetType);
+      const requestMetadata =
+        packetType === 'request'
+          ? {
+              COMMON_HEADER: req.get('X-Umamusume-Common-Header'),
+              COMMON_HEADER2: req.get('X-Umamusume-Common-Header2'),
+              SID_SUFFIX: req.get('X-Umamusume-Sid-Suffix'),
+            }
+          : undefined;
+
+      persistDebugPacket(decoded, packetType, requestMetadata);
       console.log(`Saved ${packetType} packet (${buffer.length} bytes)`);
       res.json({ status: 'ok', saved: true });
     } catch (error: any) {

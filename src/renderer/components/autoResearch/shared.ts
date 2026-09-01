@@ -14,7 +14,6 @@ import {
 export const DEFAULT_SERVER = 'http://127.0.0.1:18765';
 export const DEFAULT_PRESET_NAME = 'URA 默认';
 export const LOCAL_PRESETS_KEY = 'autoResearch.presets';
-export const DELETED_PRESETS_KEY = 'autoResearch.deletedPresets';
 export const CAREER_SETTINGS_KEY = 'autoResearch.careerSettings';
 export const LAST_ACCOUNT_KEY = 'autoResearch.lastLoggedInAccount';
 

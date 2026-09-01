@@ -18,7 +18,7 @@ import {
 } from './handle/TrainingHistory';
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
-import { handleAutoResearchUiSettings } from './handle/AutoResearchUiSettings';
+import handleAutoResearchUiSettings from './handle/AutoResearchUiSettings';
 import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';

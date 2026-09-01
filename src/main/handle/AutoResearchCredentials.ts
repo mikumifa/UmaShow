@@ -3,6 +3,10 @@ import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import Database from 'better-sqlite3';
 import { app, BrowserWindow, IpcMain, safeStorage } from 'electron';
+import {
+  SuccessionGameClient,
+  SuccessionGameProgress,
+} from './SuccessionGameClient';
 
 export interface CapturedAutoResearchCredential {
   uid: string;
@@ -248,6 +252,33 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   ipcMain.handle('autoresearch:account-credential', (_, id: string) => {
     return getAutoResearchAccountCredential(id);
   });
+  ipcMain.handle(
+    'autoresearch:account-login-session',
+    async (event, id: string, loginId: string) => {
+      const credential = getAutoResearchAccountCredential(id);
+      const progress = (value: SuccessionGameProgress) => {
+        event.sender.send('autoresearch:local-login-progress', {
+          loginId,
+          ...value,
+        });
+      };
+      const client = new SuccessionGameClient(
+        credential.uid,
+        credential.accessKey,
+        progress,
+      );
+      await client.login();
+      const refreshedCredential = client.credential;
+      if (refreshedCredential.accessKey !== credential.accessKey) {
+        saveAutoResearchAccountCredential({
+          ...refreshedCredential,
+          source: '自动育成本地登录刷新',
+          capturedAt: new Date().toISOString(),
+        });
+      }
+      return client.session;
+    },
+  );
   ipcMain.handle(
     'autoresearch:accounts-import-users-db',
     (_, contentBase64: string) => importUsersDb(contentBase64),

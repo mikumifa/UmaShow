@@ -5,7 +5,6 @@ import { app, IpcMain } from 'electron';
 
 const SHARED_SETTING_KEYS = new Set([
   'autoResearch.presets',
-  'autoResearch.deletedPresets',
   'autoResearch.careerSettings',
 ]);
 
@@ -63,11 +62,6 @@ function mergeLegacyValue(key: string, shared: string | null, legacy: string) {
     if (!Array.isArray(sharedItems) || !Array.isArray(legacyItems)) {
       return shared;
     }
-    if (key === 'autoResearch.deletedPresets') {
-      return JSON.stringify(
-        Array.from(new Set([...sharedItems, ...legacyItems].map(String))),
-      );
-    }
     const identity = key === 'autoResearch.presets' ? 'name' : 'id';
     const merged = new Map<string, unknown>();
     [...sharedItems, ...legacyItems].forEach((item) => {
@@ -96,7 +90,7 @@ function readAndMigrate(key: string, legacy: unknown, source: unknown) {
   return merged;
 }
 
-export function handleAutoResearchUiSettings(ipcMain: IpcMain) {
+export default function handleAutoResearchUiSettings(ipcMain: IpcMain) {
   ipcMain.on(
     'autoresearch:ui-setting-get',
     (event, key: unknown, legacy: unknown, source: unknown) => {

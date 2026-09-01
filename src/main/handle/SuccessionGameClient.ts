@@ -9,10 +9,14 @@ import { decode, encode } from '@msgpack/msgpack';
 
 const GAME_HOST = 'https://le1-prod-bili-gs-uma.bilibiligame.net';
 const LOGIN_HOST = 'https://line1-sdk-center-login-sh.biligame.net';
-const COMMON_HEADER =
-  '5ccdf6135f246a2238161c64cad86ee00f1f2d90033e1f0aa7a9554f4cc06e6f';
-const COMMON_HEADER2 = '97054987b32d477f6d24a1631329765f9fc43a57';
-const SID_SUFFIX = 'sK5R8VeFU4';
+// Keep all six values in sync when the CN client protocol version changes.
+const UMA_CN_APP_VER = '2.0.2';
+const UMA_CN_APP_VER_CODE = '11150';
+const UMA_CN_RES_VER = '10012300:TS7TsHl6FUZl';
+const UMA_CN_COMMON_HEADER =
+  '241901334bb4452e6289d5b4679087fb390e4fec5593690e1d7f8a5aa6bbe4b3';
+const UMA_CN_COMMON_HEADER2 = 'f7dc31fbbb5686c9a464a21a0540dbc4c61ce149';
+const UMA_CN_SID_SUFFIX = 'sK5R8VeFU4';
 const LOGIN_SIGN_KEY = '2a7ee43463114270bf2620ae5d6d59c4';
 
 export type SuccessionGameProgress = {
@@ -23,7 +27,7 @@ export type SuccessionGameProgress = {
   total?: number;
 };
 
-type BiliGameUser = {
+export type BiliGameUser = {
   uid: string;
   accessKey: string;
   appVer: string;
@@ -63,7 +67,7 @@ function md5HexBytes(value: string) {
 }
 
 function getSid(value: string) {
-  return md5Bytes(`${value}${SID_SUFFIX}`);
+  return md5Bytes(`${value}${UMA_CN_SID_SUFFIX}`);
 }
 
 function loginSign(pairs: Array<[string, string]>) {
@@ -82,11 +86,11 @@ function xorBuffers(left: Buffer, middle: Buffer, right: Buffer) {
 }
 
 function aesKey(user: BiliGameUser) {
-  return hexToBytesJava(md5HexBytes(`${user.sid}${COMMON_HEADER2}`));
+  return hexToBytesJava(md5HexBytes(`${user.sid}${UMA_CN_COMMON_HEADER2}`));
 }
 
 function aesIv(user: BiliGameUser) {
-  return hexToBytesJava(md5HexBytes(`${user.udid}${COMMON_HEADER2}`));
+  return hexToBytesJava(md5HexBytes(`${user.udid}${UMA_CN_COMMON_HEADER2}`));
 }
 
 export function encryptSuccessionGameRequest(
@@ -101,7 +105,7 @@ export function encryptSuccessionGameRequest(
   const randomData = `${md5Bytes(randomUUID())}${md5Bytes(randomUUID())}`;
   const header = xorBuffers(
     hexToBytesJava(`${user.sid}${user.udid}`),
-    hexToBytesJava(COMMON_HEADER),
+    hexToBytesJava(UMA_CN_COMMON_HEADER),
     hexToBytesJava(randomData),
   );
   return Buffer.concat([
@@ -174,9 +178,9 @@ export class SuccessionGameClient {
     this.user = {
       uid,
       accessKey,
-      appVer: '1.33.6',
-      appVerCode: '10860',
-      resVer: '10010670:TUqzSticaJSa',
+      appVer: UMA_CN_APP_VER,
+      appVerCode: UMA_CN_APP_VER_CODE,
+      resVer: UMA_CN_RES_VER,
       deviceId,
       udid: deviceId.replace(/-/g, '').toLowerCase(),
       sid: '',
@@ -191,6 +195,21 @@ export class SuccessionGameClient {
 
   get viewerId() {
     return this.user.viewerId;
+  }
+
+  get session() {
+    return {
+      uid: this.user.uid,
+      access_key: this.user.accessKey,
+      app_ver: this.user.appVer,
+      app_ver_code: this.user.appVerCode,
+      res_ver: this.user.resVer,
+      device_id: this.user.deviceId,
+      udid: this.user.udid,
+      sid: this.user.sid,
+      buma_open_id: this.user.bumaOpenId,
+      viewer_id: this.user.viewerId,
+    };
   }
 
   private devicePayload(viewerId?: number) {
