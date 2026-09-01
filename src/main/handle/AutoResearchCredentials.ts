@@ -50,9 +50,6 @@ function storePath() {
 }
 
 function protectSecret(value: string) {
-  if (safeStorage.isEncryptionAvailable()) {
-    return `encrypted:${safeStorage.encryptString(value).toString('base64')}`;
-  }
   return `plain:${Buffer.from(value, 'utf8').toString('base64')}`;
 }
 
