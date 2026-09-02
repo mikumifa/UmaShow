@@ -388,10 +388,11 @@ export function pendingCapturedParentPairValid(
 export function pendingCapturedParentPairOrientations<
   T extends { selectionId: string },
 >(first: T, second: T, slotsEquivalent: boolean): Array<[T, T]> {
-  if (!slotsEquivalent) return [
-    [first, second],
-    [second, first],
-  ];
+  if (!slotsEquivalent)
+    return [
+      [first, second],
+      [second, first],
+    ];
   return first.selectionId.localeCompare(second.selectionId) <= 0
     ? [[first, second]]
     : [[second, first]];
@@ -403,6 +404,18 @@ type PendingBranchGreedyPriority = {
   blueMinimumProgress: number;
   compatibility: number;
   orderKey: string;
+};
+
+type PendingBranchCandidate = {
+  factor: Pick<FactorAssignment, 'type' | 'stars'>;
+  left: CapturedTrainedUma;
+  right: CapturedTrainedUma;
+  blueFactorTotals: CapturedBlueFactorMinimums;
+};
+
+type ScoredPendingBranchCandidate = {
+  value: PendingBranchCandidate;
+  priority: PendingBranchGreedyPriority;
 };
 
 export function comparePendingBranchGreedyPriority(
@@ -2155,10 +2168,7 @@ function demandSatisfied(
 
 export function capturedUmaMatchesGeneratedCandidate(
   candidate: CapturedTrainedUma,
-  position: Pick<
-    CompleteDesignPosition,
-    'uma' | 'factor' | 'minimumDemand'
-  >,
+  position: Pick<CompleteDesignPosition, 'uma' | 'factor' | 'minimumDemand'>,
 ) {
   if (!position.uma || candidate.umaId !== position.uma.id) return false;
   if (
@@ -4172,8 +4182,7 @@ function LineageUmaSetting({
               >
                 {trainedSetting ? '更换已有马娘' : '使用已有马娘填充'}
               </button>
-              {allowPendingTraining &&
-              onPendingTrainingChange ? (
+              {allowPendingTraining && onPendingTrainingChange ? (
                 <button
                   type="button"
                   className="successionPendingTrainingSwitch"
@@ -5941,10 +5950,11 @@ function SuccessionPlanner({
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculationProgress, setCalculationProgress] = useState(0);
   const [calculationStage, setCalculationStage] = useState(0);
-  const [calculationPairProgress, setCalculationPairProgress] = useState({
-    current: 0,
-    total: 0,
-  });
+  const [calculationPairProgress, setCalculationPairProgress] = useState<{
+    current: number;
+    total: number;
+    label?: string;
+  }>({ current: 0, total: 0 });
   const [calculationResultPage, setCalculationResultPage] = useState(0);
   const [completedCalculation, setCompletedCalculation] =
     useState<CompletedCalculation>();
@@ -5960,6 +5970,13 @@ function SuccessionPlanner({
         inputKey: string;
         allowedPairKeys: Set<string>;
         truncated: boolean;
+      }
+    | undefined
+  >(undefined);
+  const preparedPendingBranchStrategiesRef = useRef<
+    | {
+        inputKey: string;
+        strategies: Partial<Record<BranchKey, BranchFactorStrategy[]>>;
       }
     | undefined
   >(undefined);
@@ -6665,6 +6682,286 @@ function SuccessionPlanner({
     ].join('|');
   };
 
+  const createPendingCapturedBranchSearch = (
+    branch: BranchKey,
+    setting: PendingCapturedParentSetting,
+  ) => {
+    const { parent, grandparents } = branchConfigs[branch];
+    const plannedParent = umaById.get(setting.umaId);
+    if (!plannedParent || plannedParent.id === targetId) return undefined;
+    const factorRequirementForCandidate = (
+      slot: LineageSlot,
+      candidate: SuccessionUma,
+      producedType?: FactorKey,
+    ) => {
+      const routeSetting = routeSettingForSlot(slot, candidate.id);
+      return factorDemandForUma(
+        candidate,
+        routeSetting.route,
+        routeSetting.minimums,
+        producedType,
+        factorProductionMinimumRank,
+      );
+    };
+    const pendingFactorTypes = setting.factor
+      ? [setting.factor.type]
+      : inheritanceAptitudes.length
+        ? inheritanceAptitudes
+        : ALL_APTITUDES;
+    const pendingFactorOptions = [...new Set(pendingFactorTypes)]
+      .map((type) => ({
+        factor: setting.factor || ({ type, stars: 3 } as const),
+        requirement: factorRequirementForCandidate(parent, plannedParent, type),
+      }))
+      .filter(({ requirement }) => !requirement.impossible.length);
+    if (!pendingFactorOptions.length) return undefined;
+
+    const slotAcceptsCapturedMember = (
+      slot: LineageSlot,
+      member: CapturedLineageMember,
+    ) => {
+      const fixedUmaId = lineage[slot];
+      const trainedMember = trainedUmaSettings[slot]?.self;
+      const fixedDressCardId = trainedMember?.cardId || fixedDressSlots[slot];
+      return capturedMemberMatchesSlotConstraint(member, {
+        targetId,
+        fixedUmaId,
+        trainedUmaId: trainedMember?.umaId,
+        fixedDressCardId,
+        excluded: excludedUmaIdSet.has(member.umaId),
+        allowTarget: true,
+      });
+    };
+    const capturedPosition = (
+      member: CapturedLineageMember,
+      code: string,
+      root?: CapturedTrainedUma,
+      fixed = false,
+    ): CompleteDesignPosition => ({
+      code,
+      generation: 2,
+      uma: umaById.get(member.umaId),
+      factor: { type: member.factor.type, stars: member.factor.stars },
+      fixed,
+      requiresUma: true,
+      winSaddleIds: member.winSaddleIds,
+      capturedInheritanceFactors: member.inheritanceFactors,
+      capturedFactorSummary: {
+        blueFactor: member.blueFactor,
+        aptitudeFactor: member.factor,
+        uniqueFactorStars: member.uniqueFactorStars,
+        selectedSkillFactors: effectiveCapturedFactorTargets.map((target) => ({
+          groupId: target.groupId,
+          name:
+            capturedFactorTargetOptions.find(
+              (option) =>
+                capturedFactorTargetKey(option) ===
+                capturedFactorTargetKey(target),
+            )?.name || `技能 ${target.groupId}`,
+          count: capturedSelectedSkillFactorCount(
+            member.inheritanceFactors,
+            [target],
+            successionFactorMeta,
+          ),
+        })),
+        whiteFactorCount: member.whiteFactorCount,
+      },
+      ...(root
+        ? {
+            capturedSelectionId: root.selectionId,
+            capturedSource: root.source,
+            capturedOwnerName: root.ownerName,
+            capturedViewerId: root.viewerId,
+          }
+        : {}),
+    });
+    const grandparentSettings = grandparents.map((slot) =>
+      routeSettingForSlot(slot),
+    );
+    const grandparentSlotsEquivalent =
+      lineage[grandparents[0]] === lineage[grandparents[1]] &&
+      trainedUmaSettings[grandparents[0]]?.self.umaId ===
+        trainedUmaSettings[grandparents[1]]?.self.umaId &&
+      fixedDressSlots[grandparents[0]] === fixedDressSlots[grandparents[1]] &&
+      grandparentSettings[0].route.id === grandparentSettings[1].route.id &&
+      ALL_APTITUDES.every(
+        (type) =>
+          grandparentSettings[0].minimums[type] ===
+          grandparentSettings[1].minimums[type],
+      );
+    const candidates = calculationCapturedUmas
+      .filter((candidate) => candidate.umaId !== plannedParent.id)
+      .filter((candidate) =>
+        grandparents.some((slot) => slotAcceptsCapturedMember(slot, candidate)),
+      )
+      .sort((left, right) => left.selectionId.localeCompare(right.selectionId));
+    const seenStrategies = new Set<string>();
+    const parentRoute = routeSettingForSlot(parent, plannedParent.id).route;
+    const parentMember = trainedMemberForSlot(parent, plannedParent.id);
+    const parentBaseCompatibility = relationScore(targetId, plannedParent.id);
+    const evaluatePair = (firstIndex: number, secondIndex: number) => {
+      const scored: ScoredPendingBranchCandidate[] = [];
+      const first = candidates[firstIndex];
+      const second = candidates[secondIndex];
+      if (
+        !first ||
+        !second ||
+        !pendingCapturedParentPairValid(first, second, plannedParent.id)
+      ) {
+        return scored;
+      }
+      const orientations = pendingCapturedParentPairOrientations(
+        first,
+        second,
+        grandparentSlotsEquivalent,
+      );
+      orientations.forEach(([left, right]) => {
+        if (
+          !slotAcceptsCapturedMember(grandparents[0], left) ||
+          !slotAcceptsCapturedMember(grandparents[1], right)
+        ) {
+          return;
+        }
+        pendingFactorOptions.forEach(({ factor }) => {
+          const strategyKey = `${factor.type}:${factor.stars}|${left.selectionId}|${right.selectionId}`;
+          if (seenStrategies.has(strategyKey)) return;
+          seenStrategies.add(strategyKey);
+          const pair = [left, right] as const;
+          const grandparentCompatibilities = pair.map((candidate, index) => {
+            const slot = grandparents[index];
+            const route = routeSettingForSlot(slot, candidate.umaId).route;
+            const base = relationScore(
+              targetId,
+              plannedParent.id,
+              candidate.umaId,
+            );
+            const g1 = resolvedCommonG1(
+              parentMember,
+              parentRoute,
+              candidate.winSaddleIds.length ? candidate : undefined,
+              route,
+            );
+            return base + g1.count * G1_COMPATIBILITY_POINTS;
+          });
+          const parentLocalCompatibility =
+            parentBaseCompatibility +
+            grandparentCompatibilities.reduce(
+              (total, value) => total + value,
+              0,
+            );
+          const probabilityFactors = [
+            {
+              type: factor.type,
+              stars: factor.stars,
+              compatibility: parentLocalCompatibility,
+            },
+            ...pair.map((candidate, index) => ({
+              type: candidate.factor.type,
+              stars: candidate.factor.stars,
+              compatibility: grandparentCompatibilities[index],
+            })),
+          ].filter((item) => probabilityTargetTypes.includes(item.type));
+          const probability = probabilityOfReachingTargets(
+            probabilityFactors,
+            probabilityTargetTypes,
+            probabilityRequiredRaises,
+          );
+          const skillProbabilities = effectiveCapturedFactorTargets.map(
+            (factorTarget) =>
+              capturedFactorTargetProbability(
+                pair.flatMap((candidate, index) =>
+                  candidate.inheritanceFactors.map((capturedFactor) => ({
+                    factor: capturedFactor,
+                    generation: 2 as const,
+                    compatibility: grandparentCompatibilities[index],
+                  })),
+                ),
+                factorTarget,
+                successionFactorMeta,
+              ),
+          );
+          const blueFactorTotals = capturedBlueFactorTotals([...pair]);
+          scored.push({
+            value: { factor, left, right, blueFactorTotals },
+            priority: {
+              combinedProbability: combinedSkillTargetProbability(
+                probability,
+                skillProbabilities,
+              ),
+              skillProbabilities,
+              blueMinimumProgress: BLUE_FACTOR_KEYS.reduce(
+                (total, type) =>
+                  total +
+                  Math.min(
+                    capturedBlueFactorMinimums[type],
+                    blueFactorTotals[type],
+                  ),
+                0,
+              ),
+              compatibility:
+                parentLocalCompatibility +
+                grandparentCompatibilities.reduce(
+                  (total, value) => total + value,
+                  0,
+                ),
+              orderKey: strategyKey,
+            },
+          });
+        });
+      });
+      return scored;
+    };
+    const buildStrategies = (
+      best?: ScoredPendingBranchCandidate,
+    ): BranchFactorStrategy[] => {
+      if (!best) return [];
+      return [
+        {
+          positions: [
+            {
+              code: SLOT_CODES[parent],
+              generation: 1,
+              uma: plannedParent,
+              factor: { ...best.value.factor },
+              fixed: true,
+              requiresUma: true,
+              pendingTraining: true,
+            },
+            capturedPosition(
+              best.value.left,
+              SLOT_CODES[grandparents[0]],
+              best.value.left,
+              Boolean(lineage[grandparents[0]]),
+            ),
+            capturedPosition(
+              best.value.right,
+              SLOT_CODES[grandparents[1]],
+              best.value.right,
+              Boolean(lineage[grandparents[1]]),
+            ),
+          ],
+          cumulativeRequirements: [],
+          greatFactorRequirements: {
+            parent: {},
+            grandparents: [{}, {}],
+          },
+          capturedSelectionIds: [
+            best.value.left.selectionId,
+            best.value.right.selectionId,
+          ],
+          capturedSources: [best.value.left.source, best.value.right.source],
+          capturedBlueFactorTotals: best.value.blueFactorTotals,
+        },
+      ];
+    };
+    return {
+      candidateCount: candidates.length,
+      totalPairs: (candidates.length * (candidates.length - 1)) / 2,
+      evaluatePair,
+      buildStrategies,
+    };
+  };
+
   const buildBranchStrategies = (
     factorPlan: TargetFactorPlan,
     branch: BranchKey,
@@ -6707,7 +7004,9 @@ function SuccessionPlanner({
       slot: LineageSlot,
     ): FactorAssignment => {
       const pendingFactor =
-        slot === parent ? activePendingCapturedParents[branch]?.factor : undefined;
+        slot === parent
+          ? activePendingCapturedParents[branch]?.factor
+          : undefined;
       const trainedFactor =
         capturedReuseMode === 'off'
           ? trainedUmaSettings[slot]?.self.factor
@@ -6715,8 +7014,8 @@ function SuccessionPlanner({
       return pendingFactor
         ? { ...pendingFactor }
         : trainedFactor
-        ? { ...trainedFactor }
-        : factorPlan.assignments[slot];
+          ? { ...trainedFactor }
+          : factorPlan.assignments[slot];
     };
     const factorRequirementForCandidate = (
       slot: LineageSlot,
@@ -6910,7 +7209,7 @@ function SuccessionPlanner({
         });
     };
 
-    const capturedPendingParentStrategies = (
+    const capturedPendingParentStrategiesLegacy = (
       setting: PendingCapturedParentSetting,
     ) => {
       const plannedUma = umaById.get(setting.umaId);
@@ -6936,8 +7235,7 @@ function SuccessionPlanner({
         lineage[grandparents[0]] === lineage[grandparents[1]] &&
         trainedUmaSettings[grandparents[0]]?.self.umaId ===
           trainedUmaSettings[grandparents[1]]?.self.umaId &&
-        fixedDressSlots[grandparents[0]] ===
-          fixedDressSlots[grandparents[1]] &&
+        fixedDressSlots[grandparents[0]] === fixedDressSlots[grandparents[1]] &&
         grandparentSettings[0].route.id === grandparentSettings[1].route.id &&
         ALL_APTITUDES.every(
           (type) =>
@@ -7130,6 +7428,17 @@ function SuccessionPlanner({
         capturedBlueFactorTotals: best.blueFactorTotals,
       };
       return [strategy];
+    };
+
+    const capturedPendingParentStrategies = (
+      setting: PendingCapturedParentSetting,
+    ) => {
+      const prepared = preparedPendingBranchStrategiesRef.current;
+      if (prepared?.inputKey === currentCalculationInputKey) {
+        const strategies = prepared.strategies[branch];
+        if (strategies) return strategies;
+      }
+      return capturedPendingParentStrategiesLegacy(setting);
     };
 
     if (capturedReuseMode !== 'off') {
@@ -8683,6 +8992,7 @@ function SuccessionPlanner({
     const completedInputKey = currentCalculationInputKey;
     const completedResult = optimalCompleteDesign || null;
     setCalculationStage(4);
+    setCalculationPairProgress({ current: 0, total: 0 });
     setCalculationProgress((current) => Math.max(current, 92));
     const completeTimer = window.setTimeout(() => {
       if (calculationRunToken.current !== runToken) return;
@@ -8751,14 +9061,139 @@ function SuccessionPlanner({
       setCalculationProgress(0);
       if (hasActivePendingCapturedParent) {
         capturedReusePairFilterRef.current = undefined;
-        window.setTimeout(() => {
+        preparedPendingBranchStrategiesRef.current = undefined;
+        const searches: Array<{
+          branch: BranchKey;
+          label: string;
+          search: NonNullable<
+            ReturnType<typeof createPendingCapturedBranchSearch>
+          >;
+          firstIndex: number;
+          secondIndex: number;
+          processedPairs: number;
+          best?: ScoredPendingBranchCandidate;
+        }> = [];
+        const preparedStrategies: Partial<
+          Record<BranchKey, BranchFactorStrategy[]>
+        > = {};
+        (['paternal', 'maternal'] as BranchKey[]).forEach((branch) => {
+          const setting = activePendingCapturedParents[branch];
+          if (!setting) return;
+          const search = createPendingCapturedBranchSearch(branch, setting);
+          if (!search) {
+            preparedStrategies[branch] = [];
+            return;
+          }
+          searches.push({
+            branch,
+            label: branch === 'paternal' ? '父系' : '母系',
+            search,
+            firstIndex: 0,
+            secondIndex: 1,
+            processedPairs: 0,
+          });
+        });
+        const totalPairs = searches.reduce(
+          (total, item) => total + item.search.totalPairs,
+          0,
+        );
+        let searchIndex = 0;
+        let processedPairs = 0;
+        const finishPendingSearch = () => {
           if (calculationRunToken.current !== runToken) return;
-          setCalculationProgress(99);
-          setCalculationInputKey(requestedInputKey);
-          setCalculationRequestId((current) => current + 1);
-        }, 0);
+          preparedPendingBranchStrategiesRef.current = {
+            inputKey: requestedInputKey,
+            strategies: preparedStrategies,
+          };
+          setCalculationPairProgress({
+            current: 0,
+            total: 0,
+            label: '待育成祖辈已选优，正在与另一侧种马路线比较',
+          });
+          setCalculationProgress(90);
+          window.setTimeout(() => {
+            if (calculationRunToken.current !== runToken) return;
+            setCalculationProgress(96);
+            setCalculationInputKey(requestedInputKey);
+            setCalculationRequestId((current) => current + 1);
+          }, 50);
+        };
+        const processPendingBatch = () => {
+          if (calculationRunToken.current !== runToken) return;
+          const batchStartedAt = window.performance.now();
+          let batchPairs = 0;
+          while (
+            searchIndex < searches.length &&
+            (batchPairs === 0 ||
+              (batchPairs < 300 &&
+                window.performance.now() - batchStartedAt < 12))
+          ) {
+            const currentSearch = searches[searchIndex];
+            const { candidateCount } = currentSearch.search;
+            if (
+              candidateCount < 2 ||
+              currentSearch.firstIndex >= candidateCount - 1
+            ) {
+              preparedStrategies[currentSearch.branch] =
+                currentSearch.search.buildStrategies(currentSearch.best);
+              searchIndex += 1;
+              continue;
+            }
+            const candidates = currentSearch.search.evaluatePair(
+              currentSearch.firstIndex,
+              currentSearch.secondIndex,
+            );
+            candidates.forEach((candidate) => {
+              if (
+                !currentSearch.best ||
+                comparePendingBranchGreedyPriority(
+                  candidate.priority,
+                  currentSearch.best.priority,
+                ) > 0
+              ) {
+                currentSearch.best = candidate;
+              }
+            });
+            currentSearch.processedPairs += 1;
+            processedPairs += 1;
+            batchPairs += 1;
+            currentSearch.secondIndex += 1;
+            if (currentSearch.secondIndex >= candidateCount) {
+              currentSearch.firstIndex += 1;
+              currentSearch.secondIndex = currentSearch.firstIndex + 1;
+            }
+          }
+          const activeSearch = searches[searchIndex];
+          setCalculationPairProgress({
+            current: activeSearch?.processedPairs || 0,
+            total: activeSearch?.search.totalPairs || 0,
+            label: activeSearch
+              ? `优化${activeSearch.label}待育成马娘的两个祖辈`
+              : '整理待育成祖辈组合',
+          });
+          setCalculationProgress(
+            totalPairs
+              ? Math.min(86, 6 + Math.floor((processedPairs * 80) / totalPairs))
+              : 86,
+          );
+          if (searchIndex < searches.length) {
+            window.setTimeout(processPendingBatch, 0);
+            return;
+          }
+          finishPendingSearch();
+        };
+        setCalculationPairProgress({
+          current: 0,
+          total: searches[0]?.search.totalPairs || 0,
+          label: searches.length
+            ? `准备优化${searches[0].label}待育成马娘的两个祖辈`
+            : '没有满足条件的待育成祖辈组合',
+        });
+        setCalculationProgress(6);
+        window.setTimeout(processPendingBatch, 0);
         return;
       }
+      preparedPendingBranchStrategiesRef.current = undefined;
       const branchAcceptsCandidate = (
         candidate: CapturedTrainedUma,
         branch: BranchKey,
@@ -9155,10 +9590,7 @@ function SuccessionPlanner({
     }, 120);
   };
 
-  const updatePendingCapturedParent = (
-    branch: BranchKey,
-    umaId?: number,
-  ) => {
+  const updatePendingCapturedParent = (branch: BranchKey, umaId?: number) => {
     if (umaId && !umaById.has(umaId)) return;
     const { parent, grandparents } = branchConfigs[branch];
     calculationRunToken.current += 1;
@@ -9241,7 +9673,8 @@ function SuccessionPlanner({
     if (slot === 'father' || slot === 'mother') {
       const branch: BranchKey = slot === 'father' ? 'paternal' : 'maternal';
       setPendingCapturedParents((current) => {
-        if (!current[branch] || current[branch]?.umaId === value) return current;
+        if (!current[branch] || current[branch]?.umaId === value)
+          return current;
         const next = { ...current };
         delete next[branch];
         return next;
@@ -9929,10 +10362,7 @@ function SuccessionPlanner({
       compatibility,
       g1Count,
       probability: probabilityAtLeastOnce(
-        redFactorInheritanceProbability(
-          candidate.factor.stars,
-          compatibility,
-        ),
+        redFactorInheritanceProbability(candidate.factor.stars, compatibility),
       ),
     };
   };
@@ -10470,7 +10900,9 @@ function SuccessionPlanner({
                                 className={`successionSettingsSwitchRow isSubSetting${disableCapturedRental ? ' isOn' : ''}`}
                                 disabled={isCalculating}
                                 onClick={() =>
-                                  setDisableCapturedRental((current) => !current)
+                                  setDisableCapturedRental(
+                                    (current) => !current,
+                                  )
                                 }
                               >
                                 <span
@@ -10575,8 +11007,9 @@ function SuccessionPlanner({
                       </strong>
                       <span>
                         {calculationPairProgress.total
-                          ? `计算已有马娘组合 ${calculationPairProgress.current} / ${calculationPairProgress.total}`
-                          : CALCULATION_PHASES[
+                          ? `${calculationPairProgress.label || '计算已有马娘组合'} ${calculationPairProgress.current} / ${calculationPairProgress.total}`
+                          : calculationPairProgress.label ||
+                            CALCULATION_PHASES[
                               Math.max(0, calculationStage - 1)
                             ]}
                       </span>

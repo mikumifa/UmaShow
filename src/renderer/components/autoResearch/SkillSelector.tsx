@@ -355,7 +355,7 @@ export default function SkillSelector({
           <div className="relative">
             <Search
               size={17}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               ref={searchInputRef}
@@ -363,7 +363,7 @@ export default function SkillSelector({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="搜索技能名称或技能 ID"
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full cursor-text select-text rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
           <div className="mt-3 space-y-2.5">

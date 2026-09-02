@@ -21,6 +21,12 @@ export default function App() {
             -webkit-user-select: none;
             -webkit-user-drag: none;
           }
+          input,
+          textarea,
+          [contenteditable='true'] {
+            user-select: text;
+            -webkit-user-select: text;
+          }
         `}
       </style>
       <Router>

@@ -33,6 +33,7 @@ type Props = {
 };
 
 const emptyConfig = (): DailyTasksConfig => ({
+  schema_version: 3,
   enabled: false,
   run_time: '05:10',
   daily_race: {
@@ -52,7 +53,6 @@ const emptyConfig = (): DailyTasksConfig => ({
   circle: {
     donate_enabled: false,
     donate_item_ids: [],
-    keep_item_count: 0,
     request_enabled: false,
     request_item_id: 0,
   },
@@ -158,6 +158,7 @@ function HorseSelectButton({
 
 const statusLabel: Record<string, string> = {
   disabled: '未启用',
+  paused: '计划已暂停',
   waiting: '等待执行',
   waiting_busy: '等待自动育成结束',
   running: '执行中',
@@ -167,6 +168,18 @@ const statusLabel: Record<string, string> = {
   error: '失败',
   interrupted: '已中断',
 };
+
+function formatScheduleTime(timestamp?: number) {
+  if (!timestamp) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(timestamp * 1000));
+}
 
 function AvailabilityNotice({
   available,
@@ -303,31 +316,29 @@ export default function DailyTasksTab({
           <div>
             <div className="flex items-center gap-2">
               <CalendarCheck className="text-indigo-600" size={20} />
-              <h2 className="font-bold text-slate-800">每日日常</h2>
+              <h2 className="font-bold text-slate-800">每日日常计划</h2>
             </div>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-              UmaShow
-              只保存配置。定时、次数和冷却判断以及所有游戏请求都由服务端完成；游戏日按北京时间
-              05:00 重置。
-            </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">
-              启用定时执行
+              {draft.enabled ? '计划运行中' : '计划已暂停'}
             </span>
             <Toggle
               checked={draft.enabled}
-              label="启用每日日常"
-              onChange={(enabled) =>
-                setDraft((current) => ({ ...current, enabled }))
-              }
+              label={draft.enabled ? '暂停每日日常计划' : '开启每日日常计划'}
+              disabled={disabled}
+              onChange={(enabled) => {
+                const next = { ...draft, enabled };
+                setDraft(next);
+                onSave(next).catch(() => undefined);
+              }}
             />
           </div>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-[220px_1fr]">
           <label className="block" htmlFor="daily-task-run-time">
             <span className="mb-1 block text-xs font-medium text-slate-500">
-              每日执行时间（北京时间）
+              每日计划启动时间（北京时间）
             </span>
             <input
               id="daily-task-run-time"
@@ -343,7 +354,8 @@ export default function DailyTasksTab({
             />
           </label>
           <div className="rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-            服务端每天只自动执行一次。自动育成占用账号时会等待，不会与育成并发操作游戏。
+            每日赛事每天执行一次；竞技场按 RP
+            恢复时间继续清空。养马占用账号时会等待，并在本局结束后优先处理到期日常。
           </div>
         </div>
       </section>
@@ -475,8 +487,8 @@ export default function DailyTasksTab({
             <option value={0}>选择传奇赛事</option>
             {legendRaces.map((race) => (
               <option key={race.id} value={race.id}>
-                {race.name} · 难度 {race.difficulty} · {race.ground_name}{' '}
-                {race.distance}m
+                {race.name} · 碎片 {race.owned_piece_count} · 难度{' '}
+                {race.difficulty} · {race.ground_name} {race.distance}m
               </option>
             ))}
           </select>
@@ -520,7 +532,7 @@ export default function DailyTasksTab({
               <div>
                 <h3 className="font-semibold text-slate-800">竞技场</h3>
                 <p className="text-xs text-slate-500">
-                  只消耗已有 RP，绝不使用恢复道具。
+                  清空已有 RP，之后按每 2 小时一次的恢复事件继续处理。
                 </p>
               </div>
             </div>
@@ -545,33 +557,9 @@ export default function DailyTasksTab({
             reason={stadiumAvailability?.reason}
             readyDetail={`当前竞技场 RP：${stadiumAvailability?.current_rp || 0}`}
           />
-          <label className="mt-4 block" htmlFor="daily-stadium-strength">
-            <span className="mb-1 block text-xs font-medium text-slate-500">
-              对手强度
-            </span>
-            <select
-              id="daily-stadium-strength"
-              className={fieldClass}
-              value={draft.team_stadium.opponent_strength}
-              disabled={
-                !draft.team_stadium.enabled ||
-                stadiumAvailability?.available === false
-              }
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  team_stadium: {
-                    ...current.team_stadium,
-                    opponent_strength: Number(event.target.value),
-                  },
-                }))
-              }
-            >
-              <option value={1}>低</option>
-              <option value={2}>中</option>
-              <option value={3}>高</option>
-            </select>
-          </label>
+          <div className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            对手强度固定为高。
+          </div>
         </section>
 
         <section className={panelClass('p-5')}>
@@ -581,7 +569,7 @@ export default function DailyTasksTab({
               <div>
                 <h3 className="font-semibold text-slate-800">限时商店</h3>
                 <p className="text-xs text-slate-500">
-                  仅在商店出现时处理，执行固定的全有或全无购买。
+                  每次赛事或竞技场结束后检查，达到该来源每日刷新上限后停止。
                 </p>
               </div>
             </div>
@@ -612,7 +600,7 @@ export default function DailyTasksTab({
           <div>
             <h3 className="font-semibold text-slate-800">社团物品</h3>
             <p className="text-xs text-slate-500">
-              服务端读取当天捐赠次数和请求冷却，达到限制时自动跳过。
+              请求按服务端冷却时间调度；捐赠达到每日上限后等待次日 05:00 重置。
             </p>
           </div>
         </div>
@@ -643,34 +631,46 @@ export default function DailyTasksTab({
                 }
               />
             </div>
-            <label className="mt-3 block" htmlFor="daily-circle-keep-count">
-              <span className="mb-1 block text-xs font-medium text-slate-500">
-                每种物品至少保留
-              </span>
-              <input
-                id="daily-circle-keep-count"
-                className={fieldClass}
-                type="number"
-                min={0}
-                value={draft.circle.keep_item_count}
-                disabled={
-                  !draft.circle.donate_enabled ||
-                  circleAvailability?.available === false
-                }
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    circle: {
-                      ...current.circle,
-                      keep_item_count: Math.max(0, Number(event.target.value)),
-                    },
-                  }))
-                }
-              />
-            </label>
-            <p className="mt-3 text-xs text-slate-500">
-              可捐赠物品（不选择表示允许所有可请求物品）
-            </p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-500">允许捐赠的物品</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:text-slate-400"
+                  disabled={
+                    !draft.circle.donate_enabled ||
+                    circleAvailability?.available === false
+                  }
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      circle: {
+                        ...current.circle,
+                        donate_item_ids: requestItems.map((item) => item.id),
+                      },
+                    }))
+                  }
+                >
+                  全选
+                </button>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:text-slate-400"
+                  disabled={
+                    !draft.circle.donate_enabled ||
+                    circleAvailability?.available === false
+                  }
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      circle: { ...current.circle, donate_item_ids: [] },
+                    }))
+                  }
+                >
+                  清空
+                </button>
+              </div>
+            </div>
             <div className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
               {requestItems.map((item) => {
                 const checked = draft.circle.donate_item_ids.includes(item.id);
@@ -776,13 +776,16 @@ export default function DailyTasksTab({
       <section className={panelClass('p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-slate-800">服务端执行状态</h3>
+            <h3 className="font-semibold text-slate-800">日常计划状态</h3>
             <p className="mt-1 text-sm text-slate-500">
               {statusLabel[overview.daily_tasks.status || ''] ||
                 overview.daily_tasks.status ||
                 '尚未执行'}
               {overview.daily_tasks.last_finished_at
                 ? ` · 上次完成 ${overview.daily_tasks.last_finished_at}`
+                : ''}
+              {overview.daily_tasks.next_wake_at
+                ? ` · 下次${overview.daily_tasks.next_wake_reason || '计划事件'} ${formatScheduleTime(overview.daily_tasks.next_wake_at)}`
                 : ''}
             </p>
             {overview.daily_tasks.last_error ? (

@@ -94,11 +94,13 @@ export default function AutomationControlCard({
             </span>
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            运行中可修改；保存预设后从下一次决策开始生效。
+            {activeSetting?.mode === 'offline'
+              ? '离线技能与因子配置已由服务器接管执行。'
+              : '运行中可修改；保存预设后从下一次决策开始生效。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {activeSetting ? (
+          {activeSetting && activeSetting.mode !== 'offline' ? (
             <button
               type="button"
               onClick={() => editPreset(activeSetting.id)}

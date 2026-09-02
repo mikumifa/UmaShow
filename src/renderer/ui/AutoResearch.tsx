@@ -44,6 +44,8 @@ import {
   CAREER_SETTINGS_KEY,
   careerSettingMatchesCurrent,
   compareRaces,
+  createDefaultOfflineFactorSelection,
+  createDefaultOfflineSkillSettings,
   createDefaultPreset,
   createSkillSelectionId,
   DEFAULT_EXPECT_ATTRIBUTE,
@@ -83,6 +85,8 @@ import {
   LoginProgress,
   LoginProgressResponse,
   OfflineSingleModeSetup,
+  OfflineFactorSelection,
+  OfflineSkillSettings,
   PendingRun,
   Preset,
   RaceOption,
@@ -143,7 +147,101 @@ const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
   parents: [],
   friends: [],
   friend_exclude_ids: [],
+  offline_scenarios: [],
 });
+
+const normalizeOfflineFactorSelection = (
+  value?: Partial<OfflineFactorSelection>,
+): OfflineFactorSelection => {
+  const defaults = createDefaultOfflineFactorSelection();
+  return {
+    ...defaults,
+    ...(value || {}),
+    use_skill_priority: true,
+    blue_factor_minimums: {
+      ...defaults.blue_factor_minimums,
+      ...(value?.blue_factor_minimums || {}),
+    },
+    targets: Array.isArray(value?.targets) ? value.targets : [],
+    lineage: {
+      ...defaults.lineage,
+      ...(value?.lineage || {}),
+      tree: {
+        parent: {
+          ...defaults.lineage.tree.parent,
+          ...(value?.lineage?.tree?.parent || {}),
+          chara_id: Number(
+            value?.lineage?.tree?.parent?.chara_id ||
+              (value?.lineage?.chara_ids?.length === 1
+                ? value.lineage.chara_ids[0]
+                : 0),
+          ),
+          min_factor_stars: Math.max(
+            0,
+            Number(
+              value?.lineage?.tree?.parent?.min_factor_stars ??
+                value?.lineage?.min_parent_factor_stars ??
+                0,
+            ),
+          ),
+        },
+        ancestor_1: {
+          ...defaults.lineage.tree.ancestor_1,
+          ...(value?.lineage?.tree?.ancestor_1 || {}),
+          chara_id: Number(
+            value?.lineage?.tree?.ancestor_1?.chara_id ||
+              value?.lineage?.ancestor_chara_ids?.[0] ||
+              0,
+          ),
+          min_factor_stars: Math.max(
+            0,
+            Number(value?.lineage?.tree?.ancestor_1?.min_factor_stars || 0),
+          ),
+        },
+        ancestor_2: {
+          ...defaults.lineage.tree.ancestor_2,
+          ...(value?.lineage?.tree?.ancestor_2 || {}),
+          chara_id: Number(
+            value?.lineage?.tree?.ancestor_2?.chara_id ||
+              value?.lineage?.ancestor_chara_ids?.[1] ||
+              0,
+          ),
+          min_factor_stars: Math.max(
+            0,
+            Number(value?.lineage?.tree?.ancestor_2?.min_factor_stars || 0),
+          ),
+        },
+      },
+      chara_ids: [],
+      ancestor_chara_ids: [],
+      min_parent_factor_stars: 0,
+      min_ancestor_factor_stars: 0,
+    },
+  };
+};
+
+const normalizeOfflineSkillSettings = (
+  value?: Partial<OfflineSkillSettings>,
+): OfflineSkillSettings => {
+  const defaults = createDefaultOfflineSkillSettings();
+  return {
+    ...defaults,
+    ...(value || {}),
+    learn_skill_list: Array.isArray(value?.learn_skill_list)
+      ? value.learn_skill_list
+          .map((group) => (Array.isArray(group) ? group.map(String) : []))
+          .filter((group) => group.length)
+      : [],
+    learn_skill_group_labels: Array.isArray(value?.learn_skill_group_labels)
+      ? value.learn_skill_group_labels.map(String)
+      : [],
+    enabled: true,
+    learn_skill_settings: {},
+    learn_skill_only_user_provided: false,
+    skip_double_circle_unless_high_hint: false,
+    maximize_skill_score_at_end: true,
+  };
+};
 
 const preferNewerRunner = (
   current: Runner | undefined,
@@ -288,10 +386,17 @@ export default function AutoResearch() {
   const [careerMode, setCareerMode] = useState<'online' | 'offline'>('online');
   const [offlineSetup, setOfflineSetup] =
     useState<OfflineSingleModeSetup | null>(null);
+  const [offlineScenarioId, setOfflineScenarioId] = useState(0);
   const [offlineChallengeMode, setOfflineChallengeMode] = useState(false);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
   const [offlineRaceDeckName, setOfflineRaceDeckName] = useState('');
   const [offlineRaceIds, setOfflineRaceIds] = useState<number[]>([]);
+  const [offlineFactorSelection, setOfflineFactorSelection] =
+    useState<OfflineFactorSelection>(() =>
+      createDefaultOfflineFactorSelection(),
+    );
+  const [offlineSkillSettings, setOfflineSkillSettings] =
+    useState<OfflineSkillSettings>(() => createDefaultOfflineSkillSettings());
   const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
   const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
@@ -1198,12 +1303,11 @@ export default function AutoResearch() {
         setDailyTasksOverview(result);
       } catch (caught) {
         setError((caught as Error).message);
-        await loadDailyTasks(selectedAccountId);
       } finally {
         setBusy('');
       }
     },
-    [accountRequest, loadDailyTasks, selectedAccountId],
+    [accountRequest, selectedAccountId],
   );
 
   const connect = useCallback(
@@ -1877,7 +1981,7 @@ export default function AutoResearch() {
           const detail = String((caught as Error)?.message || '');
           if (!detail.includes('二次确认')) throw caught;
           const confirmed = window.confirm(
-            '当前本地 SID 不可用。继续登录会创建新的游戏会话，可能顶掉服务器正在运行的自动育成。\n\n确定要继续登录吗？',
+            '继续登录可能顶掉其他地方的登录。\n\n确定要继续登录吗？',
           );
           if (!confirmed) {
             throw new Error('已取消登录，服务器自动育成会话未被修改');
@@ -3070,10 +3174,17 @@ export default function AutoResearch() {
     setRecoverTpWithItem(Boolean(setting.recover_tp_with_item));
     setRecoverTpWithJewels(Boolean(setting.recover_tp_with_jewels));
     setOfflineSetup(null);
+    setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
     setOfflineChallengeMode(Boolean(setting.offline_training_challenge_mode));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
     setOfflineRaceDeckName(setting.offline_race_deck_name || '');
     setOfflineRaceIds([]);
+    setOfflineFactorSelection(
+      normalizeOfflineFactorSelection(setting.offline_factor_selection),
+    );
+    setOfflineSkillSettings(
+      normalizeOfflineSkillSettings(setting.offline_skill_settings),
+    );
     setCareerSaveOpen(true);
   };
 
@@ -3107,10 +3218,13 @@ export default function AutoResearch() {
     setRecoverTpWithItem(false);
     setRecoverTpWithJewels(false);
     setOfflineSetup(null);
+    setOfflineScenarioId(0);
     setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
     setOfflineRaceDeckName('');
     setOfflineRaceIds([]);
+    setOfflineFactorSelection(createDefaultOfflineFactorSelection());
+    setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
     setNewCareerPresetName('');
@@ -3179,6 +3293,8 @@ export default function AutoResearch() {
       parent_key_1: effectiveParentKey1,
       parent_key_2: effectiveParentKey2,
       scenario_id: scenarioId,
+      offline_scenario_id:
+        careerMode === 'offline' ? offlineScenarioId : undefined,
       max_steps: maxSteps,
       burn_clocks: burnClocks,
       recover_tp_with_item: recoverTpWithItem,
@@ -3189,6 +3305,14 @@ export default function AutoResearch() {
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
       offline_race_deck_name:
         careerMode === 'offline' ? offlineRaceDeckName : undefined,
+      offline_skill_settings:
+        careerMode === 'offline'
+          ? normalizeOfflineSkillSettings(offlineSkillSettings)
+          : undefined,
+      offline_factor_selection:
+        careerMode === 'offline'
+          ? normalizeOfflineFactorSelection(offlineFactorSelection)
+          : undefined,
       updated_at: new Date().toISOString(),
     };
     const nextSettings = [
@@ -3237,7 +3361,7 @@ export default function AutoResearch() {
     parent_2_viewer_id:
       selectedParent2?.viewer_id ||
       parentViewerIdFromSelection(effectiveParentKey2),
-    scenario_id: 0,
+    scenario_id: offlineSetup?.scenario_id || offlineScenarioId,
     deck_id: effectiveDeckId || 1,
     use_tp: 15,
     recover_tp_with_item: recoverTpWithItem,
@@ -3369,6 +3493,11 @@ export default function AutoResearch() {
             career_setting_id: selectedCareerSetting?.id || '',
             career_setting_name:
               selectedCareerSetting?.name || careerSettingName,
+            offline_skill_settings:
+              normalizeOfflineSkillSettings(offlineSkillSettings),
+            factor_selection: normalizeOfflineFactorSelection(
+              offlineFactorSelection,
+            ),
             race_array: offlineRaceIds.map((id) => ({
               year: Math.floor(id / 100000),
               program_id: id % 100000,
@@ -3897,9 +4026,6 @@ export default function AutoResearch() {
                   className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
                 />
               </label>
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-                连接后会先检查服务端是否已有该账号正在养马；只有服务端没有运行中的育成时，才会允许你继续登录游戏。
-              </p>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
               <button
@@ -4435,7 +4561,7 @@ export default function AutoResearch() {
             <p className="mt-1 text-sm text-slate-500">
               {server
                 ? `${server} · 游戏版本 ${health?.app_ver} · 当前服务器允许运行上限 ${health?.max_accounts}`
-                : '本地预设编辑 · 无需连接服务器或登录游戏账号'}
+                : '本地预设编辑'}
             </p>
           </div>
           {server ? (
@@ -4823,16 +4949,7 @@ export default function AutoResearch() {
             {!server && activeTab !== 'presets' ? (
               <section className={panelClass('p-12 text-center')}>
                 <LogIn className="mx-auto text-slate-300" size={42} />
-                <h2 className="mt-3 font-bold text-slate-800">
-                  {activeTab === 'daily'
-                    ? '请登录后配置每日日常'
-                    : '登录后查看自动育成详情'}
-                </h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  {activeTab === 'daily'
-                    ? '每日日常配置与账号的赛事、竞技场和社团状态相关，需要先登录读取。'
-                    : '在右上角选择游戏账号并填写自动育成服务器地址。'}
-                </p>
+                <h2 className="mt-3 font-bold text-slate-800">请先登录</h2>
                 <button
                   type="button"
                   onClick={() => setLoginSettingsOpen(true)}
@@ -5303,11 +5420,24 @@ export default function AutoResearch() {
                     selectedAccountId={selectedAccountId}
                     careerMode={careerMode}
                     offlineSetup={offlineSetup}
+                    offlineScenarios={
+                      dashboard.offline_scenarios?.length
+                        ? dashboard.offline_scenarios
+                        : offlineSetup?.scenarios || []
+                    }
+                    offlineScenarioId={offlineScenarioId}
+                    changeOfflineScenario={(selectedScenarioId) => {
+                      setOfflineScenarioId(selectedScenarioId);
+                      setOfflineSetup(null);
+                      setOfflineChallengeMode(false);
+                      setOfflineRaceDeckNum(0);
+                      setOfflineRaceDeckName('');
+                      setOfflineRaceIds([]);
+                    }}
                     offlineChallengeMode={offlineChallengeMode}
                     setOfflineChallengeMode={setOfflineChallengeMode}
                     offlineRaceDeckNum={offlineRaceDeckNum}
                     setOfflineRaceDeckNum={setOfflineRaceDeckNum}
-                    offlineRaceDeckName={offlineRaceDeckName}
                     setOfflineRaceDeckName={setOfflineRaceDeckName}
                     offlineRaceIds={offlineRaceIds}
                     setOfflineRaceIds={setOfflineRaceIds}
@@ -5320,6 +5450,11 @@ export default function AutoResearch() {
                     prepareOfflineCareer={prepareOfflineCareer}
                     saveOfflineRaceDeck={saveOfflineRaceDeck}
                     races={races}
+                    skills={skills}
+                    offlineFactorSelection={offlineFactorSelection}
+                    setOfflineFactorSelection={setOfflineFactorSelection}
+                    offlineSkillSettings={offlineSkillSettings}
+                    setOfflineSkillSettings={setOfflineSkillSettings}
                   />
                 ) : null}
 

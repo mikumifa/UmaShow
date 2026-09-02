@@ -189,14 +189,14 @@ export default function DailyHorsePicker({
             <label className="relative block" htmlFor="daily-horse-search">
               <Search
                 size={15}
-                className="absolute left-3 top-2.5 text-slate-400"
+                className="pointer-events-none absolute left-3 top-2.5 text-slate-400"
               />
               <input
                 id="daily-horse-search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="搜索已育成马娘"
-                className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400"
+                className="w-full cursor-text select-text rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400"
               />
             </label>
             <label className="block" htmlFor="daily-horse-distance-filter">

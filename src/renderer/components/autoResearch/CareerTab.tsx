@@ -19,9 +19,12 @@ import {
   UmaChoiceCard,
 } from './SelectionCards';
 import { panelClass, scrollToSection } from './shared';
+import { AutoResearchSkill } from './SkillSelector';
 import {
   CareerSetting,
   Dashboard,
+  OfflineFactorSelection,
+  OfflineSkillSettings,
   OfflineSingleModeSetup,
   Preset,
   RaceOption,
@@ -102,11 +105,13 @@ type CareerTabProps = {
   selectedAccountId: string;
   careerMode: 'online' | 'offline';
   offlineSetup: OfflineSingleModeSetup | null;
+  offlineScenarios: Dashboard['offline_scenarios'];
+  offlineScenarioId: number;
+  changeOfflineScenario: (scenarioId: number) => void;
   offlineChallengeMode: boolean;
   setOfflineChallengeMode: Dispatch<SetStateAction<boolean>>;
   offlineRaceDeckNum: number;
   setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
-  offlineRaceDeckName: string;
   setOfflineRaceDeckName: Dispatch<SetStateAction<string>>;
   offlineRaceIds: number[];
   setOfflineRaceIds: Dispatch<SetStateAction<number[]>>;
@@ -114,6 +119,11 @@ type CareerTabProps = {
   prepareOfflineCareer: () => Promise<void>;
   saveOfflineRaceDeck: () => Promise<void>;
   races: RaceOption[];
+  skills: AutoResearchSkill[];
+  offlineFactorSelection: OfflineFactorSelection;
+  setOfflineFactorSelection: Dispatch<SetStateAction<OfflineFactorSelection>>;
+  offlineSkillSettings: OfflineSkillSettings;
+  setOfflineSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
 
 export default function CareerTab(props: CareerTabProps) {
@@ -190,11 +200,13 @@ export default function CareerTab(props: CareerTabProps) {
     selectedAccountId,
     careerMode,
     offlineSetup,
+    offlineScenarios,
+    offlineScenarioId,
+    changeOfflineScenario,
     offlineChallengeMode,
     setOfflineChallengeMode,
     offlineRaceDeckNum,
     setOfflineRaceDeckNum,
-    offlineRaceDeckName,
     setOfflineRaceDeckName,
     offlineRaceIds,
     setOfflineRaceIds,
@@ -202,6 +214,11 @@ export default function CareerTab(props: CareerTabProps) {
     prepareOfflineCareer,
     saveOfflineRaceDeck,
     races,
+    skills,
+    offlineFactorSelection,
+    setOfflineFactorSelection,
+    offlineSkillSettings,
+    setOfflineSkillSettings,
   } = props;
   return activeCareer?.active && !careerSaveOpen ? (
     <section className={panelClass('p-5')}>
@@ -435,8 +452,7 @@ export default function CareerTab(props: CareerTabProps) {
             </>
           ) : (
             <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-700">
-              离线详设不绑定本地预设，使用游戏自带的 50
-              分钟自动育成和游戏内赛程槽位。
+              离线详设独立保存最后点技能与因子筛选设置，不绑定预设。
             </p>
           )}
           <input
@@ -467,7 +483,13 @@ export default function CareerTab(props: CareerTabProps) {
         {[
           ['career-task', '任务配置'],
           ['career-selection', '选择阵容'],
-          ['career-options', '其他设置'],
+          ...(careerMode === 'offline'
+            ? [
+                ['offline-career-setup', '离线赛程'],
+                ['career-options', '结束点技能'],
+                ['career-factor-options', '因子筛选'],
+              ]
+            : [['career-options', '其他设置']]),
         ].map(([target, label]) => (
           <button
             key={target}
@@ -592,13 +614,13 @@ export default function CareerTab(props: CareerTabProps) {
                 <label className="relative block w-full sm:w-72">
                   <Search
                     size={15}
-                    className="absolute left-3 top-2.5 text-gray-400"
+                    className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
                   />
                   <input
                     value={umaSearch}
                     onChange={(event) => setUmaSearch(event.target.value)}
                     placeholder="搜索马娘"
-                    className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
+                    className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
                   />
                 </label>
               </div>
@@ -645,13 +667,13 @@ export default function CareerTab(props: CareerTabProps) {
                   <label className="relative block w-full sm:w-80">
                     <Search
                       size={15}
-                      className="absolute left-3 top-2.5 text-gray-400"
+                      className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
                     />
                     <input
                       value={parentSearch}
                       onChange={(event) => setParentSearch(event.target.value)}
                       placeholder="搜索马娘名或因子"
-                      className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
+                      className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
                     />
                   </label>
                 ) : null}
@@ -802,13 +824,13 @@ export default function CareerTab(props: CareerTabProps) {
                 <label className="relative block w-full sm:w-80">
                   <Search
                     size={15}
-                    className="absolute left-3 top-2.5 text-gray-400"
+                    className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
                   />
                   <input
                     value={supportSearch}
                     onChange={(event) => setSupportSearch(event.target.value)}
                     placeholder="搜索支援卡名称或类型"
-                    className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
+                    className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
                   />
                 </label>
               </div>
@@ -853,17 +875,25 @@ export default function CareerTab(props: CareerTabProps) {
             </section>
 
             <section
-              id="career-options"
-              className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+              id={careerMode === 'online' ? 'career-options' : undefined}
+              className={
+                careerMode === 'online'
+                  ? 'scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4'
+                  : 'contents'
+              }
             >
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                  5
-                </span>
-                <div>
-                  <h3 className="font-semibold text-gray-800">编辑其他设置</h3>
+              {careerMode === 'online' ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                    5
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-gray-800">
+                      编辑其他设置
+                    </h3>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {selectionConflict ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -871,7 +901,13 @@ export default function CareerTab(props: CareerTabProps) {
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div
+                className={
+                  careerMode === 'online'
+                    ? 'mt-4 grid gap-4 md:grid-cols-2'
+                    : 'contents'
+                }
+              >
                 {careerMode === 'online' ? (
                   <>
                     <div className="text-sm">
@@ -910,13 +946,15 @@ export default function CareerTab(props: CareerTabProps) {
                     </label>
                   </>
                 ) : (
-                  <div className="md:col-span-2">
+                  <div className="contents">
                     <OfflineCareerSettings
                       setup={offlineSetup}
+                      scenarios={offlineScenarios}
+                      selectedScenarioId={offlineScenarioId}
+                      onScenarioChange={changeOfflineScenario}
                       races={races}
                       selectedDeckNum={offlineRaceDeckNum}
                       setSelectedDeckNum={setOfflineRaceDeckNum}
-                      deckName={offlineRaceDeckName}
                       setDeckName={setOfflineRaceDeckName}
                       selectedRaceIds={offlineRaceIds}
                       setSelectedRaceIds={setOfflineRaceIds}
@@ -925,12 +963,29 @@ export default function CareerTab(props: CareerTabProps) {
                       busy={busy}
                       prepare={prepareOfflineCareer}
                       saveDeck={saveOfflineRaceDeck}
+                      factorSelection={offlineFactorSelection}
+                      setFactorSelection={setOfflineFactorSelection}
+                      parents={dashboard.parents}
+                      umas={dashboard.umas}
+                      skills={skills}
+                      skillSettings={offlineSkillSettings}
+                      setSkillSettings={setOfflineSkillSettings}
                     />
                   </div>
                 )}
               </div>
 
               <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                {careerMode === 'offline' ? (
+                  <div className="px-3 py-3">
+                    <strong className="block text-sm font-medium text-slate-800">
+                      TP 恢复设置
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      离线赛程的基础消耗选项，不属于第 5、6 步。
+                    </span>
+                  </div>
+                ) : null}
                 {careerMode === 'online' ? (
                   <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
                     <input

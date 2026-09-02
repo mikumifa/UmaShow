@@ -323,9 +323,6 @@ export default function PresetsTab(props: PresetsTabProps) {
 
         <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
           <h3 className="font-semibold text-indigo-950">新建预设槽位</h3>
-          <p className="mt-1 text-xs text-indigo-700">
-            新预设会使用默认配置，进入后再调整技能、训练和赛事策略。
-          </p>
           <input
             value={newPresetName}
             onChange={(event) => setNewPresetName(event.target.value)}

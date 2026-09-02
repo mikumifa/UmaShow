@@ -195,8 +195,15 @@ export type SupportInfo = {
   limit_break_count: number;
 };
 
+export type OfflineSingleModeScenario = {
+  id: number;
+  name: string;
+  sort_id: number;
+};
+
 export type Dashboard = {
   account: SessionAccount;
+  offline_scenarios: OfflineSingleModeScenario[];
   umas: Array<{
     id: number;
     chara_id: number;
@@ -305,11 +312,23 @@ export type DailyTasksConfig = {
   circle: {
     donate_enabled: boolean;
     donate_item_ids: number[];
-    keep_item_count: number;
     request_enabled: boolean;
     request_item_id: number;
   };
   status?: string;
+  schedule_day?: string;
+  daily_race_done?: boolean;
+  daily_legend_race_done?: boolean;
+  limited_shop_open_count?: number;
+  pending_shop_sources?: string[];
+  circle_donation_limit_reached?: boolean;
+  next_shop_check_at?: number;
+  next_stadium_at?: number;
+  next_circle_donation_at?: number;
+  next_circle_request_at?: number;
+  next_wake_at?: number;
+  next_wake_reason?: string;
+  last_trigger?: string;
   last_run_date?: string;
   last_started_at?: string;
   last_finished_at?: string;
@@ -359,6 +378,8 @@ export type DailyTasksOptions = {
   daily_legend_races: Array<{
     id: number;
     card_id: number;
+    piece_id: number;
+    owned_piece_count: number;
     difficulty: number;
     name: string;
     distance: number;
@@ -463,6 +484,64 @@ export type CareerSessionRecord = {
   current?: CareerSessionRun | null;
 };
 
+export type OfflineFactorTarget = {
+  factor_group_id: number;
+  name: string;
+  kind: 'aptitude' | 'skill';
+};
+
+export type OfflineSkillSettings = {
+  enabled: boolean;
+  learn_skill_list: string[][];
+  learn_skill_group_labels: string[];
+  learn_skill_settings: Record<
+    string,
+    {
+      min_hint_level: number;
+      learn_when_affordable: boolean;
+      purchase_turns: number[];
+    }
+  >;
+  learn_skill_only_user_provided: boolean;
+  skip_double_circle_unless_high_hint: boolean;
+  maximize_skill_score_at_end: boolean;
+};
+
+export type OfflineFactorSelection = {
+  enabled: boolean;
+  use_skill_priority: boolean;
+  blue_factor_minimums: {
+    speed: number;
+    stamina: number;
+    power: number;
+    guts: number;
+    wit: number;
+  };
+  targets: OfflineFactorTarget[];
+  lineage: {
+    mode: 'none' | 'specific' | 'rules';
+    selection_id: string;
+    tree: {
+      parent: {
+        chara_id: number;
+        min_factor_stars: number;
+      };
+      ancestor_1: {
+        chara_id: number;
+        min_factor_stars: number;
+      };
+      ancestor_2: {
+        chara_id: number;
+        min_factor_stars: number;
+      };
+    };
+    chara_ids: number[];
+    ancestor_chara_ids: number[];
+    min_parent_factor_stars: number;
+    min_ancestor_factor_stars: number;
+  };
+};
+
 export type CareerSetting = {
   id: string;
   name: string;
@@ -479,6 +558,7 @@ export type CareerSetting = {
   parent_key_1?: string;
   parent_key_2?: string;
   scenario_id?: number;
+  offline_scenario_id?: number;
   max_steps: number;
   burn_clocks: boolean;
   recover_tp_with_item: boolean;
@@ -486,6 +566,8 @@ export type CareerSetting = {
   offline_training_challenge_mode?: boolean;
   offline_race_deck_num?: number;
   offline_race_deck_name?: string;
+  offline_skill_settings?: OfflineSkillSettings;
+  offline_factor_selection?: OfflineFactorSelection;
   updated_at: string;
 };
 
@@ -514,6 +596,8 @@ export type OfflineSingleModeRaceDeck = {
 
 export type OfflineSingleModeSetup = {
   scenario_id: number;
+  scenario_name: string;
+  scenarios: OfflineSingleModeScenario[];
   training_challenge: {
     available: boolean;
     id: number;
@@ -539,7 +623,13 @@ export type AccountOptionsResponse = {
   success: boolean;
   options: Pick<
     Dashboard,
-    'umas' | 'supports' | 'decks' | 'parents' | 'friends' | 'friend_exclude_ids'
+    | 'umas'
+    | 'supports'
+    | 'decks'
+    | 'parents'
+    | 'friends'
+    | 'friend_exclude_ids'
+    | 'offline_scenarios'
   >;
 };
 

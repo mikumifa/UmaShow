@@ -2,6 +2,8 @@ import { UMDB } from 'renderer/utils/umdb';
 import {
   CareerSetting,
   LoginProgress,
+  OfflineFactorSelection,
+  OfflineSkillSettings,
   Preset,
   RaceOption,
   RunMode,
@@ -59,6 +61,46 @@ export const MONTH_OPTIONS = Array.from(
   (_, index) => index + 1,
 );
 export const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
+
+export function createDefaultOfflineFactorSelection(): OfflineFactorSelection {
+  return {
+    enabled: true,
+    use_skill_priority: true,
+    blue_factor_minimums: {
+      speed: 0,
+      stamina: 0,
+      power: 0,
+      guts: 0,
+      wit: 0,
+    },
+    targets: [],
+    lineage: {
+      mode: 'none',
+      selection_id: '',
+      tree: {
+        parent: { chara_id: 0, min_factor_stars: 0 },
+        ancestor_1: { chara_id: 0, min_factor_stars: 0 },
+        ancestor_2: { chara_id: 0, min_factor_stars: 0 },
+      },
+      chara_ids: [],
+      ancestor_chara_ids: [],
+      min_parent_factor_stars: 0,
+      min_ancestor_factor_stars: 0,
+    },
+  };
+}
+
+export function createDefaultOfflineSkillSettings(): OfflineSkillSettings {
+  return {
+    enabled: true,
+    learn_skill_list: [],
+    learn_skill_group_labels: [],
+    learn_skill_settings: {},
+    learn_skill_only_user_provided: false,
+    skip_double_circle_unless_high_hint: false,
+    maximize_skill_score_at_end: true,
+  };
+}
 
 export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
   return {

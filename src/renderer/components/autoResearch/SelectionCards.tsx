@@ -190,6 +190,11 @@ export function ParentChoiceCard({
               {parent.source === 'rental' ? '借用' : '自己的'}
             </span>
           </span>
+          {parent.source === 'rental' ? (
+            <span className="mb-1 block truncate text-[11px] font-medium text-violet-600">
+              借用玩家：{parent.owner_name || '未知玩家'}
+            </span>
+          ) : null}
           <FactorSummaryView
             factors={parent.factors || []}
             summary={parent.factor_summary}
