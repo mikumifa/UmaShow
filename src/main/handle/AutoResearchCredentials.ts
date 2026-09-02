@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import Database from 'better-sqlite3';
-import { app, BrowserWindow, IpcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, IpcMain } from 'electron';
 import {
   SuccessionGameClient,
   SuccessionGameProgress,
@@ -19,10 +19,17 @@ export interface CapturedAutoResearchCredential {
 interface StoredAutoResearchAccount {
   id: string;
   uid: string;
-  protectedAccessKey: string;
+  accessKey: string;
   label: string;
   source: string;
   updatedAt: string;
+  viewerId?: string;
+}
+
+interface SerializedAutoResearchAccount
+  extends Omit<StoredAutoResearchAccount, 'accessKey'> {
+  accessKey?: unknown;
+  protectedAccessKey?: unknown;
 }
 
 export interface LocalAutoResearchAccount {
@@ -32,9 +39,43 @@ export interface LocalAutoResearchAccount {
   source: string;
   accessKeyPreview: string;
   updatedAt: string;
+  viewerId?: string;
+}
+
+export interface CapturedAutoResearchSession {
+  uid: string;
+  sid: string;
+  viewer_id: string;
+  device_id: string;
+  udid: string;
+  res_ver: string;
+  app_ver: string;
+  app_ver_code: string;
+  buma_open_id: string;
+  captured_at: string;
+}
+
+export interface AutoResearchSessionMetadata {
+  sid?: string;
+  viewerId?: string;
+  appVer?: string;
+  appVerCode?: string;
+  resVer?: string;
+  bumaOpenId?: string;
 }
 
 const capturedCredentials = new Map<string, CapturedAutoResearchCredential>();
+const capturedSessions = new Map<string, CapturedAutoResearchSession>();
+const DEFAULT_APP_VER = '2.0.2';
+const DEFAULT_APP_VER_CODE = '11150';
+const DEFAULT_RES_VER = '10012300:TS7TsHl6FUZl';
+const SID_SUFFIX = 'sK5R8VeFU4';
+let lastSessionContext: {
+  uid: string;
+  viewerId: string;
+  deviceId: string;
+  metadata: AutoResearchSessionMetadata;
+} | null = null;
 
 function accountId(uid: string) {
   return createHash('sha256').update(uid).digest('hex');
@@ -49,33 +90,18 @@ function storePath() {
   return path.join(app.getPath('userData'), 'auto-research-accounts.json');
 }
 
-function protectSecret(value: string) {
-  return `plain:${Buffer.from(value, 'utf8').toString('base64')}`;
-}
-
-function unprotectSecret(value: string) {
-  if (value.startsWith('encrypted:')) {
-    if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error('系统凭据加密服务当前不可用');
-    }
-    return safeStorage.decryptString(
-      Buffer.from(value.slice('encrypted:'.length), 'base64'),
-    );
+function readStoredAccessKey(account: SerializedAutoResearchAccount) {
+  if (typeof account.accessKey === 'string' && account.accessKey) {
+    return account.accessKey;
+  }
+  const value = account.protectedAccessKey;
+  if (typeof value !== 'string') {
+    throw new Error('本地账号凭据格式无效');
   }
   if (value.startsWith('plain:')) {
     return Buffer.from(value.slice('plain:'.length), 'base64').toString('utf8');
   }
-  throw new Error('本地账号凭据格式无效');
-}
-
-function readAccounts(): StoredAutoResearchAccount[] {
-  try {
-    const payload = JSON.parse(fs.readFileSync(storePath(), 'utf8'));
-    return Array.isArray(payload?.accounts) ? payload.accounts : [];
-  } catch (error) {
-    if ((error as { code?: string }).code === 'ENOENT') return [];
-    throw error;
-  }
+  throw new Error('本地账号仍是旧的加密格式，请重新抓取账号凭据');
 }
 
 function writeAccounts(accounts: StoredAutoResearchAccount[]) {
@@ -88,6 +114,34 @@ function writeAccounts(accounts: StoredAutoResearchAccount[]) {
   );
 }
 
+function readAccounts(): StoredAutoResearchAccount[] {
+  try {
+    const payload = JSON.parse(fs.readFileSync(storePath(), 'utf8'));
+    if (!Array.isArray(payload?.accounts)) return [];
+    let needsMigration = false;
+    const accounts = payload.accounts.map(
+      (account: SerializedAutoResearchAccount): StoredAutoResearchAccount => {
+        if (typeof account.accessKey !== 'string') needsMigration = true;
+        return {
+          id: account.id,
+          uid: account.uid,
+          accessKey: readStoredAccessKey(account),
+          label: account.label,
+          source: account.source,
+          updatedAt: account.updatedAt,
+          viewerId:
+            typeof account.viewerId === 'string' ? account.viewerId : undefined,
+        };
+      },
+    );
+    if (needsMigration) writeAccounts(accounts);
+    return accounts;
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
 function publicAccount(
   account: StoredAutoResearchAccount,
 ): LocalAutoResearchAccount {
@@ -96,8 +150,9 @@ function publicAccount(
     uid: account.uid,
     label: account.label,
     source: account.source,
-    accessKeyPreview: maskSecret(unprotectSecret(account.protectedAccessKey)),
+    accessKeyPreview: maskSecret(account.accessKey),
     updatedAt: account.updatedAt,
+    viewerId: account.viewerId,
   };
 }
 
@@ -112,10 +167,11 @@ function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
     byUid.set(uid, {
       id: current?.id || accountId(uid),
       uid,
-      protectedAccessKey: protectSecret(accessKey),
+      accessKey,
       label: credential.label?.trim() || current?.label || '',
       source: credential.source || current?.source || 'UmaShow',
       updatedAt: new Date().toISOString(),
+      viewerId: current?.viewerId,
     });
   });
   const result = [...byUid.values()].sort((left, right) =>
@@ -130,7 +186,7 @@ export function getAutoResearchAccountCredential(id: string) {
   if (!account) throw new Error('本地账号不存在');
   return {
     uid: account.uid,
-    accessKey: unprotectSecret(account.protectedAccessKey),
+    accessKey: account.accessKey,
   };
 }
 
@@ -138,6 +194,49 @@ export function saveAutoResearchAccountCredential(
   credential: CapturedAutoResearchCredential,
 ) {
   return upsertAccounts([credential]);
+}
+
+function savedUidForViewer(viewerId: string) {
+  const accounts = readAccounts();
+  const matched = accounts.find((account) => account.viewerId === viewerId);
+  if (matched) return matched.uid;
+  return accounts.length === 1 ? accounts[0].uid : '';
+}
+
+function rememberAccountViewer(uid: string, viewerId: string) {
+  if (!uid || !viewerId || viewerId === '0') return;
+  const accounts = readAccounts();
+  const account = accounts.find((item) => item.uid === uid);
+  if (!account || account.viewerId === viewerId) return;
+  account.viewerId = viewerId;
+  writeAccounts(accounts);
+}
+
+function storeCapturedSession(
+  uid: string,
+  viewerId: string,
+  deviceId: string,
+  sid: string,
+  metadata: AutoResearchSessionMetadata,
+) {
+  if (!uid || !viewerId || viewerId === '0' || !deviceId || !sid) return null;
+  const session: CapturedAutoResearchSession = {
+    uid,
+    sid,
+    viewer_id: viewerId,
+    // Captured game packets expose the normalized Android device id. It is
+    // also the value used as the protocol UDID/AES IV.
+    device_id: deviceId,
+    udid: deviceId,
+    res_ver: metadata.resVer || DEFAULT_RES_VER,
+    app_ver: metadata.appVer || DEFAULT_APP_VER,
+    app_ver_code: metadata.appVerCode || DEFAULT_APP_VER_CODE,
+    buma_open_id: metadata.bumaOpenId || uid,
+    captured_at: new Date().toISOString(),
+  };
+  capturedSessions.set(uid, session);
+  rememberAccountViewer(uid, viewerId);
+  return session;
 }
 
 function importUsersDb(contentBase64: string) {
@@ -212,6 +311,7 @@ function visit(value: unknown, source: string) {
 export function captureAutoResearchCredentials(
   decodedData: unknown,
   mainWindow: BrowserWindow,
+  metadata: AutoResearchSessionMetadata = {},
 ) {
   const before = new Map(
     [...capturedCredentials.values()].map((item) => [item.uid, item.accessKey]),
@@ -224,7 +324,42 @@ export function captureAutoResearchCredentials(
   added.forEach((credential) => {
     mainWindow.webContents.send('autoresearch:credential-captured', credential);
   });
+  const record =
+    decodedData && typeof decodedData === 'object'
+      ? (decodedData as Record<string, unknown>)
+      : {};
+  const viewerId = String(metadata.viewerId || record.viewer_id || '0');
+  const deviceId = String(record.device_id || '').trim();
+  const packetUid = String(record.buma_uid || '').trim();
+  const uid =
+    packetUid ||
+    savedUidForViewer(viewerId) ||
+    (added.length === 1 ? added[0].uid : '');
+  lastSessionContext = { uid, viewerId, deviceId, metadata };
+  if (metadata.sid) {
+    storeCapturedSession(uid, viewerId, deviceId, metadata.sid, metadata);
+  }
   return added;
+}
+
+export function captureAutoResearchSessionResponse(decodedData: unknown) {
+  if (!decodedData || typeof decodedData !== 'object') return null;
+  const record = decodedData as Record<string, any>;
+  const headers = record.data_headers || {};
+  const rawSid = String(headers.sid || '').trim();
+  if (!rawSid || !lastSessionContext) return null;
+  const viewerId = String(
+    headers.viewer_id || record.data?.viewer_id || lastSessionContext.viewerId,
+  );
+  const uid = lastSessionContext.uid || savedUidForViewer(viewerId);
+  const sid = createHash('md5').update(`${rawSid}${SID_SUFFIX}`).digest('hex');
+  return storeCapturedSession(
+    uid,
+    viewerId,
+    lastSessionContext.deviceId,
+    sid,
+    lastSessionContext.metadata,
+  );
 }
 
 export function handleAutoResearchCredentials(ipcMain: IpcMain) {
@@ -248,6 +383,10 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   });
   ipcMain.handle('autoresearch:account-credential', (_, id: string) => {
     return getAutoResearchAccountCredential(id);
+  });
+  ipcMain.handle('autoresearch:account-current-session', (_, id: string) => {
+    const credential = getAutoResearchAccountCredential(id);
+    return capturedSessions.get(credential.uid) || null;
   });
   ipcMain.handle(
     'autoresearch:account-login-session',

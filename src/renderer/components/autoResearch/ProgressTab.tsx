@@ -36,7 +36,6 @@ type ProgressTabProps = {
   releaseSessionWait: () => Promise<void>;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   hasRunPlan: boolean;
-  stopCareer: () => Promise<void>;
   abandonCareer: () => Promise<void>;
 };
 
@@ -54,10 +53,14 @@ export default function ProgressTab({
   releaseSessionWait,
   dailyJewelSchedule,
   hasRunPlan,
-  stopCareer,
   abandonCareer,
 }: ProgressTabProps) {
   const liveActivity = runner?.live_activity;
+  const queuedControl = Boolean(
+    runner?.control?.desired_state === 'running' &&
+      !runner?.running &&
+      ['queued', 'reconnect_wait'].includes(runner?.control?.status || ''),
+  );
   const liveActivityLabel =
     automationActive && liveActivity?.endpoint
       ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail ? ` · ${liveActivity.detail}` : ''}`
@@ -75,6 +78,7 @@ export default function ProgressTab({
                     activeCareer?.name || currentCareerUma?.name || '当前育成'
                   }
                   className="h-full w-full object-cover"
+                  loading="eager"
                 />
               ) : (
                 <Database size={28} className="m-6 text-gray-300" />
@@ -92,10 +96,14 @@ export default function ProgressTab({
                     ? '正在暂停…'
                     : runnerSessionWaiting
                       ? '等待重新登录'
-                      : automationActive
-                        ? '自动育成中'
-                        : runner?.run_plan?.stop_reason ||
-                          (runner?.finished ? '本次已完成' : '等待开始')}
+                      : queuedControl
+                        ? runner?.control?.status === 'reconnect_wait'
+                          ? '等待重新连接'
+                          : '等待后台 Worker 启动'
+                        : automationActive
+                          ? '自动育成中'
+                          : runner?.run_plan?.stop_reason ||
+                            (runner?.finished ? '本次已完成' : '等待开始')}
                 </span>
               </div>
               <p className="mt-1 text-sm font-medium text-indigo-600">
@@ -118,8 +126,13 @@ export default function ProgressTab({
                   ? '正在终止独立育成进程'
                   : runnerSessionWaiting
                     ? `账号可能正在其他位置操作，${waitTimeLabel(runner?.session_wait_seconds)}后重新登录`
-                    : liveActivityLabel ||
-                      describeRunnerAction(runner?.last_action)}
+                    : queuedControl
+                      ? runner?.control?.status === 'reconnect_wait'
+                        ? runner?.control?.detail?.last_error ||
+                          '等待后台 Worker 重新连接账号'
+                        : '启动请求已提交，正在等待后台 Worker 接手'
+                      : liveActivityLabel ||
+                        describeRunnerAction(runner?.last_action)}
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span>
@@ -131,19 +144,6 @@ export default function ProgressTab({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={stopCareer}
-              disabled={runnerStopping || busy === 'stop'}
-              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {runnerStopping ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <CircleStop size={16} />
-              )}
-              {runnerStopping ? '正在暂停…' : '暂停自动操作'}
-            </button>
             <button
               type="button"
               onClick={abandonCareer}
@@ -244,9 +244,11 @@ export default function ProgressTab({
                   ? `完成 ${runner.run_plan.completed_runs}/1 局`
                   : runner.run_plan.mode === 'continuous'
                     ? `已连续完成 ${runner.run_plan.completed_runs} 局`
-                    : runner.run_plan.mode === 'daily_count'
-                      ? `今日 ${runner.run_plan.daily_completed_runs}/${runner.run_plan.target} 局`
-                      : `本次 ${runner.run_plan.completed_jewel_drops}/${runner.run_plan.target} 次掉落`}
+                    : runner.run_plan.mode === 'count'
+                      ? `本次 ${runner.run_plan.completed_runs}/${runner.run_plan.target} 局`
+                      : runner.run_plan.mode === 'daily_count'
+                        ? `今日 ${runner.run_plan.daily_completed_runs}/${runner.run_plan.target} 局`
+                        : `本次 ${runner.run_plan.completed_jewel_drops}/${runner.run_plan.target} 次掉落`}
               </span>
             </div>
             {automationActive && runnerSessionWaiting ? (
@@ -350,21 +352,6 @@ export default function ProgressTab({
           <p className="mt-2 text-xs text-red-500">
             {dailyJewelSchedule.last_error}
           </p>
-        ) : null}
-        {dailyJewelSchedule?.enabled ? (
-          <button
-            type="button"
-            onClick={stopCareer}
-            disabled={runnerStopping || busy === 'stop'}
-            className="mt-5 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {runnerStopping ? (
-              <RefreshCw size={16} className="animate-spin" />
-            ) : (
-              <CircleStop size={16} />
-            )}
-            {runnerStopping ? '正在停止…' : '停止每日计划'}
-          </button>
         ) : null}
       </div>
     </section>

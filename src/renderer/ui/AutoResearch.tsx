@@ -31,6 +31,7 @@ import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
+import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
@@ -169,6 +170,8 @@ export default function AutoResearch() {
     () => localStorage.getItem('autoResearch.server') || DEFAULT_SERVER,
   );
   const [server, setServer] = useState('');
+  const [loginSettingsOpen, setLoginSettingsOpen] = useState(false);
+  const showLegacyLoginScreen = window.location.hash === '#legacy-login';
   const [health, setHealth] = useState<any>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [captured, setCaptured] = useState<CapturedCredential[]>([]);
@@ -228,6 +231,7 @@ export default function AutoResearch() {
   const [recoverTpWithJewels, setRecoverTpWithJewels] = useState(false);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [runMode, setRunMode] = useState<RunMode>('single');
+  const [runCountTarget, setRunCountTarget] = useState(3);
   const [dailyRunTarget, setDailyRunTarget] = useState(3);
   const [jewelDropTarget, setJewelDropTarget] = useState(20);
   const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
@@ -302,8 +306,17 @@ export default function AutoResearch() {
   );
   const runnerSessionWaiting = Boolean(runner?.session_waiting);
   const dailyJewelSchedule = runner?.daily_jewel_schedule;
+  const queuedCareerControl = Boolean(
+    runner?.control?.desired_state === 'running' &&
+      ['queued', 'reconnect_wait', 'running'].includes(
+        runner?.control?.status || '',
+      ),
+  );
   const automationActive = Boolean(
-    runner?.running || runner?.run_plan?.active || dailyJewelSchedule?.enabled,
+    runner?.running ||
+      runner?.run_plan?.active ||
+      dailyJewelSchedule?.enabled ||
+      queuedCareerControl,
   );
   const dailyRunCount = runner?.run_plan?.daily_completed_runs || 0;
   const hasRunPlan = Boolean(
@@ -317,29 +330,51 @@ export default function AutoResearch() {
     (runner?.daily_jewel_drop_limit || 20) -
       (runner?.daily_jewel_drop_count || 0),
   );
-  const activeCareer = dashboard?.account.career;
+  const activeCareer = dashboard?.account?.career;
   const activeCareerUma = dashboard?.umas.find(
     (uma) => uma.id === Number(activeCareer?.card_id || 0),
   );
-  const currentCareerActive = runner?.run_plan?.active
-    ? Boolean(runner.running)
-    : Boolean(activeCareer?.active || runner?.running);
+  // The resident Worker owns the live Runner in another process.  Its
+  // persisted run_plan is authoritative even before this Web process has a
+  // local ``running`` snapshot.
+  const currentCareerActive = Boolean(
+    activeCareer?.active ||
+      runner?.running ||
+      runner?.run_plan?.active ||
+      queuedCareerControl,
+  );
   const currentCareerUma =
     activeCareerUma ||
-    (runner?.running
-      ? dashboard?.umas.find((uma) => uma.id === Number(runner?.card_id || 0))
+    (runner?.running || queuedCareerControl
+      ? dashboard?.umas.find(
+          (uma) =>
+            uma.id ===
+            Number(runner?.card_id || runner?.control?.request?.card_id || 0),
+        )
       : undefined);
-  const activeCareerIconPath = currentCareerUma
+  const currentCareerCardId = Number(
+    currentCareerUma?.id ||
+      activeCareer?.card_id ||
+      runner?.card_id ||
+      runner?.control?.request?.card_id ||
+      0,
+  );
+  const activeCareerIconPath = currentCareerCardId
     ? horseIconPath(
-        currentCareerUma.id,
-        currentCareerUma.rarity,
-        currentCareerUma.race_cloth_id,
+        currentCareerCardId,
+        currentCareerUma?.rarity || 0,
+        currentCareerUma?.race_cloth_id || currentCareerCardId,
       )
     : undefined;
   const currentRunnerStats =
     runner?.current_stats || runner?.action_history?.at(-1)?.stats || {};
+  const idleSingleModeActive = Boolean(
+    dashboard?.account?.idle_single_mode?.active,
+  );
   const unsupportedCareer = Boolean(
-    activeCareer?.active && Number(activeCareer.scenario_id) !== 1,
+    !idleSingleModeActive &&
+      activeCareer?.active &&
+      Number(activeCareer.scenario_id) !== 1,
   );
   const selectedUma = dashboard?.umas.find((uma) => uma.id === cardId);
   const selectedParent1 = dashboard?.parents.find(
@@ -376,6 +411,21 @@ export default function AutoResearch() {
       careerSettings.find((setting) => setting.id === selectedCareerSettingId),
     [careerSettings, selectedCareerSettingId],
   );
+  const activeAutomationSetting = useMemo(() => {
+    const controlSettingId = String(
+      runner?.control?.request?.career_setting_id || '',
+    );
+    return (
+      careerSettings.find((setting) => setting.id === controlSettingId) ||
+      selectedCareerSetting ||
+      matchingCareerSettings[0]
+    );
+  }, [
+    careerSettings,
+    matchingCareerSettings,
+    runner?.control?.request?.career_setting_id,
+    selectedCareerSetting,
+  ]);
   const historyCareerSetting = useMemo(
     () =>
       accountCareerSettings.find(
@@ -457,6 +507,21 @@ export default function AutoResearch() {
   }, [activeCareer, effectiveCardId, selectedCareerSetting]);
   const canContinueCurrentCareer =
     continuingCurrentCareer && careerConfigDifferences.length === 0;
+
+  useEffect(() => {
+    if (!automationActive) return;
+    const mode = runner?.run_plan?.mode;
+    if (mode) setRunMode(mode);
+    if (mode === 'count' && runner?.run_plan?.target) {
+      setRunCountTarget(runner.run_plan.target);
+    }
+    if (mode === 'daily_count' && runner?.run_plan?.target) {
+      setDailyRunTarget(runner.run_plan.target);
+    }
+    if (mode === 'jewel_drops' && runner?.run_plan?.target) {
+      setJewelDropTarget(runner.run_plan.target);
+    }
+  }, [automationActive, runner?.run_plan?.mode, runner?.run_plan?.target]);
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
@@ -936,16 +1001,26 @@ export default function AutoResearch() {
       setMissingExistingRuntimeAccountId((current) =>
         current === accountId ? '' : current,
       );
+      const attachController = new AbortController();
+      const attachTimeout = window.setTimeout(
+        () => attachController.abort(),
+        8000,
+      );
       try {
         const credential = (await window.electron.autoResearch.credential(
           accountId,
         )) as { uid: string; accessKey: string };
+        const localSession = (await window.electron.autoResearch.currentSession(
+          accountId,
+        )) as Record<string, string> | null;
         const attached = await request<AuthResponse>('/api/auth/login', {
           method: 'POST',
+          signal: attachController.signal,
           body: JSON.stringify({
             uid: credential.uid,
             access_key: credential.accessKey,
             reuse_only: true,
+            session: localSession,
           }),
         });
         const attachedRunner = attached.runtime?.runner || attached.runner;
@@ -970,6 +1045,12 @@ export default function AutoResearch() {
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
         return true;
       } catch (caught) {
+        if ((caught as Error)?.name === 'AbortError') {
+          setMissingExistingRuntimeAccountId(accountId);
+          throw new Error(
+            '读取服务端已有养马状态超时；未执行游戏登录，请检查服务器连接后重试',
+          );
+        }
         if (
           String((caught as Error).message || '').includes(
             '服务端没有该账号正在运行的养马实例',
@@ -980,6 +1061,7 @@ export default function AutoResearch() {
         }
         throw caught;
       } finally {
+        window.clearTimeout(attachTimeout);
         setCheckingExistingRuntimeAccountId((current) =>
           current === accountId ? '' : current,
         );
@@ -1064,8 +1146,10 @@ export default function AutoResearch() {
         setServerAddress(nextServer);
         setServer(nextServer);
         setHealth(body);
+        return true;
       } catch (caught) {
         setError(`无法连接后端：${(caught as Error).message}`);
+        return false;
       } finally {
         setBusy('');
       }
@@ -1315,7 +1399,11 @@ export default function AutoResearch() {
         const stillActive = Boolean(
           event.runner.running ||
             event.runner.run_plan?.active ||
-            event.runner.daily_jewel_schedule?.enabled,
+            event.runner.daily_jewel_schedule?.enabled ||
+            (event.runner.control?.desired_state === 'running' &&
+              ['queued', 'reconnect_wait', 'running'].includes(
+                event.runner.control?.status || '',
+              )),
         );
         if (!stillActive && !completionRequested) {
           completionRequested = true;
@@ -1384,7 +1472,11 @@ export default function AutoResearch() {
       stoppingAccountId === selectedAccountId
         ? session?.runtime?.runner || account?.runtime.runner
         : account?.runtime.runner;
-    if (!accountRunner?.running && !accountRunner?.run_plan?.active) {
+    if (
+      !accountRunner?.running &&
+      !accountRunner?.run_plan?.active &&
+      accountRunner?.control?.desired_state !== 'running'
+    ) {
       setStoppingAccountId('');
     }
   }, [accounts, selectedAccountId, session, stoppingAccountId]);
@@ -1472,6 +1564,18 @@ export default function AutoResearch() {
     }
   };
 
+  const connectFromLoginSettings = async () => {
+    if (!selectedAccountId) {
+      setError('请先选择要登录的账号');
+      return;
+    }
+    await prepareAccountBeforeServer(selectedAccountId);
+    if (await connect()) {
+      setLoginSettingsOpen(false);
+      setActiveTab('career');
+    }
+  };
+
   const importUsersDb = async (file: File) => {
     setBusy('users-db');
     setError('');
@@ -1548,7 +1652,11 @@ export default function AutoResearch() {
     setError('');
     try {
       let result: SessionResponse | null = null;
-      const authenticate = async (forceLogin = false, recoveryDetail = '') => {
+      const authenticate = async (
+        forceLogin = false,
+        recoveryDetail = '',
+        allowAccountLogin = false,
+      ) => {
         const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         if (activeLoginOperation.current !== connectionOperationId) {
           throw new Error('另一个账号正在登录，请等待当前登录完成');
@@ -1609,21 +1717,20 @@ export default function AutoResearch() {
             accountId,
           )) as { uid: string; accessKey: string };
           let localSession: Record<string, string> | null = null;
-          try {
+          if (allowAccountLogin) {
             localSession = (await window.electron.autoResearch.loginSession(
               accountId,
               loginId,
             )) as Record<string, string>;
-          } catch (localLoginError) {
-            setLoginProgress((current) =>
-              current?.loginId === loginId
-                ? {
-                    ...current,
-                    stage: 'backend_login',
-                    detail: `UmaShow 本地登录失败，改由 UmaAutoResearch 登录：${(localLoginError as Error).message}`,
-                  }
-                : current,
-            );
+          } else {
+            localSession = (await window.electron.autoResearch.currentSession(
+              accountId,
+            )) as Record<string, string> | null;
+            if (!localSession) {
+              throw new Error(
+                '当前没有可交接的本地 SID；继续登录会刷新游戏会话，需要用户二次确认',
+              );
+            }
           }
           const authenticated = await request<AuthResponse>('/api/auth/login', {
             method: 'POST',
@@ -1632,6 +1739,7 @@ export default function AutoResearch() {
               access_key: localSession?.access_key || credential.accessKey,
               login_id: loginId,
               force_login: forceLogin,
+              allow_account_login: allowAccountLogin,
               session: localSession,
             }),
           });
@@ -1643,10 +1751,25 @@ export default function AutoResearch() {
           await progressStream.catch(() => undefined);
         }
       };
+      const authenticateWithConfirmation = async (recoveryDetail = '') => {
+        try {
+          return await authenticate(false, recoveryDetail, false);
+        } catch (caught) {
+          const detail = String((caught as Error)?.message || '');
+          if (!detail.includes('二次确认')) throw caught;
+          const confirmed = window.confirm(
+            '当前本地 SID 不可用。继续登录会创建新的游戏会话，可能顶掉服务器正在运行的自动育成。\n\n确定要继续登录吗？',
+          );
+          if (!confirmed) {
+            throw new Error('已取消登录，服务器自动育成会话未被修改');
+          }
+          return authenticate(true, '已确认刷新游戏会话，正在重新登录', true);
+        }
+      };
       if (action === 'login') {
         const attached = await attachExistingRuntime(accountId, true);
         if (attached) return;
-        result = await authenticate(false);
+        result = await authenticateWithConfirmation();
       } else if (action === 'refresh') {
         let relogged = false;
         const accountRunning = Boolean(
@@ -1654,17 +1777,7 @@ export default function AutoResearch() {
             .running,
         );
         const restoreLogin = async (recoveryDetail = '') => {
-          try {
-            await authenticate(false, recoveryDetail);
-          } catch (caught) {
-            if (
-              !(caught instanceof AutoResearchRequestError) ||
-              caught.status !== 401
-            ) {
-              throw caught;
-            }
-            await authenticate(true, '登录凭据需要重新验证，正在重新登录');
-          }
+          await authenticateWithConfirmation(recoveryDetail);
           relogged = true;
         };
         const refreshStatus = async () => {
@@ -1760,7 +1873,7 @@ export default function AutoResearch() {
               );
             }
           } else {
-            await authenticate(true);
+            await authenticateWithConfirmation('需要重新连接账号');
             relogged = true;
           }
           try {
@@ -2101,7 +2214,20 @@ export default function AutoResearch() {
   };
 
   const runCareer = async (mode: RunMode, target: number) => {
-    if (!selectedAccountId || !dashboard) return false;
+    if (!selectedAccountId || !dashboard?.account) return false;
+    const idleSingleMode = dashboard.account.idle_single_mode;
+    if (idleSingleMode?.active) {
+      const stateLabel =
+        idleSingleMode.state === 'playing'
+          ? '进行中'
+          : idleSingleMode.state === 'finished'
+            ? '已完成，等待查看结果'
+            : '结果已查看，等待游戏清理';
+      setError(
+        `当前存在离线自动育成「${idleSingleMode.name || '未知马娘'}」（${stateLabel}），暂不能启动普通自动育成。请先在游戏中处理该离线育成后刷新。`,
+      );
+      return false;
+    }
     const boundPreset = presets.find(
       (preset) => preset.name === careerPresetName,
     );
@@ -2299,6 +2425,86 @@ export default function AutoResearch() {
     }
   };
 
+  const updateRunnerConfiguration = async (
+    preset: Preset,
+    mode: RunMode,
+    target: number,
+    careerOptions?: Pick<
+      CareerSetting,
+      | 'max_steps'
+      | 'burn_clocks'
+      | 'recover_tp_with_item'
+      | 'recover_tp_with_jewels'
+    >,
+  ) => {
+    if (!selectedAccountId) return false;
+    if (mode === 'daily_jewel_schedule') {
+      setError('运行中请先选择单次、持续、完成次数或宝石目标');
+      return false;
+    }
+    setBusy('update-runner');
+    setError('');
+    try {
+      const result = await accountRequest<SessionResponse>(
+        selectedAccountId,
+        '/api/account/career/runner/update',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            run_mode: mode,
+            run_target: target,
+            preset_name: preset.name,
+            preset,
+            max_steps:
+              careerOptions?.max_steps ||
+              activeAutomationSetting?.max_steps ||
+              maxSteps,
+            burn_clocks:
+              careerOptions?.burn_clocks ??
+              activeAutomationSetting?.burn_clocks ??
+              burnClocks,
+            recover_tp_with_item:
+              careerOptions?.recover_tp_with_item ??
+              activeAutomationSetting?.recover_tp_with_item ??
+              recoverTpWithItem,
+            recover_tp_with_jewels:
+              careerOptions?.recover_tp_with_jewels ??
+              activeAutomationSetting?.recover_tp_with_jewels ??
+              recoverTpWithJewels,
+          }),
+        },
+      );
+      commitOverviewResponse(selectedAccountId, result);
+      return true;
+    } catch (caught) {
+      setError((caught as Error).message);
+      return false;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const updateRunningAutomation = async () => {
+    const presetNameForRunner =
+      activeAutomationSetting?.preset_name ||
+      String(runner?.control?.request?.preset_name || '') ||
+      careerPresetName;
+    const preset = presets.find((item) => item.name === presetNameForRunner);
+    if (!preset) {
+      setError('当前自动育成绑定的预设不存在');
+      return;
+    }
+    const target =
+      runMode === 'count'
+        ? Math.max(1, runCountTarget)
+        : runMode === 'daily_count'
+          ? Math.max(1, dailyRunTarget)
+          : runMode === 'jewel_drops'
+            ? Math.max(1, jewelDropTarget)
+            : 1;
+    await updateRunnerConfiguration(preset, runMode, target);
+  };
+
   const releaseSessionWait = async () => {
     if (!selectedAccountId || !runnerSessionWaiting) return;
     const accountId = selectedAccountId;
@@ -2365,6 +2571,51 @@ export default function AutoResearch() {
     }
   };
 
+  const refreshIdleSingleMode = async () => {
+    if (!selectedAccountId) return;
+    setBusy('idle-single-mode-refresh');
+    setError('');
+    try {
+      const result = await accountRequest<SessionResponse>(
+        selectedAccountId,
+        '/api/account/idle-single-mode/refresh',
+        { method: 'POST', body: '{}' },
+      );
+      commitOverviewResponse(selectedAccountId, result);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const abandonIdleSingleMode = async () => {
+    if (!selectedAccountId || !dashboard?.account.idle_single_mode?.active) {
+      return;
+    }
+    if (
+      !window.confirm(
+        '确定放弃离线自动育成吗？本次育成会立即结束，且无法恢复。',
+      )
+    ) {
+      return;
+    }
+    setBusy('idle-single-mode-abandon');
+    setError('');
+    try {
+      const result = await accountRequest<SessionResponse>(
+        selectedAccountId,
+        '/api/account/idle-single-mode/abandon',
+        { method: 'POST', body: '{}' },
+      );
+      commitOverviewResponse(selectedAccountId, result);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
   const savePreset = async () => {
     if (
       !presetEditorOpen ||
@@ -2382,6 +2633,22 @@ export default function AutoResearch() {
       );
       setPresets(nextPresets);
       setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+      const runnerPresetName =
+        activeAutomationSetting?.preset_name ||
+        String(runner?.control?.request?.preset_name || '');
+      if (automationActive && runnerPresetName === preset.name) {
+        const target =
+          runMode === 'count'
+            ? Math.max(1, runCountTarget)
+            : runMode === 'daily_count'
+              ? Math.max(1, dailyRunTarget)
+              : runMode === 'jewel_drops'
+                ? Math.max(1, jewelDropTarget)
+                : 1;
+        if (!(await updateRunnerConfiguration(preset, runMode, target))) {
+          return false;
+        }
+      }
       setError('');
       setPresetSaved(true);
       if (presetSaveFeedbackTimer.current !== null) {
@@ -2608,6 +2875,26 @@ export default function AutoResearch() {
     setError('');
   };
 
+  const editPresetForCareerSetting = (settingId: string) => {
+    const setting = careerSettings.find((item) => item.id === settingId);
+    if (!setting) {
+      setError('所选养马详设不存在');
+      return;
+    }
+    if (!presets.some((preset) => preset.name === setting.preset_name)) {
+      setError(`养马详设绑定的预设不存在：${setting.preset_name}`);
+      return;
+    }
+    setSelectedCareerSettingId(setting.id);
+    setCareerSettingName(setting.name);
+    setCareerPresetName(setting.preset_name);
+    setPresetName(setting.preset_name);
+    setPresetEditorOpen(true);
+    setActiveTab('presets');
+    window.setTimeout(() => scrollToSection('preset-basic'), 0);
+    setError('');
+  };
+
   const applyCareerSetting = (settingId: string) => {
     const setting = careerSettings.find((item) => item.id === settingId);
     if (!setting) return;
@@ -2760,6 +3047,29 @@ export default function AutoResearch() {
     return true;
   };
 
+  const saveAndApplyCareerSetting = async () => {
+    if (!saveCareerSetting()) return;
+    const preset = presets.find((item) => item.name === careerPresetName);
+    if (!preset) {
+      setError('这个养马详设绑定的预设不存在');
+      return;
+    }
+    const target =
+      runMode === 'count'
+        ? Math.max(1, runCountTarget)
+        : runMode === 'daily_count'
+          ? Math.max(1, dailyRunTarget)
+          : runMode === 'jewel_drops'
+            ? Math.max(1, jewelDropTarget)
+            : 1;
+    await updateRunnerConfiguration(preset, runMode, target, {
+      max_steps: maxSteps,
+      burn_clocks: burnClocks,
+      recover_tp_with_item: recoverTpWithItem,
+      recover_tp_with_jewels: recoverTpWithJewels,
+    });
+  };
+
   const saveAndRunCareer = () => {
     if (!saveCareerSetting()) return;
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
@@ -2779,11 +3089,13 @@ export default function AutoResearch() {
   const confirmRunPlan = async () => {
     if (!pendingRun) return;
     const target =
-      runMode === 'daily_count'
-        ? Math.max(1, dailyRunTarget)
-        : runMode === 'jewel_drops' || runMode === 'daily_jewel_schedule'
-          ? Math.max(1, jewelDropTarget)
-          : 1;
+      runMode === 'count'
+        ? Math.max(1, runCountTarget)
+        : runMode === 'daily_count'
+          ? Math.max(1, dailyRunTarget)
+          : runMode === 'jewel_drops' || runMode === 'daily_jewel_schedule'
+            ? Math.max(1, jewelDropTarget)
+            : 1;
     let started = false;
     if (pendingRun.type === 'saved') {
       const setting = careerSettings.find(
@@ -2820,7 +3132,8 @@ export default function AutoResearch() {
     setError('');
   };
 
-  if (!server && activeTab !== 'presets') {
+  // 登录设置已整合进详设页顶部的弹窗；旧页仅供排查旧工作流使用。
+  if (showLegacyLoginScreen && !server && activeTab !== 'presets') {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
         <div className="mx-auto max-w-6xl space-y-4">
@@ -3082,6 +3395,213 @@ export default function AutoResearch() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
+      {loginSettingsOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="自动育成登录设置"
+            className="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                  <LogIn size={19} className="text-indigo-600" />
+                  登录自动育成
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  选择本地已保存的游戏账号，并填写自动育成服务器地址。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoginSettingsOpen(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                取消
+              </button>
+            </div>
+            <div className="space-y-5 p-5">
+              {error ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              ) : null}
+              <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-center gap-2">
+                  <Plus size={17} className="text-indigo-600" />
+                  <h3 className="text-sm font-bold text-slate-800">
+                    导入游戏账号
+                  </h3>
+                </div>
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">
+                      导入 users.db
+                    </p>
+                    <div
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDragging(true);
+                      }}
+                      onDragLeave={() => setDragging(false)}
+                      onDrop={onDrop}
+                      className={`mt-2 rounded-lg border-2 border-dashed p-3 text-center text-sm ${
+                        dragging
+                          ? 'border-indigo-500 bg-indigo-50'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <Database
+                        className="mx-auto mb-1 text-slate-400"
+                        size={22}
+                      />
+                      <p>拖入手机导出的 users.db</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        /data/user/0/com.bilibili.umamusu/databases/
+                      </p>
+                      <label className="mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        <Upload className="mr-1" size={14} />
+                        选择文件
+                        <input
+                          type="file"
+                          accept=".db,application/x-sqlite3"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) importUsersDb(file);
+                            event.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+                    <p className="text-sm font-semibold text-slate-700">
+                      手动填写
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      填写游戏账号的 UID 和 access_key。
+                    </p>
+                    <div className="mt-2 grid gap-2">
+                      <input
+                        value={manualUid}
+                        onChange={(event) => setManualUid(event.target.value)}
+                        placeholder="uid"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                      />
+                      <input
+                        value={manualAccessKey}
+                        onChange={(event) =>
+                          setManualAccessKey(event.target.value)
+                        }
+                        placeholder="access_key"
+                        type="password"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addManual().catch(() => undefined)}
+                        disabled={Boolean(busy)}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                      >
+                        添加账号
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  也可在游戏重新登录后由 Localify
+                  自动捕获账号；捕获成功后会立即出现在下方列表。
+                </p>
+                {captured.length ? (
+                  <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
+                  </p>
+                ) : null}
+              </section>
+              <section>
+                <label className="text-sm font-semibold text-slate-800">
+                  游戏账号
+                </label>
+                <div className="mt-2 grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
+                  {accounts.map((account) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAccountId(account.id);
+                        localStorage.setItem(LAST_ACCOUNT_KEY, account.id);
+                      }}
+                      className={`rounded-lg border p-3 text-left transition-colors ${
+                        selectedAccountId === account.id
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {account.label || `UID ${account.uid}`}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-400">
+                        {account.uid} · {account.accessKeyPreview}
+                      </p>
+                    </button>
+                  ))}
+                  {!accounts.length ? (
+                    <p className="col-span-full rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500">
+                      请在上方导入游戏账号，或在游戏中重新登录后由 Localify
+                      自动捕获。
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+              <label
+                className="block text-sm font-semibold text-slate-800"
+                htmlFor="auto-research-login-server"
+              >
+                自动育成服务器网址
+                <input
+                  id="auto-research-login-server"
+                  value={serverAddress}
+                  onChange={(event) => setServerAddress(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      connectFromLoginSettings().catch(() => undefined);
+                    }
+                  }}
+                  placeholder={DEFAULT_SERVER}
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
+                />
+              </label>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                连接后会先检查服务端是否已有该账号正在养马；只有服务端没有运行中的育成时，才会允许你继续登录游戏。
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setLoginSettingsOpen(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  connectFromLoginSettings().catch(() => undefined)
+                }
+                disabled={
+                  Boolean(busy) || !accounts.length || !selectedAccountId
+                }
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <LogIn size={16} />
+                {busy === 'connect' ? '连接中…' : '连接并继续'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {editingSkillSelection ? (
         <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div
@@ -3332,6 +3852,12 @@ export default function AutoResearch() {
                     icon: RefreshCw,
                   },
                   {
+                    id: 'count' as const,
+                    title: '运行指定次数',
+                    detail: '从现在开始完成指定次数的育成后停止。',
+                    icon: ListChecks,
+                  },
+                  {
                     id: 'daily_count' as const,
                     title: '每日运行次数',
                     detail: `限制这个账号今天完成的育成次数；今日已完成 ${dailyRunCount} 次。`,
@@ -3420,6 +3946,30 @@ export default function AutoResearch() {
                   <span className="mt-2 block text-xs text-slate-500">
                     次数按账号和日期持久化。今天已经完成的育成也会计入上限。
                   </span>
+                </label>
+              ) : null}
+
+              {runMode === 'count' ? (
+                <label className="mt-4 block rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                  从现在起完成
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={runCountTarget}
+                      onChange={(event) =>
+                        setRunCountTarget(
+                          Math.max(
+                            1,
+                            Math.min(100, Number(event.target.value)),
+                          ),
+                        )
+                      }
+                      className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold"
+                    />
+                    <span className="text-slate-500">次育成</span>
+                  </div>
                 </label>
               ) : null}
 
@@ -3604,11 +4154,11 @@ export default function AutoResearch() {
           ) : (
             <button
               type="button"
-              onClick={() => setActiveTab('career')}
+              onClick={() => setLoginSettingsOpen(true)}
               className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
-              <Server size={16} />
-              连接自动育成服务
+              <LogIn size={16} />
+              登录
             </button>
           )}
         </header>
@@ -3945,7 +4495,25 @@ export default function AutoResearch() {
           </aside>
 
           <main className="space-y-4 min-w-0">
-            {activeTab !== 'presets' && !selectedAccount ? (
+            {!server && activeTab !== 'presets' ? (
+              <section className={panelClass('p-12 text-center')}>
+                <LogIn className="mx-auto text-slate-300" size={42} />
+                <h2 className="mt-3 font-bold text-slate-800">
+                  登录后查看自动育成详情
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  在右上角选择游戏账号并填写自动育成服务器地址。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLoginSettingsOpen(true)}
+                  className="mt-5 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                >
+                  <LogIn size={16} />
+                  登录
+                </button>
+              </section>
+            ) : activeTab !== 'presets' && !selectedAccount ? (
               <section
                 className={panelClass('p-12 text-center text-slate-400')}
               >
@@ -4000,7 +4568,8 @@ export default function AutoResearch() {
                 </div>
               </section>
             ) : activeTab !== 'presets' &&
-              (!selectedAccount?.runtime.logged_in || !dashboard) ? (
+              (!selectedAccount?.runtime.logged_in || !dashboard) &&
+              !automationActive ? (
               <section className={panelClass('p-12 text-center')}>
                 {checkingExistingRuntimeAccountId === selectedAccount.id ? (
                   <RefreshCw
@@ -4017,18 +4586,6 @@ export default function AutoResearch() {
                       ? '服务端当前没有正在运行的养马'
                       : '登录并读取本账号的最新育成数据'}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {checkingExistingRuntimeAccountId === selectedAccount.id
-                    ? '这里只会连接已有运行实例，不会重新登录游戏，也不会影响其他地方的会话。'
-                    : missingExistingRuntimeAccountId === selectedAccount.id
-                      ? '检查已经完成，本次没有登录游戏。如需选择马娘、继承马、卡组或好友支援，请在下方手动登录。'
-                      : '如果服务端已有正在运行的养马，会直接显示当前情况；只有选择马娘、继承马、卡组和好友支援时才需要登录。'}
-                </p>
-                {missingExistingRuntimeAccountId === selectedAccount.id ? (
-                  <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm text-sky-800">
-                    已检查服务端：未发现该账号的活动育成实例。此次检查只读取服务端状态，没有接管游戏会话，也不会让其他地方掉线。
-                  </div>
-                ) : null}
                 {missingExistingRuntimeAccountId === selectedAccount.id ? (
                   <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
                     <AlertTriangle size={18} className="mt-0.5 flex-none" />
@@ -4084,10 +4641,10 @@ export default function AutoResearch() {
               </section>
             ) : (
               <>
-                {dashboard && activeTab === 'accounts' ? (
+                {dashboard?.account && activeTab === 'accounts' ? (
                   <>
                     <section
-                      className={`${panelClass('p-4')} grid gap-3 sm:grid-cols-2 lg:grid-cols-6`}
+                      className={`${panelClass('p-4')} grid gap-3 sm:grid-cols-2 lg:grid-cols-7`}
                     >
                       {[
                         [
@@ -4102,6 +4659,20 @@ export default function AutoResearch() {
                           '育成',
                           dashboard.account.career?.active
                             ? `${dashboard.account.career.name} T${dashboard.account.career.turn}`
+                            : '无',
+                        ],
+                        [
+                          '离线自动育成',
+                          dashboard.account.idle_single_mode?.active
+                            ? `${dashboard.account.idle_single_mode.name || '未知马娘'} · ${
+                                dashboard.account.idle_single_mode.state ===
+                                'playing'
+                                  ? '进行中'
+                                  : dashboard.account.idle_single_mode.state ===
+                                      'finished'
+                                    ? '待查看结果'
+                                    : '待游戏清理'
+                              }`
                             : '无',
                         ],
                       ].map(([label, value]) => (
@@ -4144,7 +4715,9 @@ export default function AutoResearch() {
                   </>
                 ) : null}
 
-                {activeTab === 'career' && unsupportedCareer ? (
+                {dashboard?.account &&
+                activeTab === 'career' &&
+                unsupportedCareer ? (
                   <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
                     <h2 className="font-bold">当前养马暂时无法接管</h2>
                     <p className="mt-1 text-sm">
@@ -4164,6 +4737,53 @@ export default function AutoResearch() {
                       >
                         <Trash2 size={16} />
                         {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
+
+                {activeTab === 'career' &&
+                dashboard?.account?.idle_single_mode?.active ? (
+                  <section className="rounded-lg border border-sky-300 bg-sky-50 p-5 text-sky-900">
+                    <h2 className="font-bold">检测到离线自动育成</h2>
+                    <p className="mt-1 text-sm">
+                      当前离线育成角色为「
+                      {dashboard.account.idle_single_mode.name || '未知马娘'}
+                      」。
+                      {dashboard.account.idle_single_mode.state === 'playing'
+                        ? '任务正在游戏服务器上自动进行，普通自动育成已暂停。'
+                        : dashboard.account.idle_single_mode.state ===
+                            'finished'
+                          ? '任务已完成，需在游戏内查看结果后才能继续普通育成。'
+                          : '结果已查看，等待游戏完成离线任务清理。'}
+                    </p>
+                    {dashboard.account.idle_single_mode.ends_at ? (
+                      <p className="mt-2 text-xs text-sky-700">
+                        预计结束：{dashboard.account.idle_single_mode.ends_at}
+                      </p>
+                    ) : null}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={refreshIdleSingleMode}
+                        disabled={busy === 'idle-single-mode-refresh'}
+                        className="flex items-center gap-2 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+                      >
+                        <RefreshCw size={16} />
+                        {busy === 'idle-single-mode-refresh'
+                          ? '正在刷新…'
+                          : '刷新状态'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={abandonIdleSingleMode}
+                        disabled={busy === 'idle-single-mode-abandon'}
+                        className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 size={16} />
+                        {busy === 'idle-single-mode-abandon'
+                          ? '正在放弃…'
+                          : '放弃离线育成'}
                       </button>
                     </div>
                   </section>
@@ -4242,7 +4862,39 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
-                {dashboard && activeTab === 'career' && !automationActive ? (
+                {dashboard?.account &&
+                activeTab === 'career' &&
+                (automationActive ||
+                  (Boolean(activeCareer?.active) && hasRunPlan)) &&
+                !careerSaveOpen ? (
+                  <AutomationControlCard
+                    automationActive={automationActive}
+                    hasCurrentCareer={Boolean(activeCareer?.active)}
+                    runner={runner}
+                    runnerStopping={runnerStopping}
+                    busy={busy}
+                    runMode={runMode}
+                    setRunMode={setRunMode}
+                    runCountTarget={runCountTarget}
+                    setRunCountTarget={setRunCountTarget}
+                    dailyRunTarget={dailyRunTarget}
+                    setDailyRunTarget={setDailyRunTarget}
+                    jewelDropTarget={jewelDropTarget}
+                    setJewelDropTarget={setJewelDropTarget}
+                    dailyRunCount={dailyRunCount}
+                    remainingJewelDrops={remainingJewelDrops}
+                    updateRunningAutomation={updateRunningAutomation}
+                    stopCareer={stopCareer}
+                    activeSetting={activeAutomationSetting}
+                    matchingSettings={matchingCareerSettings}
+                    editPreset={editPresetForCareerSetting}
+                    continueWithSetting={openSavedRunDialog}
+                  />
+                ) : null}
+
+                {dashboard?.account &&
+                activeTab === 'career' &&
+                (!automationActive || careerSaveOpen) ? (
                   <CareerTab
                     dashboard={dashboard}
                     careerSaveOpen={careerSaveOpen}
@@ -4254,18 +4906,15 @@ export default function AutoResearch() {
                     createCareerSave={createCareerSave}
                     careerSettingName={careerSettingName}
                     automationActive={automationActive}
-                    stopCareer={stopCareer}
-                    runnerStopping={runnerStopping}
                     busy={busy}
                     activeCareer={activeCareer}
-                    matchingCareerSettings={matchingCareerSettings}
                     activeCareerIconPath={activeCareerIconPath}
                     unsupportedCareer={unsupportedCareer}
-                    openSavedRunDialog={openSavedRunDialog}
                     abandonCareer={abandonCareer}
                     continuingCurrentCareer={continuingCurrentCareer}
                     canContinueCurrentCareer={canContinueCurrentCareer}
                     saveCareerSetting={saveCareerSetting}
+                    saveAndApplyCareerSetting={saveAndApplyCareerSetting}
                     saveAndRunCareer={saveAndRunCareer}
                     careerPresetName={careerPresetName}
                     newCareerPresetName={newCareerPresetName}
@@ -4316,7 +4965,9 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
-                {dashboard && activeTab === 'career' && automationActive ? (
+                {activeTab === 'career' &&
+                automationActive &&
+                !careerSaveOpen ? (
                   <div id="career-progress" className="scroll-mt-28">
                     <ProgressTab
                       currentCareerActive={currentCareerActive}
@@ -4332,13 +4983,12 @@ export default function AutoResearch() {
                       releaseSessionWait={releaseSessionWait}
                       dailyJewelSchedule={dailyJewelSchedule}
                       hasRunPlan={hasRunPlan}
-                      stopCareer={stopCareer}
                       abandonCareer={abandonCareer}
                     />
                   </div>
                 ) : null}
 
-                {dashboard && activeTab === 'history' ? (
+                {dashboard?.account && activeTab === 'history' ? (
                   <HistoryTab
                     dashboard={dashboard}
                     selectedCareerRecords={selectedCareerRecords}

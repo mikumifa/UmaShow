@@ -1,24 +1,12 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
-const iconUrlCache = new Map<string, Promise<string | null>>();
-
-function getIconUrl(path: string) {
-  const cached = iconUrlCache.get(path);
-  if (cached) return cached;
-  const promise = (
-    window.electron.utils.getFile(path) as Promise<string | null>
-  ).then(
-    (url) => {
-      if (!url) iconUrlCache.delete(path);
-      return url;
-    },
-    (error) => {
-      iconUrlCache.delete(path);
-      throw error;
-    },
-  );
-  iconUrlCache.set(path, promise);
-  return promise;
+function assetUrl(path: string) {
+  return `asset:///${path
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/')}`;
 }
 
 export default function AssetIcon({
@@ -26,36 +14,36 @@ export default function AssetIcon({
   alt,
   className,
   fallback,
+  loading = 'lazy',
 }: {
   path: string;
   alt: string;
   className: string;
   fallback?: ReactNode;
+  loading?: 'eager' | 'lazy';
 }) {
-  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const src = useMemo(() => assetUrl(path), [path]);
 
   useEffect(() => {
-    let mounted = true;
-    setSrc(null);
-    getIconUrl(path)
-      .then((url) => {
-        if (mounted) setSrc(url);
-        return url;
-      })
-      .catch(() => {
-        if (mounted) setSrc(null);
-        return null;
-      });
-    return () => {
-      mounted = false;
-    };
+    setFailed(false);
   }, [path]);
 
-  if (!src) {
+  if (failed) {
     return (
       fallback ?? <div className={`${className} bg-gray-100`} title={alt} />
     );
   }
 
-  return <img src={src} alt={alt} className={className} draggable={false} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      draggable={false}
+      loading={loading}
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
 }

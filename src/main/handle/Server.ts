@@ -7,7 +7,10 @@ import { persistDebugPacket } from './DebugPackets';
 import { persistLeaderboardSnapshotFromPacket } from './LeaderboardRanking';
 import { handleRaceInfo } from './RaceInfo';
 import { handleTrainingHistoryInfo } from './TrainingHistory';
-import { captureAutoResearchCredentials } from './AutoResearchCredentials';
+import {
+  captureAutoResearchCredentials,
+  captureAutoResearchSessionResponse,
+} from './AutoResearchCredentials';
 import { captureSuccessionIndex } from './SuccessionIndex';
 
 export interface ExpressServerController {
@@ -64,9 +67,19 @@ export async function startExpressServer(
             persistDebugPacket(decoded, packetType, requestMetadata);
           }
           if (packetType === 'request') {
-            captureAutoResearchCredentials(decoded, _mainWindow);
+            captureAutoResearchCredentials(decoded, _mainWindow, {
+              sid: req.get('X-Umamusume-Sid') || req.get('SID'),
+              viewerId: req.get('X-Umamusume-Viewer-Id') || req.get('ViewerID'),
+              appVer: req.get('X-Umamusume-App-Ver') || req.get('APP-VER'),
+              appVerCode:
+                req.get('X-Umamusume-App-Ver-Code') || req.get('APP-VER-CODE'),
+              resVer: req.get('X-Umamusume-Res-Ver') || req.get('RES-VER'),
+              bumaOpenId:
+                req.get('X-Umamusume-Buma-Open-Id') || req.get('BUMA-OPEN-ID'),
+            });
           }
           if (packetType === 'response') {
+            captureAutoResearchSessionResponse(decoded);
             captureSuccessionIndex(decoded, _mainWindow);
           }
           persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);

@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
 import { Dispatch, SetStateAction } from 'react';
 import {
-  CircleStop,
   Database,
   Play,
   Plus,
@@ -38,18 +37,15 @@ type CareerTabProps = {
   createCareerSave: () => void;
   careerSettingName: string;
   automationActive: boolean;
-  stopCareer: () => Promise<void>;
-  runnerStopping: boolean;
   busy: string;
   activeCareer?: SessionAccount['career'];
-  matchingCareerSettings: CareerSetting[];
   activeCareerIconPath?: string;
   unsupportedCareer: boolean;
-  openSavedRunDialog: (settingId: string) => void;
   abandonCareer: () => Promise<void>;
   continuingCurrentCareer: boolean;
   canContinueCurrentCareer: boolean;
   saveCareerSetting: () => boolean;
+  saveAndApplyCareerSetting: () => Promise<void>;
   saveAndRunCareer: () => void;
   careerPresetName: string;
   newCareerPresetName: string;
@@ -111,18 +107,15 @@ export default function CareerTab(props: CareerTabProps) {
     createCareerSave,
     careerSettingName,
     automationActive,
-    stopCareer,
-    runnerStopping,
     busy,
     activeCareer,
-    matchingCareerSettings,
     activeCareerIconPath,
     unsupportedCareer,
-    openSavedRunDialog,
     abandonCareer,
     continuingCurrentCareer,
     canContinueCurrentCareer,
     saveCareerSetting,
+    saveAndApplyCareerSetting,
     saveAndRunCareer,
     careerPresetName,
     newCareerPresetName,
@@ -171,7 +164,7 @@ export default function CareerTab(props: CareerTabProps) {
     renameCareerSetting,
     selectedAccountId,
   } = props;
-  return activeCareer?.active ? (
+  return activeCareer?.active && !careerSaveOpen ? (
     <section className={panelClass('p-5')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -181,6 +174,7 @@ export default function CareerTab(props: CareerTabProps) {
                 path={activeCareerIconPath}
                 alt={activeCareer.name}
                 className="h-full w-full object-cover"
+                loading="eager"
               />
             ) : (
               <Database size={28} className="m-6 text-gray-300" />
@@ -197,21 +191,6 @@ export default function CareerTab(props: CareerTabProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {automationActive ? (
-            <button
-              type="button"
-              onClick={stopCareer}
-              disabled={runnerStopping || busy === 'stop'}
-              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {runnerStopping ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <CircleStop size={16} />
-              )}
-              {runnerStopping ? '正在暂停…' : '暂停自动操作'}
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={abandonCareer}
@@ -223,73 +202,6 @@ export default function CareerTab(props: CareerTabProps) {
           </button>
         </div>
       </div>
-
-      {!automationActive && matchingCareerSettings.length ? (
-        <div className="mt-5 border-t border-slate-200 pt-5">
-          <h3 className="font-semibold text-gray-800">
-            可以继续使用的养马详设
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            以下详设选择了相同的育成马娘，可以直接继续当前育成。
-          </p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {matchingCareerSettings.map((setting) => (
-              <article
-                key={setting.id}
-                className="rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="h-14 w-14 flex-none overflow-hidden rounded-md bg-gray-100">
-                    {activeCareerIconPath ? (
-                      <AssetIcon
-                        path={activeCareerIconPath}
-                        alt={activeCareer.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Database size={20} className="m-4 text-gray-300" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <h4 className="truncate font-semibold text-gray-900">
-                      {setting.name}
-                    </h4>
-                    <p className="mt-1 truncate text-xs text-gray-500">
-                      {activeCareer.name} · {setting.preset_name}
-                    </p>
-                    <p className="mt-1 text-xs text-emerald-700">
-                      育成马娘一致
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openSavedRunDialog(setting.id)}
-                  disabled={Boolean(busy)}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  <Play size={16} />
-                  继续自动育成
-                </button>
-              </article>
-            ))}
-          </div>
-        </div>
-      ) : !automationActive ? (
-        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-          <h3 className="font-semibold text-slate-800">
-            没有找到可继续使用的养马详设
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            当前账号没有选择相同育成马娘的可用详设。若要重新开始养马，请先放弃本次育成。
-          </p>
-          {!accountCareerSettings.length ? (
-            <p className="mt-3 text-xs text-slate-500">
-              这个账号还没有保存过养马详设。
-            </p>
-          ) : null}
-        </div>
-      ) : null}
     </section>
   ) : !careerSaveOpen && !automationActive ? (
     <section className={panelClass('p-5')}>
@@ -310,9 +222,14 @@ export default function CareerTab(props: CareerTabProps) {
           const presetExists = presets.some(
             (preset) => preset.name === setting.preset_name,
           );
-          const iconPath = uma
-            ? horseIconPath(uma.id, uma.rarity, uma.race_cloth_id)
-            : undefined;
+          // A saved setting already has enough information to show its base
+          // portrait. Do not wait for the server-side dashboard. Once the
+          // owned-card metadata arrives, switch to the exact race cloth.
+          const iconPath = horseIconPath(
+            setting.card_id,
+            uma?.rarity || 0,
+            uma?.race_cloth_id || setting.card_id,
+          );
           return (
             <article
               key={setting.id}
@@ -325,6 +242,7 @@ export default function CareerTab(props: CareerTabProps) {
                       path={iconPath}
                       alt={uma?.name || setting.name}
                       className="h-full w-full object-cover"
+                      loading="eager"
                     />
                   ) : (
                     <Database size={24} className="m-5 text-gray-300" />
@@ -461,21 +379,21 @@ export default function CareerTab(props: CareerTabProps) {
               onClick={editCareerPreset}
               className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
             >
-              编辑绑定预设
+              编辑预设
             </button>
             {automationActive ? (
               <button
                 type="button"
-                onClick={stopCareer}
-                disabled={runnerStopping || busy === 'stop'}
-                className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                onClick={saveAndApplyCareerSetting}
+                disabled={Boolean(busy)}
+                className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {runnerStopping ? (
+                {busy === 'update-runner' ? (
                   <RefreshCw size={17} className="animate-spin" />
                 ) : (
-                  <CircleStop size={17} />
+                  <Save size={17} />
                 )}
-                {runnerStopping ? '正在暂停…' : '暂停自动操作'}
+                {busy === 'update-runner' ? '正在应用…' : '保存并立即应用'}
               </button>
             ) : (
               <>

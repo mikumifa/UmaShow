@@ -5,7 +5,7 @@
  */
 
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, protocol } from 'electron';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
@@ -23,6 +23,20 @@ import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';
 import { getServerPort, setServerPort } from './config';
+import { ASSET_SCHEME, registerAssetProtocol } from './handle/AssetProtocol';
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: ASSET_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
 
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
@@ -149,6 +163,7 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    registerAssetProtocol();
     ensureRaceDir();
     ensureTrainingHistory();
     UMDBload();

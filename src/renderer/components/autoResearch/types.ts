@@ -70,7 +70,7 @@ export type Runner = {
   daily_jewel_reset_time?: string;
   run_plan?: {
     active: boolean;
-    mode: 'single' | 'continuous' | 'daily_count' | 'jewel_drops';
+    mode: 'single' | 'continuous' | 'count' | 'daily_count' | 'jewel_drops';
     target: number;
     completed_runs: number;
     completed_jewel_drops: number;
@@ -86,6 +86,24 @@ export type Runner = {
     last_error: string;
     daily_jewel_drop_count: number;
     updated_at: string;
+  };
+  control?: {
+    desired_state: 'running' | 'stopped';
+    status: 'queued' | 'reconnect_wait' | 'running' | 'stopped' | 'failed';
+    detail?: { last_error?: string; reason?: string };
+    request?: {
+      card_id?: number;
+      career_setting_id?: string;
+      preset_name?: string;
+      run_mode?:
+        | 'single'
+        | 'continuous'
+        | 'count'
+        | 'daily_count'
+        | 'jewel_drops'
+        | 'daily_jewel_schedule';
+      run_target?: number;
+    };
   };
   jewel_history?: Array<{
     turn: number;
@@ -117,6 +135,19 @@ export type SessionAccount = {
     parent_id_1?: number;
     parent_id_2?: number;
   } | null;
+  idle_single_mode?: {
+    detected: boolean;
+    active: boolean;
+    state: 'none' | 'playing' | 'finished' | 'log_checked' | 'unknown';
+    state_code: number;
+    card_id?: number | string;
+    name?: string;
+    scenario_id?: number;
+    started_at?: string;
+    ends_at?: string;
+    source?: string;
+    observed_at?: string;
+  };
 };
 
 export type Account = {
@@ -317,6 +348,7 @@ export type CareerSetting = {
 export type RunMode =
   | 'single'
   | 'continuous'
+  | 'count'
   | 'daily_count'
   | 'jewel_drops'
   | 'daily_jewel_schedule';

@@ -385,6 +385,7 @@ export function runModeLabel(mode?: RunMode) {
   const labels: Record<RunMode, string> = {
     single: '单次运行',
     continuous: '持续运行',
+    count: '运行指定次数',
     daily_count: '每日运行次数',
     jewel_drops: '宝石掉落目标',
     daily_jewel_schedule: '每日宝石计划',

@@ -183,6 +183,8 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-delete', id),
     credential: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-credential', id),
+    currentSession: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-current-session', id),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
     onLoginProgress(
