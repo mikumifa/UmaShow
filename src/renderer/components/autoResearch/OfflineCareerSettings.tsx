@@ -261,7 +261,13 @@ export default function OfflineCareerSettings({
   const normalizedSpecificLineageSearch = specificLineageSearch
     .trim()
     .toLocaleLowerCase('zh-CN');
+  const selectedLineageParent = parents.find(
+    (parent) => parent.selection_id === factorSelection.lineage.selection_id,
+  );
   const filteredLineageParents = parents.filter((parent) => {
+    if (parent.selection_id === factorSelection.lineage.selection_id) {
+      return false;
+    }
     if (!normalizedSpecificLineageSearch) return true;
     return [
       parent.name,
@@ -275,6 +281,9 @@ export default function OfflineCareerSettings({
         .includes(normalizedSpecificLineageSearch),
     );
   });
+  const emptyLineageParentMessage = normalizedSpecificLineageSearch
+    ? '没有找到符合搜索条件的已育成马娘'
+    : '没有其他可选择的已育成马娘';
   const lineageCharaOptions = Array.from(
     new Map(
       [
@@ -905,9 +914,60 @@ export default function OfflineCareerSettings({
 
                 {factorSelection.lineage.mode === 'specific' ? (
                   <div className="mt-3">
+                    <div className="mb-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div>
+                          <strong className="text-sm text-fuchsia-900">
+                            当前已选马娘
+                          </strong>
+                          <p className="mt-0.5 text-xs text-fuchsia-700">
+                            此马娘将作为固定的另一侧完整谱系使用。
+                          </p>
+                        </div>
+                        {factorSelection.lineage.selection_id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFactorSelection({
+                                lineage: {
+                                  ...factorSelection.lineage,
+                                  selection_id: '',
+                                },
+                              })
+                            }
+                            className="inline-flex flex-none items-center gap-1 rounded-md border border-fuchsia-200 bg-white px-2.5 py-1.5 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100"
+                          >
+                            <X size={13} /> 清除选择
+                          </button>
+                        ) : null}
+                      </div>
+                      {selectedLineageParent ? (
+                        <ParentChoiceCard
+                          parent={selectedLineageParent}
+                          selected
+                          disabled={false}
+                          onSelect={() =>
+                            updateFactorSelection({
+                              lineage: {
+                                ...factorSelection.lineage,
+                                selection_id: '',
+                              },
+                            })
+                          }
+                        />
+                      ) : factorSelection.lineage.selection_id ? (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          已保存的马娘当前不在自己或好友列表中，请重新选择。
+                        </p>
+                      ) : (
+                        <p className="rounded-lg border border-dashed border-fuchsia-200 bg-white/70 px-3 py-4 text-center text-sm text-fuchsia-500">
+                          尚未选择已有马娘
+                        </p>
+                      )}
+                    </div>
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                       <p className="text-xs font-medium text-slate-600">
-                        点击卡片选择自己或好友的已育成马娘；卡片显示本体、两位父辈和因子。
+                        从下面选择或更换自己、好友的已育成马娘；卡片显示本体、两位父辈和因子。
                       </p>
                       <label className="relative block w-full sm:w-80">
                         <Search
@@ -950,7 +1010,7 @@ export default function OfflineCareerSettings({
                       ))}
                       {!filteredLineageParents.length ? (
                         <p className="py-10 text-center text-sm text-slate-400 xl:col-span-2">
-                          没有找到符合搜索条件的已育成马娘
+                          {emptyLineageParentMessage}
                         </p>
                       ) : null}
                     </div>
