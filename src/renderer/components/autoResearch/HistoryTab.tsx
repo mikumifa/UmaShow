@@ -65,11 +65,23 @@ const raceCounts = (value?: Record<string, number>) => {
   return result;
 };
 
+const totalRaceCount = (value?: Record<string, number>) =>
+  Object.values(raceCounts(value)).reduce((sum, count) => sum + count, 0);
+
+const recordStatisticSources = (record: CareerSessionRecord) => {
+  const sources: Array<CareerSessionRun | CareerSessionRecord> = [
+    ...(record.runs || []),
+    ...(record.current ? [record.current] : []),
+  ];
+  return sources.length ? sources : [record];
+};
+
 type AggregatedG123Race = {
   raceId: number;
   programId: number;
   turn: number;
   largeMarginCount: number;
+  raceCount: number;
   recordedAt: string;
 };
 
@@ -83,10 +95,7 @@ const aggregateG123Races = (
 ): AggregatedG123Race[] => {
   const aggregated = new Map<string, AggregatedG123Race>();
   records.forEach((record) => {
-    const sources = [
-      ...(record.runs || []),
-      ...(record.current ? [record.current] : []),
-    ];
+    const sources = recordStatisticSources(record);
     const raceRecords = sources.flatMap((source) =>
       normalizedG123RaceRecords(source.g123_race_records),
     );
@@ -105,6 +114,7 @@ const aggregateG123Races = (
           largeMarginCount:
             (previous?.largeMarginCount || 0) +
             (raceRecord.large_margin ? 1 : 0),
+          raceCount: (previous?.raceCount || 0) + 1,
           recordedAt:
             String(raceRecord.recorded_at || '') >
             String(previous?.recordedAt || '')
@@ -115,10 +125,9 @@ const aggregateG123Races = (
       return;
     }
 
-    const sourceRows = sources.length ? sources : [record];
     const allRaceCounts: Record<string, number> = {};
     const largeCounts: Record<string, number> = {};
-    sourceRows.forEach((source) => {
+    sources.forEach((source) => {
       Object.entries(raceCounts(source.g123_race_counts)).forEach(
         ([raceId, count]) => {
           allRaceCounts[raceId] = (allRaceCounts[raceId] || 0) + count;
@@ -144,6 +153,7 @@ const aggregateG123Races = (
         turn: 0,
         largeMarginCount:
           (previous?.largeMarginCount || 0) + (largeCounts[raceId] || 0),
+        raceCount: (previous?.raceCount || 0) + (allRaceCounts[raceId] || 0),
         recordedAt: '',
       });
     });
@@ -213,10 +223,12 @@ const groupRecordsByDate = (records: CareerSessionRecord[]) => {
 };
 
 const aggregateRecords = (records: CareerSessionRecord[]) => {
-  const count = records.reduce(
-    (sum, record) => sum + Number(record.count || 0),
-    0,
-  );
+  const count = records.reduce((sum, record) => {
+    const runs = (record.runs || []).filter((run) => run.completed);
+    return (
+      sum + (record.runs?.length ? runs.length : Number(record.count || 0))
+    );
+  }, 0);
   const attributesTotal = emptyAttributes();
   records.forEach((record) => {
     attributeItems.forEach(([key]) => {
@@ -236,31 +248,36 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
   const sorted = [...records].sort((left, right) =>
     String(left.started_at || '').localeCompare(String(right.started_at || '')),
   );
+  const statisticSources = records.flatMap(recordStatisticSources);
   return {
     count,
     attributesAverage,
     cardId: Number(sorted.find((record) => record.card_id)?.card_id || 0),
     startedAt: String(sorted[0]?.started_at || ''),
     endedAt: String(sorted.at(-1)?.ended_at || ''),
-    largeMarginCount: records.reduce(
-      (sum, record) =>
+    largeMarginCount: statisticSources.reduce(
+      (sum, source) =>
         sum +
         Number(
-          record.large_margin_count ||
-            Object.values(raceCounts(record.large_margin_race_counts)).reduce(
+          source.large_margin_count ||
+            Object.values(raceCounts(source.large_margin_race_counts)).reduce(
               (raceTotal, value) => raceTotal + value,
               0,
             ),
         ),
       0,
     ),
-    g123Races: aggregateG123Races(records),
-    jewelDropCount: records.reduce(
-      (sum, record) => sum + Number(record.jewel_drop_count || 0),
+    g123RaceCount: statisticSources.reduce(
+      (sum, source) => sum + totalRaceCount(source.g123_race_counts),
       0,
     ),
-    jewelsEarned: records.reduce(
-      (sum, record) => sum + Number(record.jewels_earned || 0),
+    g123Races: aggregateG123Races(records),
+    jewelDropCount: statisticSources.reduce(
+      (sum, source) => sum + Number(source.jewel_drop_count || 0),
+      0,
+    ),
+    jewelsEarned: statisticSources.reduce(
+      (sum, source) => sum + Number(source.jewels_earned || 0),
       0,
     ),
     errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
@@ -390,7 +407,7 @@ export default function HistoryTab({
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">比赛大差</p>
               <strong className="mt-1 block text-xl text-amber-700">
-                {aggregate.largeMarginCount} 次
+                {aggregate.largeMarginCount} / {aggregate.g123RaceCount} 场
               </strong>
             </div>
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
@@ -461,7 +478,8 @@ export default function HistoryTab({
                           </td>
                         ))}
                         <td className="px-3 py-3 text-amber-700">
-                          {run.large_margin_count || 0} 次
+                          {run.large_margin_count || 0} /{' '}
+                          {totalRaceCount(run.g123_race_counts)} 场
                         </td>
                         <td className="px-3 py-3 text-violet-700">
                           {run.jewel_drop_count || 0} 次 /{' '}
@@ -483,7 +501,7 @@ export default function HistoryTab({
         <section className={panelClass('p-5')}>
           <h3 className="font-bold text-slate-900">同比赛的大差情况</h3>
           <p className="mt-1 text-xs text-slate-500">
-            列出当天跑过的 G1、G2、G3；数字仅显示大差次数。
+            列出当天跑过的 G1、G2、G3；数字为大差场次 / 总参加场次。
           </p>
           {aggregate.g123Races.length ? (
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -527,7 +545,7 @@ export default function HistoryTab({
                       ) : null}
                     </span>
                     <strong className="shrink-0 text-amber-700">
-                      {raceRow.largeMarginCount} 次
+                      {raceRow.largeMarginCount} / {raceRow.raceCount} 场
                     </strong>
                   </div>
                 );
@@ -535,7 +553,7 @@ export default function HistoryTab({
             </div>
           ) : (
             <p className="mt-4 rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
-              当天没有比赛大差记录
+              当天没有 G1、G2、G3 比赛记录
             </p>
           )}
         </section>
@@ -571,21 +589,43 @@ export default function HistoryTab({
         </button>
       </div>
 
-      <label className="mt-5 block max-w-xl text-sm font-medium text-slate-700">
-        选择详设
-        <select
-          value={historyCareerSettingId}
-          onChange={(event) => setHistoryCareerSettingId(event.target.value)}
-          className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-        >
-          <option value="">请选择详设后查看记录</option>
-          {accountCareerSettings.map((setting) => (
-            <option key={setting.id} value={setting.id}>
-              {setting.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="mt-5">
+        <p className="text-sm font-medium text-slate-700">选择详设</p>
+        {accountCareerSettings.length ? (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {accountCareerSettings.map((setting) => {
+              const selected = historyCareerSettingId === setting.id;
+              return (
+                <button
+                  key={setting.id}
+                  type="button"
+                  onClick={() => setHistoryCareerSettingId(setting.id)}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    selected
+                      ? 'border-indigo-400 bg-indigo-50 text-indigo-950'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40'
+                  }`}
+                >
+                  <strong className="block truncate text-sm">
+                    {setting.name}
+                  </strong>
+                  <span
+                    className={`mt-0.5 block truncate text-xs ${
+                      selected ? 'text-indigo-600' : 'text-slate-400'
+                    }`}
+                  >
+                    {setting.preset_name || '未绑定预设'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-lg bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">
+            当前账号还没有养马详设
+          </p>
+        )}
+      </div>
 
       {!historyCareerSetting ? (
         <p className="py-14 text-center text-sm text-slate-400">

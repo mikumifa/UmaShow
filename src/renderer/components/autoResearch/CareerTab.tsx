@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import OfflineCareerSettings from './OfflineCareerSettings';
 import {
   DeckChoiceCard,
   horseIconPath,
@@ -21,7 +22,9 @@ import { panelClass, scrollToSection } from './shared';
 import {
   CareerSetting,
   Dashboard,
+  OfflineSingleModeSetup,
   Preset,
+  RaceOption,
   SessionAccount,
   SupportInfo,
 } from './types';
@@ -30,7 +33,9 @@ type CareerTabProps = {
   dashboard: Dashboard;
   careerSaveOpen: boolean;
   accountCareerSettings: CareerSetting[];
+  matchingCareerSettings: CareerSetting[];
   applyCareerSetting: (settingId: string) => void;
+  continueWithSetting: (settingId: string) => void;
   deleteCareerSetting: (settingId: string) => void;
   newCareerSaveName: string;
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
@@ -50,6 +55,8 @@ type CareerTabProps = {
   careerPresetName: string;
   newCareerPresetName: string;
   setNewCareerPresetName: Dispatch<SetStateAction<string>>;
+  newCareerMode: 'online' | 'offline';
+  setNewCareerMode: Dispatch<SetStateAction<'online' | 'offline'>>;
   editCareerPreset: () => void;
   closeCareerEditor: () => void;
   presets: Preset[];
@@ -93,6 +100,20 @@ type CareerTabProps = {
   refreshOptionsIndex: () => Promise<void>;
   renameCareerSetting: (settingId: string, name: string) => void;
   selectedAccountId: string;
+  careerMode: 'online' | 'offline';
+  offlineSetup: OfflineSingleModeSetup | null;
+  offlineChallengeMode: boolean;
+  setOfflineChallengeMode: Dispatch<SetStateAction<boolean>>;
+  offlineRaceDeckNum: number;
+  setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
+  offlineRaceDeckName: string;
+  setOfflineRaceDeckName: Dispatch<SetStateAction<string>>;
+  offlineRaceIds: number[];
+  setOfflineRaceIds: Dispatch<SetStateAction<number[]>>;
+  resetOfflineCareer: () => void;
+  prepareOfflineCareer: () => Promise<void>;
+  saveOfflineRaceDeck: () => Promise<void>;
+  races: RaceOption[];
 };
 
 export default function CareerTab(props: CareerTabProps) {
@@ -100,7 +121,9 @@ export default function CareerTab(props: CareerTabProps) {
     dashboard,
     careerSaveOpen,
     accountCareerSettings,
+    matchingCareerSettings,
     applyCareerSetting,
+    continueWithSetting,
     deleteCareerSetting,
     newCareerSaveName,
     setNewCareerSaveName,
@@ -120,6 +143,8 @@ export default function CareerTab(props: CareerTabProps) {
     careerPresetName,
     newCareerPresetName,
     setNewCareerPresetName,
+    newCareerMode,
+    setNewCareerMode,
     editCareerPreset,
     closeCareerEditor,
     presets,
@@ -163,6 +188,20 @@ export default function CareerTab(props: CareerTabProps) {
     refreshOptionsIndex,
     renameCareerSetting,
     selectedAccountId,
+    careerMode,
+    offlineSetup,
+    offlineChallengeMode,
+    setOfflineChallengeMode,
+    offlineRaceDeckNum,
+    setOfflineRaceDeckNum,
+    offlineRaceDeckName,
+    setOfflineRaceDeckName,
+    offlineRaceIds,
+    setOfflineRaceIds,
+    resetOfflineCareer,
+    prepareOfflineCareer,
+    saveOfflineRaceDeck,
+    races,
   } = props;
   return activeCareer?.active && !careerSaveOpen ? (
     <section className={panelClass('p-5')}>
@@ -202,6 +241,50 @@ export default function CareerTab(props: CareerTabProps) {
           </button>
         </div>
       </div>
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <h3 className="text-sm font-semibold text-slate-800">
+          符合当前育成的养马详设
+        </h3>
+        {matchingCareerSettings.length ? (
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {matchingCareerSettings.map((setting) => (
+              <article
+                key={setting.id}
+                className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+              >
+                <strong className="block truncate text-sm text-slate-800">
+                  {setting.name}
+                </strong>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">
+                  {setting.preset_name}
+                </span>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyCareerSetting(setting.id)}
+                    className="rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                  >
+                    查看详设
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => continueWithSetting(setting.id)}
+                    disabled={Boolean(busy)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    <Play size={14} />
+                    {busy === `resume-${setting.id}` ? '正在继续…' : '继续育成'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">
+            没有找到与当前育成匹配的养马详设。请放弃当前育成后重新选择。
+          </p>
+        )}
+      </div>
     </section>
   ) : !careerSaveOpen && !automationActive ? (
     <section className={panelClass('p-5')}>
@@ -219,9 +302,10 @@ export default function CareerTab(props: CareerTabProps) {
           const uma = dashboard.umas.find(
             (item) => item.id === setting.card_id,
           );
-          const presetExists = presets.some(
-            (preset) => preset.name === setting.preset_name,
-          );
+          const offline = setting.mode === 'offline';
+          const presetExists =
+            offline ||
+            presets.some((preset) => preset.name === setting.preset_name);
           // A saved setting already has enough information to show its base
           // portrait. Do not wait for the server-side dashboard. Once the
           // owned-card metadata arrives, switch to the exact race cloth.
@@ -266,7 +350,10 @@ export default function CareerTab(props: CareerTabProps) {
                     />
                   </label>
                   <p className="mt-1 truncate text-xs text-gray-500">
-                    {uma?.name || '尚未选择育成马娘'} · {setting.preset_name}
+                    {uma?.name || '尚未选择育成马娘'} ·{' '}
+                    {offline
+                      ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
+                      : setting.preset_name}
                   </p>
                   <span
                     className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -275,7 +362,11 @@ export default function CareerTab(props: CareerTabProps) {
                         : 'bg-red-50 text-red-600'
                     }`}
                   >
-                    {presetExists ? '已绑定预设' : '绑定预设不存在'}
+                    {offline
+                      ? '离线详设'
+                      : presetExists
+                        ? '已绑定预设'
+                        : '绑定预设不存在'}
                   </span>
                 </div>
               </div>
@@ -303,24 +394,51 @@ export default function CareerTab(props: CareerTabProps) {
 
         <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
           <h3 className="font-semibold text-indigo-950">新建养马详设</h3>
-          <label className="mt-4 block text-xs font-medium text-indigo-900">
-            绑定预设
-            <select
-              value={newCareerPresetName}
-              onChange={(event) => setNewCareerPresetName(event.target.value)}
-              className="mt-1 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-800"
-            >
-              <option value="">请手动选择预设</option>
-              {presets.map((preset) => (
-                <option key={preset.name} value={preset.name}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="mt-1 text-xs leading-5 text-indigo-700">
-            进入详设后将固定绑定，不能再切换到其他预设。
-          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {(['online', 'offline'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setNewCareerMode(mode)}
+                className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                  newCareerMode === mode
+                    ? 'border-indigo-400 bg-indigo-100 text-indigo-900'
+                    : 'border-indigo-100 bg-white text-slate-600'
+                }`}
+              >
+                {mode === 'online' ? '在线自动育成' : '游戏离线育成'}
+              </button>
+            ))}
+          </div>
+          {newCareerMode === 'online' ? (
+            <>
+              <label className="mt-3 block text-xs font-medium text-indigo-900">
+                绑定预设
+                <select
+                  value={newCareerPresetName}
+                  onChange={(event) =>
+                    setNewCareerPresetName(event.target.value)
+                  }
+                  className="mt-1 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-800"
+                >
+                  <option value="">请手动选择预设</option>
+                  {presets.map((preset) => (
+                    <option key={preset.name} value={preset.name}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-1 text-xs leading-5 text-indigo-700">
+                进入详设后将固定绑定，不能再切换到其他预设。
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-700">
+              离线详设不绑定本地预设，使用游戏自带的 50
+              分钟自动育成和游戏内赛程槽位。
+            </p>
+          )}
           <input
             value={newCareerSaveName}
             onChange={(event) => setNewCareerSaveName(event.target.value)}
@@ -331,7 +449,10 @@ export default function CareerTab(props: CareerTabProps) {
           <button
             type="button"
             onClick={createCareerSave}
-            disabled={!newCareerSaveName.trim() || !newCareerPresetName}
+            disabled={
+              !newCareerSaveName.trim() ||
+              (newCareerMode === 'online' && !newCareerPresetName)
+            }
             className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={15} className="mr-1 inline" />
@@ -374,14 +495,16 @@ export default function CareerTab(props: CareerTabProps) {
             >
               返回详设选择界面
             </button>
-            <button
-              type="button"
-              onClick={editCareerPreset}
-              className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-            >
-              编辑预设
-            </button>
-            {automationActive ? (
+            {careerMode === 'online' ? (
+              <button
+                type="button"
+                onClick={editCareerPreset}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+              >
+                编辑预设
+              </button>
+            ) : null}
+            {automationActive && careerMode === 'online' ? (
               <button
                 type="button"
                 onClick={saveAndApplyCareerSetting}
@@ -410,24 +533,31 @@ export default function CareerTab(props: CareerTabProps) {
                   type="button"
                   onClick={saveAndRunCareer}
                   disabled={
-                    busy === 'run' ||
+                    Boolean(busy) ||
                     unsupportedCareer ||
-                    (continuingCurrentCareer && !canContinueCurrentCareer)
+                    (continuingCurrentCareer && !canContinueCurrentCareer) ||
+                    (careerMode === 'offline' &&
+                      (!offlineSetup || !offlineRaceDeckNum))
                   }
                   className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   <Play size={17} />
-                  {busy === 'run'
+                  {busy === 'run' || busy === 'idle-start'
                     ? dashboard.account.career?.active
                       ? '正在保存并继续…'
-                      : '正在保存并开始…'
-                    : unsupportedCareer
-                      ? '请先放弃当前育成'
-                      : continuingCurrentCareer
-                        ? canContinueCurrentCareer
-                          ? '保存并继续'
-                          : '当前详设不匹配'
-                        : '保存并开始'}
+                      : careerMode === 'offline'
+                        ? '正在启动离线育成…'
+                        : '正在保存并开始…'
+                    : careerMode === 'offline' &&
+                        (!offlineSetup || !offlineRaceDeckNum)
+                      ? '请先读取游戏赛程'
+                      : unsupportedCareer
+                        ? '请先放弃当前育成'
+                        : continuingCurrentCareer
+                          ? canContinueCurrentCareer
+                            ? '保存并继续'
+                            : '当前详设不匹配'
+                          : '保存并开始'}
                 </button>
               </>
             )}
@@ -486,6 +616,7 @@ export default function CareerTab(props: CareerTabProps) {
                       setParent1('');
                       setParent2('');
                       setParentSelectionSlot(1);
+                      resetOfflineCareer();
                     }}
                   />
                 ))}
@@ -741,60 +872,84 @@ export default function CareerTab(props: CareerTabProps) {
               ) : null}
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div className="text-sm">
-                  绑定预设
-                  <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
-                    <strong className="block text-sm text-violet-950">
-                      {careerPresetName}
-                    </strong>
-                    <span className="mt-0.5 block text-xs text-violet-700">
-                      该详设已与此预设绑定，不能切换
-                    </span>
+                {careerMode === 'online' ? (
+                  <>
+                    <div className="text-sm">
+                      绑定预设
+                      <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
+                        <strong className="block text-sm text-violet-950">
+                          {careerPresetName}
+                        </strong>
+                        <span className="mt-0.5 block text-xs text-violet-700">
+                          该详设已与此预设绑定，不能切换
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={editCareerPreset}
+                        className="mt-2 block text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                      >
+                        编辑“{careerPresetName}”的预设配置 →
+                      </button>
+                    </div>
+                    <label className="text-sm">
+                      单次养马防卡死上限
+                      <span className="mt-0.5 block text-xs text-slate-400">
+                        最多处理多少次训练、事件和比赛；不是养马次数，通常不用修改
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={3000}
+                        value={maxSteps}
+                        onChange={(event) =>
+                          setMaxSteps(Number(event.target.value))
+                        }
+                        className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2"
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <div className="md:col-span-2">
+                    <OfflineCareerSettings
+                      setup={offlineSetup}
+                      races={races}
+                      selectedDeckNum={offlineRaceDeckNum}
+                      setSelectedDeckNum={setOfflineRaceDeckNum}
+                      deckName={offlineRaceDeckName}
+                      setDeckName={setOfflineRaceDeckName}
+                      selectedRaceIds={offlineRaceIds}
+                      setSelectedRaceIds={setOfflineRaceIds}
+                      challengeMode={offlineChallengeMode}
+                      setChallengeMode={setOfflineChallengeMode}
+                      busy={busy}
+                      prepare={prepareOfflineCareer}
+                      saveDeck={saveOfflineRaceDeck}
+                    />
                   </div>
-                  <button
-                    type="button"
-                    onClick={editCareerPreset}
-                    className="mt-2 block text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                  >
-                    编辑“{careerPresetName}”的预设配置 →
-                  </button>
-                </div>
-                <label className="text-sm">
-                  单次养马防卡死上限
-                  <span className="mt-0.5 block text-xs text-slate-400">
-                    最多处理多少次训练、事件和比赛；不是养马次数，通常不用修改
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={3000}
-                    value={maxSteps}
-                    onChange={(event) =>
-                      setMaxSteps(Number(event.target.value))
-                    }
-                    className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2"
-                  />
-                </label>
+                )}
               </div>
 
               <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={burnClocks}
-                    onChange={(event) => setBurnClocks(event.target.checked)}
-                    className="mt-1"
-                  />
-                  <span>
-                    <strong className="block font-medium text-slate-800">
-                      比赛失败时使用闹钟
-                    </strong>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      失败后有可用闹钟时自动继续；当前有{' '}
-                      {dashboard.account.clocks || 0} 个
+                {careerMode === 'online' ? (
+                  <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={burnClocks}
+                      onChange={(event) => setBurnClocks(event.target.checked)}
+                      className="mt-1"
+                    />
+                    <span>
+                      <strong className="block font-medium text-slate-800">
+                        比赛失败时使用闹钟
+                      </strong>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        失败后有可用闹钟时自动继续；当前有{' '}
+                        {dashboard.account.clocks || 0} 个
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                ) : null}
                 <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
                   <input
                     type="checkbox"

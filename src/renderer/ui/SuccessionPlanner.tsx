@@ -134,6 +134,13 @@ type TrainedUmaSetting = {
 type TrainedUmaSettings = Partial<Record<LineageSlot, TrainedUmaSetting>>;
 type FixedDressSlots = Partial<Record<LineageSlot, number>>;
 type CapturedReuseMode = 'off' | 'parents';
+type PendingCapturedParentSetting = {
+  umaId: number;
+  factor?: Pick<FactorAssignment, 'type' | 'stars'>;
+};
+type PendingCapturedParents = Partial<
+  Record<BranchKey, PendingCapturedParentSetting>
+>;
 type BlueFactorKey = 'speed' | 'stamina' | 'power' | 'guts' | 'wisdom';
 type CapturedBlueFactorMinimums = Record<BlueFactorKey, number>;
 type CapturedFactor = {
@@ -206,6 +213,17 @@ type CapturedCompatibilityPreview = {
     detailed: boolean;
   }>;
 };
+
+type CapturedMatchScore = {
+  probability: number;
+  compatibility: number;
+  g1Count: number;
+};
+
+type RankedCapturedMatch = {
+  candidate: CapturedTrainedUma;
+  score: CapturedMatchScore;
+};
 type SuccessionIndexSnapshot = {
   receivedAt: string;
   viewerId?: number;
@@ -262,6 +280,7 @@ type CompleteDesignPosition = {
   capturedSource?: 'own' | 'rental';
   capturedOwnerName?: string;
   capturedViewerId?: number;
+  pendingTraining?: boolean;
   capturedInheritanceFactors?: CapturedInheritanceFactor[];
   capturedFactorSummary?: {
     blueFactor: CapturedBlueFactor | null;
@@ -332,8 +351,10 @@ export function capturedReuseCombinationValid(
   second: CapturedReuseBranchIdentity,
 ) {
   if (!first.parentId || first.parentId === second.parentId) return false;
-  const selectionIds = [...first.selectionIds, ...second.selectionIds];
-  if (new Set(selectionIds).size !== selectionIds.length) return false;
+  if (first.parentSource !== 'planned' && second.parentSource !== 'planned') {
+    const selectionIds = [...first.selectionIds, ...second.selectionIds];
+    if (new Set(selectionIds).size !== selectionIds.length) return false;
+  }
   if (new Set(first.umaIds).size !== first.umaIds.length) return false;
   if (new Set(second.umaIds).size !== second.umaIds.length) return false;
   return !(first.parentSource === 'rental' && second.parentSource === 'rental');
@@ -348,6 +369,75 @@ export function capturedReusePairPolicy(
     includeMaternalRentals: paternalSource === 'own',
     canonicalizeOwnPair: branchesInterchangeable,
   };
+}
+
+export function pendingCapturedParentPairValid(
+  first: Pick<CapturedTrainedUma, 'selectionId' | 'umaId' | 'source'>,
+  second: Pick<CapturedTrainedUma, 'selectionId' | 'umaId' | 'source'>,
+  plannedUmaId: number,
+) {
+  if (!plannedUmaId) return false;
+  if (first.selectionId === second.selectionId) return false;
+  if (first.umaId === second.umaId) return false;
+  if (first.umaId === plannedUmaId || second.umaId === plannedUmaId) {
+    return false;
+  }
+  return !(first.source === 'rental' && second.source === 'rental');
+}
+
+export function pendingCapturedParentPairOrientations<
+  T extends { selectionId: string },
+>(first: T, second: T, slotsEquivalent: boolean): Array<[T, T]> {
+  if (!slotsEquivalent) return [
+    [first, second],
+    [second, first],
+  ];
+  return first.selectionId.localeCompare(second.selectionId) <= 0
+    ? [[first, second]]
+    : [[second, first]];
+}
+
+type PendingBranchGreedyPriority = {
+  combinedProbability: number;
+  skillProbabilities: number[];
+  blueMinimumProgress: number;
+  compatibility: number;
+  orderKey: string;
+};
+
+export function comparePendingBranchGreedyPriority(
+  left: PendingBranchGreedyPriority,
+  right: PendingBranchGreedyPriority,
+) {
+  const probabilityComparison = compareCombinedProbabilityPriority(
+    left.combinedProbability,
+    left.skillProbabilities,
+    right.combinedProbability,
+    right.skillProbabilities,
+  );
+  if (probabilityComparison) return probabilityComparison;
+  if (left.blueMinimumProgress !== right.blueMinimumProgress) {
+    return left.blueMinimumProgress > right.blueMinimumProgress ? 1 : -1;
+  }
+  if (left.compatibility !== right.compatibility) {
+    return left.compatibility > right.compatibility ? 1 : -1;
+  }
+  return right.orderKey.localeCompare(left.orderKey);
+}
+
+export function selectGreedyPendingBranchCandidate<T>(
+  candidates: Iterable<{ value: T; priority: PendingBranchGreedyPriority }>,
+) {
+  let best: { value: T; priority: PendingBranchGreedyPriority } | undefined;
+  for (const candidate of candidates) {
+    if (
+      !best ||
+      comparePendingBranchGreedyPriority(candidate.priority, best.priority) > 0
+    ) {
+      best = candidate;
+    }
+  }
+  return best?.value;
 }
 
 export function capturedTraversalCandidates<
@@ -675,6 +765,7 @@ const MAX_CAPTURED_RESULT_CANDIDATES = 100;
 const MAX_EQUAL_MATCH_GROUPS = 100;
 const MAX_CAPTURED_PICKER_CANDIDATES = 100;
 const CAPTURED_PICKER_PAGE_SIZE = 1;
+const MATCHING_CAPTURED_PAGE_SIZE = 2;
 const CALCULATION_PHASES = [
   '读取并校验计算条件',
   '构建红因子分配方案',
@@ -682,6 +773,14 @@ const CALCULATION_PHASES = [
   '整理最高概率结果',
 ] as const;
 const SUCCESSION_STORAGE_KEY = 'uma-tools:succession-planner:v1';
+const LEGACY_DEFAULT_INHERITANCE_APTITUDES = new Set(['dirt', 'mile']);
+
+export function isLegacyDefaultInheritanceAptitude(
+  type: string,
+  defaultsMigrated: boolean,
+) {
+  return !defaultsMigrated && LEGACY_DEFAULT_INHERITANCE_APTITUDES.has(type);
+}
 
 export function capturedFactorBaseProbability(
   factorType: 3 | 4 | 5,
@@ -1217,6 +1316,7 @@ type StoredSuccessionSettings = {
   slotRouteOverrides: SlotRouteOverrides;
   trainedUmaSettings: TrainedUmaSettings;
   capturedReuseMode: CapturedReuseMode;
+  pendingCapturedParents: PendingCapturedParents;
   disableCapturedRental: boolean;
   capturedBlueFactorMinimums: CapturedBlueFactorMinimums;
   capturedFactorTargets: CapturedFactorTarget[];
@@ -1241,6 +1341,7 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
     slotRouteOverrides: {},
     trainedUmaSettings: {},
     capturedReuseMode: 'off' as CapturedReuseMode,
+    pendingCapturedParents: {} as PendingCapturedParents,
     disableCapturedRental: false,
     capturedBlueFactorMinimums: { ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS },
     capturedFactorTargets: [] as CapturedFactorTarget[],
@@ -1256,6 +1357,8 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
 
     const umaIds = new Set(data.umas.map((uma) => uma.id));
     const validAptitudes = new Set<FactorKey>(ALL_APTITUDES);
+    const inheritanceAptitudeDefaultsMigrated =
+      stored.inheritanceAptitudeDefaultsMigrated === true;
     const excludedUmaIds: number[] = [
       ...new Set<number>(
         (Array.isArray(stored.excludedUmaIds) ? stored.excludedUmaIds : [])
@@ -1374,6 +1477,14 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
     const targetUma = data.umas.find((uma) => uma.id === targetId);
     const inheritanceTargets: InheritanceTargets = {};
     ALL_APTITUDES.forEach((type) => {
+      if (
+        isLegacyDefaultInheritanceAptitude(
+          type,
+          inheritanceAptitudeDefaultsMigrated,
+        )
+      ) {
+        return;
+      }
       const base = targetUma?.aptitudes[type];
       const value = Number(stored.inheritanceTargets?.[type]);
       if (
@@ -1394,8 +1505,13 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
         ];
     const validValues = [
       ...new Set(
-        storedInheritanceValues.filter((value: unknown): value is FactorKey =>
-          validAptitudes.has(value as FactorKey),
+        storedInheritanceValues.filter(
+          (value: unknown): value is FactorKey =>
+            validAptitudes.has(value as FactorKey) &&
+            !isLegacyDefaultInheritanceAptitude(
+              String(value),
+              inheritanceAptitudeDefaultsMigrated,
+            ),
         ),
       ),
     ];
@@ -1422,6 +1538,22 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
       stored.capturedReuseMode === 'parents'
         ? 'parents'
         : 'off';
+    const pendingCapturedParents: PendingCapturedParents = {};
+    (['paternal', 'maternal'] as BranchKey[]).forEach((branch) => {
+      const value = stored.pendingCapturedParents?.[branch];
+      const umaId = Number(value?.umaId || 0);
+      const type = value?.factor?.type;
+      const stars = Number(value?.factor?.stars);
+      if (umaIds.has(umaId)) {
+        pendingCapturedParents[branch] = {
+          umaId,
+          ...(validAptitudes.has(type) &&
+          (stars === 1 || stars === 2 || stars === 3)
+            ? { factor: { type, stars: stars as 1 | 2 | 3 } }
+            : {}),
+        };
+      }
+    });
     const disableCapturedRental = stored.disableCapturedRental === true;
     const capturedBlueFactorMinimums = {
       ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
@@ -1495,6 +1627,7 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
       slotRouteOverrides,
       trainedUmaSettings,
       capturedReuseMode,
+      pendingCapturedParents,
       disableCapturedRental,
       capturedBlueFactorMinimums,
       capturedFactorTargets,
@@ -2024,15 +2157,14 @@ export function capturedUmaMatchesGeneratedCandidate(
   candidate: CapturedTrainedUma,
   position: Pick<
     CompleteDesignPosition,
-    'uma' | 'factor' | 'minimumDemand' | 'cumulativeDemand'
+    'uma' | 'factor' | 'minimumDemand'
   >,
 ) {
   if (!position.uma || candidate.umaId !== position.uma.id) return false;
   if (
     !position.factor.free &&
     !position.factor.unconstrained &&
-    (candidate.factor.type !== position.factor.type ||
-      candidate.factor.stars < position.factor.stars)
+    candidate.factor.type !== position.factor.type
   ) {
     return false;
   }
@@ -2041,20 +2173,7 @@ export function capturedUmaMatchesGeneratedCandidate(
   if (!demandSatisfied(position.minimumDemand || {}, directParentFactors)) {
     return false;
   }
-
-  const totalDemand: FactorDemand = {};
-  ALL_APTITUDES.forEach((type) => {
-    const stars =
-      (position.minimumDemand?.[type] || 0) +
-      (position.cumulativeDemand?.[type] || 0);
-    if (stars > 0) totalDemand[type] = stars;
-  });
-  return demandSatisfied(
-    totalDemand,
-    candidate.lineageFactors?.length
-      ? candidate.lineageFactors
-      : directParentFactors,
-  );
+  return true;
 }
 
 function FactorIcon({
@@ -3660,10 +3779,10 @@ function CapturedUmaPickerModal({
 }
 
 function MatchingCapturedUmaModal({
-  candidates,
+  matches,
   onClose,
 }: {
-  candidates: CapturedTrainedUma[];
+  matches: RankedCapturedMatch[];
   onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
@@ -3671,7 +3790,7 @@ function MatchingCapturedUmaModal({
   const [candidatePage, setCandidatePage] = useState(0);
   const [detailCandidate, setDetailCandidate] = useState<CapturedTrainedUma>();
   const keyword = search.trim().toLowerCase();
-  const visible = candidates.filter((candidate) => {
+  const visible = matches.filter(({ candidate }) => {
     if (!keyword) return true;
     return [
       candidate.name,
@@ -3696,16 +3815,16 @@ function MatchingCapturedUmaModal({
   const limitedVisible = visible.slice(0, MAX_CAPTURED_PICKER_CANDIDATES);
   const pageCount = Math.max(
     1,
-    Math.ceil(limitedVisible.length / CAPTURED_PICKER_PAGE_SIZE),
+    Math.ceil(limitedVisible.length / MATCHING_CAPTURED_PAGE_SIZE),
   );
   const pagedVisible = limitedVisible.slice(
-    candidatePage * CAPTURED_PICKER_PAGE_SIZE,
-    (candidatePage + 1) * CAPTURED_PICKER_PAGE_SIZE,
+    candidatePage * MATCHING_CAPTURED_PAGE_SIZE,
+    (candidatePage + 1) * MATCHING_CAPTURED_PAGE_SIZE,
   );
 
   useEffect(() => {
     setCandidatePage(0);
-  }, [keyword, candidates]);
+  }, [keyword, matches]);
 
   useEffect(() => {
     setCandidatePage((current) => Math.min(current, pageCount - 1));
@@ -3766,7 +3885,7 @@ function MatchingCapturedUmaModal({
                 disabled={candidatePage === 0}
                 onClick={() => setCandidatePage((current) => current - 1)}
               >
-                上一匹
+                上一页
               </button>
               <strong>
                 {candidatePage + 1} / {pageCount}
@@ -3776,11 +3895,11 @@ function MatchingCapturedUmaModal({
                 disabled={candidatePage >= pageCount - 1}
                 onClick={() => setCandidatePage((current) => current + 1)}
               >
-                下一匹
+                下一页
               </button>
             </div>
             <div className="successionCapturedPickerGrid">
-              {pagedVisible.map((candidate) => {
+              {pagedVisible.map(({ candidate, score }) => {
                 const dressName = UMDB.cards[candidate.cardId]?.name;
                 return (
                   <article
@@ -3815,6 +3934,14 @@ function MatchingCapturedUmaModal({
                     </div>
                     <div className="successionCapturedMatchFactorRow">
                       <CapturedMemberDetails member={candidate} />
+                      <span
+                        className="successionCapturedMatchProbability"
+                        title={`共同 G1 ${score.g1Count} 场，当前位置相性 ${score.compatibility}，按 ${candidate.factor.stars}★ 红因子计算两次继承判定`}
+                      >
+                        <small>当前位置继承概率</small>
+                        <strong>{(score.probability * 100).toFixed(2)}%</strong>
+                        <em>共同 G1 {score.g1Count} 场</em>
+                      </span>
                       {candidate.source === 'rental' && candidate.viewerId ? (
                         <button
                           type="button"
@@ -3900,6 +4027,9 @@ function LineageUmaSetting({
   onPlanUmaChange,
   onTrainedSettingChange,
   onTrainedSettingClear,
+  pendingTraining = false,
+  allowPendingTraining = false,
+  onPendingTrainingChange,
   fixedDressCardId,
   onFixedDressChange,
   onClear,
@@ -3928,6 +4058,9 @@ function LineageUmaSetting({
   onPlanUmaChange: (value: number) => void;
   onTrainedSettingChange: (setting: TrainedUmaSetting) => void;
   onTrainedSettingClear: () => void;
+  pendingTraining?: boolean;
+  allowPendingTraining?: boolean;
+  onPendingTrainingChange?: () => void;
   fixedDressCardId?: number;
   onFixedDressChange: (cardId?: number) => void;
   onClear: () => void;
@@ -4039,6 +4172,16 @@ function LineageUmaSetting({
               >
                 {trainedSetting ? '更换已有马娘' : '使用已有马娘填充'}
               </button>
+              {allowPendingTraining &&
+              onPendingTrainingChange ? (
+                <button
+                  type="button"
+                  className="successionPendingTrainingSwitch"
+                  onClick={onPendingTrainingChange}
+                >
+                  {pendingTraining ? '取消待育成' : '设为待育成'}
+                </button>
+              ) : null}
               {trainedSetting ? (
                 <button
                   type="button"
@@ -5048,23 +5191,46 @@ function CapturedRecordHoverPreview({
 
 function CompleteDesignCandidateIdentity({
   position,
+  design,
   capturedUmas,
   showCapturedMatches,
+  capturedMatchScore,
   onExcludeUma,
   onExcludeCapturedUma,
 }: {
   position: CompleteDesignPosition;
+  design: CompleteFactorDesign;
   capturedUmas: CapturedTrainedUma[];
   showCapturedMatches: boolean;
+  capturedMatchScore: (
+    candidate: CapturedTrainedUma,
+    position: CompleteDesignPosition,
+    design: CompleteFactorDesign,
+  ) => CapturedMatchScore;
   onExcludeUma: (umaId: number) => void;
   onExcludeCapturedUma: (selectionId: string) => void;
 }) {
   const [matchingModalOpen, setMatchingModalOpen] = useState(false);
   const [capturedDetailOpen, setCapturedDetailOpen] = useState(false);
-  const matchingCapturedUmas = showCapturedMatches
-    ? capturedUmas.filter((candidate) =>
-        capturedUmaMatchesGeneratedCandidate(candidate, position),
-      )
+  const matchingCapturedUmas: RankedCapturedMatch[] = showCapturedMatches
+    ? capturedUmas
+        .filter((candidate) =>
+          capturedUmaMatchesGeneratedCandidate(candidate, position),
+        )
+        .map((candidate) => ({
+          candidate,
+          score: capturedMatchScore(candidate, position, design),
+        }))
+        .sort(
+          (left, right) =>
+            right.score.probability - left.score.probability ||
+            right.score.compatibility - left.score.compatibility ||
+            right.candidate.factor.stars - left.candidate.factor.stars ||
+            right.candidate.rankScore - left.candidate.rankScore ||
+            left.candidate.selectionId.localeCompare(
+              right.candidate.selectionId,
+            ),
+        )
     : [];
   const capturedCandidate = position.capturedSelectionId
     ? capturedUmas.find(
@@ -5189,7 +5355,7 @@ function CompleteDesignCandidateIdentity({
       </div>
       {matchingModalOpen && (
         <MatchingCapturedUmaModal
-          candidates={matchingCapturedUmas}
+          matches={matchingCapturedUmas}
           onClose={() => setMatchingModalOpen(false)}
         />
       )}
@@ -5205,14 +5371,22 @@ function CompleteDesignCandidateIdentity({
 
 function CompleteDesignPositionCard({
   position,
+  design,
   capturedUmas,
   showCapturedMatches,
+  capturedMatchScore,
   onExcludeUma,
   onExcludeCapturedUma,
 }: {
   position: CompleteDesignPosition;
+  design: CompleteFactorDesign;
   capturedUmas: CapturedTrainedUma[];
   showCapturedMatches: boolean;
+  capturedMatchScore: (
+    candidate: CapturedTrainedUma,
+    position: CompleteDesignPosition,
+    design: CompleteFactorDesign,
+  ) => CapturedMatchScore;
   onExcludeUma: (umaId: number) => void;
   onExcludeCapturedUma: (selectionId: string) => void;
 }) {
@@ -5285,8 +5459,10 @@ function CompleteDesignPositionCard({
               )}
               <CompleteDesignCandidateIdentity
                 position={alternative}
+                design={design}
                 capturedUmas={capturedUmas}
                 showCapturedMatches={showCapturedMatches}
+                capturedMatchScore={capturedMatchScore}
                 onExcludeUma={onExcludeUma}
                 onExcludeCapturedUma={onExcludeCapturedUma}
               />
@@ -5296,8 +5472,10 @@ function CompleteDesignPositionCard({
       ) : (
         <CompleteDesignCandidateIdentity
           position={position}
+          design={design}
           capturedUmas={capturedUmas}
           showCapturedMatches={showCapturedMatches}
+          capturedMatchScore={capturedMatchScore}
           onExcludeUma={onExcludeUma}
           onExcludeCapturedUma={onExcludeCapturedUma}
         />
@@ -5311,6 +5489,7 @@ function CompleteDesignBranchTree({
   design,
   capturedUmas,
   showCapturedMatches,
+  capturedMatchScore,
   onExcludeUma,
   onExcludeCapturedUma,
 }: {
@@ -5318,6 +5497,11 @@ function CompleteDesignBranchTree({
   design: CompleteFactorDesign;
   capturedUmas: CapturedTrainedUma[];
   showCapturedMatches: boolean;
+  capturedMatchScore: (
+    candidate: CapturedTrainedUma,
+    position: CompleteDesignPosition,
+    design: CompleteFactorDesign,
+  ) => CapturedMatchScore;
   onExcludeUma: (umaId: number) => void;
   onExcludeCapturedUma: (selectionId: string) => void;
 }) {
@@ -5345,8 +5529,10 @@ function CompleteDesignBranchTree({
         <div className="successionRequirementTreeRoot successionCompleteGeneration generation1">
           <CompleteDesignPositionCard
             position={parent!}
+            design={design}
             capturedUmas={capturedUmas}
             showCapturedMatches={showCapturedMatches}
+            capturedMatchScore={capturedMatchScore}
             onExcludeUma={onExcludeUma}
             onExcludeCapturedUma={onExcludeCapturedUma}
           />
@@ -5359,8 +5545,10 @@ function CompleteDesignBranchTree({
             >
               <CompleteDesignPositionCard
                 position={position!}
+                design={design}
                 capturedUmas={capturedUmas}
                 showCapturedMatches={showCapturedMatches}
+                capturedMatchScore={capturedMatchScore}
                 onExcludeUma={onExcludeUma}
                 onExcludeCapturedUma={onExcludeCapturedUma}
               />
@@ -5404,6 +5592,7 @@ function CompleteDesignResult({
   hasCapturedFactorTargets,
   capturedUmas,
   showCapturedMatches,
+  capturedMatchScore,
   onExcludeUma,
   onExcludeCapturedUma,
 }: {
@@ -5414,6 +5603,11 @@ function CompleteDesignResult({
   hasCapturedFactorTargets?: boolean;
   capturedUmas: CapturedTrainedUma[];
   showCapturedMatches: boolean;
+  capturedMatchScore: (
+    candidate: CapturedTrainedUma,
+    position: CompleteDesignPosition,
+    design: CompleteFactorDesign,
+  ) => CapturedMatchScore;
   onExcludeUma: (umaId: number) => void;
   onExcludeCapturedUma: (selectionId: string) => void;
 }) {
@@ -5463,6 +5657,7 @@ function CompleteDesignResult({
               design={design}
               capturedUmas={capturedUmas}
               showCapturedMatches={showCapturedMatches}
+              capturedMatchScore={capturedMatchScore}
               onExcludeUma={onExcludeUma}
               onExcludeCapturedUma={onExcludeCapturedUma}
               key={branch}
@@ -5718,6 +5913,8 @@ function SuccessionPlanner({
   const [capturedReuseMode, setCapturedReuseMode] = useState<CapturedReuseMode>(
     initialSettings.capturedReuseMode,
   );
+  const [pendingCapturedParents, setPendingCapturedParents] =
+    useState<PendingCapturedParents>(initialSettings.pendingCapturedParents);
   const [disableCapturedRental, setDisableCapturedRental] = useState(
     initialSettings.disableCapturedRental,
   );
@@ -5757,6 +5954,7 @@ function SuccessionPlanner({
     null,
   );
   const calculationRunToken = useRef(0);
+  const pendingCapturedRecalculationRef = useRef(false);
   const capturedReusePairFilterRef = useRef<
     | {
         inputKey: string;
@@ -5800,6 +5998,7 @@ function SuccessionPlanner({
           routeMinimums,
           inheritanceAptitudes,
           inheritanceTargets,
+          inheritanceAptitudeDefaultsMigrated: true,
           allowInRaceFactorJump,
           inRaceFactorJumpMinimumRank,
           excludedUmaIds,
@@ -5807,6 +6006,7 @@ function SuccessionPlanner({
           slotRouteOverrides,
           trainedUmaSettings,
           capturedReuseMode,
+          pendingCapturedParents,
           disableCapturedRental,
           capturedBlueFactorMinimums,
           capturedFactorTargets,
@@ -5830,6 +6030,7 @@ function SuccessionPlanner({
     slotRouteOverrides,
     trainedUmaSettings,
     capturedReuseMode,
+    pendingCapturedParents,
     disableCapturedRental,
     capturedBlueFactorMinimums,
     capturedFactorTargets,
@@ -5895,6 +6096,30 @@ function SuccessionPlanner({
     [],
   );
   const target = umaById.get(targetId);
+  const activePendingCapturedParents = useMemo(() => {
+    const active: PendingCapturedParents = {};
+    if (capturedReuseMode === 'off') return active;
+    const parentSlots: Record<BranchKey, LineageSlot> = {
+      paternal: 'father',
+      maternal: 'mother',
+    };
+    (['paternal', 'maternal'] as BranchKey[]).forEach((branch) => {
+      const setting = pendingCapturedParents[branch];
+      if (setting && lineage[parentSlots[branch]] === setting.umaId) {
+        active[branch] = setting;
+      }
+    });
+    return active;
+  }, [
+    capturedReuseMode,
+    JSON.stringify(pendingCapturedParents),
+    lineage.father,
+    lineage.mother,
+  ]);
+  const hasActivePendingCapturedParent = Boolean(
+    activePendingCapturedParents.paternal ||
+      activePendingCapturedParents.maternal,
+  );
   const capturedParentSettings = [
     trainedUmaSettings.father,
     trainedUmaSettings.mother,
@@ -6061,6 +6286,7 @@ function SuccessionPlanner({
     slotRouteOverrides,
     trainedUmaSettings,
     capturedReuseMode,
+    pendingCapturedParents: activePendingCapturedParents,
     disableCapturedRental,
     capturedBlueFactorMinimums,
     capturedFactorTargets: effectiveCapturedFactorTargets,
@@ -6165,6 +6391,37 @@ function SuccessionPlanner({
   const targetInheritanceAllocations = target
     ? inheritanceAllocation(target, inheritanceAptitudes, inheritanceTargets)
     : [];
+  const probabilityTargetTypes = inheritanceAptitudes;
+  const guaranteedFactorDemand: FactorDemand = Object.fromEntries(
+    targetInheritanceAllocations.map((item) => [item.type, item.stars]),
+  );
+  const probabilityRequiredRaises = useMemo(() => {
+    const raises: Partial<Record<FactorKey, number>> = {};
+    if (!target) return raises;
+    const guaranteedRanks = new Map(
+      inheritanceAllocation(
+        target,
+        inheritanceAptitudes,
+        inheritanceTargets,
+      ).map((item) => [item.type, item.target]),
+    );
+    probabilityTargetTypes.forEach((type) => {
+      const guaranteedRank =
+        guaranteedRanks.get(type) || target.aptitudes[type];
+      const probabilityTarget = Math.max(
+        guaranteedRank,
+        probabilityTargetRanks[type] || guaranteedRank,
+      );
+      raises[type] = Math.max(0, probabilityTarget - guaranteedRank);
+    });
+    return raises;
+  }, [
+    targetId,
+    inheritanceAptitudes.join('|'),
+    probabilityTargetTypes.join('|'),
+    JSON.stringify(inheritanceTargets),
+    JSON.stringify(probabilityTargetRanks),
+  ]);
   const rawTargetFactorPlanEnumerator = useMemo(
     () =>
       calculationReady
@@ -6449,11 +6706,15 @@ function SuccessionPlanner({
     const effectiveAssignmentForSlot = (
       slot: LineageSlot,
     ): FactorAssignment => {
+      const pendingFactor =
+        slot === parent ? activePendingCapturedParents[branch]?.factor : undefined;
       const trainedFactor =
         capturedReuseMode === 'off'
           ? trainedUmaSettings[slot]?.self.factor
           : undefined;
-      return trainedFactor
+      return pendingFactor
+        ? { ...pendingFactor }
+        : trainedFactor
         ? { ...trainedFactor }
         : factorPlan.assignments[slot];
     };
@@ -6649,8 +6910,233 @@ function SuccessionPlanner({
         });
     };
 
+    const capturedPendingParentStrategies = (
+      setting: PendingCapturedParentSetting,
+    ) => {
+      const plannedUma = umaById.get(setting.umaId);
+      if (!plannedUma || plannedUma.id === targetId) return [];
+      const plannedParent = plannedUma;
+      const pendingFactorTypes = setting.factor
+        ? [setting.factor.type]
+        : inheritanceAptitudes.length
+          ? inheritanceAptitudes
+          : ALL_APTITUDES;
+      const pendingFactorOptions = [...new Set(pendingFactorTypes)]
+        .map((type) => ({
+          factor: setting.factor || ({ type, stars: 3 } as const),
+          requirement: factorRequirementForCandidate(parent, plannedUma, type),
+        }))
+        .filter(({ requirement }) => !requirement.impossible.length);
+      if (!pendingFactorOptions.length) return [];
+
+      const grandparentSettings = grandparents.map((slot) =>
+        routeSettingForSlot(slot),
+      );
+      const grandparentSlotsEquivalent =
+        lineage[grandparents[0]] === lineage[grandparents[1]] &&
+        trainedUmaSettings[grandparents[0]]?.self.umaId ===
+          trainedUmaSettings[grandparents[1]]?.self.umaId &&
+        fixedDressSlots[grandparents[0]] ===
+          fixedDressSlots[grandparents[1]] &&
+        grandparentSettings[0].route.id === grandparentSettings[1].route.id &&
+        ALL_APTITUDES.every(
+          (type) =>
+            grandparentSettings[0].minimums[type] ===
+            grandparentSettings[1].minimums[type],
+        );
+      const candidates = calculationCapturedUmas
+        .filter((candidate) => candidate.umaId !== plannedParent.id)
+        .filter((candidate) =>
+          grandparents.some((slot) =>
+            slotAcceptsCapturedMember(slot, candidate),
+          ),
+        )
+        .sort((left, right) =>
+          left.selectionId.localeCompare(right.selectionId),
+        );
+      const seenStrategies = new Set<string>();
+      const parentRoute = routeSettingForSlot(parent, plannedParent.id).route;
+      const parentMember = trainedMemberForSlot(parent, plannedParent.id);
+      const parentBaseCompatibility = relationScore(targetId, plannedParent.id);
+      type PendingCandidate = {
+        factor: Pick<FactorAssignment, 'type' | 'stars'>;
+        left: CapturedTrainedUma;
+        right: CapturedTrainedUma;
+        blueFactorTotals: CapturedBlueFactorMinimums;
+      };
+      function* pendingCandidates(): Generator<{
+        value: PendingCandidate;
+        priority: PendingBranchGreedyPriority;
+      }> {
+        for (
+          let firstIndex = 0;
+          firstIndex < candidates.length;
+          firstIndex += 1
+        ) {
+          for (
+            let secondIndex = firstIndex + 1;
+            secondIndex < candidates.length;
+            secondIndex += 1
+          ) {
+            const first = candidates[firstIndex];
+            const second = candidates[secondIndex];
+            if (
+              !pendingCapturedParentPairValid(first, second, plannedParent.id)
+            ) {
+              continue;
+            }
+            const orientations = pendingCapturedParentPairOrientations(
+              first,
+              second,
+              grandparentSlotsEquivalent,
+            );
+            for (const [left, right] of orientations) {
+              if (
+                !slotAcceptsCapturedMember(grandparents[0], left) ||
+                !slotAcceptsCapturedMember(grandparents[1], right)
+              ) {
+                continue;
+              }
+              for (const { factor } of pendingFactorOptions) {
+                const strategyKey = `${factor.type}:${factor.stars}|${left.selectionId}|${right.selectionId}`;
+                if (seenStrategies.has(strategyKey)) continue;
+                seenStrategies.add(strategyKey);
+                const pair = [left, right] as const;
+                const grandparentCompatibilities = pair.map(
+                  (candidate, index) => {
+                    const slot = grandparents[index];
+                    const route = routeSettingForSlot(
+                      slot,
+                      candidate.umaId,
+                    ).route;
+                    const base = relationScore(
+                      targetId,
+                      plannedParent.id,
+                      candidate.umaId,
+                    );
+                    const g1 = resolvedCommonG1(
+                      parentMember,
+                      parentRoute,
+                      candidate.winSaddleIds.length ? candidate : undefined,
+                      route,
+                    );
+                    return base + g1.count * G1_COMPATIBILITY_POINTS;
+                  },
+                );
+                const parentLocalCompatibility =
+                  parentBaseCompatibility +
+                  grandparentCompatibilities.reduce(
+                    (total, value) => total + value,
+                    0,
+                  );
+                const probabilityFactors = [
+                  {
+                    type: factor.type,
+                    stars: factor.stars,
+                    compatibility: parentLocalCompatibility,
+                  },
+                  ...pair.map((candidate, index) => ({
+                    type: candidate.factor.type,
+                    stars: candidate.factor.stars,
+                    compatibility: grandparentCompatibilities[index],
+                  })),
+                ].filter((item) => probabilityTargetTypes.includes(item.type));
+                const probability = probabilityOfReachingTargets(
+                  probabilityFactors,
+                  probabilityTargetTypes,
+                  probabilityRequiredRaises,
+                );
+                const skillProbabilities = effectiveCapturedFactorTargets.map(
+                  (factorTarget) =>
+                    capturedFactorTargetProbability(
+                      pair.flatMap((candidate, index) =>
+                        candidate.inheritanceFactors.map((capturedFactor) => ({
+                          factor: capturedFactor,
+                          generation: 2 as const,
+                          compatibility: grandparentCompatibilities[index],
+                        })),
+                      ),
+                      factorTarget,
+                      successionFactorMeta,
+                    ),
+                );
+                const blueFactorTotals = capturedBlueFactorTotals([...pair]);
+                yield {
+                  value: { factor, left, right, blueFactorTotals },
+                  priority: {
+                    combinedProbability: combinedSkillTargetProbability(
+                      probability,
+                      skillProbabilities,
+                    ),
+                    skillProbabilities,
+                    blueMinimumProgress: BLUE_FACTOR_KEYS.reduce(
+                      (total, type) =>
+                        total +
+                        Math.min(
+                          capturedBlueFactorMinimums[type],
+                          blueFactorTotals[type],
+                        ),
+                      0,
+                    ),
+                    compatibility:
+                      parentLocalCompatibility +
+                      grandparentCompatibilities.reduce(
+                        (total, value) => total + value,
+                        0,
+                      ),
+                    orderKey: strategyKey,
+                  },
+                };
+              }
+            }
+          }
+        }
+      }
+      const best = selectGreedyPendingBranchCandidate(pendingCandidates());
+      if (!best) return [];
+      const strategy: BranchFactorStrategy = {
+        positions: [
+          {
+            code: SLOT_CODES[parent],
+            generation: 1 as const,
+            uma: plannedParent,
+            factor: { ...best.factor },
+            fixed: true,
+            requiresUma: true,
+            pendingTraining: true,
+          },
+          capturedPosition(
+            best.left,
+            SLOT_CODES[grandparents[0]],
+            2,
+            best.left,
+            Boolean(lineage[grandparents[0]]),
+          ),
+          capturedPosition(
+            best.right,
+            SLOT_CODES[grandparents[1]],
+            2,
+            best.right,
+            Boolean(lineage[grandparents[1]]),
+          ),
+        ],
+        cumulativeRequirements: [],
+        greatFactorRequirements: {
+          parent: {},
+          grandparents: [{}, {}],
+        },
+        capturedSelectionIds: [best.left.selectionId, best.right.selectionId],
+        capturedSources: [best.left.source, best.right.source],
+        capturedBlueFactorTotals: best.blueFactorTotals,
+      };
+      return [strategy];
+    };
+
     if (capturedReuseMode !== 'off') {
-      return capturedDirectStrategies();
+      const pendingSetting = activePendingCapturedParents[branch];
+      return pendingSetting
+        ? capturedPendingParentStrategies(pendingSetting)
+        : capturedDirectStrategies();
     }
 
     const buildCandidateList = (
@@ -7339,37 +7825,6 @@ function SuccessionPlanner({
     capturedReuseMode,
     JSON.stringify(capturedBlueFactorMinimums),
     calculationCapturedUmas,
-  ]);
-  const probabilityTargetTypes = inheritanceAptitudes;
-  const guaranteedFactorDemand: FactorDemand = Object.fromEntries(
-    targetInheritanceAllocations.map((item) => [item.type, item.stars]),
-  );
-  const probabilityRequiredRaises = useMemo(() => {
-    const raises: Partial<Record<FactorKey, number>> = {};
-    if (!target) return raises;
-    const guaranteedRanks = new Map(
-      inheritanceAllocation(
-        target,
-        inheritanceAptitudes,
-        inheritanceTargets,
-      ).map((item) => [item.type, item.target]),
-    );
-    probabilityTargetTypes.forEach((type) => {
-      const guaranteedRank =
-        guaranteedRanks.get(type) || target.aptitudes[type];
-      const probabilityTarget = Math.max(
-        guaranteedRank,
-        probabilityTargetRanks[type] || guaranteedRank,
-      );
-      raises[type] = Math.max(0, probabilityTarget - guaranteedRank);
-    });
-    return raises;
-  }, [
-    targetId,
-    inheritanceAptitudes.join('|'),
-    probabilityTargetTypes.join('|'),
-    JSON.stringify(inheritanceTargets),
-    JSON.stringify(probabilityTargetRanks),
   ]);
   const optimalCompleteDesign = useMemo(() => {
     if (!calculationReady || !validCompleteDesigns.length) {
@@ -8294,6 +8749,16 @@ function SuccessionPlanner({
     if (capturedReuseMode !== 'off') {
       setCalculationStage(3);
       setCalculationProgress(0);
+      if (hasActivePendingCapturedParent) {
+        capturedReusePairFilterRef.current = undefined;
+        window.setTimeout(() => {
+          if (calculationRunToken.current !== runToken) return;
+          setCalculationProgress(99);
+          setCalculationInputKey(requestedInputKey);
+          setCalculationRequestId((current) => current + 1);
+        }, 0);
+        return;
+      }
       const branchAcceptsCandidate = (
         candidate: CapturedTrainedUma,
         branch: BranchKey,
@@ -8690,6 +9155,67 @@ function SuccessionPlanner({
     }, 120);
   };
 
+  const updatePendingCapturedParent = (
+    branch: BranchKey,
+    umaId?: number,
+  ) => {
+    if (umaId && !umaById.has(umaId)) return;
+    const { parent, grandparents } = branchConfigs[branch];
+    calculationRunToken.current += 1;
+    pendingCapturedRecalculationRef.current = true;
+    setPendingCapturedParents((current) => {
+      const next = { ...current };
+      if (!umaId) {
+        delete next[branch];
+      } else {
+        next[branch] = { umaId };
+      }
+      return next;
+    });
+    if (umaId) {
+      setLineage((current) => {
+        const next = { ...current, [parent]: umaId };
+        grandparents.forEach((slot) => {
+          next[slot] = 0;
+        });
+        return next;
+      });
+      setSlotRouteOverrides((current) => {
+        const next = { ...current };
+        grandparents.forEach((slot) => delete next[slot]);
+        return next;
+      });
+      setTrainedUmaSettings((current) => {
+        const next = { ...current };
+        [parent, ...grandparents].forEach((slot) => delete next[slot]);
+        return next;
+      });
+      setFixedDressSlots((current) => {
+        const next = { ...current };
+        [parent, ...grandparents].forEach((slot) => delete next[slot]);
+        return next;
+      });
+    }
+    capturedReusePairFilterRef.current = undefined;
+    setCalculationInputKey('');
+    setCalculationRequestId(0);
+    setCompletedCalculation(undefined);
+    setCalculationResultPage(0);
+    setCalculationPairProgress({ current: 0, total: 0 });
+    setIsCalculating(false);
+    setCalculationProgress(0);
+    setCalculationStage(0);
+  };
+
+  useEffect(() => {
+    if (!pendingCapturedRecalculationRef.current || isCalculating || !target) {
+      return;
+    }
+    pendingCapturedRecalculationRef.current = false;
+    const timer = window.setTimeout(calculateOptimalDesign, 0);
+    return () => window.clearTimeout(timer);
+  }, [currentCalculationInputKey]);
+
   const updateLineage = (slot: LineageSlot, value: number) => {
     const changed = lineage[slot] !== value;
     setLineage((current) => ({ ...current, [slot]: value }));
@@ -8712,6 +9238,15 @@ function SuccessionPlanner({
       delete next[slot];
       return next;
     });
+    if (slot === 'father' || slot === 'mother') {
+      const branch: BranchKey = slot === 'father' ? 'paternal' : 'maternal';
+      setPendingCapturedParents((current) => {
+        if (!current[branch] || current[branch]?.umaId === value) return current;
+        const next = { ...current };
+        delete next[branch];
+        return next;
+      });
+    }
   };
 
   const clearLineageSetting = (slot: LineageSlot) => {
@@ -8742,6 +9277,20 @@ function SuccessionPlanner({
       clearedSlots.forEach((item) => delete next[item]);
       return next;
     });
+    const branch =
+      slot === 'father'
+        ? 'paternal'
+        : slot === 'mother'
+          ? 'maternal'
+          : undefined;
+    if (branch) {
+      setPendingCapturedParents((current) => {
+        if (!current[branch]) return current;
+        const next = { ...current };
+        delete next[branch];
+        return next;
+      });
+    }
   };
 
   const clearTrainedUmaFill = (slot: LineageSlot) => {
@@ -8867,6 +9416,14 @@ function SuccessionPlanner({
       [sourceSlot]: current[targetSlot],
       [targetSlot]: current[sourceSlot],
     }));
+    if (
+      sourceSlot === 'father' ||
+      sourceSlot === 'mother' ||
+      targetSlot === 'father' ||
+      targetSlot === 'mother'
+    ) {
+      setPendingCapturedParents({});
+    }
     clearLineageDragState();
   };
 
@@ -8909,6 +9466,15 @@ function SuccessionPlanner({
       });
       return next;
     });
+    if (slot === 'father' || slot === 'mother') {
+      const branch: BranchKey = slot === 'father' ? 'paternal' : 'maternal';
+      setPendingCapturedParents((current) => {
+        if (!current[branch]) return current;
+        const next = { ...current };
+        delete next[branch];
+        return next;
+      });
+    }
   };
 
   const updateSlotRoute = (slot: LineageSlot, routeId: string) => {
@@ -8972,6 +9538,7 @@ function SuccessionPlanner({
     setLineage({ ...INITIAL_LINEAGE });
     setSlotRouteOverrides({});
     setTrainedUmaSettings({});
+    setPendingCapturedParents({});
     setFixedDressSlots({});
     setInheritanceTargets({});
     setProbabilityTargetRanks({});
@@ -8990,6 +9557,7 @@ function SuccessionPlanner({
       return;
     }
     setTargetId(value);
+    setPendingCapturedParents({});
     setProbabilityTargetRanks({});
     setConfiguredProbabilityTargetTypes([]);
     const nextTarget = umaById.get(value);
@@ -9100,6 +9668,7 @@ function SuccessionPlanner({
     setExcludedUmaIds([]);
     setExcludedCapturedSelectionIds([]);
     setCapturedReuseMode('off');
+    setPendingCapturedParents({});
     setDisableCapturedRental(false);
     setCapturedBlueFactorMinimums({
       ...INITIAL_CAPTURED_BLUE_FACTOR_MINIMUMS,
@@ -9137,6 +9706,7 @@ function SuccessionPlanner({
     });
     setSlotRouteOverrides({});
     setTrainedUmaSettings({});
+    setPendingCapturedParents({});
     setFixedDressSlots({});
     setInheritanceAptitudes([...INITIAL_INHERITANCE_APTITUDES]);
     setAllowInRaceFactorJump(false);
@@ -9286,6 +9856,87 @@ function SuccessionPlanner({
     });
   };
 
+  const capturedMatchScore = (
+    candidate: CapturedTrainedUma,
+    position: CompleteDesignPosition,
+    design: CompleteFactorDesign,
+  ): CapturedMatchScore => {
+    const branch: BranchKey = position.code.startsWith('A')
+      ? 'paternal'
+      : 'maternal';
+    const { parent: parentSlot, grandparents } = branchConfigs[branch];
+    const parentCode = SLOT_CODES[parentSlot];
+    let compatibility = 0;
+    let g1Count = 0;
+
+    if (position.generation === 1) {
+      const coParentCode = branch === 'paternal' ? 'B' : 'A';
+      const coParentId =
+        design.positions.find((item) => item.code === coParentCode)?.uma?.id ||
+        0;
+      const parentRoute = routeSettingForSlot(
+        parentSlot,
+        candidate.umaId,
+      ).route;
+      compatibility =
+        relationScore(targetId, candidate.umaId) +
+        relationScore(candidate.umaId, coParentId);
+      candidate.parents.forEach((grandparent, index) => {
+        const grandparentRoute = routeSettingForSlot(
+          grandparents[index],
+          grandparent.umaId,
+        ).route;
+        const g1 = resolvedCommonG1(
+          candidate,
+          parentRoute,
+          grandparent,
+          grandparentRoute,
+        );
+        g1Count += g1.count;
+        compatibility +=
+          relationScore(targetId, candidate.umaId, grandparent.umaId) +
+          g1.count * G1_COMPATIBILITY_POINTS;
+      });
+    } else {
+      const parentPosition = design.positions.find(
+        (item) => item.code === parentCode,
+      );
+      const parentId = parentPosition?.uma?.id || 0;
+      const grandparentSlot = position.code.endsWith('A')
+        ? grandparents[0]
+        : grandparents[1];
+      const parentRoute = routeSettingForSlot(parentSlot, parentId).route;
+      const grandparentRoute = routeSettingForSlot(
+        grandparentSlot,
+        candidate.umaId,
+      ).route;
+      const parentMember = parentPosition?.winSaddleIds?.length
+        ? parentPosition
+        : trainedMemberForSlot(parentSlot, parentId);
+      const g1 = resolvedCommonG1(
+        parentMember,
+        parentRoute,
+        candidate,
+        grandparentRoute,
+      );
+      g1Count = g1.count;
+      compatibility =
+        relationScore(targetId, parentId, candidate.umaId) +
+        g1.count * G1_COMPATIBILITY_POINTS;
+    }
+
+    return {
+      compatibility,
+      g1Count,
+      probability: probabilityAtLeastOnce(
+        redFactorInheritanceProbability(
+          candidate.factor.stars,
+          compatibility,
+        ),
+      ),
+    };
+  };
+
   return (
     <section className="successionPlanner">
       <section className="successionPanel successionLineagePanel">
@@ -9336,6 +9987,18 @@ function SuccessionPlanner({
                       saveTrainedUmaSetting('father', setting)
                     }
                     onTrainedSettingClear={() => clearTrainedUmaFill('father')}
+                    allowPendingTraining={capturedReuseMode !== 'off'}
+                    pendingTraining={Boolean(
+                      activePendingCapturedParents.paternal,
+                    )}
+                    onPendingTrainingChange={() =>
+                      updatePendingCapturedParent(
+                        'paternal',
+                        activePendingCapturedParents.paternal
+                          ? undefined
+                          : lineage.father,
+                      )
+                    }
                     fixedDressCardId={fixedDressSlots.father}
                     onFixedDressChange={(cardId) =>
                       setFixedDressSlots((current) => ({
@@ -9488,6 +10151,18 @@ function SuccessionPlanner({
                       saveTrainedUmaSetting('mother', setting)
                     }
                     onTrainedSettingClear={() => clearTrainedUmaFill('mother')}
+                    allowPendingTraining={capturedReuseMode !== 'off'}
+                    pendingTraining={Boolean(
+                      activePendingCapturedParents.maternal,
+                    )}
+                    onPendingTrainingChange={() =>
+                      updatePendingCapturedParent(
+                        'maternal',
+                        activePendingCapturedParents.maternal
+                          ? undefined
+                          : lineage.mother,
+                      )
+                    }
                     fixedDressCardId={fixedDressSlots.mother}
                     onFixedDressChange={(cardId) =>
                       setFixedDressSlots((current) => ({
@@ -10005,6 +10680,7 @@ function SuccessionPlanner({
                     }
                     capturedUmas={capturedUmas}
                     showCapturedMatches={capturedReuseMode === 'off'}
+                    capturedMatchScore={capturedMatchScore}
                     onExcludeUma={toggleExcludedUma}
                     onExcludeCapturedUma={toggleExcludedCapturedUma}
                     key={

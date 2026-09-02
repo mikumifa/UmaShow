@@ -14,13 +14,28 @@ import {
   capturedUmaMatchesGeneratedCandidate,
   combinedSkillTargetProbability,
   compareCombinedProbabilityPriority,
+  comparePendingBranchGreedyPriority,
   detailedCommonG1Count,
+  isLegacyDefaultInheritanceAptitude,
   lineageSlotExcludedUmaIds,
   mergeScannedSuccessionPlayers,
   normalizeSuccessionIndex,
+  pendingCapturedParentPairOrientations,
+  pendingCapturedParentPairValid,
   probabilityAtLeastOnce,
+  selectGreedyPendingBranchCandidate,
   winSaddleCompatibilityBonus,
 } from './SuccessionPlanner';
+
+describe('legacy inheritance aptitude defaults', () => {
+  test('removes the old dirt and mile defaults only before migration', () => {
+    expect(isLegacyDefaultInheritanceAptitude('dirt', false)).toBe(true);
+    expect(isLegacyDefaultInheritanceAptitude('mile', false)).toBe(true);
+    expect(isLegacyDefaultInheritanceAptitude('middle', false)).toBe(false);
+    expect(isLegacyDefaultInheritanceAptitude('dirt', true)).toBe(false);
+    expect(isLegacyDefaultInheritanceAptitude('mile', true)).toBe(false);
+  });
+});
 
 describe('compareCombinedProbabilityPriority', () => {
   test('includes configured skills in the comprehensive probability', () => {
@@ -94,6 +109,12 @@ describe('capturedReuseCombinationValid', () => {
     ).toBe(true);
     expect(
       capturedReuseCombinationValid(
+        branch(1001, 'planned', ['own:shared'], ['own'], [1001, 1002, 1003]),
+        branch(1004, 'own', ['own:shared'], ['own'], [1004, 1005, 1006]),
+      ),
+    ).toBe(true);
+    expect(
+      capturedReuseCombinationValid(
         branch(1001, 'own', ['own:0:1'], ['own'], [1001, 1002, 1003]),
         branch(1004, 'rental', ['rental:9:2'], ['rental'], [1004, 1002, 1006]),
       ),
@@ -104,6 +125,49 @@ describe('capturedReuseCombinationValid', () => {
         branch(1001, 'rental', ['rental:9:2'], ['rental'], [1001, 1004, 1005]),
       ),
     ).toBe(false);
+  });
+});
+
+describe('pending parent greedy traversal', () => {
+  const priority = (
+    combinedProbability: number,
+    orderKey: string,
+    overrides: Partial<{
+      skillProbabilities: number[];
+      blueMinimumProgress: number;
+      compatibility: number;
+    }> = {},
+  ) => ({
+    combinedProbability,
+    skillProbabilities: overrides.skillProbabilities || [],
+    blueMinimumProgress: overrides.blueMinimumProgress || 0,
+    compatibility: overrides.compatibility || 0,
+    orderKey,
+  });
+
+  test('keeps only the best grandparent pair after comparing all pairs', () => {
+    const candidates = [
+      { value: 'first', priority: priority(0.2, 'first') },
+      { value: 'best', priority: priority(0.8, 'best') },
+      { value: 'last', priority: priority(0.5, 'last') },
+    ];
+
+    expect(selectGreedyPendingBranchCandidate(candidates)).toBe('best');
+  });
+
+  test('uses configured constraints and a stable key to break probability ties', () => {
+    expect(
+      comparePendingBranchGreedyPriority(
+        priority(0.5, 'later', { blueMinimumProgress: 3 }),
+        priority(0.5, 'earlier', { blueMinimumProgress: 2 }),
+      ),
+    ).toBe(1);
+    expect(
+      selectGreedyPendingBranchCandidate([
+        { value: 'later', priority: priority(0.5, 'later') },
+        { value: 'earlier', priority: priority(0.5, 'earlier') },
+      ]),
+    ).toBe('earlier');
   });
 });
 
@@ -161,6 +225,73 @@ describe('capturedReusePairPolicy', () => {
       includeMaternalRentals: false,
       canonicalizeOwnPair: false,
     });
+  });
+});
+
+describe('pendingCapturedParentPairValid', () => {
+  const record = (
+    selectionId: string,
+    umaId: number,
+    source: 'own' | 'rental',
+  ) => ({ selectionId, umaId, source });
+
+  test('requires at least one owned existing parent', () => {
+    expect(
+      pendingCapturedParentPairValid(
+        record('own:1', 1001, 'own'),
+        record('rental:2', 1002, 'rental'),
+        1000,
+      ),
+    ).toBe(true);
+    expect(
+      pendingCapturedParentPairValid(
+        record('rental:1', 1001, 'rental'),
+        record('rental:2', 1002, 'rental'),
+        1000,
+      ),
+    ).toBe(false);
+  });
+
+  test('rejects repeated records, characters, and the planned character', () => {
+    expect(
+      pendingCapturedParentPairValid(
+        record('own:1', 1001, 'own'),
+        record('own:1', 1002, 'own'),
+        1000,
+      ),
+    ).toBe(false);
+    expect(
+      pendingCapturedParentPairValid(
+        record('own:1', 1001, 'own'),
+        record('own:2', 1001, 'own'),
+        1000,
+      ),
+    ).toBe(false);
+    expect(
+      pendingCapturedParentPairValid(
+        record('own:1', 1000, 'own'),
+        record('own:2', 1002, 'own'),
+        1000,
+      ),
+    ).toBe(false);
+  });
+
+  test('deduplicates reverse order only for equivalent parent slots', () => {
+    const first = record('own:2', 1002, 'own');
+    const second = record('own:1', 1001, 'own');
+    expect(
+      pendingCapturedParentPairOrientations(first, second, true).map((pair) =>
+        pair.map((item) => item.selectionId),
+      ),
+    ).toEqual([['own:1', 'own:2']]);
+    expect(
+      pendingCapturedParentPairOrientations(first, second, false).map((pair) =>
+        pair.map((item) => item.selectionId),
+      ),
+    ).toEqual([
+      ['own:2', 'own:1'],
+      ['own:1', 'own:2'],
+    ]);
   });
 });
 
@@ -347,7 +478,7 @@ describe('captured candidate matching', () => {
     cumulativeDemand: { turf: 2, dirt: 3 },
   } as any;
 
-  test('matches the character, self factor, direct parents, and all six lineage factors', () => {
+  test('matches the character, self factor type, and direct parents', () => {
     expect(capturedUmaMatchesGeneratedCandidate(candidate, position)).toBe(
       true,
     );
@@ -362,10 +493,16 @@ describe('captured candidate matching', () => {
         { ...candidate, factor: { type: 'mile', stars: 1 } },
         position,
       ),
+    ).toBe(true);
+    expect(
+      capturedUmaMatchesGeneratedCandidate(
+        { ...candidate, factor: { type: 'short', stars: 3 } },
+        position,
+      ),
     ).toBe(false);
   });
 
-  test('requires minimum demand from direct parents and combined demand from the lineage', () => {
+  test('requires minimum demand from direct parents', () => {
     expect(
       capturedUmaMatchesGeneratedCandidate(
         {
@@ -378,6 +515,9 @@ describe('captured candidate matching', () => {
         position,
       ),
     ).toBe(false);
+  });
+
+  test('ignores cumulative demand from the full six-factor lineage', () => {
     expect(
       capturedUmaMatchesGeneratedCandidate(
         {
@@ -388,7 +528,7 @@ describe('captured candidate matching', () => {
         },
         position,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   test('does not constrain the self red factor for a free slot', () => {

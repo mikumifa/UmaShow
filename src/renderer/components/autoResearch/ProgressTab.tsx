@@ -6,6 +6,7 @@ import {
   Gem,
   RefreshCw,
   Trash2,
+  Trophy,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -39,6 +40,22 @@ type ProgressTabProps = {
   abandonCareer: () => Promise<void>;
 };
 
+function visibleRunnerLog(runner?: Runner) {
+  const visibleRows = (runner?.log || []).filter(
+    (row) => !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action),
+  );
+
+  return visibleRows.filter((row, index) => {
+    if (row.action !== 'skills' || index === 0) return true;
+    const previous = visibleRows[index - 1];
+    return !(
+      previous.action === row.action &&
+      previous.turn === row.turn &&
+      previous.detail === row.detail
+    );
+  });
+}
+
 export default function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
@@ -56,6 +73,10 @@ export default function ProgressTab({
   abandonCareer,
 }: ProgressTabProps) {
   const liveActivity = runner?.live_activity;
+  const runnerLog = visibleRunnerLog(runner);
+  const runnerG123RaceCount = Object.values(
+    runner?.g123_race_counts || {},
+  ).reduce((sum, count) => sum + Number(count || 0), 0);
   const queuedControl = Boolean(
     runner?.control?.desired_state === 'running' &&
       !runner?.running &&
@@ -275,6 +296,11 @@ export default function ProgressTab({
           </div>
           <div className="flex items-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
+              <Trophy size={14} className="text-amber-500" />
+              比赛大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount}{' '}
+              场
+            </span>
+            <span className="flex items-center gap-1.5">
               <Gem size={14} className="text-violet-500" />
               本局 {runner?.jewel_drop_count || 0} 次 /{' '}
               {runner?.jewels_earned || 0} 个
@@ -286,8 +312,7 @@ export default function ProgressTab({
           </div>
         </div>
         <div className="max-h-[560px] cursor-text select-text overflow-auto">
-          {(runner?.log || [])
-            .filter((row) => !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action))
+          {runnerLog
             .slice()
             .reverse()
             .map((row) => (
@@ -306,9 +331,7 @@ export default function ProgressTab({
                 </span>
               </div>
             ))}
-          {!(runner?.log || []).some(
-            (row) => !HIDDEN_RUNNER_LOG_ACTIONS.has(row.action),
-          ) ? (
+          {!runnerLog.length ? (
             <p className="p-10 text-center text-sm text-slate-400">
               暂无流程记录
             </p>

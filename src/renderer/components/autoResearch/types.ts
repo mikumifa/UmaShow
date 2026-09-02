@@ -262,7 +262,147 @@ export type Dashboard = {
   friend_exclude_ids: number[];
 };
 
-export type AutoResearchTab = 'accounts' | 'presets' | 'career' | 'history';
+export type AutoResearchTab =
+  | 'accounts'
+  | 'presets'
+  | 'career'
+  | 'daily'
+  | 'history';
+
+export type DailyTaskResult = {
+  status: string;
+  detail: string;
+  finished_at?: string;
+  count?: number;
+  donated?: number;
+  requested?: boolean;
+};
+
+export type DailyTasksConfig = {
+  schema_version?: number;
+  enabled: boolean;
+  run_time: string;
+  daily_race: {
+    enabled: boolean;
+    daily_race_id: number;
+    trained_chara_id: number;
+    running_style: number;
+  };
+  daily_legend_race: {
+    enabled: boolean;
+    daily_legend_race_id: number;
+    trained_chara_id: number;
+    running_style: number;
+  };
+  team_stadium: {
+    enabled: boolean;
+    opponent_strength: number;
+  };
+  limited_shop: {
+    enabled: boolean;
+    buy_all: true;
+  };
+  circle: {
+    donate_enabled: boolean;
+    donate_item_ids: number[];
+    keep_item_count: number;
+    request_enabled: boolean;
+    request_item_id: number;
+  };
+  status?: string;
+  last_run_date?: string;
+  last_started_at?: string;
+  last_finished_at?: string;
+  last_error?: string;
+  task_results?: Record<string, DailyTaskResult>;
+  updated_at?: string;
+};
+
+export type DailyTasksOptions = {
+  availability: {
+    daily_race: {
+      available: boolean;
+      can_run_now: boolean;
+      ticket_count: number;
+      reason: string;
+    };
+    daily_legend_race: {
+      available: boolean;
+      can_run_now: boolean;
+      ticket_count: number;
+      reason: string;
+    };
+    team_stadium: {
+      available: boolean;
+      can_run_now: boolean;
+      current_rp: number;
+      term_open: boolean;
+      reason: string;
+    };
+    circle: {
+      available: boolean;
+      can_run_now: boolean;
+      reason: string;
+    };
+  };
+  daily_races: Array<{
+    id: number;
+    group_id: number;
+    difficulty: number;
+    name: string;
+    distance: number;
+    distance_type: 'short' | 'mile' | 'middle' | 'long';
+    ground: number;
+    ground_name: string;
+    race_track_id: number;
+  }>;
+  daily_legend_races: Array<{
+    id: number;
+    card_id: number;
+    difficulty: number;
+    name: string;
+    distance: number;
+    distance_type: 'short' | 'mile' | 'middle' | 'long';
+    ground: number;
+    ground_name: string;
+    race_track_id: number;
+  }>;
+  trained_charas: Array<{
+    trained_chara_id: number;
+    card_id: number;
+    name: string;
+    rank_score: number;
+    running_style: number;
+    rarity: number;
+    race_cloth_id: number;
+    speed: number;
+    stamina: number;
+    power: number;
+    guts: number;
+    wit: number;
+    proper_distance_short: number;
+    proper_distance_mile: number;
+    proper_distance_middle: number;
+    proper_distance_long: number;
+    proper_running_style_nige: number;
+    proper_running_style_senko: number;
+    proper_running_style_sashi: number;
+    proper_running_style_oikomi: number;
+    proper_ground_turf: number;
+    proper_ground_dirt: number;
+  }>;
+  request_items: Array<{
+    id: number;
+    name: string;
+    owned: number;
+  }>;
+};
+
+export type DailyTasksResponse = {
+  success: boolean;
+  daily_tasks: DailyTasksConfig;
+  options: Partial<DailyTasksOptions>;
+};
 
 export type CareerSessionAttributes = {
   speed: number;
@@ -327,6 +467,7 @@ export type CareerSetting = {
   id: string;
   name: string;
   account_uid: string;
+  mode?: 'online' | 'offline';
   preset_name: string;
   card_id: number;
   deck_id: number;
@@ -342,6 +483,9 @@ export type CareerSetting = {
   burn_clocks: boolean;
   recover_tp_with_item: boolean;
   recover_tp_with_jewels: boolean;
+  offline_training_challenge_mode?: boolean;
+  offline_race_deck_num?: number;
+  offline_race_deck_name?: string;
   updated_at: string;
 };
 
@@ -357,12 +501,38 @@ export type PendingRun =
   | { type: 'current' }
   | { type: 'saved'; settingId: string };
 
+export type OfflineSingleModeRace = {
+  year: number;
+  program_id: number;
+};
+
+export type OfflineSingleModeRaceDeck = {
+  deck_num: number;
+  deck_name: string;
+  race_array: OfflineSingleModeRace[];
+};
+
+export type OfflineSingleModeSetup = {
+  scenario_id: number;
+  training_challenge: {
+    available: boolean;
+    id: number;
+    start_time: number;
+    end_time: number;
+  };
+  required_race_array: OfflineSingleModeRace[];
+  default_deck_num: number;
+  needs_default_confirm: boolean;
+  race_decks: OfflineSingleModeRaceDeck[];
+};
+
 export type SessionResponse = {
   success: boolean;
   dashboard?: Dashboard;
   runtime?: Partial<Account['runtime']>;
   runner?: Runner;
   relogged_in?: boolean;
+  offline_setup?: OfflineSingleModeSetup;
 };
 
 export type AccountOptionsResponse = {

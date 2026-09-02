@@ -262,6 +262,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.successionMatchingCapturedDialog .successionCapturedPickerCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.successionMatchingCapturedDialog .successionCapturedPickerParents {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.successionMatchingCapturedDialog .successionCapturedPickerParents > section {
+  width: 100%;
+  height: 100%;
+}
+
 .successionCapturedPickerGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
@@ -426,6 +442,34 @@
 
 .successionCapturedMatchFactorRow .successionCapturedMemberDetails {
   min-width: 0;
+}
+
+.successionCapturedMatchProbability {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 1px;
+  padding: 4px 7px;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.successionCapturedMatchProbability small {
+  color: #64748b;
+  font-size: 9px;
+}
+
+.successionCapturedMatchProbability strong {
+  font-size: 13px;
+}
+
+.successionCapturedMatchProbability em {
+  color: #15803d;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .successionCapturedMatchFactorRow .successionCandidateCopyViewerId {
@@ -906,6 +950,14 @@
   .successionUseCapturedUma {
   color: var(--uma-accent);
   font-weight: 800;
+}
+
+.successionUmaSelectTitle
+  .successionUmaSelectActions
+  .successionPendingTrainingSwitch {
+  color: #b45309;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .successionUmaSelectTitle
