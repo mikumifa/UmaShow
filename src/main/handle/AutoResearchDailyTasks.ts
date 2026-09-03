@@ -66,7 +66,8 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
   return (data.trained_chara || [])
     .map((row: Record<string, any>) => {
       const cardId = numberValue(row.card_id);
-      const name = (nameQuery.get(cardId) as { name?: string } | undefined)?.name;
+      const name = (nameQuery.get(cardId) as { name?: string } | undefined)
+        ?.name;
       return {
         trained_chara_id: numberValue(row.trained_chara_id),
         card_id: cardId,
@@ -87,7 +88,9 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
         proper_running_style_nige: numberValue(row.proper_running_style_nige),
         proper_running_style_senko: numberValue(row.proper_running_style_senko),
         proper_running_style_sashi: numberValue(row.proper_running_style_sashi),
-        proper_running_style_oikomi: numberValue(row.proper_running_style_oikomi),
+        proper_running_style_oikomi: numberValue(
+          row.proper_running_style_oikomi,
+        ),
         proper_ground_turf: numberValue(row.proper_ground_turf),
         proper_ground_dirt: numberValue(row.proper_ground_dirt),
       };
@@ -112,7 +115,8 @@ function buildOptions(data: Record<string, any>) {
       ]),
     );
     const dailyRaces = database
-      .prepare(`
+      .prepare(
+        `
         SELECT daily.id, daily.group_id, daily.difficulty,
                course.distance, course.ground, course.race_track_id
         FROM daily_race AS daily
@@ -120,7 +124,8 @@ function buildOptions(data: Record<string, any>) {
         JOIN race AS race_master ON race_master.id = instance.race_id
         JOIN race_course_set AS course ON course.id = race_master.course_set
         ORDER BY daily.group_id, daily.difficulty
-      `)
+      `,
+      )
       .all()
       .map((row: any) => ({
         ...row,
@@ -134,7 +139,8 @@ function buildOptions(data: Record<string, any>) {
               : `日常赛事组 ${row.group_id}`,
       }));
     const legendRaces = database
-      .prepare(`
+      .prepare(
+        `
         SELECT daily.id, daily.image_id AS card_id,
                daily.pick_up_item_id_1 AS piece_id, daily.difficulty,
                course.distance, course.ground, course.race_track_id,
@@ -147,7 +153,8 @@ function buildOptions(data: Record<string, any>) {
         LEFT JOIN text_data AS text
           ON text."index" = card.chara_id AND text.category = 14
         ORDER BY daily.id
-      `)
+      `,
+      )
       .all()
       .map((row: any) => ({
         ...row,
@@ -279,7 +286,10 @@ async function run(id: string, config: DailyConfig) {
           (item: Record<string, any>) => numberValue(item.exchange_count) <= 0,
         );
         if (!numberValue(info.open_flag) || !goods.length) {
-          return { status: 'skipped', detail: `${source}后没有可购买的限时商店` };
+          return {
+            status: 'skipped',
+            detail: `${source}后没有可购买的限时商店`,
+          };
         }
         const database = new Database(masterDatabasePath(), {
           readonly: true,
@@ -319,7 +329,8 @@ async function run(id: string, config: DailyConfig) {
           }
           const serverTime = numberValue(shown.data_headers?.servertime);
           const listTime = new Date(
-            (serverTime > 0 ? serverTime * 1000 : Date.now()) + 8 * 60 * 60 * 1000,
+            (serverTime > 0 ? serverTime * 1000 : Date.now()) +
+              8 * 60 * 60 * 1000,
           )
             .toISOString()
             .replace('T', ' ')
@@ -355,13 +366,16 @@ async function run(id: string, config: DailyConfig) {
         const raceId = numberValue(config.daily_race.daily_race_id);
         const trainedId = numberValue(config.daily_race.trained_chara_id);
         const horse = horses.get(trainedId);
-        if (!raceId || !horse) throw new Error('请选择有效的每日竞赛和参赛马娘');
+        if (!raceId || !horse)
+          throw new Error('请选择有效的每日竞赛和参赛马娘');
         const index = await client.call('daily_race/index');
         const record = (index.data?.daily_race_record_array || []).find(
-          (row: Record<string, any>) => numberValue(row.daily_race_id) === raceId,
+          (row: Record<string, any>) =>
+            numberValue(row.daily_race_id) === raceId,
         );
         if (!record) throw new Error('所选每日竞赛当前不可用');
-        if (!numberValue(record.is_cleared)) throw new Error('所选每日竞赛尚未通关');
+        if (!numberValue(record.is_cleared))
+          throw new Error('所选每日竞赛尚未通关');
         const count = items.get(DAILY_RACE_TICKET) || 0;
         if (!count) return { status: 'skipped', detail: '每日竞赛入场券为 0' };
         const response = await client.call('daily_race_skip/race_skip', {
@@ -374,20 +388,31 @@ async function run(id: string, config: DailyConfig) {
             Math.max(1, numberValue(horse.running_style, 1)),
         });
         updateItems(items, response.data?.item_info_array);
-        return { status: 'completed', detail: `已使用 ${count} 张入场券`, count };
+        return {
+          status: 'completed',
+          detail: `已使用 ${count} 张入场券`,
+          count,
+        };
       });
       if (result.status === 'completed') await runShop('每日竞赛');
     }
 
     if (config.daily_legend_race?.enabled) {
       const result = await execute('daily_legend_race', async () => {
-        const raceId = numberValue(config.daily_legend_race.daily_legend_race_id);
-        const trainedId = numberValue(config.daily_legend_race.trained_chara_id);
+        const raceId = numberValue(
+          config.daily_legend_race.daily_legend_race_id,
+        );
+        const trainedId = numberValue(
+          config.daily_legend_race.trained_chara_id,
+        );
         const horse = horses.get(trainedId);
-        if (!raceId || !horse) throw new Error('请选择有效的每日传奇赛事和参赛马娘');
+        if (!raceId || !horse)
+          throw new Error('请选择有效的每日传奇赛事和参赛马娘');
         const index = await client.call('daily_legend_race/index');
         updateItems(items, index.data?.update_item_array);
-        const available = (index.data?.daily_legend_race_record_array || []).some(
+        const available = (
+          index.data?.daily_legend_race_record_array || []
+        ).some(
           (row: Record<string, any>) =>
             numberValue(row.daily_legend_race_id) === raceId,
         );
