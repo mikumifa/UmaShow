@@ -374,9 +374,6 @@ export default function DailyTasksTab({
             />
           </div>
         </div>
-        <div className="mt-4 rounded-lg bg-indigo-50 px-4 py-3 text-sm leading-6 text-indigo-800">
-          “单次完成日常”始终由本机执行。服务器不会单独维护日常计划，也不会按时间自行启动日常。
-        </div>
       </section>
 
       <section className={panelClass('p-5')}>

@@ -3,11 +3,6 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { app, IpcMain } from 'electron';
 
-const SHARED_SETTING_KEYS = new Set([
-  'autoResearch.presets',
-  'autoResearch.careerSettings',
-]);
-
 let settingsDatabase: Database.Database | null = null;
 
 function database() {
@@ -27,12 +22,6 @@ function database() {
     )
   `);
   return settingsDatabase;
-}
-
-function validateKey(key: unknown): asserts key is string {
-  if (typeof key !== 'string' || !SHARED_SETTING_KEYS.has(key)) {
-    throw new Error('不支持的自动育成界面设置');
-  }
 }
 
 function readValue(key: string) {
@@ -95,7 +84,10 @@ export default function handleAutoResearchUiSettings(ipcMain: IpcMain) {
     'autoresearch:ui-setting-get',
     (event, key: unknown, legacy: unknown, source: unknown) => {
       try {
-        validateKey(key);
+        if (typeof key !== 'string' || !key.trim()) {
+          event.returnValue = typeof legacy === 'string' ? legacy : null;
+          return;
+        }
         event.returnValue = readAndMigrate(key, legacy, source);
       } catch (error) {
         console.error('Failed to read shared auto research setting:', error);
@@ -107,7 +99,10 @@ export default function handleAutoResearchUiSettings(ipcMain: IpcMain) {
     'autoresearch:ui-setting-set',
     (event, key: unknown, value: unknown) => {
       try {
-        validateKey(key);
+        if (typeof key !== 'string' || !key.trim()) {
+          event.returnValue = false;
+          return;
+        }
         if (typeof value !== 'string') throw new Error('设置内容格式无效');
         writeValue(key, value);
         event.returnValue = true;

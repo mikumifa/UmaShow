@@ -254,6 +254,7 @@ const runtimeSessionOwner = (
     Pick<Account['runtime'], 'session_owner' | 'logged_in' | 'runner'>
   >,
 ) => {
+  if (runtime?.session_owner === 'server') return 'server' as const;
   if (runnerUsesServerSession(runtime?.runner)) return 'server' as const;
   if (runtime?.session_owner === 'local') return 'local' as const;
   return 'none' as const;
@@ -619,6 +620,7 @@ export default function AutoResearch() {
   const localDailySessionState = selectedAccountId
     ? localDailySessionStates[selectedAccountId] || 'unknown'
     : 'unknown';
+  const dailyLocalLoginMode = activeTab === 'daily' && !serverHostedMode;
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
@@ -1442,10 +1444,6 @@ export default function AutoResearch() {
           const credential = (await window.electron.autoResearch.credential(
             accountId,
           )) as { uid: string; accessKey: string };
-          const localSession =
-            (await window.electron.autoResearch.currentSession(
-              accountId,
-            )) as Record<string, string> | null;
           return request<AuthResponse>('/api/auth/login', {
             method: 'POST',
             signal: attachController.signal,
@@ -1453,7 +1451,6 @@ export default function AutoResearch() {
               uid: credential.uid,
               access_key: credential.accessKey,
               reuse_only: true,
-              session: localSession,
             }),
           });
         })();
@@ -1462,7 +1459,9 @@ export default function AutoResearch() {
           attachTimeoutPromise,
         ]);
         const attachedRunner = attached.runtime?.runner || attached.runner;
-        const hasCurrentCareer = runnerUsesServerSession(attachedRunner);
+        const hasCurrentCareer =
+          attached.runtime?.session_owner === 'server' ||
+          runnerUsesServerSession(attachedRunner);
         if (!hasCurrentCareer) {
           await request('/api/auth/logout', {
             method: 'POST',
@@ -1928,6 +1927,19 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (
+      !server ||
+      !selectedAccountId ||
+      sessionTokens.current.has(selectedAccountId)
+    ) {
+      return;
+    }
+    attachExistingRuntime(selectedAccountId).catch((caught) =>
+      setError((caught as Error).message),
+    );
+  }, [attachExistingRuntime, selectedAccountId, server]);
+
+  useEffect(() => {
+    if (
       dashboard?.account.career?.active &&
       error === '已有进行中的育成，不能重复开始'
     ) {
@@ -2050,7 +2062,6 @@ export default function AutoResearch() {
     if (!token || !server) return undefined;
     const accountId = selectedAccountId;
     let cancelled = false;
-    let completionRequested = false;
     let retryDelay = 1000;
     let controller: AbortController | null = null;
     const handleStreamLine = (line: string) => {
@@ -2070,13 +2081,6 @@ export default function AutoResearch() {
           event.account,
           event.session_owner || 'server',
         );
-        const stillActive = runnerUsesServerSession(event.runner);
-        if (!stillActive && !completionRequested) {
-          completionRequested = true;
-          cancelled = true;
-          controller?.abort();
-          loadOverview(accountId).catch(() => undefined);
-        }
       } catch {
         // Ignore an incomplete or malformed stream record and keep reading.
       }
@@ -2123,13 +2127,7 @@ export default function AutoResearch() {
       cancelled = true;
       controller?.abort();
     };
-  }, [
-    automationActive,
-    commitRunnerStream,
-    loadOverview,
-    selectedAccountId,
-    server,
-  ]);
+  }, [automationActive, commitRunnerStream, selectedAccountId, server]);
 
   useEffect(() => {
     if (!stoppingAccountId) return;
@@ -2450,7 +2448,57 @@ export default function AutoResearch() {
       if (action === 'login') {
         const attached = await attachExistingRuntime(accountId, true);
         if (attached) return;
-        result = await authenticateWithConfirmation();
+        if (sessionTokens.current.has(accountId)) {
+          try {
+            const attachedOverview = await accountRequest<SessionResponse>(
+              accountId,
+              '/api/account/overview',
+            );
+            if (runtimeSessionOwner(attachedOverview.runtime) === 'server') {
+              commitOverviewResponse(accountId, attachedOverview);
+              return;
+            }
+          } catch (caught) {
+            if (
+              caught instanceof AutoResearchRequestError &&
+              caught.status === 401
+            ) {
+              sessionTokens.current.delete(accountId);
+            } else {
+              throw caught;
+            }
+          }
+        }
+        try {
+          result = await authenticateWithConfirmation();
+        } catch (caught) {
+          const detail = String((caught as Error)?.message || '');
+          if (detail.includes('服务器托管模式')) {
+            if (sessionTokens.current.has(accountId)) {
+              try {
+                const hostedOverview = await accountRequest<SessionResponse>(
+                  accountId,
+                  '/api/account/overview',
+                );
+                if (runtimeSessionOwner(hostedOverview.runtime) === 'server') {
+                  commitOverviewResponse(accountId, hostedOverview);
+                  return;
+                }
+              } catch (overviewError) {
+                if (
+                  overviewError instanceof AutoResearchRequestError &&
+                  overviewError.status === 401
+                ) {
+                  sessionTokens.current.delete(accountId);
+                } else {
+                  throw overviewError;
+                }
+              }
+            }
+            if (await attachExistingRuntime(accountId, true)) return;
+          }
+          throw caught;
+        }
       } else if (action === 'refresh') {
         let relogged = false;
         const actionAccount = accounts.find(
@@ -2960,16 +3008,12 @@ export default function AutoResearch() {
     setBusy('run');
     setError('');
     try {
-      const localSession = (await window.electron.autoResearch.currentSession(
-        selectedAccountId,
-      )) as Record<string, string> | null;
       const result = await accountRequest<SessionResponse>(
         selectedAccountId,
         '/api/account/career/run',
         {
           method: 'POST',
           body: JSON.stringify({
-            session: localSession || undefined,
             card_id: effectiveCardId,
             support_card_ids: effectiveSupportCardIds,
             friend_viewer_id: 0,
@@ -3041,16 +3085,12 @@ export default function AutoResearch() {
     setBusy(busyKey);
     setError('');
     try {
-      const localSession = (await window.electron.autoResearch.currentSession(
-        selectedAccountId,
-      )) as Record<string, string> | null;
       const result = await accountRequest<SessionResponse>(
         selectedAccountId,
         '/api/account/career/run',
         {
           method: 'POST',
           body: JSON.stringify({
-            session: localSession || undefined,
             card_id: setting.card_id,
             support_card_ids: resumeSupportCardIds,
             friend_viewer_id: 0,
@@ -4006,9 +4046,6 @@ export default function AutoResearch() {
     setBusy('idle-start');
     setError('');
     try {
-      const localSession = (await window.electron.autoResearch.currentSession(
-        accountId,
-      )) as Record<string, string> | null;
       const result = await accountRequest<SessionResponse>(
         accountId,
         '/api/account/idle-single-mode/start',
@@ -4016,7 +4053,6 @@ export default function AutoResearch() {
           method: 'POST',
           body: JSON.stringify({
             ...offlineSelectionRequest(),
-            session: localSession || undefined,
             running_style: 0,
             training_challenge_mode: offlineChallengeMode,
             run_mode: mode,
@@ -5332,38 +5368,50 @@ export default function AutoResearch() {
             <p className="mt-1 text-sm text-slate-500">
               {server
                 ? `${server} · 游戏版本 ${health?.app_ver} · 当前服务器允许运行上限 ${health?.max_accounts}`
-                : '本地预设编辑'}
+                : activeTab === 'daily'
+                  ? 'UmaShow 本地每日日常'
+                  : '本地预设编辑'}
             </p>
-            {server && selectedAccount ? (
+            {(server || activeTab === 'daily') && selectedAccount ? (
               <span
                 className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                   serverHostedMode
                     ? 'bg-violet-100 text-violet-700'
-                    : localSessionMode
+                    : localSessionMode || localDailySessionState === 'ready'
                       ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-slate-100 text-slate-500'
                 }`}
               >
                 {serverHostedMode
                   ? '服务器托管模式 · 本地游戏 API 已禁用'
-                  : localSessionMode
+                  : localSessionMode || localDailySessionState === 'ready'
                     ? '本地模式 · 可登录、刷新和配置'
                     : '未登录游戏 · 等待本地登录'}
               </span>
             ) : null}
           </div>
-          {server ? (
+          {server || activeTab === 'daily' ? (
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={refreshCurrentAccount}
+                onClick={() => {
+                  if (dailyLocalLoginMode && selectedAccountId) {
+                    loginDailyTasksLocally(selectedAccountId).catch(
+                      () => undefined,
+                    );
+                    return;
+                  }
+                  refreshCurrentAccount();
+                }}
                 disabled={
                   !selectedAccountId ||
                   Boolean(disconnectingAccountId) ||
-                  Boolean(
-                    loggedInAccountId &&
-                      loggedInAccountId !== selectedAccountId,
-                  ) ||
+                  Boolean(checkingExistingRuntimeAccountId) ||
+                  (!dailyLocalLoginMode &&
+                    Boolean(
+                      loggedInAccountId &&
+                        loggedInAccountId !== selectedAccountId,
+                    )) ||
                   busy === `refresh-${selectedAccountId}` ||
                   busy === `login-${selectedAccountId}`
                 }
@@ -5379,21 +5427,27 @@ export default function AutoResearch() {
                     : '重新登录中…'
                   : busy === `login-${selectedAccountId}`
                     ? '登录中…'
-                    : serverHostedMode
-                      ? '刷新服务器状态'
-                      : localSessionMode
+                    : dailyLocalLoginMode
+                      ? localDailySessionState === 'ready'
                         ? '重新登录'
-                        : '登录本地模式'}
+                        : '登录并读取最新数据'
+                      : serverHostedMode
+                        ? '刷新服务器状态'
+                        : localSessionMode
+                          ? '重新登录'
+                          : '登录本地模式'}
               </button>
-              <button
-                type="button"
-                onClick={() => exitAutoResearchLogin().catch(() => undefined)}
-                disabled={Boolean(loginProgress || disconnectingAccountId)}
-                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <LogOut className="mr-1 inline" size={15} />
-                退出登录
-              </button>
+              {!dailyLocalLoginMode ? (
+                <button
+                  type="button"
+                  onClick={() => exitAutoResearchLogin().catch(() => undefined)}
+                  disabled={Boolean(loginProgress || disconnectingAccountId)}
+                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <LogOut className="mr-1 inline" size={15} />
+                  退出登录
+                </button>
+              ) : null}
             </div>
           ) : (
             <button
@@ -5791,7 +5845,7 @@ export default function AutoResearch() {
                       ? '正在连接账号'
                       : '登录并读取本账号的最新育成数据'}
                 </h2>
-                {activeTab !== 'daily' &&
+                {activeTab === 'daily' ||
                 missingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
                     <AlertTriangle size={18} className="mt-0.5 flex-none" />
@@ -5826,7 +5880,7 @@ export default function AutoResearch() {
                       : loginProgress
                         ? '请等待其他账号登录完成'
                         : activeTab === 'daily'
-                          ? '登录'
+                          ? '登录并读取最新数据'
                           : checkingExistingRuntimeAccountId ===
                               selectedAccount?.id
                             ? '正在连接账号'
