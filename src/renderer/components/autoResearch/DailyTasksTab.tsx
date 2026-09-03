@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CalendarCheck,
   ChevronsUpDown,
@@ -53,6 +53,16 @@ const emptyConfig = (): DailyTasksConfig => ({
   team_stadium: { enabled: false, opponent_strength: 3 },
   limited_shop: { enabled: false, buy_all: true },
 });
+
+const editableConfigKey = (config: DailyTasksConfig) =>
+  JSON.stringify({
+    schema_version: config.schema_version,
+    run_with_career: config.run_with_career,
+    daily_race: config.daily_race,
+    daily_legend_race: config.daily_legend_race,
+    team_stadium: config.team_stadium,
+    limited_shop: config.limited_shop,
+  });
 
 const toggleClass = (enabled: boolean) =>
   `relative h-6 w-11 rounded-full transition-colors ${
@@ -229,14 +239,22 @@ export default function DailyTasksTab({
   onRun,
 }: Props) {
   const [draft, setDraft] = useState<DailyTasksConfig>(emptyConfig);
+  const syncedConfigKey = useRef('');
   const [horsePicker, setHorsePicker] = useState<
     'daily_race' | 'daily_legend_race' | null
   >(null);
 
   useEffect(() => {
-    if (overview?.daily_tasks) {
-      setDraft(structuredClone(overview.daily_tasks));
+    if (!overview?.daily_tasks) {
+      syncedConfigKey.current = '';
+      return;
     }
+
+    const nextConfigKey = editableConfigKey(overview.daily_tasks);
+    if (syncedConfigKey.current === nextConfigKey) return;
+
+    syncedConfigKey.current = nextConfigKey;
+    setDraft(structuredClone(overview.daily_tasks));
   }, [overview]);
 
   if (locked) {

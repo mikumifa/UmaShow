@@ -466,6 +466,9 @@ function idleState(
     ...(cardId ? { card_id: cardId } : {}),
     name: cardId ? cardName(cardId, master) : '离线自动育成',
     scenario_id: positiveNumber(chara.scenario_id),
+    current_turn: positiveNumber(
+      chara.current_turn ?? chara.turn ?? info.current_turn,
+    ),
     started_at: cleanText(info.start_time),
     ends_at: cleanText(info.end_time),
     source,

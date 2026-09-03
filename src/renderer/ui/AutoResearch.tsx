@@ -75,7 +75,6 @@ import {
 import {
   Account,
   AccountOptionsResponse,
-  AuthResponse,
   AutoResearchTab,
   CapturedCredential,
   CareerSessionRecord,
@@ -83,8 +82,8 @@ import {
   CareerSetting,
   DailyTasksConfig,
   DailyTasksResponse,
+  HostedControlResponse,
   LoginProgress,
-  LoginProgressResponse,
   OfflineSingleModeSetup,
   OfflineFactorSelection,
   OfflineSkillSettings,
@@ -165,7 +164,20 @@ type LocalOfflineSetupResponse = {
 
 const isMissingLocalGameSession = (error: unknown) => {
   const message = String((error as Error)?.message || '');
-  return message.includes('请先登录') || message.includes('本地游戏会话');
+  return (
+    message.includes('请先登录') ||
+    message.includes('本地游戏会话') ||
+    message.includes('错误码 217')
+  );
+};
+
+const hasUsableLocalGameSession = (value: unknown) => {
+  if (!value || typeof value !== 'object') return false;
+  const session = value as { sid?: unknown; viewer_id?: unknown };
+  return Boolean(
+    String(session.sid || '').trim() &&
+      String(session.viewer_id || '').trim() !== '0',
+  );
 };
 
 function isOfflineSingleModeSetup(
@@ -482,7 +494,13 @@ export default function AutoResearch() {
     () => localStorage.getItem('autoResearch.server') || DEFAULT_SERVER,
   );
   const [server, setServer] = useState('');
+  // `serverAddress` is only an editable value (and has a default).  Keep a
+  // separate revision for a successful health check so a reconnect to the
+  // same address still re-evaluates a pending login.
+  const [serverConnectionRevision, setServerConnectionRevision] = useState(0);
   const [loginSettingsOpen, setLoginSettingsOpen] = useState(false);
+  const [pendingLocalLogin, setPendingLocalLogin] = useState(false);
+  const [pendingLocalLoginReady, setPendingLocalLoginReady] = useState(false);
   const [health, setHealth] = useState<any>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [captured, setCaptured] = useState<CapturedCredential[]>([]);
@@ -513,9 +531,15 @@ export default function AutoResearch() {
   const accountsRef = useRef(accounts);
   const sessionTokens = useRef(new Map<string, string>());
   const existingRuntimeAttachAttempts = useRef(new Set<string>());
+  const existingRuntimeAttachRequests = useRef(
+    new Map<string, Promise<HostedControlResponse>>(),
+  );
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
+  const serverTaskHandoffAccountIdRef = useRef('');
+  const pendingLocalLoginRef = useRef(false);
+  const pendingLocalLoginAccountIdRef = useRef('');
   accountsRef.current = accounts;
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
@@ -668,18 +692,21 @@ export default function AutoResearch() {
   const serverCareerActive = Boolean(
     runner?.running || runner?.run_plan?.active || queuedCareerControl,
   );
-  const sessionOwner =
-    serverCareerActive || dailyJewelSchedule?.enabled
-      ? 'server'
-      : session?.runtime?.session_owner === 'local' ||
-          runtimeSessionOwner(selectedAccount?.runtime) === 'local'
-        ? 'local'
-        : 'none';
-  const serverHostedMode = sessionOwner === 'server';
-  const localSessionMode = sessionOwner === 'local';
   const localAccountSessionState = selectedAccountId
     ? localAccountSessionStates[selectedAccountId] || 'unknown'
     : 'unknown';
+  const hasLocalSession = Boolean(
+    session?.runtime?.session_owner === 'local' ||
+      runtimeSessionOwner(selectedAccount?.runtime) === 'local' ||
+      localAccountSessionState === 'ready',
+  );
+  const sessionOwner = hasLocalSession
+    ? 'local'
+    : serverCareerActive || dailyJewelSchedule?.enabled
+      ? 'server'
+      : 'none';
+  const serverHostedMode = sessionOwner === 'server';
+  const localSessionMode = sessionOwner === 'local';
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
@@ -1078,41 +1105,6 @@ export default function AutoResearch() {
     [server],
   );
 
-  const streamLoginProgress = useCallback(
-    async (
-      loginId: string,
-      onProgress: (progress: LoginProgressResponse) => void,
-      signal: AbortSignal,
-    ) => {
-      const response = await fetch(
-        `${server}/api/auth/login-progress/${encodeURIComponent(loginId)}/stream`,
-        { signal },
-      );
-      if (!response.ok || !response.body) {
-        throw new Error(`login progress stream HTTP ${response.status}`);
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (!signal.aborted) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const lines =
-          `${buffer}${decoder.decode(value, { stream: true })}`.split('\n');
-        buffer = lines.pop() || '';
-        lines.forEach((line) => {
-          if (!line.trim()) return;
-          try {
-            onProgress(JSON.parse(line) as LoginProgressResponse);
-          } catch {
-            // Keep the stream alive if a proxy splits or corrupts one record.
-          }
-        });
-      }
-    },
-    [server],
-  );
-
   const loadAccounts = useCallback(async () => {
     const localAccounts =
       (await window.electron.autoResearch.accounts()) as Array<
@@ -1154,10 +1146,12 @@ export default function AutoResearch() {
                   : 'none';
                 const incomingAccount =
                   response?.dashboard?.account ?? response?.runtime?.account;
-                const nextRunner = preferNewerRunner(
-                  account.runtime.runner,
-                  response?.runtime?.runner || response?.runner,
-                );
+                const incomingRunner =
+                  response?.runtime?.runner || response?.runner;
+                const nextRunner =
+                  nextSessionOwner === 'local'
+                    ? incomingRunner || { running: false }
+                    : preferNewerRunner(account.runtime.runner, incomingRunner);
                 return {
                   ...account,
                   runtime: response
@@ -1235,7 +1229,32 @@ export default function AutoResearch() {
         invalidateOverviewResponses(accountId);
       }
       const responseOwner = runtimeSessionOwner(response.runtime);
-      const options = accountOptionsCache.current.get(accountId);
+      if (responseOwner === 'local') {
+        // A local dashboard must never coexist with a hosted bearer. The
+        // server address may remain configured, but authentication is acquired
+        // again only during the final task handoff.
+        sessionTokens.current.delete(accountId);
+      }
+      const localDashboardOptions =
+        responseOwner === 'local' && response.dashboard
+          ? {
+              umas: response.dashboard.umas,
+              supports: response.dashboard.supports,
+              decks: response.dashboard.decks,
+              parents: response.dashboard.parents,
+              friends: response.dashboard.friends,
+              friend_exclude_ids: response.dashboard.friend_exclude_ids,
+              offline_scenarios: response.dashboard.offline_scenarios,
+            }
+          : undefined;
+      if (localDashboardOptions) {
+        // Local login/local overview already came from one complete load/index.
+        // Reuse it for the detail selectors so entering the Career tab does not
+        // issue another SID-advancing account-local-overview request.
+        accountOptionsCache.current.set(accountId, localDashboardOptions);
+      }
+      const options =
+        localDashboardOptions || accountOptionsCache.current.get(accountId);
       const normalized = {
         ...response,
         dashboard:
@@ -1250,7 +1269,10 @@ export default function AutoResearch() {
       setSession((current) => {
         const currentRunner = current?.runtime?.runner || current?.runner;
         const incomingRunner = normalized.runtime?.runner || normalized.runner;
-        const nextRunner = preferNewerRunner(currentRunner, incomingRunner);
+        const nextRunner =
+          responseOwner === 'local'
+            ? incomingRunner || { running: false }
+            : preferNewerRunner(currentRunner, incomingRunner);
         return {
           ...normalized,
           runner: normalized.runner ? nextRunner : normalized.runner,
@@ -1387,6 +1409,8 @@ export default function AutoResearch() {
       const requestKey = `${accountId}:${refresh ? 'refresh' : 'cached'}`;
       const existing = accountOptionsRequests.current.get(requestKey);
       if (existing) return existing;
+      const requestVersion =
+        overviewRequestVersions.current.get(accountId) || 0;
       const promise = (
         serverHostedMode && sessionTokens.current.has(accountId)
           ? accountRequest<AccountOptionsResponse>(
@@ -1415,7 +1439,15 @@ export default function AutoResearch() {
                 } as AccountOptionsResponse;
               })
       )
-        .then((result) => applyAccountOptions(accountId, result.options))
+        .then((result) => {
+          if (
+            (overviewRequestVersions.current.get(accountId) || 0) !==
+            requestVersion
+          ) {
+            return;
+          }
+          applyAccountOptions(accountId, result.options);
+        })
         .finally(() => {
           accountOptionsRequests.current.delete(requestKey);
         });
@@ -1456,6 +1488,13 @@ export default function AutoResearch() {
           if (selectedAccountIdRef.current === accountId) {
             setSession(null);
             updateRuntime(accountId, null);
+            if (
+              String((caught as Error)?.message || '').includes('错误码 217')
+            ) {
+              setError(
+                '本地游戏会话已失效（217）。请确认游戏客户端或其他工具已停止操作，再重新登录。',
+              );
+            }
           }
           return;
         }
@@ -1498,8 +1537,19 @@ export default function AutoResearch() {
       if (!server || !accountId || sessionTokens.current.has(accountId)) {
         return false;
       }
+      const requestVersion =
+        overviewRequestVersions.current.get(accountId) || 0;
+      const isStale = () =>
+        (overviewRequestVersions.current.get(accountId) || 0) !==
+        requestVersion;
       const attemptKey = `${server}|${accountId}`;
-      if (!retry && existingRuntimeAttachAttempts.current.has(attemptKey)) {
+      const pendingAttach =
+        existingRuntimeAttachRequests.current.get(attemptKey);
+      if (
+        !retry &&
+        existingRuntimeAttachAttempts.current.has(attemptKey) &&
+        !pendingAttach
+      ) {
         return false;
       }
       existingRuntimeAttachAttempts.current.add(attemptKey);
@@ -1518,23 +1568,37 @@ export default function AutoResearch() {
         }, 8000);
       });
       try {
-        const attachRequest = (async (): Promise<AuthResponse> => {
-          const credential = (await window.electron.autoResearch.credential(
-            accountId,
-          )) as { uid: string; accessKey: string };
-          return request<AuthResponse>('/api/auth/attach', {
-            method: 'POST',
-            signal: attachController.signal,
-            body: JSON.stringify({
-              uid: credential.uid,
-              access_key: credential.accessKey,
-            }),
-          });
-        })();
+        let attachRequest = pendingAttach;
+        if (!attachRequest) {
+          attachRequest = (async (): Promise<HostedControlResponse> => {
+            const credential = (await window.electron.autoResearch.credential(
+              accountId,
+            )) as { uid: string; accessKey: string };
+            return request<HostedControlResponse>('/api/auth/attach', {
+              method: 'POST',
+              signal: attachController.signal,
+              body: JSON.stringify({
+                uid: credential.uid,
+                access_key: credential.accessKey,
+              }),
+            });
+          })();
+          existingRuntimeAttachRequests.current.set(attemptKey, attachRequest);
+          const clearAttachRequest = () => {
+            if (
+              existingRuntimeAttachRequests.current.get(attemptKey) ===
+              attachRequest
+            ) {
+              existingRuntimeAttachRequests.current.delete(attemptKey);
+            }
+          };
+          attachRequest.then(clearAttachRequest, clearAttachRequest);
+        }
         const attached = await Promise.race([
           attachRequest,
           attachTimeoutPromise,
         ]);
+        if (isStale()) return false;
         const attachedRunner = attached.runtime?.runner || attached.runner;
         const hasCurrentCareer =
           attached.runtime?.session_owner === 'server' ||
@@ -1545,9 +1609,39 @@ export default function AutoResearch() {
             headers: { Authorization: `Bearer ${attached.token}` },
             body: '{}',
           }).catch(() => undefined);
+          if (isStale()) return false;
           setMissingExistingRuntimeAccountId(accountId);
           return false;
         }
+        // Attaching to a hosted account switches UmaShow out of local mode.
+        // The main process owns only one local game client, regardless of
+        // which saved account previously created it.
+        await window.electron.autoResearch.clearLocalSession(accountId);
+        if (isStale()) return false;
+        setLocalAccountSessionStates((current) =>
+          Object.fromEntries(
+            Object.entries(current).map(([id, state]) => [
+              id,
+              state === 'ready' ? 'missing' : state,
+            ]),
+          ),
+        );
+        setAccounts((current) =>
+          current.map((account) =>
+            runtimeSessionOwner(account.runtime) === 'local'
+              ? {
+                  ...account,
+                  runtime: {
+                    logged_in: false,
+                    session_owner: 'none',
+                    last_error: '',
+                    runner: { running: false },
+                    account: null,
+                  },
+                }
+              : account,
+          ),
+        );
         sessionTokens.current.set(accountId, attached.token);
         accountOptionsCache.current.delete(accountId);
         commitOverviewResponse(accountId, attached);
@@ -1555,6 +1649,7 @@ export default function AutoResearch() {
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
         return true;
       } catch (caught) {
+        if (isStale()) return false;
         if ((caught as Error)?.name === 'AbortError') {
           existingRuntimeAttachAttempts.current.delete(attemptKey);
           throw new Error(
@@ -1650,10 +1745,18 @@ export default function AutoResearch() {
           localConfig,
         )) as DailyTasksResponse;
         if (selectedAccountIdRef.current === accountId) {
-          setDailyTasksOverview({
+          const latestLocalConfig = readLocalDailyTasks(
+            account.uid,
+            localConfig,
+          );
+          setDailyTasksOverview((current) => ({
             ...result,
-            daily_tasks: { ...result.daily_tasks, ...localConfig },
-          });
+            daily_tasks: {
+              ...result.daily_tasks,
+              ...current?.daily_tasks,
+              ...latestLocalConfig,
+            },
+          }));
         }
         setLocalAccountSessionStates((current) => ({
           ...current,
@@ -1697,6 +1800,10 @@ export default function AutoResearch() {
         setError('当前账号处于服务器托管状态，请先停止托管');
         return;
       }
+      if (serverTaskHandoffAccountIdRef.current) {
+        setError('正在把本地会话移交给服务器，请等待任务提交完成');
+        return;
+      }
       if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
         setError('另一个账号操作正在进行，请等待完成后再登录');
         return;
@@ -1709,13 +1816,40 @@ export default function AutoResearch() {
       const operationId = `local-login-${accountId}-${Date.now()}`;
       const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const startedAt = Date.now();
+      overviewRequestVersions.current.set(
+        accountId,
+        (overviewRequestVersions.current.get(accountId) || 0) + 1,
+      );
+      invalidateOverviewResponses(accountId);
       activeLoginOperation.current = operationId;
       activeConnectionAccountIdRef.current = accountId;
       setSelectedAccountId(accountId);
       setBusy(`login-${accountId}`);
       setError('');
+      setSession(null);
+      setAccounts((current) =>
+        current.map((account) =>
+          runtimeSessionOwner(account.runtime) === 'local'
+            ? {
+                ...account,
+                runtime: {
+                  logged_in: false,
+                  session_owner: 'none',
+                  last_error: '',
+                  runner: { running: false },
+                  account: null,
+                },
+              }
+            : account,
+        ),
+      );
       setLocalAccountSessionStates((current) => ({
-        ...current,
+        ...Object.fromEntries(
+          Object.entries(current).map(([id, state]) => [
+            id,
+            state === 'ready' ? 'missing' : state,
+          ]),
+        ),
         [accountId]: 'checking',
       }));
       setLoginProgress({
@@ -1740,15 +1874,26 @@ export default function AutoResearch() {
         );
       }, 250);
       try {
-        await window.electron.autoResearch.loginSession(accountId, loginId);
-        // The login IPC owns the client until it returns.  Release the UI-only
-        // guard before asking the same queued client for its dashboard.
+        const loginResult = (await window.electron.autoResearch.loginSession(
+          accountId,
+          loginId,
+        )) as SessionResponse;
+        if (!loginResult.success || !loginResult.dashboard) {
+          throw new Error('本地游戏登录没有返回账号数据');
+        }
+        // login() already fetched load/index. Commit that response directly
+        // instead of issuing a second SID-advancing overview request.
         if (activeConnectionAccountIdRef.current === accountId) {
           activeConnectionAccountIdRef.current = '';
         }
-        await loadOverview(accountId);
+        commitOverviewResponse(accountId, loginResult);
         setLocalAccountSessionStates((current) => ({
-          ...current,
+          ...Object.fromEntries(
+            Object.entries(current).map(([id, state]) => [
+              id,
+              id !== accountId && state === 'ready' ? 'missing' : state,
+            ]),
+          ),
           [accountId]: 'ready',
         }));
         if (activeTab === 'daily') {
@@ -1771,7 +1916,117 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [activeTab, loadDailyTasks, loadOverview, serverHostedMode],
+    [
+      activeTab,
+      commitOverviewResponse,
+      invalidateOverviewResponses,
+      loadDailyTasks,
+      serverHostedMode,
+    ],
+  );
+
+  const clearPendingLocalLogin = useCallback(() => {
+    pendingLocalLoginRef.current = false;
+    pendingLocalLoginAccountIdRef.current = '';
+    setPendingLocalLogin(false);
+    setPendingLocalLoginReady(false);
+  }, []);
+
+  const openLoginSettings = useCallback(
+    (continueLocalLogin = false, accountId = '') => {
+      if (continueLocalLogin) {
+        pendingLocalLoginRef.current = true;
+        pendingLocalLoginAccountIdRef.current = accountId;
+        setPendingLocalLogin(true);
+        setPendingLocalLoginReady(false);
+      } else {
+        clearPendingLocalLogin();
+      }
+      if (accountId && accountId !== selectedAccountIdRef.current) {
+        setSelectedAccountId(accountId);
+        localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+      }
+      setLoginSettingsOpen(true);
+    },
+    [clearPendingLocalLogin],
+  );
+
+  const closeLoginSettings = useCallback(() => {
+    clearPendingLocalLogin();
+    setLoginSettingsOpen(false);
+  }, [clearPendingLocalLogin]);
+
+  const selectLoginSettingsAccount = useCallback(
+    (accountId: string) => {
+      // If the login CTA was started for an already selected account, choosing
+      // another account is an explicit change of intent.  Do not later log in
+      // to it automatically.  With no initial account, the first choice in
+      // the dialog becomes the intended account and can continue normally.
+      if (pendingLocalLoginRef.current) {
+        const intendedAccountId = pendingLocalLoginAccountIdRef.current;
+        if (intendedAccountId && intendedAccountId !== accountId) {
+          clearPendingLocalLogin();
+        } else if (!intendedAccountId) {
+          pendingLocalLoginAccountIdRef.current = accountId;
+        }
+      }
+      setSelectedAccountId(accountId);
+      localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+    },
+    [clearPendingLocalLogin],
+  );
+
+  const loginAndReadLatest = useCallback(
+    async (accountId?: string) => {
+      const targetAccountId = accountId || selectedAccountIdRef.current;
+      if (!targetAccountId) {
+        openLoginSettings(true, targetAccountId);
+        return;
+      }
+
+      const targetAccount = accountsRef.current.find(
+        (account) => account.id === targetAccountId,
+      );
+      const targetAlreadyLocal =
+        runtimeSessionOwner(targetAccount?.runtime) === 'local' ||
+        localAccountSessionStates[targetAccountId] === 'ready';
+      if (targetAlreadyLocal) {
+        // Re-login/refresh inside local mode stays entirely in Electron. The
+        // hosted server is consulted again only when submitting a run.
+        await loginLocalAccount(targetAccountId);
+        return;
+      }
+
+      // A typed/default address does not prove that a server is usable.  A
+      // server is required for the pre-login hosted-runtime probe, but never
+      // for an already established local session.
+      if (!server) {
+        openLoginSettings(true, targetAccountId);
+        return;
+      }
+
+      // The backend probe is authoritative for ownership. `/api/auth/attach`
+      // does not log in to the game; it returns the existing runtime overview
+      // only when a Worker, run plan, or daily schedule already owns this
+      // account. Local SID login is allowed only after that probe says there
+      // is no hosted instance.
+      try {
+        if (await attachExistingRuntime(targetAccountId)) return;
+      } catch (caught) {
+        setError(
+          `无法确认 AutoResearch 后端运行状态，未执行本地登录：${(caught as Error).message}`,
+        );
+        return;
+      }
+      await loginLocalAccount(targetAccountId);
+    },
+    [
+      attachExistingRuntime,
+      localAccountSessionStates,
+      loginLocalAccount,
+      openLoginSettings,
+      server,
+    ],
   );
 
   const logoutLocalAccount = useCallback(
@@ -1789,15 +2044,14 @@ export default function AutoResearch() {
       setError('');
       try {
         await window.electron.autoResearch.clearLocalSession(accountId);
-        accountOptionsCache.current.delete(accountId);
         setLocalAccountSessionStates((current) => ({
           ...current,
           [accountId]: 'missing',
         }));
-        if (selectedAccountIdRef.current === accountId) {
-          setSession(null);
-          updateRuntime(accountId, null);
-        }
+        // Besides clearing the visible session, invalidate every overview or
+        // options response that started before logout. Otherwise an old
+        // localOverview response can arrive later and restore the dashboard.
+        clearAccountOverviewSnapshot(accountId);
         if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
           localStorage.removeItem(LAST_ACCOUNT_KEY);
         }
@@ -1807,7 +2061,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [serverHostedMode, updateRuntime],
+    [clearAccountOverviewSnapshot, serverHostedMode],
   );
 
   const saveDailyTasks = useCallback(
@@ -1881,23 +2135,28 @@ export default function AutoResearch() {
         sessionTokens.current.clear();
         existingRuntimeAttachAttempts.current.clear();
         setMissingExistingRuntimeAccountId('');
-        accountOptionsCache.current.clear();
-        accountOptionsRequests.current.clear();
         setAccounts((current) =>
-          current.map((account) => ({
-            ...account,
-            runtime: {
-              logged_in: false,
-              session_owner: 'none',
-              last_error: '',
-              runner: { running: false },
-              account: null,
-            },
-          })),
+          current.map((account) =>
+            runtimeSessionOwner(account.runtime) === 'local'
+              ? account
+              : {
+                  ...account,
+                  runtime: {
+                    logged_in: false,
+                    session_owner: 'none',
+                    last_error: '',
+                    runner: { running: false },
+                    account: null,
+                  },
+                },
+          ),
         );
-        setSession(null);
+        setSession((current) =>
+          runtimeSessionOwner(current?.runtime) === 'local' ? current : null,
+        );
         setServerAddress(nextServer);
         setServer(nextServer);
+        setServerConnectionRevision((current) => current + 1);
         setHealth(body);
         return true;
       } catch (caught) {
@@ -2045,28 +2304,139 @@ export default function AutoResearch() {
       return undefined;
     }
     const accountId = selectedAccountId;
+    const restoreVersion =
+      overviewRequestVersions.current.get(accountId) || 0;
     let cancelled = false;
+    const isRestoreStale = () =>
+      cancelled ||
+      selectedAccountIdRef.current !== accountId ||
+      activeConnectionAccountIdRef.current === accountId ||
+      disconnectingAccountIdRef.current === accountId ||
+      serverTaskHandoffAccountIdRef.current === accountId ||
+      (overviewRequestVersions.current.get(accountId) || 0) !== restoreVersion;
     (async () => {
-      // A server Worker may already own this account.  Attach/read that state
-      // first; only fall back to Electron's local game client when no hosted
-      // task exists, never race the two SID owners.
+      if (isRestoreStale()) return;
+      // A bearer means this renderer is already attached to a hosted runtime.
+      // Local mode deliberately keeps no bearer at all.
+      if (sessionTokens.current.has(accountId)) {
+        if (isRestoreStale()) return;
+        await window.electron.autoResearch.clearLocalSession(accountId);
+        if (isRestoreStale()) return;
+        setLocalAccountSessionStates((current) =>
+          Object.fromEntries(
+            Object.entries(current).map(([id, state]) => [
+              id,
+              state === 'ready' ? 'missing' : state,
+            ]),
+          ),
+        );
+        setAccounts((current) =>
+          current.map((account) =>
+            runtimeSessionOwner(account.runtime) === 'local'
+              ? {
+                  ...account,
+                  runtime: {
+                    logged_in: false,
+                    session_owner: 'none',
+                    last_error: '',
+                    runner: { running: false },
+                    account: null,
+                  },
+                }
+              : account,
+          ),
+        );
+        return;
+      }
+
+      // Restore the main-process local SID owner first. Once local mode exists,
+      // ordinary page loads and local actions must not contact the hosted
+      // server merely to rediscover ownership.
+      try {
+        const localSession =
+          await window.electron.autoResearch.currentSession(accountId);
+        if (isRestoreStale()) return;
+        if (hasUsableLocalGameSession(localSession)) {
+          await loadOverview(accountId);
+          return;
+        }
+      } catch (caught) {
+        if (!isRestoreStale()) setError((caught as Error).message);
+        return;
+      }
+
+      // With no local SID, ask the hosted service whether a Worker or schedule
+      // already owns the account. `/api/auth/attach` returns that overview
+      // without performing a game login.
       if (server && !sessionTokens.current.has(accountId)) {
         try {
-          if (await attachExistingRuntime(accountId)) return;
+          const attached = await attachExistingRuntime(accountId);
+          if (isRestoreStale()) return;
+          if (attached) {
+            if (
+              pendingLocalLoginRef.current &&
+              pendingLocalLoginAccountIdRef.current === accountId
+            ) {
+              clearPendingLocalLogin();
+            }
+            return;
+          }
         } catch (caught) {
-          if (!cancelled) setError((caught as Error).message);
+          if (!isRestoreStale()) setError((caught as Error).message);
           return;
         }
       }
-      if (cancelled || selectedAccountIdRef.current !== accountId) return;
-      loadOverview(accountId).catch((caught) => {
-        if (!cancelled) setError((caught as Error).message);
-      });
+      if (isRestoreStale()) return;
+      if (
+        server &&
+        pendingLocalLoginRef.current &&
+        pendingLocalLoginReady &&
+        (!pendingLocalLoginAccountIdRef.current ||
+          pendingLocalLoginAccountIdRef.current === accountId)
+      ) {
+        // `connect()` may have reconnected to the same URL, so this branch is
+        // reached through serverConnectionRevision only after the attach check
+        // above has established that no server Worker owns the account.
+        clearPendingLocalLogin();
+        await loginLocalAccount(accountId);
+        return;
+      }
+      if (pendingLocalLoginRef.current && !pendingLocalLoginReady) return;
+      if (isRestoreStale()) return;
+      setLocalAccountSessionStates((current) => ({
+        ...current,
+        [accountId]: 'missing',
+      }));
+      setSession(null);
+      updateRuntime(accountId, null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [attachExistingRuntime, loadOverview, selectedAccountId, server]);
+  }, [
+    attachExistingRuntime,
+    clearPendingLocalLogin,
+    loadOverview,
+    loginLocalAccount,
+    pendingLocalLoginReady,
+    selectedAccountId,
+    server,
+    serverConnectionRevision,
+    updateRuntime,
+  ]);
+
+  useEffect(() => {
+    const intendedAccountId = pendingLocalLoginAccountIdRef.current;
+    if (
+      !pendingLocalLoginRef.current ||
+      !intendedAccountId ||
+      !selectedAccountId ||
+      intendedAccountId === selectedAccountId
+    ) {
+      return;
+    }
+    clearPendingLocalLogin();
+  }, [clearPendingLocalLogin, selectedAccountId]);
 
   useEffect(() => {
     if (
@@ -2356,8 +2726,10 @@ export default function AutoResearch() {
       await window.electron.autoResearch.credential(accountId);
       setSelectedAccountId(accountId);
       localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+      return true;
     } catch (caught) {
       setError((caught as Error).message);
+      return false;
     } finally {
       setBusy('');
     }
@@ -2368,8 +2740,17 @@ export default function AutoResearch() {
       setError('请先选择要登录的账号');
       return;
     }
-    await prepareAccountBeforeServer(selectedAccountId);
+    if (!(await prepareAccountBeforeServer(selectedAccountId))) return;
+    if (
+      pendingLocalLoginRef.current &&
+      !pendingLocalLoginAccountIdRef.current
+    ) {
+      pendingLocalLoginAccountIdRef.current = selectedAccountId;
+    }
     if (await connect()) {
+      if (pendingLocalLoginRef.current) {
+        setPendingLocalLoginReady(true);
+      }
       setLoginSettingsOpen(false);
       setActiveTab('career');
     }
@@ -2398,27 +2779,10 @@ export default function AutoResearch() {
 
   const accountAction = async (
     accountId: string,
-    action: 'login' | 'logout' | 'refresh',
+    action: 'logout' | 'refresh',
   ) => {
-    const otherLoggedInAccount = accounts.find(
-      (account) =>
-        runtimeSessionOwner(account.runtime) === 'server' &&
-        account.id !== accountId,
-    );
-    const otherConnectedAccountId = Array.from(
-      sessionTokens.current.keys(),
-    ).find((connectedAccountId) => connectedAccountId !== accountId);
-    if (
-      (action === 'login' || action === 'refresh') &&
-      (otherLoggedInAccount || otherConnectedAccountId)
-    ) {
-      setError(
-        `请先退出账号 ${otherLoggedInAccount?.label || (otherLoggedInAccount ? `UID ${otherLoggedInAccount.uid}` : '当前账号')}，前端同时只能登录一个账号`,
-      );
-      return;
-    }
     const connectionOperationId =
-      action === 'login' || action === 'refresh'
+      action === 'refresh'
         ? `${action}-${accountId}-${Date.now()}-${Math.random().toString(36).slice(2)}`
         : '';
     if (
@@ -2449,322 +2813,34 @@ export default function AutoResearch() {
         (overviewRequestVersions.current.get(accountId) || 0) + 1,
       );
     }
-    const requestedAccount = accounts.find(
-      (account) => account.id === accountId,
-    );
-    const actionUsesServerSession =
-      runtimeSessionOwner(requestedAccount?.runtime) === 'server';
-    if (
-      (action === 'login' || action === 'refresh') &&
-      !actionUsesServerSession
-    ) {
-      // Local mode is rebuilt exclusively from this login's load/index and
-      // current-career load. Never render an overview left by the Worker.
-      clearAccountOverviewSnapshot(accountId);
-    }
     setBusy(`${action}-${accountId}`);
     setError('');
     try {
       let result: SessionResponse | null = null;
-      const authenticate = async (
-        forceLogin = false,
-        recoveryDetail = '',
-        allowAccountLogin = false,
-      ) => {
-        const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        if (activeLoginOperation.current !== connectionOperationId) {
-          throw new Error('另一个账号正在登录，请等待当前登录完成');
-        }
-        const startedAt = Date.now();
-        const progressController = new AbortController();
-        setSelectedAccountId(accountId);
-        setLoginProgress({
-          accountId,
-          loginId,
-          action: 'login',
-          stage: 'queued',
-          endpoint: '',
-          detail:
-            recoveryDetail ||
-            (forceLogin ? '登录已过期，正在重新登录' : '正在连接登录服务'),
-          delay: 0,
-          elapsed: 0,
-          done: false,
-          error: '',
-        });
-        const progressTimer = window.setInterval(() => {
-          const elapsed = Math.max(
-            0,
-            Math.floor((Date.now() - startedAt) / 1000),
-          );
-          setLoginProgress((current) =>
-            current?.loginId === loginId ? { ...current, elapsed } : current,
-          );
-        }, 250);
-        const progressStream = streamLoginProgress(
-          loginId,
-          (progress) => {
-            if (!progress.found) return;
-            const elapsed = Math.max(
-              0,
-              Math.floor((Date.now() - startedAt) / 1000),
-            );
-            setLoginProgress((current) =>
-              current?.loginId === loginId
-                ? {
-                    ...current,
-                    stage: progress.stage || current.stage,
-                    endpoint: progress.endpoint || '',
-                    detail: progress.detail || current.detail,
-                    delay: Number(progress.delay || 0),
-                    elapsed,
-                    done: Boolean(progress.done),
-                    error: String(progress.error || ''),
-                  }
-                : current,
-            );
-          },
-          progressController.signal,
-        ).catch(() => undefined);
-        try {
-          const credential = (await window.electron.autoResearch.credential(
-            accountId,
-          )) as { uid: string; accessKey: string };
-          const authenticated = await request<AuthResponse>('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({
-              uid: credential.uid,
-              access_key: credential.accessKey,
-              login_id: loginId,
-              force_login: forceLogin,
-              allow_account_login: allowAccountLogin,
-            }),
-          });
-          sessionTokens.current.set(accountId, authenticated.token);
-          return authenticated;
-        } finally {
-          progressController.abort();
-          window.clearInterval(progressTimer);
-          await progressStream.catch(() => undefined);
-        }
-      };
-      const authenticateWithConfirmation = async (recoveryDetail = '') => {
-        try {
-          return await authenticate(false, recoveryDetail, false);
-        } catch (caught) {
-          const detail = String((caught as Error)?.message || '');
-          if (!detail.includes('二次确认')) throw caught;
-          const confirmed = window.confirm(
-            '继续登录可能顶掉其他地方的登录。\n\n确定要继续登录吗？',
-          );
-          if (!confirmed) {
-            throw new Error('已取消登录，服务器自动育成会话未被修改');
-          }
-          return authenticate(true, '已确认刷新游戏会话，正在重新登录', true);
-        }
-      };
-      if (action === 'login') {
-        const attached = await attachExistingRuntime(accountId, true);
-        if (attached) return;
-        if (sessionTokens.current.has(accountId)) {
-          try {
-            const attachedOverview = await accountRequest<SessionResponse>(
-              accountId,
-              '/api/account/overview',
-            );
-            if (runtimeSessionOwner(attachedOverview.runtime) === 'server') {
-              commitOverviewResponse(accountId, attachedOverview);
-              return;
-            }
-          } catch (caught) {
-            if (
-              caught instanceof AutoResearchRequestError &&
-              caught.status === 401
-            ) {
-              sessionTokens.current.delete(accountId);
-            } else {
-              throw caught;
-            }
-          }
-        }
-        try {
-          result = await authenticateWithConfirmation();
-        } catch (caught) {
-          const detail = String((caught as Error)?.message || '');
-          if (detail.includes('服务器托管模式')) {
-            if (sessionTokens.current.has(accountId)) {
-              try {
-                const hostedOverview = await accountRequest<SessionResponse>(
-                  accountId,
-                  '/api/account/overview',
-                );
-                if (runtimeSessionOwner(hostedOverview.runtime) === 'server') {
-                  commitOverviewResponse(accountId, hostedOverview);
-                  return;
-                }
-              } catch (overviewError) {
-                if (
-                  overviewError instanceof AutoResearchRequestError &&
-                  overviewError.status === 401
-                ) {
-                  sessionTokens.current.delete(accountId);
-                } else {
-                  throw overviewError;
-                }
-              }
-            }
-            if (await attachExistingRuntime(accountId, true)) return;
-          }
-          throw caught;
-        }
-      } else if (action === 'refresh') {
-        let relogged = false;
-        const actionAccount = accounts.find(
-          (account) => account.id === accountId,
-        );
-        const accountRunner = actionAccount?.runtime.runner;
-        const accountRunning = Boolean(
-          runtimeSessionOwner(actionAccount?.runtime) === 'server' ||
-            runnerUsesServerSession(accountRunner),
-        );
-        const restoreLogin = async (recoveryDetail = '') => {
-          await authenticateWithConfirmation(recoveryDetail);
-          relogged = true;
-        };
-        const refreshStatus = async () => {
-          if (accountRunning) {
-            return accountRequest<SessionResponse>(
-              accountId,
-              '/api/account/overview',
-            );
-          }
-          const refreshId = `refresh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-          const startedAt = Date.now();
-          const progressController = new AbortController();
-          setLoginProgress({
-            accountId,
-            loginId: refreshId,
-            action: 'refresh',
-            stage: 'queued',
-            endpoint: '',
-            detail: '准备重新登录账号',
-            delay: 0,
-            elapsed: 0,
-            done: false,
-            error: '',
-          });
-          const progressTimer = window.setInterval(() => {
-            const elapsed = Math.max(
-              0,
-              Math.floor((Date.now() - startedAt) / 1000),
-            );
-            setLoginProgress((current) =>
-              current?.loginId === refreshId
-                ? { ...current, elapsed }
-                : current,
-            );
-          }, 250);
-          const progressStream = streamLoginProgress(
-            refreshId,
-            (progress) => {
-              if (!progress.found) return;
-              const elapsed = Math.max(
-                0,
-                Math.floor((Date.now() - startedAt) / 1000),
-              );
-              setLoginProgress((current) =>
-                current?.loginId === refreshId
-                  ? {
-                      ...current,
-                      stage: progress.stage || current.stage,
-                      endpoint: progress.endpoint || '',
-                      detail: progress.detail || current.detail,
-                      delay: Number(progress.delay || 0),
-                      elapsed,
-                      done: Boolean(progress.done),
-                      error: String(progress.error || ''),
-                    }
-                  : current,
-              );
-            },
-            progressController.signal,
-          ).catch(() => undefined);
-          try {
-            return await accountRequest<SessionResponse>(
-              accountId,
-              '/api/account/refresh',
-              {
-                method: 'POST',
-                body: JSON.stringify({ refresh_id: refreshId }),
-              },
-            );
-          } finally {
-            progressController.abort();
-            window.clearInterval(progressTimer);
-            await progressStream.catch(() => undefined);
-          }
-        };
+      if (action === 'refresh') {
         if (!sessionTokens.current.has(accountId)) {
-          if (accountRunning) {
-            const attached = await attachExistingRuntime(accountId, true);
-            if (!attached) {
-              throw new Error('无法连接服务器上的托管任务，请稍后重试');
-            }
-          } else {
-            await restoreLogin();
+          const attached = await attachExistingRuntime(accountId, true);
+          if (!attached) {
+            throw new Error('服务端没有该账号正在运行的托管任务');
           }
         }
-        try {
-          result = await refreshStatus();
-        } catch (caught) {
-          if (!needsRelogin(caught)) throw caught;
-          sessionTokens.current.delete(accountId);
-          if (
-            caught instanceof AutoResearchRequestError &&
-            caught.status === 401
-          ) {
-            try {
-              await restoreLogin('服务器会话已失效，正在重新登录后继续刷新');
-            } catch (loginError) {
-              throw new Error(
-                `服务器会话已失效，自动重新登录失败：${(loginError as Error).message}。请在账号页重新登录；如果 access_key 已变化，请先更新账号凭据。`,
-              );
-            }
-          } else {
-            await authenticateWithConfirmation('需要重新连接账号');
-            relogged = true;
-          }
-          try {
-            result = await refreshStatus();
-          } catch (retryError) {
-            if (
-              retryError instanceof AutoResearchRequestError &&
-              retryError.status === 401
-            ) {
-              throw new Error(
-                '自动重新登录后刷新仍返回 401 Unauthorized。请在账号页重新登录；如果 access_key 已变化，请先更新账号凭据。',
-              );
-            }
-            if (String((retryError as Error)?.message || '').includes('217')) {
-              throw new Error(
-                '重新登录后仍出现错误码 217，账号可能正在其他位置操作。请稍后再次刷新。',
-              );
-            }
-            throw retryError;
-          }
-        }
-        result.relogged_in = relogged;
+        result = await accountRequest<SessionResponse>(
+          accountId,
+          '/api/account/overview',
+        );
       } else {
-        await accountRequest(accountId, '/api/auth/logout', {
-          method: 'POST',
-          body: '{}',
-        });
+        if (sessionTokens.current.has(accountId)) {
+          await accountRequest(accountId, '/api/auth/logout', {
+            method: 'POST',
+            body: '{}',
+          });
+        }
         sessionTokens.current.delete(accountId);
       }
-      accountOptionsCache.current.delete(accountId);
       if (result) {
         commitOverviewResponse(accountId, result);
       } else {
+        accountOptionsCache.current.delete(accountId);
         setSession(null);
         updateRuntime(accountId, null);
       }
@@ -2775,7 +2851,6 @@ export default function AutoResearch() {
         }
       } else if (result?.success) {
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
-        if (action === 'login') setActiveTab('career');
       }
     } catch (caught) {
       setError((caught as Error).message);
@@ -2783,7 +2858,6 @@ export default function AutoResearch() {
       if (activeLoginOperation.current === connectionOperationId) {
         activeLoginOperation.current = '';
         activeConnectionAccountIdRef.current = '';
-        setLoginProgress(null);
       }
       if (
         action === 'logout' &&
@@ -2796,11 +2870,25 @@ export default function AutoResearch() {
     }
   };
 
-  const ensureServerTaskSession = async (accountId: string) => {
+  const prepareServerTaskSubmission = async (accountId: string) => {
     if (!server) {
       setError('启动后台任务前，请先连接自动育成服务器');
       return false;
     }
+    if (serverTaskHandoffAccountIdRef.current) {
+      setError('另一个服务器任务正在提交，请等待完成');
+      return false;
+    }
+
+    // This is an explicit ownership handoff, not an unknown account state to
+    // recover. Invalidate any currentSession/attach/overview restoration that
+    // started before the user chose to submit the hosted task.
+    serverTaskHandoffAccountIdRef.current = accountId;
+    overviewRequestVersions.current.set(
+      accountId,
+      (overviewRequestVersions.current.get(accountId) || 0) + 1,
+    );
+    invalidateOverviewResponses(accountId);
 
     // A server Worker owns a different long-running game client.  Hand the
     // account over only after dropping Electron's client/SID, so it cannot be
@@ -2809,23 +2897,90 @@ export default function AutoResearch() {
     // available as a fallback owner.
     try {
       await window.electron.autoResearch.clearLocalSession(accountId);
-      setLocalAccountSessionStates((current) => ({
-        ...current,
-        [accountId]: 'missing',
-      }));
+      setLocalAccountSessionStates((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([id, state]) => [
+            id,
+            state === 'ready' ? 'missing' : state,
+          ]),
+        ),
+      );
+      setAccounts((current) =>
+        current.map((account) =>
+          runtimeSessionOwner(account.runtime) === 'local'
+            ? {
+                ...account,
+                runtime: {
+                  logged_in: false,
+                  session_owner: 'none',
+                  last_error: '',
+                  runner: { running: false },
+                  account: null,
+                },
+              }
+            : account,
+        ),
+      );
+      if (selectedAccountIdRef.current === accountId) {
+        setSession((current) =>
+          current
+            ? {
+                ...current,
+                runtime: {
+                  ...(current.runtime || {}),
+                  logged_in: false,
+                  session_owner: 'none',
+                  runner: { running: false },
+                  account: null,
+                },
+                runner: { running: false },
+              }
+            : current,
+        );
+      }
     } catch (caught) {
+      if (serverTaskHandoffAccountIdRef.current === accountId) {
+        serverTaskHandoffAccountIdRef.current = '';
+      }
       setError(`无法移交本地游戏会话：${(caught as Error).message}`);
       return false;
     }
 
-    if (serverHostedMode && sessionTokens.current.has(accountId)) return true;
-
-    // accountAction intentionally reports UI errors instead of rethrowing.
-    // Remove any stale bearer first, otherwise a failed server login could be
-    // mistaken for success merely because an old token remains in this map.
+    // Submission is the only point where local mode contacts the hosted
+    // server again. The server returns a control token after persisting the
+    // task; it performs the game login later inside the resident Worker.
     sessionTokens.current.delete(accountId);
-    await accountAction(accountId, 'login');
-    return sessionTokens.current.has(accountId);
+    return true;
+  };
+
+  const submitServerTask = async (
+    accountId: string,
+    taskType: 'career' | 'idle_single_mode',
+    payload: Record<string, unknown>,
+  ) => {
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        accountId,
+      )) as { uid: string; accessKey: string };
+      const submitted = await request<HostedControlResponse>(
+        '/api/tasks/submit',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            task_type: taskType,
+            payload,
+          }),
+        },
+      );
+      sessionTokens.current.set(accountId, submitted.token);
+      return submitted;
+    } finally {
+      if (serverTaskHandoffAccountIdRef.current === accountId) {
+        serverTaskHandoffAccountIdRef.current = '';
+      }
+    }
   };
 
   const exitAutoResearchLogin = async () => {
@@ -2867,7 +3022,7 @@ export default function AutoResearch() {
       accountAction(selectedAccountId, 'refresh').catch(() => undefined);
       return;
     }
-    loginLocalAccount(selectedAccountId).catch(() => undefined);
+    loginAndReadLatest(selectedAccountId).catch(() => undefined);
   };
 
   const deleteAccount = async (accountId: string) => {
@@ -2898,12 +3053,25 @@ export default function AutoResearch() {
   };
 
   const resetAccount = async (accountId: string) => {
+    const targetAccount = accountsRef.current.find(
+      (account) => account.id === accountId,
+    );
+    const resettingLocalSession =
+      runtimeSessionOwner(targetAccount?.runtime) === 'local' ||
+      localAccountSessionStates[accountId] === 'ready';
     if (
       !window.confirm(
-        '确定强制重置当前账号吗？这会停止自动操作，清除等待、运行计划、每日计划和服务端登录，但不会向游戏发送放弃育成请求。',
+        resettingLocalSession
+          ? '确定清除当前账号的 UmaShow 本地会话吗？这不会连接或修改托管服务器。'
+          : '确定强制重置当前账号吗？这会停止自动操作，清除等待、运行计划、每日计划和服务端登录，但不会向游戏发送放弃育成请求。',
       )
     )
       return;
+    if (resettingLocalSession) {
+      await logoutLocalAccount(accountId);
+      setActiveTab('career');
+      return;
+    }
     if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
       setError('账号连接操作正在进行，请等待完成后再重置');
       return;
@@ -3157,50 +3325,45 @@ export default function AutoResearch() {
       setError(selectionConflict);
       return false;
     }
-    if (!(await ensureServerTaskSession(selectedAccountId))) return false;
+    if (!(await prepareServerTaskSubmission(selectedAccountId))) return false;
     setBusy('run');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/career/run',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            card_id: effectiveCardId,
-            support_card_ids: effectiveSupportCardIds,
-            friend_viewer_id: 0,
-            friend_card_id: effectiveFriendCardId,
-            parent_id_1: effectiveParentId1,
-            parent_id_2: effectiveParentId2,
-            parent_1_viewer_id:
-              selectedParent1?.viewer_id ||
-              parentViewerIdFromSelection(effectiveParentKey1),
-            parent_2_viewer_id:
-              selectedParent2?.viewer_id ||
-              parentViewerIdFromSelection(effectiveParentKey2),
-            scenario_id: scenarioId,
-            deck_id: effectiveDeckId || 1,
-            use_tp: 30,
-            recover_tp_with_item: recoverTpWithItem,
-            recover_tp_with_jewels: recoverTpWithJewels,
-            run_mode: mode,
-            run_target: target,
-            repeat_daily: repeatDaily,
-            schedule_start_time: scheduleStartTime,
-            schedule_end_time: scheduleEndTime,
-            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-            career_setting_id: selectedCareerSetting?.id || '',
-            career_setting_name:
-              selectedCareerSetting?.name || careerSettingName,
-            preset_name: careerPresetName,
-            preset: boundPreset,
-            max_steps: maxSteps,
-            burn_clocks: burnClocks,
-          }),
-        },
-      );
-      commitOverviewResponse(selectedAccountId, result);
+      const result = await submitServerTask(selectedAccountId, 'career', {
+        card_id: effectiveCardId,
+        support_card_ids: effectiveSupportCardIds,
+        friend_viewer_id: 0,
+        friend_card_id: effectiveFriendCardId,
+        parent_id_1: effectiveParentId1,
+        parent_id_2: effectiveParentId2,
+        parent_1_viewer_id:
+          selectedParent1?.viewer_id ||
+          parentViewerIdFromSelection(effectiveParentKey1),
+        parent_2_viewer_id:
+          selectedParent2?.viewer_id ||
+          parentViewerIdFromSelection(effectiveParentKey2),
+        scenario_id: scenarioId,
+        deck_id: effectiveDeckId || 1,
+        use_tp: 30,
+        recover_tp_with_item: recoverTpWithItem,
+        recover_tp_with_jewels: recoverTpWithJewels,
+        run_mode: mode,
+        run_target: target,
+        repeat_daily: repeatDaily,
+        schedule_start_time: scheduleStartTime,
+        schedule_end_time: scheduleEndTime,
+        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
+        career_setting_id: selectedCareerSetting?.id || '',
+        career_setting_name: selectedCareerSetting?.name || careerSettingName,
+        preset_name: careerPresetName,
+        preset: boundPreset,
+        max_steps: maxSteps,
+        burn_clocks: burnClocks,
+      });
+      commitOverviewResponse(selectedAccountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -3235,51 +3398,43 @@ export default function AutoResearch() {
         : currentDeck?.support_card_ids.length === 5
           ? currentDeck.support_card_ids
           : setting.support_card_ids || [];
-    if (!(await ensureServerTaskSession(selectedAccountId))) return false;
+    if (!(await prepareServerTaskSubmission(selectedAccountId))) return false;
     setBusy(busyKey);
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/career/run',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            card_id: setting.card_id,
-            support_card_ids: resumeSupportCardIds,
-            friend_viewer_id: 0,
-            friend_card_id: setting.friend_card_id,
-            parent_id_1: setting.parent_id_1,
-            parent_id_2: setting.parent_id_2,
-            parent_1_viewer_id: parentViewerIdFromSelection(
-              setting.parent_key_1,
-            ),
-            parent_2_viewer_id: parentViewerIdFromSelection(
-              setting.parent_key_2,
-            ),
-            scenario_id: Number(setting.scenario_id || preset.scenario_id || 1),
-            deck_id: setting.deck_id || 1,
-            use_tp: 30,
-            recover_tp_with_item: setting.recover_tp_with_item,
-            recover_tp_with_jewels: setting.recover_tp_with_jewels,
-            run_mode: mode,
-            run_target: target,
-            repeat_daily: repeatDaily,
-            schedule_start_time: scheduleStartTime,
-            schedule_end_time: scheduleEndTime,
-            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-            career_setting_id: setting.id,
-            career_setting_name: setting.name,
-            preset_name: setting.preset_name,
-            preset,
-            max_steps: setting.max_steps || 2500,
-            burn_clocks: setting.burn_clocks,
-          }),
-        },
-      );
+      const result = await submitServerTask(selectedAccountId, 'career', {
+        card_id: setting.card_id,
+        support_card_ids: resumeSupportCardIds,
+        friend_viewer_id: 0,
+        friend_card_id: setting.friend_card_id,
+        parent_id_1: setting.parent_id_1,
+        parent_id_2: setting.parent_id_2,
+        parent_1_viewer_id: parentViewerIdFromSelection(setting.parent_key_1),
+        parent_2_viewer_id: parentViewerIdFromSelection(setting.parent_key_2),
+        scenario_id: Number(setting.scenario_id || preset.scenario_id || 1),
+        deck_id: setting.deck_id || 1,
+        use_tp: 30,
+        recover_tp_with_item: setting.recover_tp_with_item,
+        recover_tp_with_jewels: setting.recover_tp_with_jewels,
+        run_mode: mode,
+        run_target: target,
+        repeat_daily: repeatDaily,
+        schedule_start_time: scheduleStartTime,
+        schedule_end_time: scheduleEndTime,
+        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
+        career_setting_id: setting.id,
+        career_setting_name: setting.name,
+        preset_name: setting.preset_name,
+        preset,
+        max_steps: setting.max_steps || 2500,
+        burn_clocks: setting.burn_clocks,
+      });
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
-      commitOverviewResponse(selectedAccountId, result);
+      commitOverviewResponse(selectedAccountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -3534,8 +3689,21 @@ export default function AutoResearch() {
     }
   };
 
+  const abandonLocalIdleSingleMode = async (
+    accountId: string,
+    currentTurn: number,
+  ) =>
+    (await window.electron.autoResearch.abandonIdleSingleMode(
+      accountId,
+      currentTurn,
+    )) as SessionResponse;
+
   const abandonIdleSingleMode = async () => {
     if (!selectedAccountId || !currentIdleSingleMode?.active) {
+      return;
+    }
+    if (!localSessionMode && localAccountSessionState !== 'ready') {
+      setError('放弃离线自动育成仅支持 UmaShow 本地会话');
       return;
     }
     if (
@@ -3548,10 +3716,9 @@ export default function AutoResearch() {
     setBusy('idle-single-mode-abandon');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
+      const result = await abandonLocalIdleSingleMode(
         selectedAccountId,
-        '/api/account/idle-single-mode/abandon',
-        { method: 'POST', body: '{}' },
+        Number(currentIdleSingleMode.current_turn || 0),
       );
       commitOverviewResponse(selectedAccountId, result);
     } catch (caught) {
@@ -4237,42 +4404,37 @@ export default function AutoResearch() {
       setError('当前账号的离线赛程尚未读取，请重新读取后再开始');
       return false;
     }
-    if (!(await ensureServerTaskSession(accountId))) return false;
+    if (!(await prepareServerTaskSubmission(accountId))) return false;
     setBusy('idle-start');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        accountId,
-        '/api/account/idle-single-mode/start',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            ...offlineSelectionRequest(),
-            running_style: 0,
-            training_challenge_mode: offlineChallengeMode,
-            run_mode: mode,
-            run_target: target,
-            repeat_daily: repeatDaily,
-            schedule_start_time: scheduleStartTime,
-            schedule_end_time: scheduleEndTime,
-            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-            career_setting_id: selectedCareerSetting?.id || '',
-            career_setting_name:
-              selectedCareerSetting?.name || careerSettingName,
-            offline_skill_settings:
-              normalizeOfflineSkillSettings(offlineSkillSettings),
-            factor_selection: normalizeOfflineFactorSelection(
-              offlineFactorSelection,
-            ),
-            race_array: offlineRaceIds.map((id) => ({
-              year: Math.floor(id / 100000),
-              program_id: id % 100000,
-            })),
-          }),
-        },
-      );
+      const result = await submitServerTask(accountId, 'idle_single_mode', {
+        ...offlineSelectionRequest(),
+        running_style: 0,
+        training_challenge_mode: offlineChallengeMode,
+        run_mode: mode,
+        run_target: target,
+        repeat_daily: repeatDaily,
+        schedule_start_time: scheduleStartTime,
+        schedule_end_time: scheduleEndTime,
+        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
+        career_setting_id: selectedCareerSetting?.id || '',
+        career_setting_name: selectedCareerSetting?.name || careerSettingName,
+        offline_skill_settings:
+          normalizeOfflineSkillSettings(offlineSkillSettings),
+        factor_selection: normalizeOfflineFactorSelection(
+          offlineFactorSelection,
+        ),
+        race_array: offlineRaceIds.map((id) => ({
+          year: Math.floor(id / 100000),
+          program_id: id % 100000,
+        })),
+      });
       if (selectedAccountIdRef.current !== accountId) return false;
-      commitOverviewResponse(accountId, result);
+      commitOverviewResponse(accountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
       setCareerSaveOpen(false);
       setOfflineSetup(null);
       setOfflineSetupAccountId('');
@@ -4505,7 +4667,7 @@ export default function AutoResearch() {
               </div>
               <button
                 type="button"
-                onClick={() => setLoginSettingsOpen(false)}
+                onClick={closeLoginSettings}
                 className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
               >
                 取消
@@ -4611,10 +4773,7 @@ export default function AutoResearch() {
                     <button
                       key={account.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedAccountId(account.id);
-                        localStorage.setItem(LAST_ACCOUNT_KEY, account.id);
-                      }}
+                      onClick={() => selectLoginSettingsAccount(account.id)}
                       className={`rounded-lg border p-3 text-left transition-colors ${
                         selectedAccountId === account.id
                           ? 'border-indigo-400 bg-indigo-50'
@@ -4659,7 +4818,7 @@ export default function AutoResearch() {
             <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
               <button
                 type="button"
-                onClick={() => setLoginSettingsOpen(false)}
+                onClick={closeLoginSettings}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 取消
@@ -4675,7 +4834,11 @@ export default function AutoResearch() {
                 className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <LogIn size={16} />
-                {busy === 'connect' ? '连接中…' : '连接并继续'}
+                {busy === 'connect'
+                  ? '连接中…'
+                  : pendingLocalLogin
+                    ? '连接并登录'
+                    : '连接并继续'}
               </button>
             </div>
           </div>
@@ -5329,12 +5492,22 @@ export default function AutoResearch() {
             ) : null}
           </div>
           {selectedAccount ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => openLoginSettings()}
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50"
+              >
+                <Users className="mr-1 inline" size={15} />
+                账号与服务器
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   if (!serverHostedMode && selectedAccountId) {
-                    loginLocalAccount(selectedAccountId).catch(() => undefined);
+                    loginAndReadLatest(selectedAccountId).catch(
+                      () => undefined,
+                    );
                     return;
                   }
                   refreshCurrentAccount();
@@ -5364,10 +5537,22 @@ export default function AutoResearch() {
                         ? '重新登录'
                         : '登录本地模式'}
               </button>
-              {serverHostedMode ? (
+              {serverHostedMode ||
+              localSessionMode ||
+              localAccountSessionState === 'ready' ? (
                 <button
                   type="button"
-                  onClick={() => exitAutoResearchLogin().catch(() => undefined)}
+                  onClick={() => {
+                    if (serverHostedMode) {
+                      exitAutoResearchLogin().catch(() => undefined);
+                      return;
+                    }
+                    if (selectedAccountId) {
+                      logoutLocalAccount(selectedAccountId).catch(
+                        () => undefined,
+                      );
+                    }
+                  }}
                   disabled={Boolean(loginProgress || disconnectingAccountId)}
                   className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
                 >
@@ -5379,11 +5564,11 @@ export default function AutoResearch() {
           ) : (
             <button
               type="button"
-              onClick={() => setLoginSettingsOpen(true)}
+              onClick={() => openLoginSettings()}
               className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
-              <LogIn size={16} />
-              登录
+              <Users size={16} />
+              账号与服务器
             </button>
           )}
         </header>
@@ -5591,7 +5776,7 @@ export default function AutoResearch() {
                                 );
                                 return;
                               }
-                              loginLocalAccount(account.id).catch(
+                              loginAndReadLatest(account.id).catch(
                                 () => undefined,
                               );
                             }}
@@ -5616,26 +5801,28 @@ export default function AutoResearch() {
                                 ? '刷新服务器'
                                 : '重新登录'}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => resetAccount(account.id)}
-                            disabled={Boolean(
-                              busy || loginProgress || disconnectingAccountId,
-                            )}
-                            className="rounded-lg bg-white px-2 py-1 text-xs text-amber-700 disabled:opacity-50"
-                          >
-                            {busy === `reset-${account.id}` ? (
-                              <RefreshCw
-                                className="mr-1 inline animate-spin"
-                                size={12}
-                              />
-                            ) : (
-                              <RotateCcw className="mr-1 inline" size={12} />
-                            )}
-                            {busy === `reset-${account.id}`
-                              ? '重置中'
-                              : '强制重置'}
-                          </button>
+                          {runtimeSessionOwner(account.runtime) === 'server' ? (
+                            <button
+                              type="button"
+                              onClick={() => resetAccount(account.id)}
+                              disabled={Boolean(
+                                busy || loginProgress || disconnectingAccountId,
+                              )}
+                              className="rounded-lg bg-white px-2 py-1 text-xs text-amber-700 disabled:opacity-50"
+                            >
+                              {busy === `reset-${account.id}` ? (
+                                <RefreshCw
+                                  className="mr-1 inline animate-spin"
+                                  size={12}
+                                />
+                              ) : (
+                                <RotateCcw className="mr-1 inline" size={12} />
+                              )}
+                              {busy === `reset-${account.id}`
+                                ? '重置中'
+                                : '强制重置'}
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => {
@@ -5667,7 +5854,9 @@ export default function AutoResearch() {
                         <button
                           type="button"
                           onClick={() =>
-                            loginLocalAccount(account.id).catch(() => undefined)
+                            loginAndReadLatest(account.id).catch(
+                              () => undefined,
+                            )
                           }
                           disabled={Boolean(
                             loginProgress || disconnectingAccountId,
@@ -5790,7 +5979,7 @@ export default function AutoResearch() {
                   <button
                     type="button"
                     onClick={() =>
-                      selectedAccount && loginLocalAccount(selectedAccount.id)
+                      selectedAccount && loginAndReadLatest(selectedAccount.id)
                     }
                     disabled={Boolean(
                       loginProgress ||

@@ -366,28 +366,21 @@ export function ensureNoActiveCareer(data: Record<string, unknown>) {
 }
 
 async function prepare(accountId: string, request: IdlePrepareRequest) {
-  return withAutoResearchLocalGameClient(
-    accountId,
-    {
-      login: 'if-missing',
-      credentialRefreshSource: '离线育成本地准备登录刷新',
-    },
-    async (client) => {
-      const index = await client.loadIndex();
-      ensureNoActiveCareer(index.data || {});
-      const options = await client.call('pre_single_mode/index');
-      const context = idleMasterContext(
-        numberValue(request.card_id),
-        serverTime(options),
-        numberValue(request.scenario_id),
-      );
-      const result = await client.prepareIdleSingleMode(context.scenario_id);
-      return {
-        success: true,
-        offline_setup: idleSetupResponse(result, context),
-      };
-    },
-  );
+  return withAutoResearchLocalGameClient(accountId, async (client) => {
+    const index = await client.loadIndex();
+    ensureNoActiveCareer(index.data || {});
+    const options = await client.call('pre_single_mode/index');
+    const context = idleMasterContext(
+      numberValue(request.card_id),
+      serverTime(options),
+      numberValue(request.scenario_id),
+    );
+    const result = await client.prepareIdleSingleMode(context.scenario_id);
+    return {
+      success: true,
+      offline_setup: idleSetupResponse(result, context),
+    };
+  });
 }
 
 async function saveRaceDeck(accountId: string, request: IdleRaceDeckRequest) {
@@ -397,56 +390,49 @@ async function saveRaceDeck(accountId: string, request: IdleRaceDeckRequest) {
   }
   const scenarioId = numberValue(request.scenario_id);
   if (!scenarioId) throw new Error('请选择有效的离线育成剧本');
-  return withAutoResearchLocalGameClient(
-    accountId,
-    {
-      login: 'if-missing',
-      credentialRefreshSource: '离线育成本地准备登录刷新',
-    },
-    async (client) => {
-      const index = await client.loadIndex();
-      ensureNoActiveCareer(index.data || {});
-      const currentResult = await client.prepareIdleSingleMode(scenarioId);
-      const reserved = currentResult.data?.reserved_race_info || {};
-      const currentDeck = (
-        Array.isArray(reserved.reserved_race_array)
-          ? reserved.reserved_race_array
-          : []
-      ).find(
-        (item: Record<string, unknown>) =>
-          numberValue(item?.deck_num) === deckNum,
-      );
-      const current = normalizeRaceArray(currentDeck?.race_array);
-      const desired = normalizeRaceArray(request.race_array);
-      const currentKeys = new Set(
-        current.map((item) => `${item.year}:${item.program_id}`),
-      );
-      const desiredKeys = new Set(
-        desired.map((item) => `${item.year}:${item.program_id}`),
-      );
-      const result = await client.saveIdleSingleModeRaceDeck(
-        scenarioId,
-        deckNum,
-        String(request.deck_name || '').slice(0, 20),
-        desired.filter(
-          (item) => !currentKeys.has(`${item.year}:${item.program_id}`),
-        ),
-        current.filter(
-          (item) => !desiredKeys.has(`${item.year}:${item.program_id}`),
-        ),
-        booleanValue(request.is_default),
-      );
-      const context = idleMasterContext(
-        numberValue(request.card_id),
-        serverTime(result),
-        scenarioId,
-      );
-      return {
-        success: true,
-        offline_setup: idleSetupResponse(result, context),
-      };
-    },
-  );
+  return withAutoResearchLocalGameClient(accountId, async (client) => {
+    const index = await client.loadIndex();
+    ensureNoActiveCareer(index.data || {});
+    const currentResult = await client.prepareIdleSingleMode(scenarioId);
+    const reserved = currentResult.data?.reserved_race_info || {};
+    const currentDeck = (
+      Array.isArray(reserved.reserved_race_array)
+        ? reserved.reserved_race_array
+        : []
+    ).find(
+      (item: Record<string, unknown>) =>
+        numberValue(item?.deck_num) === deckNum,
+    );
+    const current = normalizeRaceArray(currentDeck?.race_array);
+    const desired = normalizeRaceArray(request.race_array);
+    const currentKeys = new Set(
+      current.map((item) => `${item.year}:${item.program_id}`),
+    );
+    const desiredKeys = new Set(
+      desired.map((item) => `${item.year}:${item.program_id}`),
+    );
+    const result = await client.saveIdleSingleModeRaceDeck(
+      scenarioId,
+      deckNum,
+      String(request.deck_name || '').slice(0, 20),
+      desired.filter(
+        (item) => !currentKeys.has(`${item.year}:${item.program_id}`),
+      ),
+      current.filter(
+        (item) => !desiredKeys.has(`${item.year}:${item.program_id}`),
+      ),
+      booleanValue(request.is_default),
+    );
+    const context = idleMasterContext(
+      numberValue(request.card_id),
+      serverTime(result),
+      scenarioId,
+    );
+    return {
+      success: true,
+      offline_setup: idleSetupResponse(result, context),
+    };
+  });
 }
 
 export default function handleAutoResearchIdleSingleMode(ipcMain: IpcMain) {

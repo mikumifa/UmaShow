@@ -64,6 +64,10 @@ type SuccessionGameUncertainRequestError = Error & {
   [UNCERTAIN_GAME_REQUEST]: true;
 };
 
+type SuccessionGameApiError = Error & {
+  resultCode: number;
+};
+
 /**
  * The request may have reached the game server even though UmaShow cannot
  * safely recover the response (timeout, transport failure, non-success HTTP
@@ -89,6 +93,15 @@ export function isSuccessionGameRequestUncertain(
         UNCERTAIN_GAME_REQUEST
       ],
   );
+}
+
+export function successionGameResultCode(error: unknown) {
+  const resultCode = Number(
+    error && typeof error === 'object'
+      ? (error as Partial<SuccessionGameApiError>).resultCode
+      : 0,
+  );
+  return Number.isFinite(resultCode) ? resultCode : 0;
 }
 
 const SCENARIO_FAMILY: Record<number, string> = {
@@ -222,7 +235,11 @@ function gameError(endpoint: string, result: Record<string, any>) {
   const message = String(
     result.message || result.data?.error_message || `错误码 ${resultCode}`,
   );
-  return new Error(`${endpoint} 请求失败：${message}`);
+  const error = new Error(
+    `${endpoint} 请求失败：${message}`,
+  ) as SuccessionGameApiError;
+  error.resultCode = resultCode;
+  return error;
 }
 
 function errorDetail(error: unknown, fallback: string) {
@@ -269,6 +286,8 @@ export class SuccessionGameClient {
   private hasConfirmedGameResponse = false;
 
   private sessionUncertain = false;
+
+  private closed = false;
 
   // A SID is advanced by each game response. Keep this guard in the protocol
   // client as a second line of defence for callers that accidentally issue
@@ -401,9 +420,23 @@ export class SuccessionGameClient {
   }
 
   private ensureSessionCertain() {
+    if (this.closed) {
+      throw new Error('本地游戏会话已关闭');
+    }
     if (this.sessionUncertain) {
       throw new Error('本地游戏会话状态未确认，请重新登录后再试');
     }
+  }
+
+  /**
+   * Stop accepting new game calls and wait until every call that was already
+   * queued has either completed or failed. A hosted Worker must not establish
+   * its SID until this promise resolves.
+   */
+  async closeAndDrain() {
+    this.closed = true;
+    await this.callTail;
+    this.user.sid = '';
   }
 
   private markSessionUncertain(endpoint: string, detail: string) {
@@ -525,7 +558,7 @@ export class SuccessionGameClient {
     );
     await this.postGame('tool/start_session', this.devicePayload());
     this.onProgress?.({ stage: 'load', detail: '正在读取账号基础数据' });
-    await this.call('load/index', { adid: '' });
+    return this.call('load/index', { adid: '' });
   }
 
   async loadIndex() {
@@ -566,8 +599,13 @@ export class SuccessionGameClient {
     return this.call(`${family}/load`);
   }
 
-  async finishCareer(currentTurn: number, isForceDelete = false) {
-    return this.call('single_mode/finish', {
+  async finishCareer(
+    currentTurn: number,
+    isForceDelete = false,
+    scenarioId = 0,
+  ) {
+    const family = SCENARIO_FAMILY[Math.trunc(Number(scenarioId) || 0)];
+    return this.call(`${family || 'single_mode'}/finish`, {
       is_force_delete: isForceDelete,
       current_turn: Math.max(1, Math.trunc(Number(currentTurn) || 1)),
       factor_lottery_id: 0,
@@ -600,7 +638,7 @@ export class SuccessionGameClient {
       // Match the game worker's recovery path: a cached turn is sufficient for
       // force-delete when the scenario load itself cannot be restored.
     }
-    await this.finishCareer(currentTurn, true);
+    await this.finishCareer(currentTurn, true, scenarioId);
     const index = await this.loadIndex();
     const data = index.data || {};
     if (findActiveIdleSingleMode(data)) {
@@ -612,6 +650,43 @@ export class SuccessionGameClient {
       throw new Error(
         '游戏服务器仍报告有进行中的育成，放弃操作尚未生效；请重新登录后再试',
       );
+    }
+    return { careerDeleted: true, currentTurn, index };
+  }
+
+  async abandonIdleSingleMode(fallbackTurn = 0) {
+    const before = await this.loadIndex();
+    const idle = findActiveIdleSingleMode(before.data || {});
+    if (!idle) {
+      throw new Error('游戏服务器未确认有可放弃的离线自动育成');
+    }
+    const charaValue =
+      idle.info.single_mode_chara_light ||
+      idle.info.chara_info ||
+      idle.info.single_mode_chara;
+    const chara =
+      charaValue && typeof charaValue === 'object' && !Array.isArray(charaValue)
+        ? (charaValue as Record<string, unknown>)
+        : {};
+    const scenarioId = Math.trunc(Number(chara.scenario_id || 0));
+    const currentTurn = Math.trunc(
+      Number(
+        chara.turn ||
+          chara.current_turn ||
+          idle.info.current_turn ||
+          fallbackTurn ||
+          0,
+      ),
+    );
+    if (currentTurn <= 0) {
+      throw new Error(
+        '离线状态没有返回当前回合，无法安全放弃；请在游戏内处理或重新登录后重试',
+      );
+    }
+    await this.finishCareer(currentTurn, true, scenarioId);
+    const index = await this.loadIndex();
+    if (findActiveIdleSingleMode(index.data || {})) {
+      throw new Error('游戏服务器仍报告离线自动育成存在，放弃操作尚未生效');
     }
     return { careerDeleted: true, currentTurn, index };
   }

@@ -225,6 +225,7 @@ export type SessionAccount = {
     card_id?: number | string;
     name?: string;
     scenario_id?: number;
+    current_turn?: number;
     started_at?: string;
     ends_at?: string;
     source?: string;
@@ -697,7 +698,7 @@ export type AccountOptionsResponse = {
   >;
 };
 
-export type AuthResponse = SessionResponse & {
+export type HostedControlResponse = SessionResponse & {
   token: string;
   expires_at: number;
 };
@@ -773,16 +774,6 @@ export type LoginProgress = {
   detail: string;
   delay: number;
   elapsed: number;
-  done?: boolean;
-  error?: string;
-};
-
-export type LoginProgressResponse = {
-  found: boolean;
-  stage?: string;
-  endpoint?: string;
-  detail?: string;
-  delay?: number;
   done?: boolean;
   error?: string;
 };

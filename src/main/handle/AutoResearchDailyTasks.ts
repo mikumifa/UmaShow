@@ -209,93 +209,82 @@ function buildOptions(data: Record<string, any>) {
 }
 
 async function overview(id: string, config: DailyConfig) {
-  return withAutoResearchLocalGameClient(
-    id,
-    { login: 'required' },
-    async (client) => {
-      const loaded = await client.loadIndex();
-      return {
-        success: true,
-        daily_tasks: { ...config, status: 'paused', task_results: {} },
-        options: buildOptions(loaded.data || {}),
-      };
-    },
-  );
+  return withAutoResearchLocalGameClient(id, async (client) => {
+    const loaded = await client.loadIndex();
+    return {
+      success: true,
+      daily_tasks: { ...config, status: 'paused', task_results: {} },
+      options: buildOptions(loaded.data || {}),
+    };
+  });
 }
 
 async function run(id: string, config: DailyConfig) {
-  return withAutoResearchLocalGameClient(
-    id,
-    { login: 'required' },
-    async (client) => {
-      const results: Record<string, TaskResult> = {};
-      const errors: string[] = [];
-      const startedAt = new Date().toISOString();
-      let loadedData: Record<string, any> = {};
-      let items = new Map<number, number>();
+  return withAutoResearchLocalGameClient(id, async (client) => {
+    const results: Record<string, TaskResult> = {};
+    const errors: string[] = [];
+    const startedAt = new Date().toISOString();
+    let loadedData: Record<string, any> = {};
+    let items = new Map<number, number>();
 
-      const execute = async (
-        name: string,
-        action: () => Promise<TaskResult>,
-      ) => {
-        try {
-          const result = await action();
-          results[name] = { ...result, finished_at: new Date().toISOString() };
-          return result;
-        } catch (error) {
-          const detail = (error as Error).message;
-          results[name] = {
-            status: 'error',
-            detail,
-            finished_at: new Date().toISOString(),
+    const execute = async (name: string, action: () => Promise<TaskResult>) => {
+      try {
+        const result = await action();
+        results[name] = { ...result, finished_at: new Date().toISOString() };
+        return result;
+      } catch (error) {
+        const detail = (error as Error).message;
+        results[name] = {
+          status: 'error',
+          detail,
+          finished_at: new Date().toISOString(),
+        };
+        errors.push(`${name}: ${detail}`);
+        return results[name];
+      }
+    };
+
+    const loaded = await client.loadIndex();
+    loadedData = loaded.data || {};
+    if (findActiveIdleSingleMode(loadedData)) {
+      throw new Error('离线自动育成进行中，不能执行本地日常');
+    }
+    if (hasActiveSingleModeCareer(loadedData)) {
+      throw new Error('育成进行中，不能执行本地日常');
+    }
+    items = itemMap(loadedData);
+    const horses = new Map<number, Record<string, any>>(
+      (loadedData.trained_chara || []).map((horse: Record<string, any>) => [
+        numberValue(horse.trained_chara_id),
+        horse,
+      ]),
+    );
+
+    const runShop = async (source: string) => {
+      if (!config.limited_shop?.enabled) return;
+      await execute('limited_shop', async () => {
+        const refreshed = await client.loadIndex();
+        items = itemMap(refreshed.data || {});
+        const shown = await client.call('item/show_exchange', {
+          is_not_update: false,
+        });
+        const data = shown.data || {};
+        const info = data.limited_shop_info || {};
+        const goods = (data.limited_goods_info_array || []).filter(
+          (item: Record<string, any>) => numberValue(item.exchange_count) <= 0,
+        );
+        if (!numberValue(info.open_flag) || !goods.length) {
+          return {
+            status: 'skipped',
+            detail: `${source}后没有可购买的限时商店`,
           };
-          errors.push(`${name}: ${detail}`);
-          return results[name];
         }
-      };
-
-      const loaded = await client.loadIndex();
-      loadedData = loaded.data || {};
-      if (findActiveIdleSingleMode(loadedData)) {
-        throw new Error('离线自动育成进行中，不能执行本地日常');
-      }
-      if (hasActiveSingleModeCareer(loadedData)) {
-        throw new Error('育成进行中，不能执行本地日常');
-      }
-      items = itemMap(loadedData);
-      const horses = new Map<number, Record<string, any>>(
-        (loadedData.trained_chara || []).map((horse: Record<string, any>) => [
-          numberValue(horse.trained_chara_id),
-          horse,
-        ]),
-      );
-
-      const runShop = async (source: string) => {
-        if (!config.limited_shop?.enabled) return;
-        await execute('limited_shop', async () => {
-          const refreshed = await client.loadIndex();
-          items = itemMap(refreshed.data || {});
-          const shown = await client.call('item/show_exchange', {
-            is_not_update: false,
-          });
-          const data = shown.data || {};
-          const info = data.limited_shop_info || {};
-          const goods = (data.limited_goods_info_array || []).filter(
-            (item: Record<string, any>) =>
-              numberValue(item.exchange_count) <= 0,
-          );
-          if (!numberValue(info.open_flag) || !goods.length) {
-            return {
-              status: 'skipped',
-              detail: `${source}后没有可购买的限时商店`,
-            };
-          }
-          const database = new Database(masterDatabasePath(), {
-            readonly: true,
-            fileMustExist: true,
-          });
-          try {
-            const query = database.prepare(`
+        const database = new Database(masterDatabasePath(), {
+          readonly: true,
+          fileMustExist: true,
+        });
+        try {
+          const query = database.prepare(`
             SELECT reward.id AS reward_id, exchange_item.id AS exchange_id,
                    exchange_item.pay_item_id, exchange_item.pay_item_num
             FROM limited_exchange_reward AS reward
@@ -303,198 +292,196 @@ async function run(id: string, config: DailyConfig) {
               ON exchange_item.id = reward.item_exchange_id
             WHERE reward.id = ?
           `);
-            const rows = goods.map((good: Record<string, any>) => {
-              const master = query.get(numberValue(good.reward_id)) as any;
-              if (!master) throw new Error('限时商店商品价格读取失败，未购买');
-              return { ...master, open_count: numberValue(good.open_count) };
-            });
-            const required = new Map<number, number>();
-            rows.forEach((row: any) =>
-              required.set(
-                numberValue(row.pay_item_id),
-                (required.get(numberValue(row.pay_item_id)) || 0) +
-                  numberValue(row.pay_item_num),
-              ),
-            );
-            if (
-              [...required].some(
-                ([itemId, count]) => (items.get(itemId) || 0) < count,
-              )
-            ) {
-              return {
-                status: 'skipped',
-                detail: '货币不足，按全有或全无规则未购买任何商品',
-              };
-            }
-            const serverTime = numberValue(shown.data_headers?.servertime);
-            const listTime = new Date(
-              (serverTime > 0 ? serverTime * 1000 : Date.now()) +
-                8 * 60 * 60 * 1000,
+          const rows = goods.map((good: Record<string, any>) => {
+            const master = query.get(numberValue(good.reward_id)) as any;
+            if (!master) throw new Error('限时商店商品价格读取失败，未购买');
+            return { ...master, open_count: numberValue(good.open_count) };
+          });
+          const required = new Map<number, number>();
+          rows.forEach((row: any) =>
+            required.set(
+              numberValue(row.pay_item_id),
+              (required.get(numberValue(row.pay_item_id)) || 0) +
+                numberValue(row.pay_item_num),
+            ),
+          );
+          if (
+            [...required].some(
+              ([itemId, count]) => (items.get(itemId) || 0) < count,
             )
-              .toISOString()
-              .replace('T', ' ')
-              .replace('Z', '')
-              .slice(0, 19)
-              .replace(/-/g, '/');
-            const exchanged = await client.call('item/exchange_multi', {
-              exchange_item_info_array: rows.map((row: any) => ({
-                exchange_id: numberValue(row.exchange_id),
-                count: 1,
-                ex_param: { open_count: numberValue(row.open_count) },
-              })),
-              use_item_info_array: [...required.keys()].map((itemId) => ({
-                item_id: itemId,
-                number: items.get(itemId) || 0,
-              })),
-              get_list_time: listTime,
-            });
-            updateItems(items, exchanged.data?.use_item_info_array);
+          ) {
             return {
-              status: 'completed',
-              detail: `已一次性购买 ${rows.length} 件限时商店商品`,
-              count: rows.length,
+              status: 'skipped',
+              detail: '货币不足，按全有或全无规则未购买任何商品',
             };
-          } finally {
-            database.close();
           }
-        });
-      };
-
-      if (config.daily_race?.enabled) {
-        const result = await execute('daily_race', async () => {
-          const raceId = numberValue(config.daily_race.daily_race_id);
-          const trainedId = numberValue(config.daily_race.trained_chara_id);
-          const horse = horses.get(trainedId);
-          if (!raceId || !horse)
-            throw new Error('请选择有效的每日竞赛和参赛马娘');
-          const index = await client.call('daily_race/index');
-          const record = (index.data?.daily_race_record_array || []).find(
-            (row: Record<string, any>) =>
-              numberValue(row.daily_race_id) === raceId,
-          );
-          if (!record) throw new Error('所选每日竞赛当前不可用');
-          if (!numberValue(record.is_cleared))
-            throw new Error('所选每日竞赛尚未通关');
-          const count = items.get(DAILY_RACE_TICKET) || 0;
-          if (!count)
-            return { status: 'skipped', detail: '每日竞赛入场券为 0' };
-          const response = await client.call('daily_race_skip/race_skip', {
-            daily_race_id: raceId,
-            trained_chara_id: trainedId,
-            race_skip_count: count,
-            client_own_num: count,
-            running_style:
-              numberValue(config.daily_race.running_style) ||
-              Math.max(1, numberValue(horse.running_style, 1)),
+          const serverTime = numberValue(shown.data_headers?.servertime);
+          const listTime = new Date(
+            (serverTime > 0 ? serverTime * 1000 : Date.now()) +
+              8 * 60 * 60 * 1000,
+          )
+            .toISOString()
+            .replace('T', ' ')
+            .replace('Z', '')
+            .slice(0, 19)
+            .replace(/-/g, '/');
+          const exchanged = await client.call('item/exchange_multi', {
+            exchange_item_info_array: rows.map((row: any) => ({
+              exchange_id: numberValue(row.exchange_id),
+              count: 1,
+              ex_param: { open_count: numberValue(row.open_count) },
+            })),
+            use_item_info_array: [...required.keys()].map((itemId) => ({
+              item_id: itemId,
+              number: items.get(itemId) || 0,
+            })),
+            get_list_time: listTime,
           });
-          updateItems(items, response.data?.item_info_array);
+          updateItems(items, exchanged.data?.use_item_info_array);
           return {
             status: 'completed',
-            detail: `已使用 ${count} 张入场券`,
-            count,
+            detail: `已一次性购买 ${rows.length} 件限时商店商品`,
+            count: rows.length,
           };
-        });
-        if (result.status === 'completed') await runShop('每日竞赛');
-      }
+        } finally {
+          database.close();
+        }
+      });
+    };
 
-      if (config.daily_legend_race?.enabled) {
-        const result = await execute('daily_legend_race', async () => {
-          const raceId = numberValue(
-            config.daily_legend_race.daily_legend_race_id,
-          );
-          const trainedId = numberValue(
-            config.daily_legend_race.trained_chara_id,
-          );
-          const horse = horses.get(trainedId);
-          if (!raceId || !horse)
-            throw new Error('请选择有效的每日传奇赛事和参赛马娘');
-          const index = await client.call('daily_legend_race/index');
-          updateItems(items, index.data?.update_item_array);
-          const available = (
-            index.data?.daily_legend_race_record_array || []
-          ).some(
-            (row: Record<string, any>) =>
-              numberValue(row.daily_legend_race_id) === raceId,
-          );
-          if (!available) throw new Error('所选每日传奇赛事当前不可用');
-          if (!(items.get(DAILY_LEGEND_TICKET) || 0)) {
-            return { status: 'skipped', detail: '每日传奇赛事入场券为 0' };
-          }
-          await client.call('daily_legend_race/race_entry', {
-            daily_legend_race_id: raceId,
-            trained_chara_id: trainedId,
+    if (config.daily_race?.enabled) {
+      const result = await execute('daily_race', async () => {
+        const raceId = numberValue(config.daily_race.daily_race_id);
+        const trainedId = numberValue(config.daily_race.trained_chara_id);
+        const horse = horses.get(trainedId);
+        if (!raceId || !horse)
+          throw new Error('请选择有效的每日竞赛和参赛马娘');
+        const index = await client.call('daily_race/index');
+        const record = (index.data?.daily_race_record_array || []).find(
+          (row: Record<string, any>) =>
+            numberValue(row.daily_race_id) === raceId,
+        );
+        if (!record) throw new Error('所选每日竞赛当前不可用');
+        if (!numberValue(record.is_cleared))
+          throw new Error('所选每日竞赛尚未通关');
+        const count = items.get(DAILY_RACE_TICKET) || 0;
+        if (!count) return { status: 'skipped', detail: '每日竞赛入场券为 0' };
+        const response = await client.call('daily_race_skip/race_skip', {
+          daily_race_id: raceId,
+          trained_chara_id: trainedId,
+          race_skip_count: count,
+          client_own_num: count,
+          running_style:
+            numberValue(config.daily_race.running_style) ||
+            Math.max(1, numberValue(horse.running_style, 1)),
+        });
+        updateItems(items, response.data?.item_info_array);
+        return {
+          status: 'completed',
+          detail: `已使用 ${count} 张入场券`,
+          count,
+        };
+      });
+      if (result.status === 'completed') await runShop('每日竞赛');
+    }
+
+    if (config.daily_legend_race?.enabled) {
+      const result = await execute('daily_legend_race', async () => {
+        const raceId = numberValue(
+          config.daily_legend_race.daily_legend_race_id,
+        );
+        const trainedId = numberValue(
+          config.daily_legend_race.trained_chara_id,
+        );
+        const horse = horses.get(trainedId);
+        if (!raceId || !horse)
+          throw new Error('请选择有效的每日传奇赛事和参赛马娘');
+        const index = await client.call('daily_legend_race/index');
+        updateItems(items, index.data?.update_item_array);
+        const available = (
+          index.data?.daily_legend_race_record_array || []
+        ).some(
+          (row: Record<string, any>) =>
+            numberValue(row.daily_legend_race_id) === raceId,
+        );
+        if (!available) throw new Error('所选每日传奇赛事当前不可用');
+        if (!(items.get(DAILY_LEGEND_TICKET) || 0)) {
+          return { status: 'skipped', detail: '每日传奇赛事入场券为 0' };
+        }
+        await client.call('daily_legend_race/race_entry', {
+          daily_legend_race_id: raceId,
+          trained_chara_id: trainedId,
+        });
+        const reflected = await client.call(
+          'daily_legend_race/reflect_item_effect',
+          { item_id_array: [] },
+        );
+        updateItems(items, reflected.data?.item_info_array);
+        await client.call('daily_legend_race/race_start', {
+          running_style:
+            numberValue(config.daily_legend_race.running_style) ||
+            Math.max(1, numberValue(horse.running_style, 1)),
+          is_short: 1,
+        });
+        const replay = await client.call('daily_legend_race/replay_check');
+        return {
+          status: 'completed',
+          detail: `已完成每日传奇赛事，名次 ${numberValue(replay.data?.rank)}`,
+          count: 1,
+        };
+      });
+      if (result.status === 'completed') await runShop('每日传奇赛事');
+    }
+
+    if (config.team_stadium?.enabled) {
+      await execute('team_stadium', async () => {
+        let remaining = numberValue(
+          loadedData.user_info?.current_rp ?? loadedData.rp_info?.current_rp,
+        );
+        let count = 0;
+        while (remaining > 0 && count < 5) {
+          const index = await client.call('team_stadium/index');
+          if (numberValue(index.data?.term_state, 1) !== 1) break;
+          const opponents = await client.call('team_stadium/opponent_list');
+          if (!(opponents.data?.opponent_info_array || []).length) break;
+          await client.call('team_stadium/decide_frame_order', {
+            opponent_strength: 3,
           });
-          const reflected = await client.call(
-            'daily_legend_race/reflect_item_effect',
-            { item_id_array: [] },
-          );
-          updateItems(items, reflected.data?.item_info_array);
-          await client.call('daily_legend_race/race_start', {
-            running_style:
-              numberValue(config.daily_legend_race.running_style) ||
-              Math.max(1, numberValue(horse.running_style, 1)),
-            is_short: 1,
+          const started = await client.call('team_stadium/start', {
+            item_id_array: [],
           });
-          const replay = await client.call('daily_legend_race/replay_check');
-          return {
-            status: 'completed',
-            detail: `已完成每日传奇赛事，名次 ${numberValue(replay.data?.rank)}`,
-            count: 1,
-          };
-        });
-        if (result.status === 'completed') await runShop('每日传奇赛事');
-      }
+          await client.call('team_stadium/replay_check', { round: 5 });
+          await client.call('team_stadium/all_race_end');
+          count += 1;
+          remaining =
+            started.data?.rp_info?.current_rp == null
+              ? remaining - 1
+              : Math.max(0, numberValue(started.data.rp_info.current_rp));
+          await runShop('竞技场');
+        }
+        return {
+          status: count ? 'completed' : 'skipped',
+          detail: `已参加 ${count} 次竞技场，未使用恢复道具`,
+          count,
+        };
+      });
+    }
 
-      if (config.team_stadium?.enabled) {
-        await execute('team_stadium', async () => {
-          let remaining = numberValue(
-            loadedData.user_info?.current_rp ?? loadedData.rp_info?.current_rp,
-          );
-          let count = 0;
-          while (remaining > 0 && count < 5) {
-            const index = await client.call('team_stadium/index');
-            if (numberValue(index.data?.term_state, 1) !== 1) break;
-            const opponents = await client.call('team_stadium/opponent_list');
-            if (!(opponents.data?.opponent_info_array || []).length) break;
-            await client.call('team_stadium/decide_frame_order', {
-              opponent_strength: 3,
-            });
-            const started = await client.call('team_stadium/start', {
-              item_id_array: [],
-            });
-            await client.call('team_stadium/replay_check', { round: 5 });
-            await client.call('team_stadium/all_race_end');
-            count += 1;
-            remaining =
-              started.data?.rp_info?.current_rp == null
-                ? remaining - 1
-                : Math.max(0, numberValue(started.data.rp_info.current_rp));
-            await runShop('竞技场');
-          }
-          return {
-            status: count ? 'completed' : 'skipped',
-            detail: `已参加 ${count} 次竞技场，未使用恢复道具`,
-            count,
-          };
-        });
-      }
-
-      const finishedAt = new Date().toISOString();
-      const refreshed = await client.loadIndex();
-      return {
-        success: true,
-        daily_tasks: {
-          ...config,
-          status: errors.length ? 'completed_with_errors' : 'completed',
-          last_started_at: startedAt,
-          last_finished_at: finishedAt,
-          last_error: errors.join('；'),
-          task_results: results,
-        },
-        options: buildOptions(refreshed.data || {}),
-      };
-    },
-  );
+    const finishedAt = new Date().toISOString();
+    const refreshed = await client.loadIndex();
+    return {
+      success: true,
+      daily_tasks: {
+        ...config,
+        status: errors.length ? 'completed_with_errors' : 'completed',
+        last_started_at: startedAt,
+        last_finished_at: finishedAt,
+        last_error: errors.join('；'),
+        task_results: results,
+      },
+      options: buildOptions(refreshed.data || {}),
+    };
+  });
 }
 
 export default function handleAutoResearchDailyTasks(ipcMain: IpcMain) {

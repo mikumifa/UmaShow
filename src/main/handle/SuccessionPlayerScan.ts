@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { app, IpcMain } from 'electron';
-import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
+import {
+  loginAutoResearchLocalGameClient,
+  withAutoResearchLocalGameClient,
+} from './AutoResearchLocalGameClient';
 import {
   parseSuccessionPlayerIds,
   SuccessionGameProgress,
@@ -164,13 +167,12 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
       const added: StoredSuccessionPlayer[] = [];
       const errors: Array<{ viewerId: string; message: string }> = [];
       try {
+        await loginAutoResearchLocalGameClient(accountId, {
+          credentialRefreshSource: '玩家扫描登录刷新',
+          onProgress: progress,
+        });
         const result = await withAutoResearchLocalGameClient(
           accountId,
-          {
-            login: 'force',
-            credentialRefreshSource: '玩家扫描登录刷新',
-            onProgress: progress,
-          },
           async (client) => {
             let lastScanStartedAt = 0;
             for (let index = 0; index < pending.length; index += 1) {

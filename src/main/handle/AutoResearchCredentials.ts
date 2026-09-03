@@ -3,12 +3,13 @@ import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import Database from 'better-sqlite3';
 import { app, BrowserWindow, IpcMain } from 'electron';
+import { SuccessionGameProgress } from './SuccessionGameClient';
 import {
-  SuccessionGameProgress,
-  SuccessionGameSession,
-} from './SuccessionGameClient';
-import {
-  invalidateAutoResearchLocalGameClient,
+  clearAutoResearchLocalGameClient,
+  clearAutoResearchLocalGameClientForAccount,
+  clearAutoResearchLocalGameClientForUid,
+  getAutoResearchLocalGameClientSession,
+  loginAutoResearchLocalGameClient,
   withAutoResearchLocalGameClient,
 } from './AutoResearchLocalGameClient';
 import { buildLocalDashboard } from './AutoResearchLocalDashboard';
@@ -47,19 +48,6 @@ export interface LocalAutoResearchAccount {
   viewerId?: string;
 }
 
-export interface CapturedAutoResearchSession {
-  uid: string;
-  sid: string;
-  viewer_id: string;
-  device_id: string;
-  udid: string;
-  res_ver: string;
-  app_ver: string;
-  app_ver_code: string;
-  buma_open_id: string;
-  captured_at: string;
-}
-
 export interface AutoResearchSessionMetadata {
   sid?: string;
   viewerId?: string;
@@ -70,10 +58,6 @@ export interface AutoResearchSessionMetadata {
 }
 
 const capturedCredentials = new Map<string, CapturedAutoResearchCredential>();
-const capturedSessions = new Map<string, CapturedAutoResearchSession>();
-const DEFAULT_APP_VER = '2.0.2';
-const DEFAULT_APP_VER_CODE = '11150';
-const DEFAULT_RES_VER = '10012300:TS7TsHl6FUZl';
 
 function accountId(uid: string) {
   return createHash('sha256').update(uid).digest('hex');
@@ -99,7 +83,7 @@ function readStoredAccessKey(account: SerializedAutoResearchAccount) {
   if (value.startsWith('plain:')) {
     return Buffer.from(value.slice('plain:'.length), 'base64').toString('utf8');
   }
-  throw new Error('本地账号仍是旧的加密格式，请重新抓取账号凭据');
+  return null;
 }
 
 function writeAccounts(accounts: StoredAutoResearchAccount[]) {
@@ -117,21 +101,25 @@ function readAccounts(): StoredAutoResearchAccount[] {
     const payload = JSON.parse(fs.readFileSync(storePath(), 'utf8'));
     if (!Array.isArray(payload?.accounts)) return [];
     let needsMigration = false;
-    const accounts = payload.accounts.map(
-      (account: SerializedAutoResearchAccount): StoredAutoResearchAccount => {
-        if (typeof account.accessKey !== 'string') needsMigration = true;
-        return {
-          id: account.id,
-          uid: account.uid,
-          accessKey: readStoredAccessKey(account),
-          label: account.label,
-          source: account.source,
-          updatedAt: account.updatedAt,
-          viewerId:
-            typeof account.viewerId === 'string' ? account.viewerId : undefined,
-        };
-      },
-    );
+    const accounts: StoredAutoResearchAccount[] = [];
+    payload.accounts.forEach((account: SerializedAutoResearchAccount) => {
+      const accessKey = readStoredAccessKey(account);
+      if (accessKey === null) {
+        needsMigration = true;
+        return;
+      }
+      if (account.accessKey !== accessKey) needsMigration = true;
+      accounts.push({
+        id: account.id,
+        uid: account.uid,
+        accessKey,
+        label: account.label,
+        source: account.source,
+        updatedAt: account.updatedAt,
+        viewerId:
+          typeof account.viewerId === 'string' ? account.viewerId : undefined,
+      });
+    });
     if (needsMigration) writeAccounts(accounts);
     return accounts;
   } catch (error) {
@@ -154,15 +142,8 @@ function publicAccount(
   };
 }
 
-function invalidateLocalClientsForUid(uid: string) {
-  if (!uid) return;
-  readAccounts()
-    .filter((account) => account.uid === uid)
-    .forEach((account) => {
-      // The broker revision prevents an in-flight older client from writing
-      // its SID back after an externally captured session wins.
-      invalidateAutoResearchLocalGameClient(account.id).catch(() => undefined);
-    });
+function clearLocalClientForUid(uid: string) {
+  if (uid) clearAutoResearchLocalGameClientForUid(uid);
 }
 
 function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
@@ -175,9 +156,6 @@ function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
     if (!uid || !accessKey) return;
     const current = byUid.get(uid);
     if (current && current.accessKey !== accessKey) {
-      // An access_key change establishes a different server-side authority.
-      // Its previous SID must never be reused for this UID.
-      capturedSessions.delete(uid);
       invalidatedUids.add(uid);
     }
     byUid.set(uid, {
@@ -194,7 +172,7 @@ function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
     right.updatedAt.localeCompare(left.updatedAt),
   );
   writeAccounts(result);
-  invalidatedUids.forEach(invalidateLocalClientsForUid);
+  invalidatedUids.forEach(clearLocalClientForUid);
   return result.map(publicAccount);
 }
 
@@ -229,69 +207,15 @@ function rememberAccountViewer(uid: string, viewerId: string) {
   writeAccounts(accounts);
 }
 
-function storeCapturedSession(
+export function rememberAutoResearchAccountViewer(
   uid: string,
   viewerId: string,
-  deviceId: string,
-  sid: string,
-  metadata: AutoResearchSessionMetadata,
-  udid = deviceId,
 ) {
-  if (!uid || !viewerId || viewerId === '0' || !deviceId || !sid) return null;
-  const session: CapturedAutoResearchSession = {
-    uid,
-    sid,
-    viewer_id: viewerId,
-    // Captured game packets expose the normalized Android device id. It is
-    // also the value used as the protocol UDID/AES IV.
-    device_id: deviceId,
-    udid: udid || deviceId,
-    res_ver: metadata.resVer || DEFAULT_RES_VER,
-    app_ver: metadata.appVer || DEFAULT_APP_VER,
-    app_ver_code: metadata.appVerCode || DEFAULT_APP_VER_CODE,
-    buma_open_id: metadata.bumaOpenId || uid,
-    captured_at: new Date().toISOString(),
-  };
-  capturedSessions.set(uid, session);
   rememberAccountViewer(uid, viewerId);
-  return session;
 }
 
-function storeGameClientSession(session: SuccessionGameSession) {
-  return storeCapturedSession(
-    session.uid,
-    session.viewer_id,
-    session.device_id,
-    session.sid,
-    {
-      appVer: session.app_ver,
-      appVerCode: session.app_ver_code,
-      resVer: session.res_ver,
-      bumaOpenId: session.buma_open_id,
-    },
-    session.udid,
-  );
-}
-
-export function getAutoResearchCurrentSession(id: string) {
-  const credential = getAutoResearchAccountCredential(id);
-  return capturedSessions.get(credential.uid) || null;
-}
-
-export function storeAutoResearchGameClientSession(
-  session: SuccessionGameSession,
-) {
-  return storeGameClientSession(session);
-}
-
-export async function clearAutoResearchLocalSession(id: string) {
-  const credential = getAutoResearchAccountCredential(id);
-  capturedSessions.delete(credential.uid);
-  // Invalidation is also a FIFO barrier. A local request that was already
-  // queued can finish between the first delete and this barrier, so discard
-  // its rolled SID once more before handing the account to a server Worker.
-  await invalidateAutoResearchLocalGameClient(id);
-  capturedSessions.delete(credential.uid);
+export async function clearAutoResearchLocalSession() {
+  await clearAutoResearchLocalGameClient();
 }
 
 function importUsersDb(contentBase64: string) {
@@ -392,11 +316,9 @@ export function captureAutoResearchCredentials(
   if (uid) {
     // Packet notifications do not contain a request correlation ID.  Reusing
     // a game-client SID observed here could attach an A response to B's
-    // request.  External activity therefore only invalidates UmaShow's local
-    // client; the next local operation must explicitly establish a fresh
-    // session through the shared broker.
-    capturedSessions.delete(uid);
-    invalidateLocalClientsForUid(uid);
+    // request. External activity drops UmaShow's one local client; another
+    // local login must be explicitly selected before local operations resume.
+    clearLocalClientForUid(uid);
   }
   return added;
 }
@@ -429,8 +351,7 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     const accounts = previous.filter((account) => account.id !== id);
     writeAccounts(accounts);
     if (deleted) {
-      capturedSessions.delete(deleted.uid);
-      invalidateAutoResearchLocalGameClient(id).catch(() => undefined);
+      clearAutoResearchLocalGameClientForAccount(id);
     }
     return accounts.map(publicAccount);
   });
@@ -438,37 +359,30 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     return getAutoResearchAccountCredential(id);
   });
   ipcMain.handle('autoresearch:account-current-session', (_, id: string) => {
-    return getAutoResearchCurrentSession(id);
+    return getAutoResearchLocalGameClientSession(id);
   });
-  ipcMain.handle('autoresearch:account-local-session-clear', (_, id: string) =>
-    clearAutoResearchLocalSession(id),
+  ipcMain.handle('autoresearch:account-local-session-clear', () =>
+    clearAutoResearchLocalSession(),
   );
   ipcMain.handle('autoresearch:account-local-overview', async (_, id: string) =>
-    withAutoResearchLocalGameClient(
-      id,
-      {
-        login: 'required',
-        credentialRefreshSource: '详设本地数据刷新',
-      },
-      async (client) => {
-        const index = await client.loadIndex();
-        const dashboard = buildLocalDashboard(index, {
-          source: 'UmaShow 本地 load/index',
-        });
-        return {
-          success: true,
-          dashboard,
-          runtime: {
-            logged_in: true,
-            session_owner: 'local',
-            last_error: '',
-            last_refreshed_at: new Date().toISOString(),
-            runner: { running: false },
-            account: dashboard.account,
-          },
-        };
-      },
-    ),
+    withAutoResearchLocalGameClient(id, async (client) => {
+      const index = await client.loadIndex();
+      const dashboard = buildLocalDashboard(index, {
+        source: 'UmaShow 本地 load/index',
+      });
+      return {
+        success: true,
+        dashboard,
+        runtime: {
+          logged_in: true,
+          session_owner: 'local',
+          last_error: '',
+          last_refreshed_at: new Date().toISOString(),
+          runner: { running: false },
+          account: dashboard.account,
+        },
+      };
+    }),
   );
   ipcMain.handle(
     'autoresearch:account-login-session',
@@ -479,31 +393,63 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
           ...value,
         });
       };
-      return withAutoResearchLocalGameClient(
+      const { loginIndex, session } = await loginAutoResearchLocalGameClient(
         id,
         {
-          login: 'force',
           credentialRefreshSource: '自动育成本地登录刷新',
           onProgress: progress,
         },
-        async (client) => client.session,
       );
+      if (!loginIndex) throw new Error('游戏登录没有返回账号数据');
+      const dashboard = buildLocalDashboard(loginIndex, {
+        source: 'UmaShow 本地登录 load/index',
+      });
+      return {
+        success: true,
+        dashboard,
+        session,
+        runtime: {
+          logged_in: true,
+          session_owner: 'local',
+          last_error: '',
+          last_refreshed_at: new Date().toISOString(),
+          runner: { running: false },
+          account: dashboard.account,
+        },
+      };
     },
   );
   ipcMain.handle(
     'autoresearch:account-abandon-career',
     async (_, id: string, scenarioId: number, currentTurn: number) => {
-      return withAutoResearchLocalGameClient(
-        id,
-        {
-          login: 'required',
-          credentialRefreshSource: '本地放弃育成刷新',
-        },
-        async (client) => {
-          const result = await client.abandonCareer(scenarioId, currentTurn);
-          return { ...result, session: client.session };
-        },
-      );
+      return withAutoResearchLocalGameClient(id, async (client) => {
+        const result = await client.abandonCareer(scenarioId, currentTurn);
+        return { ...result, session: client.session };
+      });
+    },
+  );
+  ipcMain.handle(
+    'autoresearch:account-abandon-idle-single-mode',
+    async (_, id: string, currentTurn: number) => {
+      return withAutoResearchLocalGameClient(id, async (client) => {
+        const result = await client.abandonIdleSingleMode(currentTurn);
+        const dashboard = buildLocalDashboard(result.index, {
+          source: 'UmaShow 本地放弃离线育成 load/index',
+        });
+        return {
+          success: true,
+          dashboard,
+          session: client.session,
+          runtime: {
+            logged_in: true,
+            session_owner: 'local',
+            last_error: '',
+            last_refreshed_at: new Date().toISOString(),
+            runner: { running: false },
+            account: dashboard.account,
+          },
+        };
+      });
     },
   );
   ipcMain.handle(

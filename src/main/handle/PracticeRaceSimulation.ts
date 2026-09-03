@@ -1,6 +1,9 @@
 import type { IpcMain } from 'electron';
 import type { RaceRecord } from 'types/gameTypes';
-import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
+import {
+  loginAutoResearchLocalGameClient,
+  withAutoResearchLocalGameClient,
+} from './AutoResearchLocalGameClient';
 import { createRaceArchive, persistRaceInfoToArchive } from './RaceInfo';
 import {
   buildPracticeRaceStartPayload,
@@ -50,21 +53,20 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
         event.sender.send('race:repeat-simulation:progress', payload);
       };
       try {
+        await loginAutoResearchLocalGameClient(input.accountId, {
+          credentialRefreshSource: '重复模拟登录刷新',
+          onProgress: (value) => {
+            progress({
+              stage: 'login',
+              detail:
+                value.stage === 'login' ? '正在准备所选账号' : value.detail,
+              current: completed,
+              total: count,
+            });
+          },
+        });
         const result = await withAutoResearchLocalGameClient(
           input.accountId,
-          {
-            login: 'force',
-            credentialRefreshSource: '重复模拟登录刷新',
-            onProgress: (value) => {
-              progress({
-                stage: 'login',
-                detail:
-                  value.stage === 'login' ? '正在准备所选账号' : value.detail,
-                current: completed,
-                total: count,
-              });
-            },
-          },
           async (client) => {
             if (!sourceViewerIds.includes(client.viewerId)) {
               throw new Error(

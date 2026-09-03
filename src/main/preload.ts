@@ -208,6 +208,12 @@ const electronHandler = {
         scenarioId,
         currentTurn,
       ),
+    abandonIdleSingleMode: (id: string, currentTurn: number) =>
+      ipcRenderer.invoke(
+        'autoresearch:account-abandon-idle-single-mode',
+        id,
+        currentTurn,
+      ),
     onLoginProgress(
       callback: (data: {
         loginId: string;
