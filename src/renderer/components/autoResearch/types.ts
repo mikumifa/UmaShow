@@ -358,8 +358,6 @@ export type DailyTaskResult = {
   detail: string;
   finished_at?: string;
   count?: number;
-  donated?: number;
-  requested?: boolean;
 };
 
 export type DailyTasksConfig = {
@@ -387,23 +385,14 @@ export type DailyTasksConfig = {
     enabled: boolean;
     buy_all: true;
   };
-  circle: {
-    donate_enabled: boolean;
-    donate_item_ids: number[];
-    request_enabled: boolean;
-    request_item_id: number;
-  };
   status?: string;
   schedule_day?: string;
   daily_race_done?: boolean;
   daily_legend_race_done?: boolean;
   limited_shop_open_count?: number;
   pending_shop_sources?: string[];
-  circle_donation_limit_reached?: boolean;
   next_shop_check_at?: number;
   next_stadium_at?: number;
-  next_circle_donation_at?: number;
-  next_circle_request_at?: number;
   next_wake_at?: number;
   next_wake_reason?: string;
   last_trigger?: string;
@@ -434,11 +423,6 @@ export type DailyTasksOptions = {
       can_run_now: boolean;
       current_rp: number;
       term_open: boolean;
-      reason: string;
-    };
-    circle: {
-      available: boolean;
-      can_run_now: boolean;
       reason: string;
     };
   };
@@ -489,11 +473,6 @@ export type DailyTasksOptions = {
     proper_running_style_oikomi: number;
     proper_ground_turf: number;
     proper_ground_dirt: number;
-  }>;
-  request_items: Array<{
-    id: number;
-    name: string;
-    owned: number;
   }>;
 };
 

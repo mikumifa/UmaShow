@@ -260,6 +260,10 @@
       "output": "release/build"
     },
     "extraResources": [
+      {
+        "from": "./master.mdb",
+        "to": "master.mdb"
+      },
       "./assets/**",
       "./web-assets/**"
     ],

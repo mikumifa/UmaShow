@@ -257,6 +257,17 @@ function storeGameClientSession(session: SuccessionGameSession) {
   );
 }
 
+export function getAutoResearchCurrentSession(id: string) {
+  const credential = getAutoResearchAccountCredential(id);
+  return capturedSessions.get(credential.uid) || null;
+}
+
+export function storeAutoResearchGameClientSession(
+  session: SuccessionGameSession,
+) {
+  return storeGameClientSession(session);
+}
+
 function importUsersDb(contentBase64: string) {
   const bytes = Buffer.from(contentBase64, 'base64');
   if (!bytes.length || bytes.length > 32 * 1024 * 1024) {
@@ -403,8 +414,7 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     return getAutoResearchAccountCredential(id);
   });
   ipcMain.handle('autoresearch:account-current-session', (_, id: string) => {
-    const credential = getAutoResearchAccountCredential(id);
-    return capturedSessions.get(credential.uid) || null;
+    return getAutoResearchCurrentSession(id);
   });
   ipcMain.handle(
     'autoresearch:account-login-session',

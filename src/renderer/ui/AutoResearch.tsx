@@ -153,6 +153,25 @@ const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
 
 const LOCAL_DAILY_TASKS_KEY = 'autoResearch.dailyTasks.v1';
 
+const defaultDailyTasksConfig = (): DailyTasksConfig => ({
+  schema_version: 3,
+  run_with_career: false,
+  daily_race: {
+    enabled: false,
+    daily_race_id: 0,
+    trained_chara_id: 0,
+    running_style: 0,
+  },
+  daily_legend_race: {
+    enabled: false,
+    daily_legend_race_id: 0,
+    trained_chara_id: 0,
+    running_style: 0,
+  },
+  team_stadium: { enabled: false, opponent_strength: 3 },
+  limited_shop: { enabled: false, buy_all: true },
+});
+
 const editableDailyTasksConfig = (
   config: DailyTasksConfig,
 ): DailyTasksConfig => ({
@@ -162,10 +181,6 @@ const editableDailyTasksConfig = (
   daily_legend_race: { ...config.daily_legend_race },
   team_stadium: { ...config.team_stadium },
   limited_shop: { ...config.limited_shop },
-  circle: {
-    ...config.circle,
-    donate_item_ids: [...config.circle.donate_item_ids],
-  },
 });
 
 const readLocalDailyTasks = (
@@ -464,13 +479,15 @@ export default function AutoResearch() {
   ] = useState('');
   const [missingExistingRuntimeAccountId, setMissingExistingRuntimeAccountId] =
     useState('');
+  const accountsRef = useRef(accounts);
+  const activeTabRef = useRef(activeTab);
   const sessionTokens = useRef(new Map<string, string>());
-  const localDailySessionTokens = useRef(new Map<string, string>());
-  const localDailyLoginRequests = useRef(new Map<string, Promise<string>>());
   const existingRuntimeAttachAttempts = useRef(new Set<string>());
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
+  accountsRef.current = accounts;
+  activeTabRef.current = activeTab;
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
   const overviewRequestVersions = useRef(new Map<string, number>());
@@ -1333,128 +1350,6 @@ export default function AutoResearch() {
     [request],
   );
 
-  const localDailyRequest = useCallback(
-    async <T,>(
-      path: string,
-      init?: Parameters<typeof fetch>[1],
-    ): Promise<T> => {
-      const response = await fetch(`${DEFAULT_SERVER}${path}`, {
-        ...init,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(init?.headers || {}),
-        },
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new AutoResearchRequestError(
-          body.detail || `HTTP ${response.status}`,
-          response.status,
-        );
-      }
-      return body as T;
-    },
-    [],
-  );
-
-  const ensureLocalDailySession = useCallback(
-    async (accountId: string): Promise<string> => {
-      const cachedToken = localDailySessionTokens.current.get(accountId);
-      if (cachedToken) return cachedToken;
-
-      if (server === DEFAULT_SERVER) {
-        const currentToken = sessionTokens.current.get(accountId);
-        if (currentToken) {
-          localDailySessionTokens.current.set(accountId, currentToken);
-          return currentToken;
-        }
-      }
-
-      const pendingRequest = localDailyLoginRequests.current.get(accountId);
-      if (pendingRequest) return pendingRequest;
-
-      const loginRequest = (async () => {
-        const credential = (await window.electron.autoResearch.credential(
-          accountId,
-        )) as { uid: string; accessKey: string };
-        const localSession = (await window.electron.autoResearch.currentSession(
-          accountId,
-        )) as Record<string, string> | null;
-        if (!localSession?.sid) {
-          throw new Error(
-            '本地日常需要 UmaShow 已捕获的本机 SID，请先在本机登录游戏并刷新账号',
-          );
-        }
-        let authenticated: AuthResponse;
-        try {
-          authenticated = await localDailyRequest<AuthResponse>(
-            '/api/auth/login',
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                uid: localSession.uid || credential.uid,
-                access_key: localSession.access_key || credential.accessKey,
-                allow_account_login: false,
-                session: localSession,
-              }),
-            },
-          );
-        } catch (caught) {
-          if (
-            caught instanceof TypeError ||
-            String((caught as Error)?.message || '').includes('Failed to fetch')
-          ) {
-            throw new Error(
-              `无法连接本机日常服务 ${DEFAULT_SERVER}，请先启动本地 UmaAutoResearch`,
-            );
-          }
-          throw caught;
-        }
-        localDailySessionTokens.current.set(accountId, authenticated.token);
-        return authenticated.token;
-      })();
-
-      localDailyLoginRequests.current.set(accountId, loginRequest);
-      try {
-        return await loginRequest;
-      } finally {
-        localDailyLoginRequests.current.delete(accountId);
-      }
-    },
-    [localDailyRequest, server],
-  );
-
-  const localDailyAccountRequest = useCallback(
-    async <T,>(
-      accountId: string,
-      path: string,
-      init?: Parameters<typeof fetch>[1],
-      retry = true,
-    ): Promise<T> => {
-      const token = await ensureLocalDailySession(accountId);
-      try {
-        return await localDailyRequest<T>(path, {
-          ...init,
-          headers: {
-            ...(init?.headers || {}),
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      } catch (caught) {
-        if (
-          retry &&
-          caught instanceof AutoResearchRequestError &&
-          caught.status === 401
-        ) {
-          localDailySessionTokens.current.delete(accountId);
-          return localDailyAccountRequest<T>(accountId, path, init, false);
-        }
-        throw caught;
-      }
-    },
-    [ensureLocalDailySession, localDailyRequest],
-  );
-
   const applyAccountOptions = useCallback(
     (accountId: string, options: AccountOptionsResponse['options']) => {
       accountOptionsCache.current.set(accountId, options);
@@ -1681,18 +1576,28 @@ export default function AutoResearch() {
   const loadDailyTasks = useCallback(
     async (accountId: string) => {
       if (!accountId) return;
+      const account = accounts.find((item) => item.id === accountId);
+      if (
+        !account?.runtime.logged_in ||
+        runtimeSessionOwner(account.runtime) !== 'local'
+      ) {
+        setDailyTasksOverview(null);
+        setDailyTasksLoading(false);
+        setDailyTasksLoadError('');
+        return;
+      }
       setDailyTasksLoading(true);
       setDailyTasksLoadError('');
       try {
-        const result = await localDailyAccountRequest<DailyTasksResponse>(
-          accountId,
-          '/api/account/daily-tasks',
+        const localConfig = readLocalDailyTasks(
+          account.uid,
+          defaultDailyTasksConfig(),
         );
+        const result = (await window.electron.autoResearch.dailyTasksOverview(
+          accountId,
+          localConfig,
+        )) as DailyTasksResponse;
         if (selectedAccountIdRef.current === accountId) {
-          const account = accounts.find((item) => item.id === accountId);
-          const localConfig = account
-            ? readLocalDailyTasks(account.uid, result.daily_tasks)
-            : editableDailyTasksConfig(result.daily_tasks);
           setDailyTasksOverview({
             ...result,
             daily_tasks: { ...result.daily_tasks, ...localConfig },
@@ -1710,7 +1615,7 @@ export default function AutoResearch() {
         }
       }
     },
-    [accounts, localDailyAccountRequest],
+    [accounts],
   );
 
   const saveDailyTasks = useCallback(
@@ -1752,24 +1657,10 @@ export default function AutoResearch() {
       setError('');
       try {
         const saved = writeLocalDailyTasks(selectedAccount.uid, config);
-        await localDailyAccountRequest<DailyTasksResponse>(
+        const result = (await window.electron.autoResearch.runDailyTasks(
           selectedAccountId,
-          '/api/account/daily-tasks',
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...saved,
-              enabled: false,
-              run_time: '00:00',
-            }),
-          },
-        );
-        const result = await localDailyAccountRequest<DailyTasksResponse>(
-          selectedAccountId,
-          '/api/account/daily-tasks/run',
-          { method: 'POST', body: '{}' },
-        );
+          saved,
+        )) as DailyTasksResponse;
         setDailyTasksOverview({
           ...result,
           daily_tasks: { ...result.daily_tasks, ...saved },
@@ -1780,12 +1671,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [
-      localDailyAccountRequest,
-      selectedAccount,
-      selectedAccountId,
-      serverHostedMode,
-    ],
+    [selectedAccount, selectedAccountId, serverHostedMode],
   );
 
   const connect = useCallback(
@@ -1989,9 +1875,14 @@ export default function AutoResearch() {
     ) {
       return;
     }
-    attachExistingRuntime(selectedAccountId).catch((caught) =>
-      setError((caught as Error).message),
-    );
+    attachExistingRuntime(selectedAccountId).catch((caught) => {
+      if (
+        selectedAccountIdRef.current === selectedAccountId &&
+        ['career', 'history'].includes(activeTabRef.current)
+      ) {
+        setError((caught as Error).message);
+      }
+    });
   }, [
     activeTab,
     attachExistingRuntime,
@@ -6429,7 +6320,6 @@ export default function AutoResearch() {
                     locked={serverHostedMode}
                     onRetry={() => {
                       if (!selectedAccountId) return;
-                      localDailySessionTokens.current.delete(selectedAccountId);
                       loadDailyTasks(selectedAccountId).catch(() => undefined);
                     }}
                     onSave={saveDailyTasks}

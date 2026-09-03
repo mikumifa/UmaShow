@@ -382,7 +382,7 @@ export class SuccessionGameClient {
     return result;
   }
 
-  private async call(endpoint: string, args: Record<string, unknown> = {}) {
+  async call(endpoint: string, args: Record<string, unknown> = {}) {
     const elapsed = Date.now() - this.lastRequestAt;
     if (elapsed < 160) {
       await new Promise((resolve) => {

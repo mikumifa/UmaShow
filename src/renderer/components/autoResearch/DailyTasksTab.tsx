@@ -3,13 +3,11 @@ import {
   CalendarCheck,
   ChevronsUpDown,
   CheckCircle2,
-  Clock3,
   Play,
   RefreshCw,
   Save,
   ShoppingBag,
   Swords,
-  Users,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import DailyHorsePicker, {
@@ -54,12 +52,6 @@ const emptyConfig = (): DailyTasksConfig => ({
   },
   team_stadium: { enabled: false, opponent_strength: 3 },
   limited_shop: { enabled: false, buy_all: true },
-  circle: {
-    donate_enabled: false,
-    donate_item_ids: [],
-    request_enabled: false,
-    request_item_id: 0,
-  },
 });
 
 const toggleClass = (enabled: boolean) =>
@@ -105,7 +97,6 @@ const taskNames: Record<string, string> = {
   daily_legend_race: '每日传奇赛事',
   team_stadium: '竞技场',
   limited_shop: '限时商店',
-  circle: '社团',
 };
 
 type DailyHorse = DailyTasksOptions['trained_charas'][number];
@@ -313,12 +304,10 @@ export default function DailyTasksTab({
   const dailyRaces = options.daily_races || [];
   const legendRaces = options.daily_legend_races || [];
   const trainedCharas = options.trained_charas || [];
-  const requestItems = options.request_items || [];
   const { availability } = options;
   const dailyRaceAvailability = availability?.daily_race;
   const legendRaceAvailability = availability?.daily_legend_race;
   const stadiumAvailability = availability?.team_stadium;
-  const circleAvailability = availability?.circle;
   const disabled = locked || busy === 'daily-save' || busy === 'daily-run';
   const taskResults = overview.daily_tasks.task_results || {};
   const selectedDailyRace = dailyRaces.find(
@@ -623,185 +612,6 @@ export default function DailyTasksTab({
           </div>
         </section>
       </div>
-
-      <section className={panelClass('p-5')}>
-        <div className="flex items-center gap-2">
-          <Users className="text-cyan-600" size={19} />
-          <div>
-            <h3 className="font-semibold text-slate-800">社团物品</h3>
-            <p className="text-xs text-slate-500">
-              请求按服务端冷却时间调度；捐赠达到每日上限后等待次日 05:00 重置。
-            </p>
-          </div>
-        </div>
-        <AvailabilityNotice
-          available={circleAvailability?.available}
-          canRunNow={circleAvailability?.can_run_now}
-          reason={circleAvailability?.reason}
-          readyDetail="当前账号已加入社团，可以配置捐赠和物品请求"
-        />
-        <div className="mt-4 grid gap-5 xl:grid-cols-2">
-          <div className="rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-slate-700">
-                自动捐赠
-              </span>
-              <Toggle
-                checked={draft.circle.donate_enabled}
-                label="启用社团捐赠"
-                disabled={
-                  circleAvailability?.available === false &&
-                  !draft.circle.donate_enabled
-                }
-                onChange={(donate_enabled) =>
-                  setDraft((current) => ({
-                    ...current,
-                    circle: { ...current.circle, donate_enabled },
-                  }))
-                }
-              />
-            </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">允许捐赠的物品</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:text-slate-400"
-                  disabled={
-                    !draft.circle.donate_enabled ||
-                    circleAvailability?.available === false
-                  }
-                  onClick={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      circle: {
-                        ...current.circle,
-                        donate_item_ids: requestItems.map((item) => item.id),
-                      },
-                    }))
-                  }
-                >
-                  全选
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:text-slate-400"
-                  disabled={
-                    !draft.circle.donate_enabled ||
-                    circleAvailability?.available === false
-                  }
-                  onClick={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      circle: { ...current.circle, donate_item_ids: [] },
-                    }))
-                  }
-                >
-                  清空
-                </button>
-              </div>
-            </div>
-            <div className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
-              {requestItems.map((item) => {
-                const checked = draft.circle.donate_item_ids.includes(item.id);
-                return (
-                  <label
-                    key={item.id}
-                    htmlFor={`daily-donate-item-${item.id}`}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5 text-sm hover:bg-slate-50"
-                  >
-                    <span className="truncate text-slate-700">{item.name}</span>
-                    <span className="flex items-center gap-2 text-xs text-slate-400">
-                      持有 {item.owned}
-                      <input
-                        id={`daily-donate-item-${item.id}`}
-                        type="checkbox"
-                        checked={checked}
-                        disabled={
-                          !draft.circle.donate_enabled ||
-                          circleAvailability?.available === false
-                        }
-                        onChange={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            circle: {
-                              ...current.circle,
-                              donate_item_ids: checked
-                                ? current.circle.donate_item_ids.filter(
-                                    (id) => id !== item.id,
-                                  )
-                                : [...current.circle.donate_item_ids, item.id],
-                            },
-                          }))
-                        }
-                      />
-                    </span>
-                  </label>
-                );
-              })}
-              {!requestItems.length ? (
-                <p className="p-2 text-xs text-slate-400">暂无可选物品</p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-slate-700">
-                自动请求物品
-              </span>
-              <Toggle
-                checked={draft.circle.request_enabled}
-                label="启用社团物品请求"
-                disabled={
-                  circleAvailability?.available === false &&
-                  !draft.circle.request_enabled
-                }
-                onChange={(request_enabled) =>
-                  setDraft((current) => ({
-                    ...current,
-                    circle: { ...current.circle, request_enabled },
-                  }))
-                }
-              />
-            </div>
-            <label className="mt-3 block" htmlFor="daily-circle-request-item">
-              <span className="mb-1 block text-xs font-medium text-slate-500">
-                请求物品
-              </span>
-              <select
-                id="daily-circle-request-item"
-                className={fieldClass}
-                value={draft.circle.request_item_id}
-                disabled={
-                  !draft.circle.request_enabled ||
-                  circleAvailability?.available === false
-                }
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    circle: {
-                      ...current.circle,
-                      request_item_id: Number(event.target.value),
-                    },
-                  }))
-                }
-              >
-                <option value={0}>选择请求物品</option>
-                {requestItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} · 持有 {item.owned}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-800">
-              <Clock3 className="mt-0.5 shrink-0" size={16} />
-              仍有自己的有效请求或请求冷却未结束时，不会重复发送。
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section className={panelClass('p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-4">

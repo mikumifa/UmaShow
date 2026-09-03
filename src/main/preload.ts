@@ -187,6 +187,10 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-current-session', id),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
+    dailyTasksOverview: (id: string, config: Record<string, unknown>) =>
+      ipcRenderer.invoke('autoresearch:daily-tasks-overview', id, config),
+    runDailyTasks: (id: string, config: Record<string, unknown>) =>
+      ipcRenderer.invoke('autoresearch:daily-tasks-run', id, config),
     abandonCareer: (id: string, scenarioId: number, currentTurn: number) =>
       ipcRenderer.invoke(
         'autoresearch:account-abandon-career',

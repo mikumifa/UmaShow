@@ -19,6 +19,7 @@ import {
 import { handleLeaderboardRanking } from './handle/LeaderboardRanking';
 import { handleAutoResearchCredentials } from './handle/AutoResearchCredentials';
 import handleAutoResearchUiSettings from './handle/AutoResearchUiSettings';
+import handleAutoResearchDailyTasks from './handle/AutoResearchDailyTasks';
 import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';
@@ -148,6 +149,7 @@ handleDataLoad(ipcMain);
 handleLeaderboardRanking(ipcMain);
 handleAutoResearchCredentials(ipcMain);
 handleAutoResearchUiSettings(ipcMain);
+handleAutoResearchDailyTasks(ipcMain);
 handleSuccessionIndex(ipcMain);
 handleSuccessionPlayerScan(ipcMain);
 handlePracticeRaceSimulation(ipcMain);
