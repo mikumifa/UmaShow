@@ -448,6 +448,21 @@ export default function CareerTab(props: CareerTabProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    applyCareerSetting(setting.id);
+                    window.setTimeout(
+                      () => scrollToSection('career-run-queue'),
+                      50,
+                    );
+                  }}
+                  disabled={!presetExists}
+                  className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ListOrdered size={15} />
+                  设置队列
+                </button>
+                <button
+                  type="button"
                   onClick={() => deleteCareerSetting(setting.id)}
                   className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                   aria-label={`删除详设${setting.name}`}
@@ -532,6 +547,7 @@ export default function CareerTab(props: CareerTabProps) {
       <nav className="sticky top-[52px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
         {[
           ['career-task', '任务配置'],
+          ['career-run-queue', '运行队列'],
           ['career-selection', '选择阵容'],
           ...(careerMode === 'offline'
             ? [
@@ -633,7 +649,10 @@ export default function CareerTab(props: CareerTabProps) {
           </div>
         </div>
 
-        <section className="mt-5 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
+        <section
+          id="career-run-queue"
+          className="mt-5 scroll-mt-28 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="flex items-center gap-2 font-semibold text-slate-800">
@@ -641,14 +660,15 @@ export default function CareerTab(props: CareerTabProps) {
                 运行计划队列
               </h3>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                按顺序运行多个详设；钻石目标按北京时间 05:00
-                周期内的今日累计值判断。
+                队列保存在当前详设中。每项分别选择单次、持续、完成次数或获得钻石；
+                是否每天重复在启动整个队列时统一设置。
               </p>
             </div>
             <button
               type="button"
               disabled={
-                !accountCareerSettings.length && !selectedCareerSettingId
+                (!accountCareerSettings.length && !selectedCareerSettingId) ||
+                careerRunQueue.at(-1)?.goal === 'continuous'
               }
               onClick={() => {
                 const settingId =
@@ -659,7 +679,7 @@ export default function CareerTab(props: CareerTabProps) {
                   {
                     id: `queue-${Date.now()}-${current.length}`,
                     career_setting_id: settingId,
-                    goal: 'runs',
+                    goal: 'single',
                     target: 1,
                   },
                 ]);
@@ -718,8 +738,11 @@ export default function CareerTab(props: CareerTabProps) {
                                   ...item,
                                   goal: event.target
                                     .value as CareerRunQueueItem['goal'],
-                                  target:
-                                    event.target.value === 'daily_jewel_drops'
+                                  target: ['single', 'continuous'].includes(
+                                    event.target.value,
+                                  )
+                                    ? 1
+                                    : event.target.value === 'jewel_drops'
                                       ? Math.min(20, item.target)
                                       : item.target,
                                 }
@@ -729,48 +752,63 @@ export default function CareerTab(props: CareerTabProps) {
                       }
                       className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                     >
-                      <option value="runs">执行指定次数</option>
-                      <option value="daily_jewel_drops">今日钻石达到</option>
+                      <option value="single">单次</option>
+                      <option
+                        value="continuous"
+                        disabled={index !== careerRunQueue.length - 1}
+                      >
+                        持续
+                      </option>
+                      <option value="count">完成 X 次</option>
+                      <option value="jewel_drops">获得 X 次</option>
                     </select>
                     <label className="flex items-center gap-2 text-xs text-slate-500">
-                      {queueItem.goal === 'daily_jewel_drops' ? (
+                      {queueItem.goal === 'jewel_drops' ? (
                         <Gem size={14} className="text-violet-600" />
                       ) : null}
-                      <input
-                        type="number"
-                        min={1}
-                        max={queueItem.goal === 'daily_jewel_drops' ? 20 : 100}
-                        value={queueItem.target}
-                        onChange={(event) =>
-                          setCareerRunQueue((current) =>
-                            current.map((item) =>
-                              item.id === queueItem.id
-                                ? {
-                                    ...item,
-                                    target: Math.max(
-                                      1,
-                                      Math.min(
-                                        item.goal === 'daily_jewel_drops'
-                                          ? 20
-                                          : 100,
-                                        Number(event.target.value),
-                                      ),
-                                    ),
-                                  }
-                                : item,
-                            ),
-                          )
-                        }
-                        className="w-20 rounded-md border border-slate-200 px-2 py-2 font-semibold text-slate-800"
-                      />
-                      {queueItem.goal === 'daily_jewel_drops'
-                        ? '次（今日累计）'
-                        : '次'}
+                      {['count', 'jewel_drops'].includes(queueItem.goal) ? (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            max={queueItem.goal === 'jewel_drops' ? 20 : 100}
+                            value={queueItem.target}
+                            onChange={(event) =>
+                              setCareerRunQueue((current) =>
+                                current.map((item) =>
+                                  item.id === queueItem.id
+                                    ? {
+                                        ...item,
+                                        target: Math.max(
+                                          1,
+                                          Math.min(
+                                            item.goal === 'jewel_drops'
+                                              ? 20
+                                              : 100,
+                                            Number(event.target.value),
+                                          ),
+                                        ),
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="w-20 rounded-md border border-slate-200 px-2 py-2 font-semibold text-slate-800"
+                          />
+                          次
+                        </>
+                      ) : (
+                        <span className="px-2 py-2 text-slate-400">
+                          无需数量
+                        </span>
+                      )}
                     </label>
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
-                        disabled={index === 0}
+                        disabled={
+                          index === 0 || queueItem.goal === 'continuous'
+                        }
                         onClick={() =>
                           setCareerRunQueue((current) => {
                             const next = [...current];
@@ -827,9 +865,12 @@ export default function CareerTab(props: CareerTabProps) {
               })}
             </div>
           ) : (
-            <p className="mt-3 rounded-md border border-dashed border-indigo-200 bg-white/70 px-3 py-4 text-center text-xs text-slate-500">
-              未配置队列时仍可使用单次、指定次数等普通运行方式。
-            </p>
+            <div className="mt-3 rounded-md border border-dashed border-indigo-200 bg-white/70 px-3 py-4 text-xs leading-6 text-slate-600">
+              <p className="font-medium text-slate-700">设置方法：</p>
+              <p>
+                依次点击“添加详设”，选择要执行的详设，再选择“执行指定次数”或“今日钻石达到”并填写目标。完成后点击上方“保存设置”；开始运行时选择“按详设队列运行”。
+              </p>
+            </div>
           )}
         </section>
 

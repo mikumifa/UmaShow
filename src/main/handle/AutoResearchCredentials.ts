@@ -6,6 +6,7 @@ import { app, BrowserWindow, IpcMain } from 'electron';
 import {
   SuccessionGameClient,
   SuccessionGameProgress,
+  SuccessionGameSession,
 } from './SuccessionGameClient';
 
 export interface CapturedAutoResearchCredential {
@@ -218,6 +219,7 @@ function storeCapturedSession(
   deviceId: string,
   sid: string,
   metadata: AutoResearchSessionMetadata,
+  udid = deviceId,
 ) {
   if (!uid || !viewerId || viewerId === '0' || !deviceId || !sid) return null;
   const session: CapturedAutoResearchSession = {
@@ -227,7 +229,7 @@ function storeCapturedSession(
     // Captured game packets expose the normalized Android device id. It is
     // also the value used as the protocol UDID/AES IV.
     device_id: deviceId,
-    udid: deviceId,
+    udid: udid || deviceId,
     res_ver: metadata.resVer || DEFAULT_RES_VER,
     app_ver: metadata.appVer || DEFAULT_APP_VER,
     app_ver_code: metadata.appVerCode || DEFAULT_APP_VER_CODE,
@@ -237,6 +239,22 @@ function storeCapturedSession(
   capturedSessions.set(uid, session);
   rememberAccountViewer(uid, viewerId);
   return session;
+}
+
+function storeGameClientSession(session: SuccessionGameSession) {
+  return storeCapturedSession(
+    session.uid,
+    session.viewer_id,
+    session.device_id,
+    session.sid,
+    {
+      appVer: session.app_ver,
+      appVerCode: session.app_ver_code,
+      resVer: session.res_ver,
+      bumaOpenId: session.buma_open_id,
+    },
+    session.udid,
+  );
 }
 
 function importUsersDb(contentBase64: string) {
@@ -412,7 +430,33 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
           capturedAt: new Date().toISOString(),
         });
       }
+      storeGameClientSession(client.session);
       return client.session;
+    },
+  );
+  ipcMain.handle(
+    'autoresearch:account-abandon-career',
+    async (_, id: string, scenarioId: number, currentTurn: number) => {
+      const credential = getAutoResearchAccountCredential(id);
+      const storedSession = capturedSessions.get(credential.uid) || null;
+      const client = new SuccessionGameClient(
+        credential.uid,
+        credential.accessKey,
+        undefined,
+        storedSession,
+      );
+      if (!storedSession) await client.login();
+      try {
+        const result = await client.abandonCareer(scenarioId, currentTurn);
+        const session = storeGameClientSession(client.session);
+        return { ...result, session };
+      } catch (error) {
+        // Every successful game request rolls SID. Preserve the newest value
+        // even when the final verification fails, so a retry does not reuse
+        // the already-invalid pre-operation SID.
+        storeGameClientSession(client.session);
+        throw error;
+      }
     },
   );
   ipcMain.handle(

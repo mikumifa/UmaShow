@@ -19,7 +19,11 @@ export type RunnerStats = {
   skill_point?: number;
 };
 
-export type CareerRunQueueGoal = 'runs' | 'daily_jewel_drops';
+export type CareerRunQueueGoal =
+  | 'single'
+  | 'continuous'
+  | 'count'
+  | 'jewel_drops';
 
 export type CareerRunQueueItem = {
   id: string;
@@ -30,6 +34,7 @@ export type CareerRunQueueItem = {
 
 export type CareerRunQueueState = {
   active: boolean;
+  repeat_daily?: boolean;
   session_id: string;
   started_at: string;
   current_index: number;
@@ -112,6 +117,7 @@ export type Runner = {
       | 'daily_count'
       | 'jewel_drops'
       | 'daily_jewel_drops';
+    repeat_daily?: boolean;
     target: number;
     completed_runs: number;
     completed_jewel_drops: number;
@@ -121,6 +127,7 @@ export type Runner = {
   };
   daily_jewel_schedule?: {
     enabled: boolean;
+    mode?: 'single' | 'continuous' | 'count' | 'jewel_drops' | 'queue';
     target: number;
     start_time: string;
     end_time: string;
@@ -655,7 +662,8 @@ export type RunMode =
 
 export type PendingRun =
   | { type: 'current' }
-  | { type: 'saved'; settingId: string };
+  | { type: 'saved'; settingId: string }
+  | { type: 'append'; settingId: string };
 
 export type OfflineSingleModeRace = {
   year: number;

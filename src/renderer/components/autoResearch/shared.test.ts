@@ -1,4 +1,4 @@
-import { formatAccountError } from './shared';
+import { formatAccountError, needsRelogin } from './shared';
 
 describe('formatAccountError', () => {
   it.each([
@@ -12,5 +12,20 @@ describe('formatAccountError', () => {
 
   it('keeps unrelated errors unchanged', () => {
     expect(formatAccountError('网络连接超时')).toBe('网络连接超时');
+  });
+});
+
+describe('needsRelogin', () => {
+  it('does not treat ordinary API result codes as session failures', () => {
+    expect(needsRelogin(new Error('API error 102 on factor_select'))).toBe(
+      false,
+    );
+  });
+
+  it('still recognizes actual session and network failures', () => {
+    expect(needsRelogin(new Error('错误码 217：需要重新登录'))).toBe(true);
+    expect(needsRelogin(new Error('网络请求失败：connection reset'))).toBe(
+      true,
+    );
   });
 });

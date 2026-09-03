@@ -173,7 +173,6 @@ export function needsRelogin(error: unknown) {
     'sid',
     '401',
     '403',
-    'api error',
     '网络请求失败',
   ].some((marker) => detail.includes(marker));
 }

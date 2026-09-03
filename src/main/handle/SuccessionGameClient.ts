@@ -40,6 +40,30 @@ export type BiliGameUser = {
   viewerId: string;
 };
 
+export type SuccessionGameSession = {
+  uid: string;
+  access_key?: string;
+  app_ver: string;
+  app_ver_code: string;
+  res_ver: string;
+  device_id: string;
+  udid: string;
+  sid: string;
+  buma_open_id: string;
+  viewer_id: string;
+  captured_at?: string;
+};
+
+const SCENARIO_FAMILY: Record<number, string> = {
+  1: 'single_mode',
+  2: 'single_mode_team',
+  3: 'single_mode_live',
+  4: 'single_mode_free',
+  5: 'single_mode_venus',
+  6: 'single_mode_arc',
+  7: 'single_mode_sport',
+};
+
 function javaHexDigit(value: string) {
   if (value >= '0' && value <= '9') return value.charCodeAt(0) - 48;
   const lower = value.toLowerCase();
@@ -164,6 +188,37 @@ function gameError(endpoint: string, result: Record<string, any>) {
   return new Error(`${endpoint} 请求失败：${message}`);
 }
 
+export function careerTurnFromResponse(message: unknown) {
+  if (!message || typeof message !== 'object') return 0;
+  const record = message as Record<string, any>;
+  const data =
+    record.data && typeof record.data === 'object' ? record.data : record;
+  const containers: Array<Record<string, any>> = [data];
+  if (
+    data.single_mode_start_common &&
+    typeof data.single_mode_start_common === 'object'
+  ) {
+    containers.push(data.single_mode_start_common);
+  }
+  Object.entries(data).forEach(([key, value]) => {
+    if (
+      (key.endsWith('_load_common') || key.endsWith('_data_set')) &&
+      value &&
+      typeof value === 'object'
+    ) {
+      containers.push(value as Record<string, any>);
+    }
+  });
+  const currentTurn = containers
+    .flatMap((container) =>
+      ['chara_info', 'single_mode_chara', 'single_mode_chara_light'].map(
+        (key) => Number(container[key]?.turn || 0),
+      ),
+    )
+    .find((turn) => Number.isFinite(turn) && turn > 0);
+  return currentTurn ? Math.trunc(currentTurn) : 0;
+}
+
 export class SuccessionGameClient {
   private user: BiliGameUser;
 
@@ -173,19 +228,20 @@ export class SuccessionGameClient {
     uid: string,
     accessKey: string,
     private readonly onProgress?: (progress: SuccessionGameProgress) => void,
+    session?: Partial<SuccessionGameSession> | null,
   ) {
-    const deviceId = randomUUID().toUpperCase();
+    const deviceId = session?.device_id || randomUUID().toUpperCase();
     this.user = {
       uid,
       accessKey,
-      appVer: UMA_CN_APP_VER,
-      appVerCode: UMA_CN_APP_VER_CODE,
-      resVer: UMA_CN_RES_VER,
+      appVer: session?.app_ver || UMA_CN_APP_VER,
+      appVerCode: session?.app_ver_code || UMA_CN_APP_VER_CODE,
+      resVer: session?.res_ver || UMA_CN_RES_VER,
       deviceId,
-      udid: deviceId.replace(/-/g, '').toLowerCase(),
-      sid: '',
-      bumaOpenId: '0',
-      viewerId: '0',
+      udid: session?.udid || deviceId.replace(/-/g, '').toLowerCase(),
+      sid: session?.sid || '',
+      bumaOpenId: session?.buma_open_id || '0',
+      viewerId: session?.viewer_id || '0',
     };
   }
 
@@ -197,7 +253,7 @@ export class SuccessionGameClient {
     return this.user.viewerId;
   }
 
-  get session() {
+  get session(): SuccessionGameSession {
     return {
       uid: this.user.uid,
       access_key: this.user.accessKey,
@@ -363,6 +419,46 @@ export class SuccessionGameClient {
     await this.postGame('tool/start_session', this.devicePayload());
     this.onProgress?.({ stage: 'load', detail: '正在读取账号基础数据' });
     await this.call('load/index', { adid: '' });
+  }
+
+  async loadIndex() {
+    return this.call('load/index', { adid: '' });
+  }
+
+  async loadCareer(scenarioId: number) {
+    const family = SCENARIO_FAMILY[Math.trunc(Number(scenarioId))];
+    if (!family) {
+      throw new Error(`无法确定当前育成剧本接口：scenario_id=${scenarioId}`);
+    }
+    return this.call(`${family}/load`);
+  }
+
+  async finishCareer(currentTurn: number, isForceDelete = false) {
+    return this.call('single_mode/finish', {
+      is_force_delete: isForceDelete,
+      current_turn: Math.max(1, Math.trunc(Number(currentTurn) || 1)),
+      factor_lottery_id: 0,
+    });
+  }
+
+  async abandonCareer(scenarioId: number, fallbackTurn = 1) {
+    let currentTurn = Math.max(1, Math.trunc(Number(fallbackTurn) || 1));
+    try {
+      const loaded = await this.loadCareer(scenarioId);
+      currentTurn = careerTurnFromResponse(loaded) || currentTurn;
+    } catch {
+      // Match the game worker's recovery path: a cached turn is sufficient for
+      // force-delete when the scenario load itself cannot be restored.
+    }
+    await this.finishCareer(currentTurn, true);
+    const index = await this.loadIndex();
+    const data = index.data || {};
+    if (data.single_mode_chara_light || data.single_mode_chara) {
+      throw new Error(
+        '游戏服务器仍报告有进行中的育成，放弃操作尚未生效；请重新登录后再试',
+      );
+    }
+    return { careerDeleted: true, currentTurn, index };
   }
 
   async searchPlayer(viewerId: string) {

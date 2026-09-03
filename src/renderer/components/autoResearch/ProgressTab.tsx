@@ -58,6 +58,24 @@ function visibleRunnerLog(runner?: Runner) {
   });
 }
 
+function dailyPlanGoalLabel(
+  schedule: NonNullable<Runner['daily_jewel_schedule']>,
+) {
+  switch (schedule.mode) {
+    case 'single':
+      return '每天单次';
+    case 'continuous':
+      return '每天持续';
+    case 'count':
+      return `每天完成 ${schedule.target} 次`;
+    case 'queue':
+      return '每天执行完整队列';
+    case 'jewel_drops':
+    default:
+      return `今日钻石 ${schedule.daily_jewel_drop_count}/${schedule.target} 次`;
+  }
+}
+
 export default function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
@@ -78,6 +96,12 @@ export default function ProgressTab({
 }: ProgressTabProps) {
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
+  const runnerErrors = [runner?.last_error, runner?.control?.detail?.last_error]
+    .map(formatAccountError)
+    .filter(
+      (message, index, messages) =>
+        Boolean(message) && messages.indexOf(message) === index,
+    );
   const runnerG123RaceCount = Object.values(
     runner?.g123_race_counts || {},
   ).reduce((sum, count) => sum + Number(count || 0), 0);
@@ -88,7 +112,7 @@ export default function ProgressTab({
   );
   const liveActivityLabel =
     automationActive && liveActivity?.endpoint
-      ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail ? ` · ${liveActivity.detail}` : ''}`
+      ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail && !runnerErrors.includes(formatAccountError(liveActivity.detail)) ? ` · ${liveActivity.detail}` : ''}`
       : '';
   return currentCareerActive ? (
     <div className="space-y-4">
@@ -166,22 +190,14 @@ export default function ProgressTab({
                     ? '账号已在别处登录'
                     : offlineMode
                       ? runner?.control?.status === 'reconnect_wait'
-                        ? liveActivityLabel ||
-                          formatAccountError(
-                            runner?.control?.detail?.last_error,
-                          ) ||
-                          '等待后台 Worker 重新连接账号'
+                        ? liveActivityLabel || '等待后台 Worker 重新连接账号'
                         : idleSingleMode?.active ||
                             runner?.control?.status === 'running'
                           ? '任务已交给游戏服务器，完成后会自动处理结果并开始下一局'
                           : '启动请求已提交，正在等待后台 Worker 接手'
                       : queuedControl
                         ? runner?.control?.status === 'reconnect_wait'
-                          ? liveActivityLabel ||
-                            formatAccountError(
-                              runner?.control?.detail?.last_error,
-                            ) ||
-                            '等待后台 Worker 重新连接账号'
+                          ? liveActivityLabel || '等待后台 Worker 重新连接账号'
                           : '启动请求已提交，正在等待后台 Worker 接手'
                         : liveActivityLabel ||
                           describeRunnerAction(runner?.last_action)}
@@ -226,10 +242,14 @@ export default function ProgressTab({
           </div>
         </div>
 
-        {runner?.last_error ? (
+        {runnerErrors.length ? (
           <div className="mt-4 flex items-start gap-2 border-t border-red-100 pt-4 text-sm text-red-700">
             <CircleStop size={16} className="mt-0.5 flex-none" />
-            <span>{formatAccountError(runner.last_error)}</span>
+            <div className="min-w-0 space-y-1">
+              {runnerErrors.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -290,13 +310,13 @@ export default function ProgressTab({
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
             <div>
               <span className="font-semibold text-violet-800">
-                每日宝石计划
+                每日运行计划
               </span>
               <span className="ml-2 text-xs text-violet-600">
                 {`${formatDailyJewelScheduleWindow(
                   dailyJewelSchedule.start_time,
                   dailyJewelSchedule.end_time,
-                )} · 今日 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次`}
+                )} · ${dailyPlanGoalLabel(dailyJewelSchedule)}`}
               </span>
             </div>
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
@@ -375,8 +395,8 @@ export default function ProgressTab({
         <h2 className="mt-4 font-bold text-slate-700">
           {dailyJewelSchedule?.enabled
             ? dailyJewelSchedule.status === 'completed'
-              ? '今日宝石目标已完成'
-              : `每日宝石计划：${dailyJewelScheduleStatusLabel(
+              ? '今日运行计划已完成'
+              : `每日运行计划：${dailyJewelScheduleStatusLabel(
                   dailyJewelSchedule.status,
                 )}`
             : runner?.run_plan?.active
@@ -388,7 +408,7 @@ export default function ProgressTab({
             ? `每日 ${formatDailyJewelScheduleWindow(
                 dailyJewelSchedule.start_time,
                 dailyJewelSchedule.end_time,
-              )} 运行，今天 ${dailyJewelSchedule.daily_jewel_drop_count}/${dailyJewelSchedule.target} 次掉落。`
+              )} 运行，${dailyPlanGoalLabel(dailyJewelSchedule)}。`
             : runner?.run_plan?.active
               ? '新的育成开始后，这里会显示实时状态。'
               : '开始或继续育成后，这里会显示当前属性和流程。'}

@@ -187,6 +187,13 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-current-session', id),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
+    abandonCareer: (id: string, scenarioId: number, currentTurn: number) =>
+      ipcRenderer.invoke(
+        'autoresearch:account-abandon-career',
+        id,
+        scenarioId,
+        currentTurn,
+      ),
     onLoginProgress(
       callback: (data: {
         loginId: string;
