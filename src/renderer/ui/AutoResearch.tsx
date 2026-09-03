@@ -153,6 +153,8 @@ const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
 
 const LOCAL_DAILY_TASKS_KEY = 'autoResearch.dailyTasks.v1';
 
+type LocalDailySessionState = 'unknown' | 'checking' | 'ready' | 'missing';
+
 const defaultDailyTasksConfig = (): DailyTasksConfig => ({
   schema_version: 3,
   run_with_career: false,
@@ -350,39 +352,6 @@ const normalizeOfflineSkillSettings = (
   };
 };
 
-const normalizeCareerRunQueue = (
-  items: CareerRunQueueItem[] | undefined,
-  ownerSettingId: string,
-): CareerRunQueueItem[] =>
-  (Array.isArray(items) ? items : []).map((item, index) => {
-    const rawGoal = String(item.goal);
-    const normalizedGoal =
-      rawGoal === 'runs'
-        ? 'count'
-        : rawGoal === 'daily_jewel_drops'
-          ? 'jewel_drops'
-          : rawGoal;
-    const goal = (
-      ['single', 'continuous', 'count', 'jewel_drops'].includes(normalizedGoal)
-        ? normalizedGoal
-        : 'count'
-    ) as CareerRunQueueItem['goal'];
-    return {
-      id: item.id || `queue-${ownerSettingId}-${index}`,
-      career_setting_id: item.career_setting_id,
-      goal,
-      target: ['single', 'continuous'].includes(goal)
-        ? 1
-        : Math.max(
-            1,
-            Math.min(
-              goal === 'jewel_drops' ? 20 : 100,
-              Number(item.target) || 1,
-            ),
-          ),
-    };
-  });
-
 const preferNewerRunner = (
   current: Runner | undefined,
   incoming: Runner | undefined,
@@ -480,14 +449,12 @@ export default function AutoResearch() {
   const [missingExistingRuntimeAccountId, setMissingExistingRuntimeAccountId] =
     useState('');
   const accountsRef = useRef(accounts);
-  const activeTabRef = useRef(activeTab);
   const sessionTokens = useRef(new Map<string, string>());
   const existingRuntimeAttachAttempts = useRef(new Set<string>());
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
   accountsRef.current = accounts;
-  activeTabRef.current = activeTab;
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
   const overviewRequestVersions = useRef(new Map<string, number>());
@@ -558,9 +525,6 @@ export default function AutoResearch() {
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
   const [selectedCareerSettingId, setSelectedCareerSettingId] = useState('');
   const [careerSettingName, setCareerSettingName] = useState('');
-  const [careerRunQueue, setCareerRunQueue] = useState<CareerRunQueueItem[]>(
-    [],
-  );
   const [careerPresetName, setCareerPresetName] = useState('');
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
@@ -591,6 +555,9 @@ export default function AutoResearch() {
     useState<DailyTasksResponse | null>(null);
   const [dailyTasksLoading, setDailyTasksLoading] = useState(false);
   const [dailyTasksLoadError, setDailyTasksLoadError] = useState('');
+  const [localDailySessionStates, setLocalDailySessionStates] = useState<
+    Record<string, LocalDailySessionState>
+  >({});
 
   const skillPriorityNames = useMemo(
     () => skillSelections.flatMap((entry) => entry.skill_names),
@@ -649,6 +616,9 @@ export default function AutoResearch() {
         : 'none';
   const serverHostedMode = sessionOwner === 'server';
   const localSessionMode = sessionOwner === 'local';
+  const localDailySessionState = selectedAccountId
+    ? localDailySessionStates[selectedAccountId] || 'unknown'
+    : 'unknown';
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
@@ -762,23 +732,6 @@ export default function AutoResearch() {
       ? activeQueueItems[activeQueueItems.length - 1]?.goal === 'continuous'
       : runner?.run_plan?.mode === 'continuous') ||
     runner?.daily_jewel_schedule?.mode === 'continuous';
-  const pendingRunQueue = pendingRunSetting?.run_queue || [];
-  const pendingRunQueueInvalid =
-    pendingRunQueue.some((queueItem) => {
-      const setting = careerSettings.find(
-        (item) => item.id === queueItem.career_setting_id,
-      );
-      return (
-        !setting ||
-        (setting.mode === 'offline' && !setting.offline_race_array?.length) ||
-        (setting.mode !== 'offline' &&
-          !presets.some((preset) => preset.name === setting.preset_name))
-      );
-    }) ||
-    pendingRunQueue.some(
-      (queueItem, index) =>
-        queueItem.goal === 'continuous' && index !== pendingRunQueue.length - 1,
-    );
   const activeAutomationSetting = useMemo(() => {
     const controlSettingId = String(
       runner?.control?.request?.career_setting_id || '',
@@ -1216,6 +1169,20 @@ export default function AutoResearch() {
     [invalidateOverviewResponses],
   );
 
+  const storeReturnedGameSession = useCallback(
+    async (
+      accountId: string,
+      response: { game_session?: Record<string, string> },
+    ) => {
+      if (!response.game_session?.sid) return;
+      await window.electron.autoResearch.storeSession(
+        accountId,
+        response.game_session,
+      );
+    },
+    [],
+  );
+
   const commitOverviewResponse = useCallback(
     (accountId: string, response: SessionResponse, requestOrder?: number) => {
       if (requestOrder !== undefined) {
@@ -1225,6 +1192,9 @@ export default function AutoResearch() {
       } else {
         invalidateOverviewResponses(accountId);
       }
+      storeReturnedGameSession(accountId, response).catch((caught) =>
+        setError((caught as Error).message),
+      );
       const responseOwner = runtimeSessionOwner(response.runtime);
       const options = accountOptionsCache.current.get(accountId);
       const normalized = {
@@ -1253,7 +1223,7 @@ export default function AutoResearch() {
       updateRuntime(accountId, normalized);
       return true;
     },
-    [invalidateOverviewResponses, updateRuntime],
+    [invalidateOverviewResponses, storeReturnedGameSession, updateRuntime],
   );
 
   const commitRunnerStream = useCallback(
@@ -1339,15 +1309,20 @@ export default function AutoResearch() {
       if (!token) {
         throw new AutoResearchRequestError('账号尚未登录此服务器', 401);
       }
-      return request<T>(path, {
+      const result = await request<T>(path, {
         ...init,
         headers: {
           ...(init?.headers || {}),
           Authorization: `Bearer ${token}`,
         },
       });
+      await storeReturnedGameSession(
+        accountId,
+        result as { game_session?: Record<string, string> },
+      );
+      return result;
     },
-    [request],
+    [request, storeReturnedGameSession],
   );
 
   const applyAccountOptions = useCallback(
@@ -1453,38 +1428,41 @@ export default function AutoResearch() {
         current === accountId ? '' : current,
       );
       const attachController = new AbortController();
-      const attachTimeout = window.setTimeout(
-        () => attachController.abort(),
-        8000,
-      );
+      let attachTimeout = 0;
+      const attachTimeoutPromise = new Promise<never>((_resolve, reject) => {
+        attachTimeout = window.setTimeout(() => {
+          attachController.abort();
+          const timeoutError = new Error('读取服务端已有养马状态超时');
+          timeoutError.name = 'AbortError';
+          reject(timeoutError);
+        }, 8000);
+      });
       try {
-        const credential = (await window.electron.autoResearch.credential(
-          accountId,
-        )) as { uid: string; accessKey: string };
-        const localSession = (await window.electron.autoResearch.currentSession(
-          accountId,
-        )) as Record<string, string> | null;
-        const attached = await request<AuthResponse>('/api/auth/login', {
-          method: 'POST',
-          signal: attachController.signal,
-          body: JSON.stringify({
-            uid: credential.uid,
-            access_key: credential.accessKey,
-            reuse_only: true,
-            session: localSession,
-          }),
-        });
+        const attachRequest = (async (): Promise<AuthResponse> => {
+          const credential = (await window.electron.autoResearch.credential(
+            accountId,
+          )) as { uid: string; accessKey: string };
+          const localSession =
+            (await window.electron.autoResearch.currentSession(
+              accountId,
+            )) as Record<string, string> | null;
+          return request<AuthResponse>('/api/auth/login', {
+            method: 'POST',
+            signal: attachController.signal,
+            body: JSON.stringify({
+              uid: credential.uid,
+              access_key: credential.accessKey,
+              reuse_only: true,
+              session: localSession,
+            }),
+          });
+        })();
+        const attached = await Promise.race([
+          attachRequest,
+          attachTimeoutPromise,
+        ]);
         const attachedRunner = attached.runtime?.runner || attached.runner;
-        const hasCurrentCareer = Boolean(
-          attachedRunner?.running ||
-            attachedRunner?.run_plan?.active ||
-            ((attachedRunner?.control?.desired_state === 'running' ||
-              attachedRunner?.control?.status === 'stopping') &&
-              SERVER_CONTROL_STATUSES.includes(
-                attachedRunner.control
-                  .status as (typeof SERVER_CONTROL_STATUSES)[number],
-              )),
-        );
+        const hasCurrentCareer = runnerUsesServerSession(attachedRunner);
         if (!hasCurrentCareer) {
           await request('/api/auth/logout', {
             method: 'POST',
@@ -1502,7 +1480,7 @@ export default function AutoResearch() {
         return true;
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError') {
-          setMissingExistingRuntimeAccountId(accountId);
+          existingRuntimeAttachAttempts.current.delete(attemptKey);
           throw new Error(
             '读取服务端已有养马状态超时；未执行游戏登录，请检查服务器连接后重试',
           );
@@ -1518,6 +1496,7 @@ export default function AutoResearch() {
           setMissingExistingRuntimeAccountId(accountId);
           return false;
         }
+        existingRuntimeAttachAttempts.current.delete(attemptKey);
         throw caught;
       } finally {
         window.clearTimeout(attachTimeout);
@@ -1574,17 +1553,14 @@ export default function AutoResearch() {
   );
 
   const loadDailyTasks = useCallback(
-    async (accountId: string) => {
-      if (!accountId) return;
+    async (accountId: string): Promise<boolean> => {
+      if (!accountId) return false;
       const account = accounts.find((item) => item.id === accountId);
-      if (
-        !account?.runtime.logged_in ||
-        runtimeSessionOwner(account.runtime) !== 'local'
-      ) {
+      if (!account) {
         setDailyTasksOverview(null);
         setDailyTasksLoading(false);
         setDailyTasksLoadError('');
-        return;
+        return false;
       }
       setDailyTasksLoading(true);
       setDailyTasksLoadError('');
@@ -1603,12 +1579,32 @@ export default function AutoResearch() {
             daily_tasks: { ...result.daily_tasks, ...localConfig },
           });
         }
+        setLocalDailySessionStates((current) => ({
+          ...current,
+          [accountId]: 'ready',
+        }));
+        return true;
       } catch (caught) {
-        if (selectedAccountIdRef.current === accountId) {
-          const { message } = caught as Error;
-          setDailyTasksLoadError(message);
-          setError(message);
+        const loginRequired =
+          String((caught as Error).message || '').includes('请先登录') ||
+          needsRelogin(caught);
+        if (loginRequired) {
+          setLocalDailySessionStates((current) => ({
+            ...current,
+            [accountId]: 'missing',
+          }));
         }
+        if (selectedAccountIdRef.current === accountId) {
+          setDailyTasksOverview(null);
+          if (loginRequired) {
+            setDailyTasksLoadError('');
+          } else {
+            const { message } = caught as Error;
+            setDailyTasksLoadError(message);
+            setError(message);
+          }
+        }
+        return false;
       } finally {
         if (selectedAccountIdRef.current === accountId) {
           setDailyTasksLoading(false);
@@ -1616,6 +1612,79 @@ export default function AutoResearch() {
       }
     },
     [accounts],
+  );
+
+  const loginDailyTasksLocally = useCallback(
+    async (accountId: string) => {
+      if (!accountId) return;
+      if (serverHostedMode) {
+        setError('当前账号处于服务器托管状态，请先停止托管');
+        return;
+      }
+      if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
+        setError('另一个账号操作正在进行，请等待完成后再登录');
+        return;
+      }
+      const confirmed = window.confirm(
+        '登录会刷新该账号的游戏会话，可能使游戏客户端或其他工具中的同账号掉线。\n\n确定要在 UmaShow 本地登录吗？',
+      );
+      if (!confirmed) return;
+
+      const operationId = `daily-local-login-${accountId}-${Date.now()}`;
+      const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const startedAt = Date.now();
+      activeLoginOperation.current = operationId;
+      activeConnectionAccountIdRef.current = accountId;
+      setSelectedAccountId(accountId);
+      setBusy(`login-${accountId}`);
+      setError('');
+      setLocalDailySessionStates((current) => ({
+        ...current,
+        [accountId]: 'checking',
+      }));
+      setLoginProgress({
+        accountId,
+        loginId,
+        action: 'login',
+        stage: 'local_login',
+        endpoint: '',
+        detail: '正在由 UmaShow 本地登录游戏账号',
+        delay: 0,
+        elapsed: 0,
+        done: false,
+        error: '',
+      });
+      const progressTimer = window.setInterval(() => {
+        const elapsed = Math.max(
+          0,
+          Math.floor((Date.now() - startedAt) / 1000),
+        );
+        setLoginProgress((current) =>
+          current?.loginId === loginId ? { ...current, elapsed } : current,
+        );
+      }, 250);
+      try {
+        await window.electron.autoResearch.loginSession(accountId, loginId);
+        const loaded = await loadDailyTasks(accountId);
+        if (!loaded) throw new Error('本地登录完成，但每日日常数据读取失败');
+        localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+      } catch (caught) {
+        setLocalDailySessionStates((current) => ({
+          ...current,
+          [accountId]: 'missing',
+        }));
+        setError((caught as Error).message);
+      } finally {
+        window.clearInterval(progressTimer);
+        if (activeLoginOperation.current === operationId) {
+          activeLoginOperation.current = '';
+          activeConnectionAccountIdRef.current = '';
+          setLoginProgress(null);
+        }
+        setBusy('');
+      }
+    },
+    [loadDailyTasks, serverHostedMode],
   );
 
   const saveDailyTasks = useCallback(
@@ -1730,11 +1799,15 @@ export default function AutoResearch() {
         getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
       );
       if (Array.isArray(stored)) {
-        setCareerSettings(
-          stored.map((setting: CareerSetting) => ({
-            ...setting,
-            run_queue: normalizeCareerRunQueue(setting.run_queue, setting.id),
-          })),
+        const normalizedSettings = stored.map((setting: CareerSetting) => {
+          const normalized = { ...setting };
+          delete normalized.run_queue;
+          return normalized;
+        });
+        setCareerSettings(normalizedSettings);
+        setSharedStorageItem(
+          CAREER_SETTINGS_KEY,
+          JSON.stringify(normalizedSettings),
         );
       }
     } catch {
@@ -1864,37 +1937,6 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (
-      !server ||
-      !['career', 'history'].includes(activeTab) ||
-      !selectedAccountId ||
-      selectedAccount?.runtime.logged_in ||
-      sessionTokens.current.has(selectedAccountId) ||
-      loginProgress ||
-      disconnectingAccountId ||
-      activeLoginOperation.current
-    ) {
-      return;
-    }
-    attachExistingRuntime(selectedAccountId).catch((caught) => {
-      if (
-        selectedAccountIdRef.current === selectedAccountId &&
-        ['career', 'history'].includes(activeTabRef.current)
-      ) {
-        setError((caught as Error).message);
-      }
-    });
-  }, [
-    activeTab,
-    attachExistingRuntime,
-    disconnectingAccountId,
-    loginProgress,
-    selectedAccount?.runtime.logged_in,
-    selectedAccountId,
-    server,
-  ]);
-
-  useEffect(() => {
-    if (
       !selectedAccountId ||
       !selectedAccount?.runtime.logged_in ||
       serverHostedMode ||
@@ -1964,25 +2006,43 @@ export default function AutoResearch() {
   ]);
 
   useEffect(() => {
-    if (
-      activeTab !== 'daily' ||
-      !selectedAccountId ||
-      serverHostedMode ||
-      !localSessionMode ||
-      !selectedAccount?.runtime.logged_in
-    ) {
-      return;
+    if (activeTab !== 'daily' || !selectedAccountId || serverHostedMode) {
+      return undefined;
     }
-    loadDailyTasks(selectedAccountId).catch(() => undefined);
-  }, [
-    activeTab,
-    loadDailyTasks,
-    localSessionMode,
-    serverHostedMode,
-    selectedAccount?.runtime.last_refreshed_at,
-    selectedAccount?.runtime.logged_in,
-    selectedAccountId,
-  ]);
+    const accountId = selectedAccountId;
+    let cancelled = false;
+    setLocalDailySessionStates((current) => ({
+      ...current,
+      [accountId]: 'checking',
+    }));
+    (async () => {
+      try {
+        const currentSession =
+          await window.electron.autoResearch.currentSession(accountId);
+        if (cancelled || selectedAccountIdRef.current !== accountId) return;
+        if (!currentSession?.sid) {
+          setDailyTasksOverview(null);
+          setDailyTasksLoadError('');
+          setLocalDailySessionStates((current) => ({
+            ...current,
+            [accountId]: 'missing',
+          }));
+          return;
+        }
+        await loadDailyTasks(accountId);
+      } catch (caught) {
+        if (cancelled || selectedAccountIdRef.current !== accountId) return;
+        setLocalDailySessionStates((current) => ({
+          ...current,
+          [accountId]: 'missing',
+        }));
+        setError((caught as Error).message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, loadDailyTasks, serverHostedMode, selectedAccountId]);
 
   useEffect(() => {
     if (!selectedAccountId || !automationActive) return undefined;
@@ -2010,17 +2070,7 @@ export default function AutoResearch() {
           event.account,
           event.session_owner || 'server',
         );
-        const stillActive = Boolean(
-          event.runner.running ||
-            event.runner.run_plan?.active ||
-            event.runner.daily_jewel_schedule?.enabled ||
-            ((event.runner.control?.desired_state === 'running' ||
-              event.runner.control?.status === 'stopping') &&
-              SERVER_CONTROL_STATUSES.includes(
-                event.runner.control
-                  ?.status as (typeof SERVER_CONTROL_STATUSES)[number],
-              )),
-        );
+        const stillActive = runnerUsesServerSession(event.runner);
         if (!stillActive && !completionRequested) {
           completionRequested = true;
           cancelled = true;
@@ -2374,6 +2424,7 @@ export default function AutoResearch() {
             }),
           });
           sessionTokens.current.set(accountId, authenticated.token);
+          await storeReturnedGameSession(accountId, authenticated);
           return authenticated;
         } finally {
           progressController.abort();
@@ -2408,14 +2459,7 @@ export default function AutoResearch() {
         const accountRunner = actionAccount?.runtime.runner;
         const accountRunning = Boolean(
           runtimeSessionOwner(actionAccount?.runtime) === 'server' ||
-            accountRunner?.running ||
-            accountRunner?.run_plan?.active ||
-            ((accountRunner?.control?.desired_state === 'running' ||
-              accountRunner?.control?.status === 'stopping') &&
-              SERVER_CONTROL_STATUSES.includes(
-                accountRunner?.control
-                  ?.status as (typeof SERVER_CONTROL_STATUSES)[number],
-              )),
+            runnerUsesServerSession(accountRunner),
         );
         const restoreLogin = async (recoveryDetail = '') => {
           await authenticateWithConfirmation(recoveryDetail);
@@ -3594,7 +3638,6 @@ export default function AutoResearch() {
     }
     setSelectedCareerSettingId(setting.id);
     setCareerSettingName(setting.name);
-    setCareerRunQueue(normalizeCareerRunQueue(setting.run_queue, setting.id));
     setCareerPresetName(setting.preset_name);
     setPresetName(setting.preset_name);
     setPresetEditorOpen(true);
@@ -3619,7 +3662,6 @@ export default function AutoResearch() {
     setCareerSettingName(setting.name);
     setPresetName(setting.preset_name);
     setCareerPresetName(setting.preset_name);
-    setCareerRunQueue(normalizeCareerRunQueue(setting.run_queue, setting.id));
     setCardId(setting.card_id);
     setDeckId(setting.deck_id);
     setSupportCardIds(setting.support_card_ids || []);
@@ -3686,7 +3728,6 @@ export default function AutoResearch() {
     setSelectedCareerSettingId('');
     setCareerMode(newCareerMode);
     setCareerSettingName(name);
-    setCareerRunQueue([]);
     setCareerPresetName(newCareerMode === 'online' ? newCareerPresetName : '');
     setCardId(0);
     setDeckId(0);
@@ -3802,15 +3843,6 @@ export default function AutoResearch() {
         careerMode === 'offline'
           ? normalizeOfflineFactorSelection(offlineFactorSelection)
           : undefined,
-      run_queue: careerRunQueue.map((item) => ({
-        ...item,
-        target: ['single', 'continuous'].includes(item.goal)
-          ? 1
-          : Math.max(
-              1,
-              Math.min(item.goal === 'jewel_drops' ? 20 : 100, item.target),
-            ),
-      })),
       updated_at: new Date().toISOString(),
     };
     const nextSettings = [
@@ -4026,7 +4058,7 @@ export default function AutoResearch() {
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
     setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'current' });
-    if (careerRunQueue.length) setRunMode('queue');
+    setRunMode((current) => (current === 'queue' ? 'single' : current));
     setRunDialogOpen(true);
   };
 
@@ -4035,8 +4067,7 @@ export default function AutoResearch() {
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
     setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'saved', settingId });
-    const setting = careerSettings.find((item) => item.id === settingId);
-    if (setting?.run_queue?.length) setRunMode('queue');
+    setRunMode((current) => (current === 'queue' ? 'single' : current));
     setRunDialogOpen(true);
     setError('');
   };
@@ -4159,63 +4190,6 @@ export default function AutoResearch() {
     }
   };
 
-  const startCareerQueue = async (queue: CareerRunQueueItem[]) => {
-    if (!selectedAccountId || !dashboard?.account || !queue.length)
-      return false;
-    const queueSettings = queue.map((queueItem) => ({
-      queueItem,
-      setting: careerSettings.find(
-        (setting) => setting.id === queueItem.career_setting_id,
-      ),
-    }));
-    const missing = queueSettings.find(({ setting }) => !setting);
-    if (missing) {
-      setError('运行队列引用了已经删除的详设，请重新编辑队列');
-      return false;
-    }
-    const offlineWithoutRace = queueSettings.find(
-      ({ setting }) =>
-        setting?.mode === 'offline' && !setting.offline_race_array?.length,
-    );
-    if (offlineWithoutRace?.setting) {
-      setError(
-        `离线详设“${offlineWithoutRace.setting.name}”尚未保存赛程，请进入该详设读取游戏赛程后保存`,
-      );
-      return false;
-    }
-    setBusy('queue-start');
-    setError('');
-    try {
-      const localSession = (await window.electron.autoResearch.currentSession(
-        selectedAccountId,
-      )) as Record<string, string> | null;
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/career/queue',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            session: localSession || undefined,
-            repeat_daily: repeatDaily,
-            schedule_start_time: scheduleStartTime,
-            schedule_end_time: scheduleEndTime,
-            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-            items: queueSettings.map(({ queueItem, setting }) =>
-              buildCareerQueuePayload(queueItem, setting as CareerSetting),
-            ),
-          }),
-        },
-      );
-      commitOverviewResponse(selectedAccountId, result);
-      return true;
-    } catch (caught) {
-      setError((caught as Error).message);
-      return false;
-    } finally {
-      setBusy('');
-    }
-  };
-
   const confirmRunPlan = async () => {
     if (!pendingRun) return;
     const target =
@@ -4231,8 +4205,6 @@ export default function AutoResearch() {
         runMode as CareerRunQueueItem['goal'],
         ['count', 'jewel_drops'].includes(runMode) ? target : 1,
       );
-    } else if (runMode === 'queue') {
-      started = await startCareerQueue(pendingRunQueue);
     } else if (pendingRun.type === 'saved') {
       const setting = careerSettings.find(
         (item) => item.id === pendingRun.settingId,
@@ -4264,14 +4236,7 @@ export default function AutoResearch() {
     if (!setting) return;
     if (!window.confirm(`确定删除养马详设“${setting.name}”吗？`)) return;
     persistCareerSettings(
-      careerSettings
-        .filter((item) => item.id !== setting.id)
-        .map((item) => ({
-          ...item,
-          run_queue: item.run_queue?.filter(
-            (queueItem) => queueItem.career_setting_id !== setting.id,
-          ),
-        })),
+      careerSettings.filter((item) => item.id !== setting.id),
     );
     if (selectedCareerSettingId === setting.id) {
       setSelectedCareerSettingId('');
@@ -4283,7 +4248,11 @@ export default function AutoResearch() {
   };
 
   // 登录设置已整合进详设页顶部的弹窗；旧页仅供排查旧工作流使用。
-  if (showLegacyLoginScreen && !server && activeTab !== 'presets') {
+  if (
+    showLegacyLoginScreen &&
+    !server &&
+    !['presets', 'daily'].includes(activeTab)
+  ) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
         <ErrorToast message={error} onClose={dismissError} />
@@ -5136,22 +5105,13 @@ export default function AutoResearch() {
                         detail: `从现在起累计指定次数的宝石掉落；本周期还可掉落 ${remainingJewelDrops} 次。`,
                         icon: Gem,
                       },
-                      {
-                        id: 'queue' as const,
-                        title: '按详设队列运行',
-                        detail: pendingRunQueue.length
-                          ? `按已保存顺序执行 ${pendingRunQueue.length} 个队列项。`
-                          : '请先在详设中添加运行计划队列。',
-                        icon: ListChecks,
-                      },
                     ]
                 ).map((option) => {
                   const IconComponent = option.icon;
                   const disabled =
-                    (option.id === 'jewel_drops' &&
-                      !repeatDaily &&
-                      remainingJewelDrops <= 0) ||
-                    (option.id === 'queue' && !pendingRunQueue.length);
+                    option.id === 'jewel_drops' &&
+                    !repeatDaily &&
+                    remainingJewelDrops <= 0;
                   return (
                     <button
                       key={option.id}
@@ -5314,47 +5274,6 @@ export default function AutoResearch() {
                   </span>
                 </label>
               ) : null}
-
-              {runMode === 'queue' ? (
-                <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                  <h4 className="text-sm font-semibold text-indigo-950">
-                    将按以下顺序执行
-                  </h4>
-                  <ol className="mt-2 space-y-1.5">
-                    {pendingRunQueue.map((queueItem, index) => {
-                      const setting = careerSettings.find(
-                        (item) => item.id === queueItem.career_setting_id,
-                      );
-                      return (
-                        <li
-                          key={queueItem.id}
-                          className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-xs"
-                        >
-                          <span className="min-w-0 truncate text-slate-700">
-                            {index + 1}. {setting?.name || '详设已不存在'}
-                          </span>
-                          <span className="flex-none font-medium text-indigo-700">
-                            {queueItem.goal === 'single'
-                              ? '单次'
-                              : queueItem.goal === 'continuous'
-                                ? '持续'
-                                : queueItem.goal === 'jewel_drops'
-                                  ? repeatDaily
-                                    ? `每天累计达到 ${queueItem.target} 次钻石`
-                                    : `获得 ${queueItem.target} 次钻石`
-                                  : `完成 ${queueItem.target} 次`}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                  {pendingRunQueueInvalid ? (
-                    <p className="mt-2 text-xs text-red-600">
-                      队列中存在已删除详设、缺失预设或未保存赛程的离线详设，请返回修改后再运行。
-                    </p>
-                  ) : null}
-                </section>
-              ) : null}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
               <button
@@ -5375,9 +5294,7 @@ export default function AutoResearch() {
                   Boolean(busy) ||
                   (runMode === 'jewel_drops' &&
                     !repeatDaily &&
-                    remainingJewelDrops <= 0) ||
-                  (runMode === 'queue' &&
-                    (!pendingRunQueue.length || pendingRunQueueInvalid))
+                    remainingJewelDrops <= 0)
                 }
                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
               >
@@ -5785,7 +5702,7 @@ export default function AutoResearch() {
           </aside>
 
           <main className="space-y-4 min-w-0">
-            {!server && activeTab !== 'presets' ? (
+            {!server && !['presets', 'daily'].includes(activeTab) ? (
               <section className={panelClass('p-12 text-center')}>
                 <LogIn className="mx-auto text-slate-300" size={42} />
                 <h2 className="mt-3 font-bold text-slate-800">请先登录</h2>
@@ -5853,8 +5770,10 @@ export default function AutoResearch() {
                 </div>
               </section>
             ) : activeTab !== 'presets' &&
-              (!selectedAccount?.runtime.logged_in || !dashboard) &&
-              !automationActive ? (
+              (activeTab === 'daily'
+                ? !serverHostedMode && localDailySessionState === 'missing'
+                : (!selectedAccount?.runtime.logged_in || !dashboard) &&
+                  !automationActive) ? (
               <section className={panelClass('p-12 text-center')}>
                 {activeTab !== 'daily' &&
                 checkingExistingRuntimeAccountId === selectedAccount?.id ? (
@@ -5869,10 +5788,8 @@ export default function AutoResearch() {
                   {activeTab === 'daily'
                     ? '请先登录'
                     : checkingExistingRuntimeAccountId === selectedAccount?.id
-                      ? '正在读取服务端已有的养马状态'
-                      : missingExistingRuntimeAccountId === selectedAccount?.id
-                        ? '服务端当前没有正在运行的养马'
-                        : '登录并读取本账号的最新育成数据'}
+                      ? '正在连接账号'
+                      : '登录并读取本账号的最新育成数据'}
                 </h2>
                 {activeTab !== 'daily' &&
                 missingExistingRuntimeAccountId === selectedAccount?.id ? (
@@ -5888,17 +5805,18 @@ export default function AutoResearch() {
                     type="button"
                     onClick={() =>
                       selectedAccount &&
-                      accountAction(selectedAccount.id, 'login')
+                      (activeTab === 'daily'
+                        ? loginDailyTasksLocally(selectedAccount.id)
+                        : accountAction(selectedAccount.id, 'login'))
                     }
                     disabled={Boolean(
                       loginProgress ||
                         disconnectingAccountId ||
                         (activeTab !== 'daily' &&
-                          (checkingExistingRuntimeAccountId ===
-                            selectedAccount?.id ||
-                            missingExistingRuntimeAccountId !==
-                              selectedAccount?.id)) ||
-                        (loggedInAccountId &&
+                          checkingExistingRuntimeAccountId ===
+                            selectedAccount?.id) ||
+                        (activeTab !== 'daily' &&
+                          loggedInAccountId &&
                           loggedInAccountId !== selectedAccount?.id),
                     )}
                     className="rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
@@ -5911,16 +5829,13 @@ export default function AutoResearch() {
                           ? '登录'
                           : checkingExistingRuntimeAccountId ===
                               selectedAccount?.id
-                            ? '正在检查已有养马'
-                            : missingExistingRuntimeAccountId !==
-                                selectedAccount?.id
-                              ? '等待服务端检查'
-                              : disconnectingAccountId
-                                ? '请等待账号退出完成'
-                                : loggedInAccountId &&
-                                    loggedInAccountId !== selectedAccount?.id
-                                  ? '请先退出当前账号'
-                                  : '登录并读取最新数据'}
+                            ? '正在连接账号'
+                            : disconnectingAccountId
+                              ? '请等待账号退出完成'
+                              : loggedInAccountId &&
+                                  loggedInAccountId !== selectedAccount?.id
+                                ? '请先退出当前账号'
+                                : '登录并读取最新数据'}
                   </button>
                   {activeTab !== 'daily' ? (
                     <button
@@ -6143,9 +6058,6 @@ export default function AutoResearch() {
                     setNewCareerSaveName={setNewCareerSaveName}
                     createCareerSave={createCareerSave}
                     careerSettingName={careerSettingName}
-                    selectedCareerSettingId={selectedCareerSettingId}
-                    careerRunQueue={careerRunQueue}
-                    setCareerRunQueue={setCareerRunQueue}
                     automationActive={automationActive}
                     busy={busy}
                     activeCareer={activeCareer}
@@ -6313,6 +6225,8 @@ export default function AutoResearch() {
                     overview={dailyTasksOverview}
                     loading={
                       dailyTasksLoading ||
+                      localDailySessionState === 'unknown' ||
+                      localDailySessionState === 'checking' ||
                       checkingExistingRuntimeAccountId === selectedAccountId
                     }
                     loadError={dailyTasksLoadError}

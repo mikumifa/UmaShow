@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop */
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
@@ -34,6 +35,12 @@ function distanceType(distance: number) {
   if (distance <= 1800) return 'mile';
   if (distance <= 2400) return 'middle';
   return 'long';
+}
+
+function dailyRaceName(groupId: number) {
+  if (groupId === 1) return '金币赛事';
+  if (groupId === 4) return '协助积分赛事';
+  return `日常赛事组 ${groupId}`;
 }
 
 function itemMap(data: Record<string, any>) {
@@ -131,12 +138,7 @@ function buildOptions(data: Record<string, any>) {
         ...row,
         distance_type: distanceType(numberValue(row.distance)),
         ground_name: numberValue(row.ground) === 1 ? '芝' : '泥地',
-        name:
-          numberValue(row.group_id) === 1
-            ? '金币赛事'
-            : numberValue(row.group_id) === 4
-              ? '协助积分赛事'
-              : `日常赛事组 ${row.group_id}`,
+        name: dailyRaceName(numberValue(row.group_id)),
       }));
     const legendRaces = database
       .prepare(
@@ -446,7 +448,7 @@ async function run(id: string, config: DailyConfig) {
     }
 
     if (config.team_stadium?.enabled) {
-      const result = await execute('team_stadium', async () => {
+      await execute('team_stadium', async () => {
         let remaining = numberValue(
           loadedData.user_info?.current_rp ?? loadedData.rp_info?.current_rp,
         );
@@ -477,7 +479,6 @@ async function run(id: string, config: DailyConfig) {
           count,
         };
       });
-      void result;
     }
 
     const finishedAt = new Date().toISOString();

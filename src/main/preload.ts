@@ -185,6 +185,8 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-credential', id),
     currentSession: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-current-session', id),
+    storeSession: (id: string, session: Record<string, string>) =>
+      ipcRenderer.invoke('autoresearch:account-store-session', id, session),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
     dailyTasksOverview: (id: string, config: Record<string, unknown>) =>

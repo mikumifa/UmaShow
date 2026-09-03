@@ -674,6 +674,7 @@ export type OfflineSingleModeSetup = {
 
 export type SessionResponse = {
   success: boolean;
+  game_session?: Record<string, string> | null;
   dashboard?: Dashboard;
   runtime?: Partial<Account['runtime']>;
   runner?: Runner;
