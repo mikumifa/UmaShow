@@ -19,6 +19,41 @@ export type RunnerStats = {
   skill_point?: number;
 };
 
+export type CareerRunQueueGoal = 'runs' | 'daily_jewel_drops';
+
+export type CareerRunQueueItem = {
+  id: string;
+  career_setting_id: string;
+  goal: CareerRunQueueGoal;
+  target: number;
+};
+
+export type CareerRunQueueState = {
+  active: boolean;
+  session_id: string;
+  started_at: string;
+  current_index: number;
+  stop_reason: string;
+  items: Array<
+    CareerRunQueueItem & {
+      career_setting_name: string;
+      career_mode: 'online' | 'offline';
+      status:
+        | 'pending'
+        | 'queued'
+        | 'running'
+        | 'completed'
+        | 'skipped'
+        | 'failed'
+        | 'stopped';
+      completed_runs: number;
+      stop_reason: string;
+      started_at?: string;
+      ended_at?: string;
+    }
+  >;
+};
+
 export type Runner = {
   run_id?: string;
   state_epoch?: string;
@@ -70,12 +105,19 @@ export type Runner = {
   daily_jewel_reset_time?: string;
   run_plan?: {
     active: boolean;
-    mode: 'single' | 'continuous' | 'count' | 'daily_count' | 'jewel_drops';
+    mode:
+      | 'single'
+      | 'continuous'
+      | 'count'
+      | 'daily_count'
+      | 'jewel_drops'
+      | 'daily_jewel_drops';
     target: number;
     completed_runs: number;
     completed_jewel_drops: number;
     daily_completed_runs: number;
     stop_reason: string;
+    queue?: CareerRunQueueState | null;
   };
   daily_jewel_schedule?: {
     enabled: boolean;
@@ -114,6 +156,7 @@ export type Runner = {
         source?: string;
         observed_at?: string;
       };
+      run_queue?: CareerRunQueueState;
     };
     request?: {
       card_id?: number;
@@ -126,6 +169,7 @@ export type Runner = {
         | 'count'
         | 'daily_count'
         | 'jewel_drops'
+        | 'daily_jewel_drops'
         | 'daily_jewel_schedule';
       run_target?: number;
     };
@@ -592,8 +636,10 @@ export type CareerSetting = {
   offline_training_challenge_mode?: boolean;
   offline_race_deck_num?: number;
   offline_race_deck_name?: string;
+  offline_race_array?: Array<{ year: number; program_id: number }>;
   offline_skill_settings?: OfflineSkillSettings;
   offline_factor_selection?: OfflineFactorSelection;
+  run_queue?: CareerRunQueueItem[];
   updated_at: string;
 };
 
@@ -603,7 +649,9 @@ export type RunMode =
   | 'count'
   | 'daily_count'
   | 'jewel_drops'
-  | 'daily_jewel_schedule';
+  | 'daily_jewel_drops'
+  | 'daily_jewel_schedule'
+  | 'queue';
 
 export type PendingRun =
   | { type: 'current' }

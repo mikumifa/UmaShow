@@ -447,7 +447,9 @@ export function runModeLabel(mode?: RunMode) {
     count: '运行指定次数',
     daily_count: '每日运行次数',
     jewel_drops: '宝石掉落目标',
+    daily_jewel_drops: '今日宝石累计目标',
     daily_jewel_schedule: '每日宝石计划',
+    queue: '详设队列',
   };
   return labels[mode || 'single'];
 }

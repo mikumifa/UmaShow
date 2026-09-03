@@ -18,7 +18,6 @@ import {
   formatDailyJewelScheduleWindow,
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
-  runModeLabel,
   turnDateLabel,
   waitTimeLabel,
 } from './shared';
@@ -37,7 +36,6 @@ type ProgressTabProps = {
   busy: string;
   releaseSessionWait: () => Promise<void>;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
-  hasRunPlan: boolean;
   offlineMode: boolean;
   serverHostedMode: boolean;
   idleSingleMode?: SessionAccount['idle_single_mode'];
@@ -73,7 +71,6 @@ export default function ProgressTab({
   busy,
   releaseSessionWait,
   dailyJewelSchedule,
-  hasRunPlan,
   offlineMode,
   serverHostedMode,
   idleSingleMode,
@@ -287,13 +284,6 @@ export default function ProgressTab({
               </div>
             ))}
           </div>
-        ) : idleSingleMode?.active ? (
-          <div className="mt-5 rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-            <span className="font-semibold">离线任务已启动</span>
-            <span className="ml-2 text-xs text-sky-600">
-              完成后将自动处理结果并继续运行计划
-            </span>
-          </div>
         ) : null}
 
         {dailyJewelSchedule?.enabled ? (
@@ -312,37 +302,6 @@ export default function ProgressTab({
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
               {dailyJewelScheduleStatusLabel(dailyJewelSchedule.status)}
             </span>
-          </div>
-        ) : null}
-
-        {runner?.run_plan && hasRunPlan ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-sm">
-            <div>
-              <span className="font-semibold text-slate-800">
-                {runModeLabel(runner.run_plan.mode)}
-              </span>
-              <span className="ml-2 text-xs text-slate-500">
-                {runner.run_plan.mode === 'single'
-                  ? `完成 ${runner.run_plan.completed_runs}/1 局`
-                  : runner.run_plan.mode === 'continuous'
-                    ? `已连续完成 ${runner.run_plan.completed_runs} 局`
-                    : runner.run_plan.mode === 'count'
-                      ? `本次 ${runner.run_plan.completed_runs}/${runner.run_plan.target} 局`
-                      : runner.run_plan.mode === 'daily_count'
-                        ? `今日 ${runner.run_plan.daily_completed_runs}/${runner.run_plan.target} 局`
-                        : `本次 ${runner.run_plan.completed_jewel_drops}/${runner.run_plan.target} 次掉落`}
-              </span>
-            </div>
-            {automationActive && runnerSessionWaiting ? (
-              <button
-                type="button"
-                onClick={releaseSessionWait}
-                disabled={busy === 'release-session-wait'}
-                className="rounded-md bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-              >
-                {busy === 'release-session-wait' ? '正在继续…' : '立即继续'}
-              </button>
-            ) : null}
           </div>
         ) : null}
       </section>

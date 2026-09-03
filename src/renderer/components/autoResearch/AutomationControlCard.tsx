@@ -70,8 +70,12 @@ export default function AutomationControlCard({
     runner?.run_plan?.mode || runner?.control?.request?.run_mode;
   const currentTarget =
     runner?.run_plan?.target || runner?.control?.request?.run_target || 1;
+  const queue =
+    runner?.run_plan?.queue || runner?.control?.detail?.run_queue || undefined;
+  const queueCurrent = queue?.items?.[queue.current_index];
   const planChanged = Boolean(
-    currentMode &&
+    !queue?.active &&
+      currentMode &&
       (currentMode !== runMode ||
         (['count', 'daily_count', 'jewel_drops'].includes(runMode) &&
           currentTarget !== selectedTarget)),
@@ -86,17 +90,25 @@ export default function AutomationControlCard({
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               {runnerStopping
                 ? '正在暂停…'
-                : runModeLabel(
-                    runner?.daily_jewel_schedule?.enabled
-                      ? 'daily_jewel_schedule'
-                      : currentMode,
-                  )}
+                : queue?.active
+                  ? `队列 ${Math.min(queue.current_index + 1, queue.items.length)}/${queue.items.length}`
+                  : runModeLabel(
+                      runner?.daily_jewel_schedule?.enabled
+                        ? 'daily_jewel_schedule'
+                        : currentMode,
+                    )}
             </span>
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            {activeSetting?.mode === 'offline'
-              ? '离线技能与因子配置已由服务器接管执行。'
-              : '服务器独占游戏 API；运行中修改的预设会从下一次决策开始生效。'}
+            {queue?.active && queueCurrent
+              ? `正在执行：${queueCurrent.career_setting_name} · ${
+                  queueCurrent.goal === 'daily_jewel_drops'
+                    ? `今日钻石累计达到 ${queueCurrent.target} 次`
+                    : `完成 ${queueCurrent.target} 次育成`
+                }`
+              : activeSetting?.mode === 'offline'
+                ? '离线技能与因子配置已由服务器接管执行。'
+                : '服务器独占游戏 API；运行中修改的预设会从下一次决策开始生效。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -141,10 +153,12 @@ export default function AutomationControlCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      {!queue?.active ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
         {modeOptions.map((option) => {
           const Icon = option.icon;
           const disabled =
+            Boolean(queue?.active) ||
             (option.id === 'daily_count' && dailyRunCount >= 100) ||
             (option.id === 'jewel_drops' && remainingJewelDrops <= 0);
           return (
@@ -176,9 +190,38 @@ export default function AutomationControlCard({
             </button>
           );
         })}
-      </div>
+        </div>
+      ) : null}
 
-      {runMode === 'count' ? (
+      {queue?.items?.length ? (
+        <ol className="mt-3 grid gap-1.5 sm:grid-cols-2">
+          {queue.items.map((item, index) => (
+            <li
+              key={item.id}
+              className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                index === queue.current_index
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
+                  : 'border-slate-200 bg-white text-slate-500'
+              }`}
+            >
+              <span className="min-w-0 truncate">
+                {index + 1}. {item.career_setting_name}
+              </span>
+              <span className="flex-none font-medium">
+                {item.status === 'completed'
+                  ? '已完成'
+                  : item.status === 'skipped'
+                    ? '已跳过'
+                    : item.goal === 'daily_jewel_drops'
+                      ? `今日 ${item.target} 钻`
+                      : `${item.completed_runs || 0}/${item.target} 次`}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {!queue?.active && runMode === 'count' ? (
         <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
           从现在起完成
           <input
@@ -197,7 +240,7 @@ export default function AutomationControlCard({
         </label>
       ) : null}
 
-      {runMode === 'daily_count' ? (
+      {!queue?.active && runMode === 'daily_count' ? (
         <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
           今天总计完成
           <input
@@ -219,7 +262,7 @@ export default function AutomationControlCard({
         </label>
       ) : null}
 
-      {runMode === 'jewel_drops' ? (
+      {!queue?.active && runMode === 'jewel_drops' ? (
         <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50/60 px-2.5 py-1.5 text-xs text-violet-700">
           从现在起获得
           <input

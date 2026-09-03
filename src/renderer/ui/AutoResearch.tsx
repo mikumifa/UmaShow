@@ -79,6 +79,7 @@ import {
   AutoResearchTab,
   CapturedCredential,
   CareerSessionRecord,
+  CareerRunQueueItem,
   CareerSetting,
   DailyTasksConfig,
   DailyTasksResponse,
@@ -442,6 +443,9 @@ export default function AutoResearch() {
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
   const [selectedCareerSettingId, setSelectedCareerSettingId] = useState('');
   const [careerSettingName, setCareerSettingName] = useState('');
+  const [careerRunQueue, setCareerRunQueue] = useState<CareerRunQueueItem[]>(
+    [],
+  );
   const [careerPresetName, setCareerPresetName] = useState('');
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
@@ -531,12 +535,6 @@ export default function AutoResearch() {
   const serverHostedMode = sessionOwner === 'server';
   const localSessionMode = sessionOwner === 'local';
   const dailyRunCount = runner?.run_plan?.daily_completed_runs || 0;
-  const hasRunPlan = Boolean(
-    runner?.run_plan?.active ||
-      runner?.run_plan?.stop_reason ||
-      runner?.run_plan?.completed_runs ||
-      runner?.run_plan?.completed_jewel_drops,
-  );
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
@@ -629,6 +627,27 @@ export default function AutoResearch() {
       careerSettings.find((setting) => setting.id === selectedCareerSettingId),
     [careerSettings, selectedCareerSettingId],
   );
+  const pendingRunSetting = useMemo(() => {
+    if (!pendingRun) return undefined;
+    if (pendingRun.type === 'saved') {
+      return careerSettings.find(
+        (setting) => setting.id === pendingRun.settingId,
+      );
+    }
+    return selectedCareerSetting;
+  }, [careerSettings, pendingRun, selectedCareerSetting]);
+  const pendingRunQueue = pendingRunSetting?.run_queue || [];
+  const pendingRunQueueInvalid = pendingRunQueue.some((queueItem) => {
+    const setting = careerSettings.find(
+      (item) => item.id === queueItem.career_setting_id,
+    );
+    return (
+      !setting ||
+      (setting.mode === 'offline' && !setting.offline_race_array?.length) ||
+      (setting.mode !== 'offline' &&
+        !presets.some((preset) => preset.name === setting.preset_name))
+    );
+  });
   const activeAutomationSetting = useMemo(() => {
     const controlSettingId = String(
       runner?.control?.request?.career_setting_id || '',
@@ -3369,6 +3388,23 @@ export default function AutoResearch() {
     }
     setSelectedCareerSettingId(setting.id);
     setCareerSettingName(setting.name);
+    setCareerRunQueue(
+      Array.isArray(setting.run_queue)
+        ? setting.run_queue.map((item, index) => ({
+            id: item.id || `queue-${setting.id}-${index}`,
+            career_setting_id: item.career_setting_id,
+            goal:
+              item.goal === 'daily_jewel_drops' ? 'daily_jewel_drops' : 'runs',
+            target: Math.max(
+              1,
+              Math.min(
+                item.goal === 'daily_jewel_drops' ? 20 : 100,
+                Number(item.target) || 1,
+              ),
+            ),
+          }))
+        : [],
+    );
     setCareerPresetName(setting.preset_name);
     setPresetName(setting.preset_name);
     setPresetEditorOpen(true);
@@ -3428,7 +3464,11 @@ export default function AutoResearch() {
     setOfflineChallengeMode(Boolean(setting.offline_training_challenge_mode));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
     setOfflineRaceDeckName(setting.offline_race_deck_name || '');
-    setOfflineRaceIds([]);
+    setOfflineRaceIds(
+      (setting.offline_race_array || []).map(
+        (race) => race.year * 100000 + race.program_id,
+      ),
+    );
     setOfflineFactorSelection(
       normalizeOfflineFactorSelection(setting.offline_factor_selection),
     );
@@ -3455,6 +3495,7 @@ export default function AutoResearch() {
     setSelectedCareerSettingId('');
     setCareerMode(newCareerMode);
     setCareerSettingName(name);
+    setCareerRunQueue([]);
     setCareerPresetName(newCareerMode === 'online' ? newCareerPresetName : '');
     setCardId(0);
     setDeckId(0);
@@ -3555,6 +3596,13 @@ export default function AutoResearch() {
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
       offline_race_deck_name:
         careerMode === 'offline' ? offlineRaceDeckName : undefined,
+      offline_race_array:
+        careerMode === 'offline'
+          ? offlineRaceIds.map((id) => ({
+              year: Math.floor(id / 100000),
+              program_id: id % 100000,
+            }))
+          : undefined,
       offline_skill_settings:
         careerMode === 'offline'
           ? normalizeOfflineSkillSettings(offlineSkillSettings)
@@ -3563,6 +3611,13 @@ export default function AutoResearch() {
         careerMode === 'offline'
           ? normalizeOfflineFactorSelection(offlineFactorSelection)
           : undefined,
+      run_queue: careerRunQueue.map((item) => ({
+        ...item,
+        target: Math.max(
+          1,
+          Math.min(item.goal === 'daily_jewel_drops' ? 20 : 100, item.target),
+        ),
+      })),
       updated_at: new Date().toISOString(),
     };
     const nextSettings = [
@@ -3777,6 +3832,7 @@ export default function AutoResearch() {
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
     setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'current' });
+    if (careerRunQueue.length) setRunMode('queue');
     setRunDialogOpen(true);
   };
 
@@ -3784,8 +3840,118 @@ export default function AutoResearch() {
     setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
     setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
     setPendingRun({ type: 'saved', settingId });
+    const setting = careerSettings.find((item) => item.id === settingId);
+    if (setting?.run_queue?.length) setRunMode('queue');
     setRunDialogOpen(true);
     setError('');
+  };
+
+  const startCareerQueue = async (queue: CareerRunQueueItem[]) => {
+    if (!selectedAccountId || !dashboard?.account || !queue.length)
+      return false;
+    const queueSettings = queue.map((queueItem) => ({
+      queueItem,
+      setting: careerSettings.find(
+        (setting) => setting.id === queueItem.career_setting_id,
+      ),
+    }));
+    const missing = queueSettings.find(({ setting }) => !setting);
+    if (missing) {
+      setError('运行队列引用了已经删除的详设，请重新编辑队列');
+      return false;
+    }
+    const offlineWithoutRace = queueSettings.find(
+      ({ setting }) =>
+        setting?.mode === 'offline' && !setting.offline_race_array?.length,
+    );
+    if (offlineWithoutRace?.setting) {
+      setError(
+        `离线详设“${offlineWithoutRace.setting.name}”尚未保存赛程，请进入该详设读取游戏赛程后保存`,
+      );
+      return false;
+    }
+    setBusy('queue-start');
+    setError('');
+    try {
+      const localSession = (await window.electron.autoResearch.currentSession(
+        selectedAccountId,
+      )) as Record<string, string> | null;
+      const result = await accountRequest<SessionResponse>(
+        selectedAccountId,
+        '/api/account/career/queue',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            session: localSession || undefined,
+            items: queueSettings.map(({ queueItem, setting }) => {
+              const resolved = setting as CareerSetting;
+              const parentOne = dashboard.parents.find(
+                (parent) => parent.selection_id === resolved.parent_key_1,
+              );
+              const parentTwo = dashboard.parents.find(
+                (parent) => parent.selection_id === resolved.parent_key_2,
+              );
+              const offline = resolved.mode === 'offline';
+              const preset = offline
+                ? undefined
+                : presets.find((item) => item.name === resolved.preset_name);
+              if (!offline && !preset) {
+                throw new Error(
+                  `详设“${resolved.name}”绑定的预设不存在：${resolved.preset_name}`,
+                );
+              }
+              return {
+                id: queueItem.id,
+                career_setting_id: resolved.id,
+                career_setting_name: resolved.name,
+                career_mode: offline ? 'offline' : 'online',
+                goal: queueItem.goal,
+                target: queueItem.target,
+                preset: preset || {},
+                request: {
+                  card_id: resolved.card_id,
+                  support_card_ids: resolved.support_card_ids,
+                  friend_viewer_id: 0,
+                  friend_card_id: resolved.friend_card_id,
+                  parent_id_1: resolved.parent_id_1,
+                  parent_id_2: resolved.parent_id_2,
+                  parent_1_viewer_id: parentOne?.viewer_id || 0,
+                  parent_2_viewer_id: parentTwo?.viewer_id || 0,
+                  scenario_id: offline
+                    ? resolved.offline_scenario_id || 0
+                    : resolved.scenario_id || 1,
+                  deck_id: resolved.deck_id || 1,
+                  use_tp: offline ? 15 : 30,
+                  recover_tp_with_item: resolved.recover_tp_with_item,
+                  recover_tp_with_jewels: resolved.recover_tp_with_jewels,
+                  preset_name: resolved.preset_name,
+                  max_steps: resolved.max_steps,
+                  burn_clocks: resolved.burn_clocks,
+                  running_style: 0,
+                  training_challenge_mode: Boolean(
+                    resolved.offline_training_challenge_mode,
+                  ),
+                  offline_skill_settings: normalizeOfflineSkillSettings(
+                    resolved.offline_skill_settings,
+                  ),
+                  factor_selection: normalizeOfflineFactorSelection(
+                    resolved.offline_factor_selection,
+                  ),
+                  race_array: resolved.offline_race_array || [],
+                },
+              };
+            }),
+          }),
+        },
+      );
+      commitOverviewResponse(selectedAccountId, result);
+      return true;
+    } catch (caught) {
+      setError((caught as Error).message);
+      return false;
+    } finally {
+      setBusy('');
+    }
   };
 
   const confirmRunPlan = async () => {
@@ -3799,7 +3965,9 @@ export default function AutoResearch() {
             ? Math.max(1, jewelDropTarget)
             : 1;
     let started = false;
-    if (pendingRun.type === 'saved') {
+    if (runMode === 'queue') {
+      started = await startCareerQueue(pendingRunQueue);
+    } else if (pendingRun.type === 'saved') {
       const setting = careerSettings.find(
         (item) => item.id === pendingRun.settingId,
       );
@@ -3830,7 +3998,14 @@ export default function AutoResearch() {
     if (!setting) return;
     if (!window.confirm(`确定删除养马详设“${setting.name}”吗？`)) return;
     persistCareerSettings(
-      careerSettings.filter((item) => item.id !== setting.id),
+      careerSettings
+        .filter((item) => item.id !== setting.id)
+        .map((item) => ({
+          ...item,
+          run_queue: item.run_queue?.filter(
+            (queueItem) => queueItem.career_setting_id !== setting.id,
+          ),
+        })),
     );
     if (selectedCareerSettingId === setting.id) {
       setSelectedCareerSettingId('');
@@ -4523,7 +4698,7 @@ export default function AutoResearch() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h3 className="text-lg font-bold text-slate-900">选择运行方式</h3>
               <p className="mt-1 text-sm text-slate-500">
-                本次选择只控制如何连续运行，不会写入养马详设。
+                普通模式只影响本次运行；详设队列已随当前详设保存。
               </p>
             </div>
             <div className="p-4">
@@ -4567,11 +4742,20 @@ export default function AutoResearch() {
                       '每天在指定时间段内自动运行，达到每日目标或结束时间后停止。',
                     icon: Gem,
                   },
+                  {
+                    id: 'queue' as const,
+                    title: '按详设队列运行',
+                    detail: pendingRunQueue.length
+                      ? `按已保存顺序执行 ${pendingRunQueue.length} 个队列项。`
+                      : '请先在详设中添加运行计划队列。',
+                    icon: ListChecks,
+                  },
                 ].map((option) => {
                   const IconComponent = option.icon;
                   const disabled =
                     (option.id === 'jewel_drops' && remainingJewelDrops <= 0) ||
-                    (option.id === 'daily_count' && dailyRunCount >= 100);
+                    (option.id === 'daily_count' && dailyRunCount >= 100) ||
+                    (option.id === 'queue' && !pendingRunQueue.length);
                   return (
                     <button
                       key={option.id}
@@ -4751,6 +4935,41 @@ export default function AutoResearch() {
                   </p>
                 </section>
               ) : null}
+
+              {runMode === 'queue' ? (
+                <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                  <h4 className="text-sm font-semibold text-indigo-950">
+                    将按以下顺序执行
+                  </h4>
+                  <ol className="mt-2 space-y-1.5">
+                    {pendingRunQueue.map((queueItem, index) => {
+                      const setting = careerSettings.find(
+                        (item) => item.id === queueItem.career_setting_id,
+                      );
+                      return (
+                        <li
+                          key={queueItem.id}
+                          className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-xs"
+                        >
+                          <span className="min-w-0 truncate text-slate-700">
+                            {index + 1}. {setting?.name || '详设已不存在'}
+                          </span>
+                          <span className="flex-none font-medium text-indigo-700">
+                            {queueItem.goal === 'daily_jewel_drops'
+                              ? `今日钻石达到 ${queueItem.target}`
+                              : `执行 ${queueItem.target} 次`}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  {pendingRunQueueInvalid ? (
+                    <p className="mt-2 text-xs text-red-600">
+                      队列中存在已删除详设、缺失预设或未保存赛程的离线详设，请返回修改后再运行。
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
               <button
@@ -4770,7 +4989,9 @@ export default function AutoResearch() {
                 disabled={
                   Boolean(busy) ||
                   (runMode === 'jewel_drops' && remainingJewelDrops <= 0) ||
-                  (runMode === 'daily_count' && dailyRunCount >= 100)
+                  (runMode === 'daily_count' && dailyRunCount >= 100) ||
+                  (runMode === 'queue' &&
+                    (!pendingRunQueue.length || pendingRunQueueInvalid))
                 }
                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
               >
@@ -5536,6 +5757,9 @@ export default function AutoResearch() {
                     setNewCareerSaveName={setNewCareerSaveName}
                     createCareerSave={createCareerSave}
                     careerSettingName={careerSettingName}
+                    selectedCareerSettingId={selectedCareerSettingId}
+                    careerRunQueue={careerRunQueue}
+                    setCareerRunQueue={setCareerRunQueue}
                     automationActive={automationActive}
                     busy={busy}
                     activeCareer={activeCareer}
@@ -5677,7 +5901,6 @@ export default function AutoResearch() {
                       busy={busy}
                       releaseSessionWait={releaseSessionWait}
                       dailyJewelSchedule={dailyJewelSchedule}
-                      hasRunPlan={hasRunPlan}
                       offlineMode={offlineControlActive}
                       serverHostedMode={serverHostedMode}
                       idleSingleMode={dashboard?.account?.idle_single_mode}

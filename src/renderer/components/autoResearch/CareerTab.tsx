@@ -2,7 +2,11 @@
 import { Dispatch, SetStateAction } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Database,
+  Gem,
+  ListOrdered,
   Play,
   Plus,
   RefreshCw,
@@ -23,6 +27,7 @@ import { panelClass, scrollToSection } from './shared';
 import { AutoResearchSkill } from './SkillSelector';
 import {
   CareerSetting,
+  CareerRunQueueItem,
   Dashboard,
   OfflineFactorSelection,
   OfflineSkillSettings,
@@ -46,6 +51,9 @@ type CareerTabProps = {
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
   createCareerSave: () => void;
   careerSettingName: string;
+  selectedCareerSettingId: string;
+  careerRunQueue: CareerRunQueueItem[];
+  setCareerRunQueue: Dispatch<SetStateAction<CareerRunQueueItem[]>>;
   automationActive: boolean;
   busy: string;
   activeCareer?: SessionAccount['career'];
@@ -141,6 +149,9 @@ export default function CareerTab(props: CareerTabProps) {
     setNewCareerSaveName,
     createCareerSave,
     careerSettingName,
+    selectedCareerSettingId,
+    careerRunQueue,
+    setCareerRunQueue,
     automationActive,
     busy,
     activeCareer,
@@ -407,6 +418,9 @@ export default function CareerTab(props: CareerTabProps) {
                     {offline
                       ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
                       : setting.preset_name}
+                    {setting.run_queue?.length
+                      ? ` · 队列 ${setting.run_queue.length} 项`
+                      : ''}
                   </p>
                   <span
                     className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -618,6 +632,206 @@ export default function CareerTab(props: CareerTabProps) {
             )}
           </div>
         </div>
+
+        <section className="mt-5 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 font-semibold text-slate-800">
+                <ListOrdered size={17} className="text-indigo-600" />
+                运行计划队列
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                按顺序运行多个详设；钻石目标按北京时间 05:00
+                周期内的今日累计值判断。
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={
+                !accountCareerSettings.length && !selectedCareerSettingId
+              }
+              onClick={() => {
+                const settingId =
+                  selectedCareerSettingId || accountCareerSettings[0]?.id || '';
+                if (!settingId) return;
+                setCareerRunQueue((current) => [
+                  ...current,
+                  {
+                    id: `queue-${Date.now()}-${current.length}`,
+                    career_setting_id: settingId,
+                    goal: 'runs',
+                    target: 1,
+                  },
+                ]);
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-40"
+            >
+              <Plus size={14} />
+              添加详设
+            </button>
+          </div>
+
+          {careerRunQueue.length ? (
+            <div className="mt-3 space-y-2">
+              {careerRunQueue.map((queueItem, index) => {
+                const queueSetting = accountCareerSettings.find(
+                  (setting) => setting.id === queueItem.career_setting_id,
+                );
+                return (
+                  <div
+                    key={queueItem.id}
+                    className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 lg:grid-cols-[auto_minmax(180px,1fr)_minmax(150px,auto)_minmax(150px,auto)_auto] lg:items-center"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                      {index + 1}
+                    </span>
+                    <select
+                      value={queueItem.career_setting_id}
+                      onChange={(event) =>
+                        setCareerRunQueue((current) =>
+                          current.map((item) =>
+                            item.id === queueItem.id
+                              ? {
+                                  ...item,
+                                  career_setting_id: event.target.value,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      {accountCareerSettings.map((setting) => (
+                        <option key={setting.id} value={setting.id}>
+                          {setting.name} ·{' '}
+                          {setting.mode === 'offline' ? '离线' : '在线'}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={queueItem.goal}
+                      onChange={(event) =>
+                        setCareerRunQueue((current) =>
+                          current.map((item) =>
+                            item.id === queueItem.id
+                              ? {
+                                  ...item,
+                                  goal: event.target
+                                    .value as CareerRunQueueItem['goal'],
+                                  target:
+                                    event.target.value === 'daily_jewel_drops'
+                                      ? Math.min(20, item.target)
+                                      : item.target,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="runs">执行指定次数</option>
+                      <option value="daily_jewel_drops">今日钻石达到</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                      {queueItem.goal === 'daily_jewel_drops' ? (
+                        <Gem size={14} className="text-violet-600" />
+                      ) : null}
+                      <input
+                        type="number"
+                        min={1}
+                        max={queueItem.goal === 'daily_jewel_drops' ? 20 : 100}
+                        value={queueItem.target}
+                        onChange={(event) =>
+                          setCareerRunQueue((current) =>
+                            current.map((item) =>
+                              item.id === queueItem.id
+                                ? {
+                                    ...item,
+                                    target: Math.max(
+                                      1,
+                                      Math.min(
+                                        item.goal === 'daily_jewel_drops'
+                                          ? 20
+                                          : 100,
+                                        Number(event.target.value),
+                                      ),
+                                    ),
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                        className="w-20 rounded-md border border-slate-200 px-2 py-2 font-semibold text-slate-800"
+                      />
+                      {queueItem.goal === 'daily_jewel_drops'
+                        ? '次（今日累计）'
+                        : '次'}
+                    </label>
+                    <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={() =>
+                          setCareerRunQueue((current) => {
+                            const next = [...current];
+                            [next[index - 1], next[index]] = [
+                              next[index],
+                              next[index - 1],
+                            ];
+                            return next;
+                          })
+                        }
+                        className="rounded border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-30"
+                        aria-label="上移队列项"
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === careerRunQueue.length - 1}
+                        onClick={() =>
+                          setCareerRunQueue((current) => {
+                            const next = [...current];
+                            [next[index], next[index + 1]] = [
+                              next[index + 1],
+                              next[index],
+                            ];
+                            return next;
+                          })
+                        }
+                        className="rounded border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-30"
+                        aria-label="下移队列项"
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCareerRunQueue((current) =>
+                            current.filter((item) => item.id !== queueItem.id),
+                          )
+                        }
+                        className="rounded border border-red-200 p-2 text-red-500 hover:bg-red-50"
+                        aria-label="删除队列项"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    {!queueSetting ? (
+                      <p className="text-xs text-red-600 lg:col-start-2 lg:col-span-4">
+                        这个队列项引用的详设已不存在，请重新选择或删除。
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-dashed border-indigo-200 bg-white/70 px-3 py-4 text-center text-xs text-slate-500">
+              未配置队列时仍可使用单次、指定次数等普通运行方式。
+            </p>
+          )}
+        </section>
 
         {!dashboard.account.career?.active ? (
           <div id="career-selection" className="mt-5 scroll-mt-28 space-y-5">
