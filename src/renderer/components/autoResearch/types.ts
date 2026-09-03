@@ -364,8 +364,9 @@ export type DailyTaskResult = {
 
 export type DailyTasksConfig = {
   schema_version?: number;
-  enabled: boolean;
-  run_time: string;
+  enabled?: boolean;
+  run_time?: string;
+  run_with_career: boolean;
   daily_race: {
     enabled: boolean;
     daily_race_id: number;

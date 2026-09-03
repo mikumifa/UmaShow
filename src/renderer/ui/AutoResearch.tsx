@@ -151,6 +151,68 @@ const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
   offline_scenarios: [],
 });
 
+const LOCAL_DAILY_TASKS_KEY = 'autoResearch.dailyTasks.v1';
+
+const editableDailyTasksConfig = (
+  config: DailyTasksConfig,
+): DailyTasksConfig => ({
+  schema_version: 3,
+  run_with_career: Boolean(config.run_with_career),
+  daily_race: { ...config.daily_race },
+  daily_legend_race: { ...config.daily_legend_race },
+  team_stadium: { ...config.team_stadium },
+  limited_shop: { ...config.limited_shop },
+  circle: {
+    ...config.circle,
+    donate_item_ids: [...config.circle.donate_item_ids],
+  },
+});
+
+const readLocalDailyTasks = (
+  uid: string,
+  fallback: DailyTasksConfig,
+): DailyTasksConfig => {
+  try {
+    const stored = JSON.parse(
+      getSharedStorageItem(LOCAL_DAILY_TASKS_KEY) || '{}',
+    ) as Record<string, DailyTasksConfig>;
+    return editableDailyTasksConfig(stored[uid] || fallback);
+  } catch {
+    return editableDailyTasksConfig(fallback);
+  }
+};
+
+const writeLocalDailyTasks = (uid: string, config: DailyTasksConfig) => {
+  let stored: Record<string, DailyTasksConfig> = {};
+  try {
+    stored = JSON.parse(
+      getSharedStorageItem(LOCAL_DAILY_TASKS_KEY) || '{}',
+    ) as Record<string, DailyTasksConfig>;
+  } catch {
+    stored = {};
+  }
+  const saved = editableDailyTasksConfig(config);
+  setSharedStorageItem(
+    LOCAL_DAILY_TASKS_KEY,
+    JSON.stringify({ ...stored, [uid]: saved }),
+  );
+  return saved;
+};
+
+const readCareerDailyTasks = (uid: string): DailyTasksConfig | undefined => {
+  try {
+    const stored = JSON.parse(
+      getSharedStorageItem(LOCAL_DAILY_TASKS_KEY) || '{}',
+    ) as Record<string, DailyTasksConfig>;
+    const config = stored[uid];
+    return config?.run_with_career
+      ? editableDailyTasksConfig(config)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const SERVER_CONTROL_STATUSES = [
   'queued',
   'reconnect_wait',
@@ -403,6 +465,8 @@ export default function AutoResearch() {
   const [missingExistingRuntimeAccountId, setMissingExistingRuntimeAccountId] =
     useState('');
   const sessionTokens = useRef(new Map<string, string>());
+  const localDailySessionTokens = useRef(new Map<string, string>());
+  const localDailyLoginRequests = useRef(new Map<string, Promise<string>>());
   const existingRuntimeAttachAttempts = useRef(new Set<string>());
   const activeLoginOperation = useRef('');
   const activeConnectionAccountIdRef = useRef('');
@@ -1269,6 +1333,128 @@ export default function AutoResearch() {
     [request],
   );
 
+  const localDailyRequest = useCallback(
+    async <T,>(
+      path: string,
+      init?: Parameters<typeof fetch>[1],
+    ): Promise<T> => {
+      const response = await fetch(`${DEFAULT_SERVER}${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(init?.headers || {}),
+        },
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new AutoResearchRequestError(
+          body.detail || `HTTP ${response.status}`,
+          response.status,
+        );
+      }
+      return body as T;
+    },
+    [],
+  );
+
+  const ensureLocalDailySession = useCallback(
+    async (accountId: string): Promise<string> => {
+      const cachedToken = localDailySessionTokens.current.get(accountId);
+      if (cachedToken) return cachedToken;
+
+      if (server === DEFAULT_SERVER) {
+        const currentToken = sessionTokens.current.get(accountId);
+        if (currentToken) {
+          localDailySessionTokens.current.set(accountId, currentToken);
+          return currentToken;
+        }
+      }
+
+      const pendingRequest = localDailyLoginRequests.current.get(accountId);
+      if (pendingRequest) return pendingRequest;
+
+      const loginRequest = (async () => {
+        const credential = (await window.electron.autoResearch.credential(
+          accountId,
+        )) as { uid: string; accessKey: string };
+        const localSession = (await window.electron.autoResearch.currentSession(
+          accountId,
+        )) as Record<string, string> | null;
+        if (!localSession?.sid) {
+          throw new Error(
+            '本地日常需要 UmaShow 已捕获的本机 SID，请先在本机登录游戏并刷新账号',
+          );
+        }
+        let authenticated: AuthResponse;
+        try {
+          authenticated = await localDailyRequest<AuthResponse>(
+            '/api/auth/login',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                uid: localSession.uid || credential.uid,
+                access_key: localSession.access_key || credential.accessKey,
+                allow_account_login: false,
+                session: localSession,
+              }),
+            },
+          );
+        } catch (caught) {
+          if (
+            caught instanceof TypeError ||
+            String((caught as Error)?.message || '').includes('Failed to fetch')
+          ) {
+            throw new Error(
+              `无法连接本机日常服务 ${DEFAULT_SERVER}，请先启动本地 UmaAutoResearch`,
+            );
+          }
+          throw caught;
+        }
+        localDailySessionTokens.current.set(accountId, authenticated.token);
+        return authenticated.token;
+      })();
+
+      localDailyLoginRequests.current.set(accountId, loginRequest);
+      try {
+        return await loginRequest;
+      } finally {
+        localDailyLoginRequests.current.delete(accountId);
+      }
+    },
+    [localDailyRequest, server],
+  );
+
+  const localDailyAccountRequest = useCallback(
+    async <T,>(
+      accountId: string,
+      path: string,
+      init?: Parameters<typeof fetch>[1],
+      retry = true,
+    ): Promise<T> => {
+      const token = await ensureLocalDailySession(accountId);
+      try {
+        return await localDailyRequest<T>(path, {
+          ...init,
+          headers: {
+            ...(init?.headers || {}),
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (caught) {
+        if (
+          retry &&
+          caught instanceof AutoResearchRequestError &&
+          caught.status === 401
+        ) {
+          localDailySessionTokens.current.delete(accountId);
+          return localDailyAccountRequest<T>(accountId, path, init, false);
+        }
+        throw caught;
+      }
+    },
+    [ensureLocalDailySession, localDailyRequest],
+  );
+
   const applyAccountOptions = useCallback(
     (accountId: string, options: AccountOptionsResponse['options']) => {
       accountOptionsCache.current.set(accountId, options);
@@ -1494,16 +1680,23 @@ export default function AutoResearch() {
 
   const loadDailyTasks = useCallback(
     async (accountId: string) => {
-      if (!accountId || !sessionTokens.current.has(accountId)) return;
+      if (!accountId) return;
       setDailyTasksLoading(true);
       setDailyTasksLoadError('');
       try {
-        const result = await accountRequest<DailyTasksResponse>(
+        const result = await localDailyAccountRequest<DailyTasksResponse>(
           accountId,
           '/api/account/daily-tasks',
         );
         if (selectedAccountIdRef.current === accountId) {
-          setDailyTasksOverview(result);
+          const account = accounts.find((item) => item.id === accountId);
+          const localConfig = account
+            ? readLocalDailyTasks(account.uid, result.daily_tasks)
+            : editableDailyTasksConfig(result.daily_tasks);
+          setDailyTasksOverview({
+            ...result,
+            daily_tasks: { ...result.daily_tasks, ...localConfig },
+          });
         }
       } catch (caught) {
         if (selectedAccountIdRef.current === accountId) {
@@ -1517,7 +1710,7 @@ export default function AutoResearch() {
         }
       }
     },
-    [accountRequest],
+    [accounts, localDailyAccountRequest],
   );
 
   const saveDailyTasks = useCallback(
@@ -1526,27 +1719,26 @@ export default function AutoResearch() {
         setError('服务端自动育成正在运行，请停止养马后再修改每日日常');
         return;
       }
-      if (!selectedAccountId) return;
+      if (!selectedAccountId || !selectedAccount) return;
       setBusy('daily-save');
       setError('');
       try {
-        const result = await accountRequest<DailyTasksResponse>(
-          selectedAccountId,
-          '/api/account/daily-tasks',
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config),
-          },
+        const saved = writeLocalDailyTasks(selectedAccount.uid, config);
+        setDailyTasksOverview((current) =>
+          current
+            ? {
+                ...current,
+                daily_tasks: { ...current.daily_tasks, ...saved },
+              }
+            : current,
         );
-        setDailyTasksOverview(result);
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
         setBusy('');
       }
     },
-    [accountRequest, selectedAccountId, serverHostedMode],
+    [selectedAccount, selectedAccountId, serverHostedMode],
   );
 
   const runDailyTasks = useCallback(
@@ -1555,32 +1747,45 @@ export default function AutoResearch() {
         setError('服务端自动育成正在运行，请停止养马后再执行每日日常');
         return;
       }
-      if (!selectedAccountId) return;
+      if (!selectedAccountId || !selectedAccount) return;
       setBusy('daily-run');
       setError('');
       try {
-        await accountRequest<DailyTasksResponse>(
+        const saved = writeLocalDailyTasks(selectedAccount.uid, config);
+        await localDailyAccountRequest<DailyTasksResponse>(
           selectedAccountId,
           '/api/account/daily-tasks',
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config),
+            body: JSON.stringify({
+              ...saved,
+              enabled: false,
+              run_time: '00:00',
+            }),
           },
         );
-        const result = await accountRequest<DailyTasksResponse>(
+        const result = await localDailyAccountRequest<DailyTasksResponse>(
           selectedAccountId,
           '/api/account/daily-tasks/run',
           { method: 'POST', body: '{}' },
         );
-        setDailyTasksOverview(result);
+        setDailyTasksOverview({
+          ...result,
+          daily_tasks: { ...result.daily_tasks, ...saved },
+        });
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
         setBusy('');
       }
     },
-    [accountRequest, selectedAccountId, serverHostedMode],
+    [
+      localDailyAccountRequest,
+      selectedAccount,
+      selectedAccountId,
+      serverHostedMode,
+    ],
   );
 
   const connect = useCallback(
@@ -1774,7 +1979,7 @@ export default function AutoResearch() {
   useEffect(() => {
     if (
       !server ||
-      !['career', 'daily', 'history'].includes(activeTab) ||
+      !['career', 'history'].includes(activeTab) ||
       !selectedAccountId ||
       selectedAccount?.runtime.logged_in ||
       sessionTokens.current.has(selectedAccountId) ||
@@ -1872,7 +2077,8 @@ export default function AutoResearch() {
       activeTab !== 'daily' ||
       !selectedAccountId ||
       serverHostedMode ||
-      !sessionTokens.current.has(selectedAccountId)
+      !localSessionMode ||
+      !selectedAccount?.runtime.logged_in
     ) {
       return;
     }
@@ -1880,6 +2086,7 @@ export default function AutoResearch() {
   }, [
     activeTab,
     loadDailyTasks,
+    localSessionMode,
     serverHostedMode,
     selectedAccount?.runtime.last_refreshed_at,
     selectedAccount?.runtime.logged_in,
@@ -2850,6 +3057,7 @@ export default function AutoResearch() {
             repeat_daily: repeatDaily,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
             career_setting_id: selectedCareerSetting?.id || '',
             career_setting_name:
               selectedCareerSetting?.name || careerSettingName,
@@ -2930,6 +3138,7 @@ export default function AutoResearch() {
             repeat_daily: repeatDaily,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
             career_setting_id: setting.id,
             career_setting_name: setting.name,
             preset_name: setting.preset_name,
@@ -3892,6 +4101,7 @@ export default function AutoResearch() {
             repeat_daily: repeatDaily,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
             career_setting_id: selectedCareerSetting?.id || '',
             career_setting_name:
               selectedCareerSetting?.name || careerSettingName,
@@ -4098,6 +4308,7 @@ export default function AutoResearch() {
             repeat_daily: repeatDaily,
             schedule_start_time: scheduleStartTime,
             schedule_end_time: scheduleEndTime,
+            daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
             items: queueSettings.map(({ queueItem, setting }) =>
               buildCareerQueuePayload(queueItem, setting as CareerSetting),
             ),
@@ -5703,7 +5914,7 @@ export default function AutoResearch() {
                 <p>请先选择要使用的账号。</p>
               </section>
             ) : activeTab !== 'presets' &&
-              disconnectingAccountId === selectedAccount.id ? (
+              disconnectingAccountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
                   'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
@@ -5723,7 +5934,7 @@ export default function AutoResearch() {
                 </div>
               </section>
             ) : activeTab !== 'presets' &&
-              loginProgress?.accountId === selectedAccount.id ? (
+              loginProgress?.accountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
                   'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
@@ -5741,12 +5952,12 @@ export default function AutoResearch() {
                   <p className="mt-4 font-semibold text-slate-700">
                     {loginProgressComplete
                       ? '登录完成，正在载入账号界面'
-                      : loginProgress.action === 'refresh'
+                      : loginProgress?.action === 'refresh'
                         ? '正在重新登录账号'
                         : '正在登录账号'}
                   </p>
                   <p className="mt-2 text-sm text-slate-400">
-                    {loginProgress.detail}
+                    {loginProgress?.detail}
                   </p>
                 </div>
               </section>
@@ -5754,7 +5965,8 @@ export default function AutoResearch() {
               (!selectedAccount?.runtime.logged_in || !dashboard) &&
               !automationActive ? (
               <section className={panelClass('p-12 text-center')}>
-                {checkingExistingRuntimeAccountId === selectedAccount.id ? (
+                {activeTab !== 'daily' &&
+                checkingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <RefreshCw
                     className="mx-auto animate-spin text-indigo-400"
                     size={42}
@@ -5764,18 +5976,15 @@ export default function AutoResearch() {
                 )}
                 <h2 className="mt-3 font-bold text-slate-800">
                   {activeTab === 'daily'
-                    ? checkingExistingRuntimeAccountId === selectedAccount.id
-                      ? '正在读取服务端已有的日常任务状态'
-                      : missingExistingRuntimeAccountId === selectedAccount.id
-                        ? '服务端当前没有该账号的登录会话'
-                        : '请登录后配置每日日常'
-                    : checkingExistingRuntimeAccountId === selectedAccount.id
+                    ? '请先登录'
+                    : checkingExistingRuntimeAccountId === selectedAccount?.id
                       ? '正在读取服务端已有的养马状态'
-                      : missingExistingRuntimeAccountId === selectedAccount.id
+                      : missingExistingRuntimeAccountId === selectedAccount?.id
                         ? '服务端当前没有正在运行的养马'
                         : '登录并读取本账号的最新育成数据'}
                 </h2>
-                {missingExistingRuntimeAccountId === selectedAccount.id ? (
+                {activeTab !== 'daily' &&
+                missingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
                     <AlertTriangle size={18} className="mt-0.5 flex-none" />
                     <span>
@@ -5793,10 +6002,11 @@ export default function AutoResearch() {
                     disabled={Boolean(
                       loginProgress ||
                         disconnectingAccountId ||
-                        checkingExistingRuntimeAccountId ===
-                          selectedAccount.id ||
-                        missingExistingRuntimeAccountId !==
-                          selectedAccount.id ||
+                        (activeTab !== 'daily' &&
+                          (checkingExistingRuntimeAccountId ===
+                            selectedAccount?.id ||
+                            missingExistingRuntimeAccountId !==
+                              selectedAccount?.id)) ||
                         (loggedInAccountId &&
                           loggedInAccountId !== selectedAccount?.id),
                     )}
@@ -5806,22 +6016,20 @@ export default function AutoResearch() {
                       ? `登录中 ${loginProgress?.elapsed || 0}s · ${loginProgress?.detail || '正在连接登录服务'}`
                       : loginProgress
                         ? '请等待其他账号登录完成'
-                        : checkingExistingRuntimeAccountId ===
-                            selectedAccount.id
-                          ? activeTab === 'daily'
-                            ? '正在检查账号状态'
-                            : '正在检查已有养马'
+                        : activeTab === 'daily'
+                          ? '登录'
+                          : checkingExistingRuntimeAccountId ===
+                            selectedAccount?.id
+                          ? '正在检查已有养马'
                           : missingExistingRuntimeAccountId !==
-                              selectedAccount.id
+                              selectedAccount?.id
                             ? '等待服务端检查'
                             : disconnectingAccountId
                               ? '请等待账号退出完成'
                               : loggedInAccountId &&
                                   loggedInAccountId !== selectedAccount?.id
                                 ? '请先退出当前账号'
-                                : activeTab === 'daily'
-                                  ? '登录并配置每日日常'
-                                  : '登录并读取最新数据'}
+                                : '登录并读取最新数据'}
                   </button>
                   {activeTab !== 'daily' ? (
                     <button
@@ -6216,33 +6424,13 @@ export default function AutoResearch() {
                       dailyTasksLoading ||
                       checkingExistingRuntimeAccountId === selectedAccountId
                     }
-                    loadError={
-                      dailyTasksLoadError ||
-                      (missingExistingRuntimeAccountId === selectedAccountId
-                        ? '服务端当前没有该账号可连接的托管会话，请重新登录后再配置每日日常'
-                        : '')
-                    }
+                    loadError={dailyTasksLoadError}
                     busy={busy}
                     locked={serverHostedMode}
                     onRetry={() => {
                       if (!selectedAccountId) return;
-                      if (sessionTokens.current.has(selectedAccountId)) {
-                        loadDailyTasks(selectedAccountId).catch(
-                          () => undefined,
-                        );
-                        return;
-                      }
-                      attachExistingRuntime(selectedAccountId, true)
-                        .then((attached) => {
-                          if (attached)
-                            return loadDailyTasks(selectedAccountId);
-                          return undefined;
-                        })
-                        .catch((caught) => {
-                          const { message } = caught as Error;
-                          setDailyTasksLoadError(message);
-                          setError(message);
-                        });
+                      localDailySessionTokens.current.delete(selectedAccountId);
+                      loadDailyTasks(selectedAccountId).catch(() => undefined);
                     }}
                     onSave={saveDailyTasks}
                     onRun={runDailyTasks}

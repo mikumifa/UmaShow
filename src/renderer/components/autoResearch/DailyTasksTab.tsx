@@ -39,8 +39,7 @@ type Props = {
 
 const emptyConfig = (): DailyTasksConfig => ({
   schema_version: 3,
-  enabled: false,
-  run_time: '05:10',
+  run_with_career: false,
   daily_race: {
     enabled: false,
     daily_race_id: 0,
@@ -163,9 +162,9 @@ function HorseSelectButton({
 
 const statusLabel: Record<string, string> = {
   disabled: '未启用',
-  paused: '计划已暂停',
-  waiting: '等待执行',
-  waiting_busy: '等待自动育成结束',
+  paused: '尚未本地执行',
+  waiting: '本地配置已就绪',
+  waiting_busy: '本地账号正忙',
   running: '执行中',
   completed: '已完成',
   completed_with_errors: '部分失败',
@@ -173,18 +172,6 @@ const statusLabel: Record<string, string> = {
   error: '失败',
   interrupted: '已中断',
 };
-
-function formatScheduleTime(timestamp?: number) {
-  if (!timestamp) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(timestamp * 1000));
-}
 
 function AvailabilityNotice({
   available,
@@ -261,10 +248,28 @@ export default function DailyTasksTab({
     }
   }, [overview]);
 
-  if (locked) return null;
+  if (locked) {
+    return (
+      <section
+        className={panelClass(
+          'flex min-h-48 items-center justify-center p-10 text-center text-sm text-slate-500',
+        )}
+      >
+        <div>
+          <CalendarCheck className="mx-auto text-violet-300" size={30} />
+          <p className="mt-3 font-medium text-slate-700">
+            服务器托管进行中，本地日常暂不可用
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            停止服务器托管后，日常状态和立即执行将继续由本机处理。
+          </p>
+        </div>
+      </section>
+    );
+  }
 
-  let loadStatus = '正在连接服务端日常任务…';
-  if (loading) loadStatus = '正在读取服务端日常配置…';
+  let loadStatus = '正在连接本地日常服务…';
+  if (loading) loadStatus = '正在读取本地日常配置…';
   if (loadError) loadStatus = '每日日常加载失败';
 
   if (!overview) {
@@ -358,47 +363,30 @@ export default function DailyTasksTab({
           <div>
             <div className="flex items-center gap-2">
               <CalendarCheck className="text-indigo-600" size={20} />
-              <h2 className="font-bold text-slate-800">每日日常计划</h2>
+              <h2 className="font-bold text-slate-800">每日日常配置</h2>
             </div>
+            <p className="mt-1 text-sm text-slate-500">
+              配置只保存在本机；开启随养马执行后，启动养马时才会随任务提交到服务器。
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">
-              {draft.enabled ? '计划运行中' : '计划已暂停'}
+              {draft.run_with_career ? '随养马执行' : '仅本地单次执行'}
             </span>
             <Toggle
-              checked={draft.enabled}
-              label={draft.enabled ? '暂停每日日常计划' : '开启每日日常计划'}
+              checked={draft.run_with_career}
+              label="养马同时完成日常"
               disabled={disabled}
-              onChange={(enabled) => {
-                const next = { ...draft, enabled };
+              onChange={(runWithCareer) => {
+                const next = { ...draft, run_with_career: runWithCareer };
                 setDraft(next);
                 onSave(next).catch(() => undefined);
               }}
             />
           </div>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-[220px_1fr]">
-          <label className="block" htmlFor="daily-task-run-time">
-            <span className="mb-1 block text-xs font-medium text-slate-500">
-              每日计划启动时间（北京时间）
-            </span>
-            <input
-              id="daily-task-run-time"
-              type="time"
-              value={draft.run_time}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  run_time: event.target.value,
-                }))
-              }
-              className={fieldClass}
-            />
-          </label>
-          <div className="rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-            每日赛事每天执行一次；竞技场按 RP
-            恢复时间继续清空。养马占用账号时会等待，并在本局结束后优先处理到期日常。
-          </div>
+        <div className="mt-4 rounded-lg bg-indigo-50 px-4 py-3 text-sm leading-6 text-indigo-800">
+          “单次完成日常”始终由本机执行。服务器不会单独维护日常计划，也不会按时间自行启动日常。
         </div>
       </section>
 
@@ -809,7 +797,7 @@ export default function DailyTasksTab({
             </label>
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-800">
               <Clock3 className="mt-0.5 shrink-0" size={16} />
-              仍有自己的有效请求或请求冷却未结束时，服务端不会重复发送。
+              仍有自己的有效请求或请求冷却未结束时，不会重复发送。
             </div>
           </div>
         </div>
@@ -818,16 +806,13 @@ export default function DailyTasksTab({
       <section className={panelClass('p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-slate-800">日常计划状态</h3>
+            <h3 className="font-semibold text-slate-800">本地单次执行结果</h3>
             <p className="mt-1 text-sm text-slate-500">
               {statusLabel[overview.daily_tasks.status || ''] ||
                 overview.daily_tasks.status ||
                 '尚未执行'}
               {overview.daily_tasks.last_finished_at
                 ? ` · 上次完成 ${overview.daily_tasks.last_finished_at}`
-                : ''}
-              {overview.daily_tasks.next_wake_at
-                ? ` · 下次${overview.daily_tasks.next_wake_reason || '计划事件'} ${formatScheduleTime(overview.daily_tasks.next_wake_at)}`
                 : ''}
             </p>
             {overview.daily_tasks.last_error ? (
@@ -844,7 +829,7 @@ export default function DailyTasksTab({
               className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
             >
               <Save size={16} />
-              {busy === 'daily-save' ? '保存中…' : '保存配置'}
+              {busy === 'daily-save' ? '保存中…' : '保存本地配置'}
             </button>
             <button
               type="button"
@@ -853,7 +838,7 @@ export default function DailyTasksTab({
               className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               <Play size={16} />
-              {busy === 'daily-run' ? '执行中…' : '立即执行'}
+              {busy === 'daily-run' ? '执行中…' : '单次完成日常'}
             </button>
           </div>
         </div>
