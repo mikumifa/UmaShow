@@ -89,10 +89,35 @@ export type Runner = {
   };
   control?: {
     desired_state: 'running' | 'stopped';
-    status: 'queued' | 'reconnect_wait' | 'running' | 'stopped' | 'failed';
-    detail?: { last_error?: string; reason?: string };
+    status:
+      | 'queued'
+      | 'reconnect_wait'
+      | 'running'
+      | 'stopping'
+      | 'stopped'
+      | 'completed'
+      | 'waiting'
+      | 'failed';
+    detail?: {
+      last_error?: string;
+      reason?: string;
+      idle_single_mode?: {
+        detected: boolean;
+        active: boolean;
+        state: 'none' | 'playing' | 'finished' | 'log_checked' | 'unknown';
+        state_code: number;
+        card_id?: number | string;
+        name?: string;
+        scenario_id?: number;
+        started_at?: string;
+        ends_at?: string;
+        source?: string;
+        observed_at?: string;
+      };
+    };
     request?: {
       card_id?: number;
+      career_mode?: 'online' | 'offline';
       career_setting_id?: string;
       preset_name?: string;
       run_mode?:
@@ -159,6 +184,7 @@ export type Account = {
   updatedAt: string;
   runtime: {
     logged_in: boolean;
+    session_owner?: 'local' | 'server' | 'none';
     last_error: string;
     last_refreshed_at?: string;
     runner: Runner;

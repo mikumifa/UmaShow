@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock3,
   Play,
+  RefreshCw,
   Save,
   ShoppingBag,
   Swords,
@@ -17,7 +18,7 @@ import DailyHorsePicker, {
   groundAptitude,
 } from './DailyHorsePicker';
 import { horseIconPath } from './SelectionCards';
-import { panelClass } from './shared';
+import { formatAccountError, panelClass } from './shared';
 import {
   DailyTaskResult,
   DailyTasksConfig,
@@ -27,7 +28,11 @@ import {
 
 type Props = {
   overview: DailyTasksResponse | null;
+  loading: boolean;
+  loadError: string;
   busy: string;
+  locked: boolean;
+  onRetry: () => void;
   onSave: (config: DailyTasksConfig) => Promise<void>;
   onRun: (config: DailyTasksConfig) => Promise<void>;
 };
@@ -237,7 +242,11 @@ function ResultCard({
 
 export default function DailyTasksTab({
   overview,
+  loading,
+  loadError,
   busy,
+  locked,
+  onRetry,
   onSave,
   onRun,
 }: Props) {
@@ -252,12 +261,45 @@ export default function DailyTasksTab({
     }
   }, [overview]);
 
+  if (locked) return null;
+
+  let loadStatus = '正在连接服务端日常任务…';
+  if (loading) loadStatus = '正在读取服务端日常配置…';
+  if (loadError) loadStatus = '每日日常加载失败';
+
   if (!overview) {
     return (
       <section
-        className={panelClass('p-10 text-center text-sm text-slate-400')}
+        className={panelClass(
+          'flex min-h-48 items-center justify-center p-10 text-center text-sm text-slate-500',
+        )}
       >
-        正在读取服务端日常配置…
+        <div>
+          {loading ? (
+            <RefreshCw
+              className="mx-auto animate-spin text-indigo-400"
+              size={30}
+            />
+          ) : (
+            <CalendarCheck className="mx-auto text-slate-300" size={30} />
+          )}
+          <p className="mt-3 font-medium text-slate-700">{loadStatus}</p>
+          {loadError ? (
+            <>
+              <p className="mt-1 max-w-xl text-xs leading-5 text-red-600">
+                {formatAccountError(loadError)}
+              </p>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mt-4 inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+              >
+                <RefreshCw size={14} />
+                重新加载
+              </button>
+            </>
+          ) : null}
+        </div>
       </section>
     );
   }
@@ -272,7 +314,7 @@ export default function DailyTasksTab({
   const legendRaceAvailability = availability?.daily_legend_race;
   const stadiumAvailability = availability?.team_stadium;
   const circleAvailability = availability?.circle;
-  const disabled = busy === 'daily-save' || busy === 'daily-run';
+  const disabled = locked || busy === 'daily-save' || busy === 'daily-run';
   const taskResults = overview.daily_tasks.task_results || {};
   const selectedDailyRace = dailyRaces.find(
     (race) => race.id === draft.daily_race.daily_race_id,
@@ -790,7 +832,7 @@ export default function DailyTasksTab({
             </p>
             {overview.daily_tasks.last_error ? (
               <p className="mt-1 text-sm text-red-600">
-                {overview.daily_tasks.last_error}
+                {formatAccountError(overview.daily_tasks.last_error)}
               </p>
             ) : null}
           </div>

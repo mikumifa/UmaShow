@@ -53,6 +53,7 @@ const handleNotifyPacket =
       const requestMetadata =
         packetType === 'request'
           ? {
+              BASE_URL: req.get('X-Umamusume-Base-Url'),
               COMMON_HEADER: req.get('X-Umamusume-Common-Header'),
               COMMON_HEADER2: req.get('X-Umamusume-Common-Header2'),
               SID_SUFFIX: req.get('X-Umamusume-Sid-Suffix'),

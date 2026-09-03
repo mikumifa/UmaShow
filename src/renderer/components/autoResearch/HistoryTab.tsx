@@ -3,7 +3,7 @@ import { Dispatch, SetStateAction } from 'react';
 import { Gem, History, RefreshCw, Trash2, Trophy } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { horseIconPath } from './SelectionCards';
-import { formatReportTime, panelClass } from './shared';
+import { formatAccountError, formatReportTime, panelClass } from './shared';
 import {
   CareerSessionAttributes,
   CareerSessionRecord,
@@ -468,7 +468,7 @@ export default function HistoryTab({
                           {status.label}
                           {run.last_error ? (
                             <span className="mt-1 block max-w-40 truncate text-xs text-red-500">
-                              {run.last_error}
+                              {formatAccountError(run.last_error)}
                             </span>
                           ) : null}
                         </td>

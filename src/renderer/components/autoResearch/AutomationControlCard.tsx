@@ -96,7 +96,7 @@ export default function AutomationControlCard({
           <p className="mt-0.5 text-xs text-slate-500">
             {activeSetting?.mode === 'offline'
               ? '离线技能与因子配置已由服务器接管执行。'
-              : '运行中可修改；保存预设后从下一次决策开始生效。'}
+              : '服务器独占游戏 API；运行中修改的预设会从下一次决策开始生效。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -121,7 +121,7 @@ export default function AutomationControlCard({
             ) : (
               <CircleStop size={14} />
             )}
-            {runnerStopping ? '正在暂停…' : '暂停运行'}
+            {runnerStopping ? '正在停止托管…' : '停止服务器托管'}
           </button>
           {planChanged ? (
             <button

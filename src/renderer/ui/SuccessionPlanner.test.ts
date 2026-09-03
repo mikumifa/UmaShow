@@ -22,6 +22,7 @@ import {
   normalizeSuccessionIndex,
   pendingCapturedParentPairOrientations,
   pendingCapturedParentPairValid,
+  parentPairCompatibilityTotal,
   probabilityAtLeastOnce,
   selectGreedyPendingBranchCandidate,
   winSaddleCompatibilityBonus,
@@ -62,6 +63,12 @@ describe('winSaddleCompatibilityBonus', () => {
   test('adds the two parent comparisons instead of doubling one estimate', () => {
     expect(winSaddleCompatibilityBonus([2, 5])).toBe(21);
     expect(winSaddleCompatibilityBonus([0, 5])).toBe(15);
+  });
+});
+
+describe('parentPairCompatibilityTotal', () => {
+  test('adds three compatibility points for every G1 shared by both parents', () => {
+    expect(parentPairCompatibilityTotal(14, 2)).toBe(20);
   });
 });
 

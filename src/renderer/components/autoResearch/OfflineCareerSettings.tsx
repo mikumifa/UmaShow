@@ -955,15 +955,19 @@ export default function OfflineCareerSettings({
                             })
                           }
                         />
-                      ) : factorSelection.lineage.selection_id ? (
+                      ) : null}
+                      {!selectedLineageParent &&
+                      factorSelection.lineage.selection_id ? (
                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                           已保存的马娘当前不在自己或好友列表中，请重新选择。
                         </p>
-                      ) : (
+                      ) : null}
+                      {!selectedLineageParent &&
+                      !factorSelection.lineage.selection_id ? (
                         <p className="rounded-lg border border-dashed border-fuchsia-200 bg-white/70 px-3 py-4 text-center text-sm text-fuchsia-500">
                           尚未选择已有马娘
                         </p>
-                      )}
+                      ) : null}
                     </div>
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                       <p className="text-xs font-medium text-slate-600">

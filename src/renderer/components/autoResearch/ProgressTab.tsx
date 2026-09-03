@@ -14,6 +14,7 @@ import {
   describeLogAction,
   describeLogDetail,
   describeRunnerAction,
+  formatAccountError,
   formatDailyJewelScheduleWindow,
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
@@ -37,6 +38,9 @@ type ProgressTabProps = {
   releaseSessionWait: () => Promise<void>;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   hasRunPlan: boolean;
+  offlineMode: boolean;
+  serverHostedMode: boolean;
+  idleSingleMode?: SessionAccount['idle_single_mode'];
   abandonCareer: () => Promise<void>;
 };
 
@@ -70,6 +74,9 @@ export default function ProgressTab({
   releaseSessionWait,
   dailyJewelSchedule,
   hasRunPlan,
+  offlineMode,
+  serverHostedMode,
+  idleSingleMode,
   abandonCareer,
 }: ProgressTabProps) {
   const liveActivity = runner?.live_activity;
@@ -87,7 +94,7 @@ export default function ProgressTab({
       ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail ? ` · ${liveActivity.detail}` : ''}`
       : '';
   return currentCareerActive ? (
-    <div className="min-h-[calc(100vh-170px)] space-y-4">
+    <div className="space-y-4">
       <section className={panelClass('p-5')}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
@@ -117,18 +124,31 @@ export default function ProgressTab({
                     ? '正在暂停…'
                     : runnerSessionWaiting
                       ? '等待重新登录'
-                      : queuedControl
-                        ? runner?.control?.status === 'reconnect_wait'
-                          ? '等待重新连接'
-                          : '等待后台 Worker 启动'
-                        : automationActive
-                          ? '自动育成中'
-                          : runner?.run_plan?.stop_reason ||
-                            (runner?.finished ? '本次已完成' : '等待开始')}
+                      : offlineMode
+                        ? idleSingleMode?.active ||
+                          runner?.control?.status === 'running'
+                          ? '离线育成中'
+                          : runner?.control?.status === 'reconnect_wait'
+                            ? '等待重新连接'
+                            : '等待后台 Worker 启动'
+                        : queuedControl
+                          ? runner?.control?.status === 'reconnect_wait'
+                            ? '等待重新连接'
+                            : '等待后台 Worker 启动'
+                          : automationActive
+                            ? '自动育成中'
+                            : runner?.run_plan?.stop_reason ||
+                              (runner?.finished ? '本次已完成' : '等待开始')}
                 </span>
               </div>
               <p className="mt-1 text-sm font-medium text-indigo-600">
-                {turnDateLabel(runner?.turn || activeCareer?.turn)}
+                {offlineMode
+                  ? idleSingleMode?.active
+                    ? idleSingleMode.ends_at
+                      ? `游戏服务器正在执行离线育成 · 预计结束：${idleSingleMode.ends_at}`
+                      : '游戏服务器正在执行离线育成 · 等待服务器返回结束时间'
+                    : '离线育成启动队列'
+                  : turnDateLabel(runner?.turn || activeCareer?.turn)}
               </p>
               <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
                 {runnerStopping || runnerSessionWaiting ? (
@@ -146,33 +166,65 @@ export default function ProgressTab({
                 {runnerStopping
                   ? '正在终止独立育成进程'
                   : runnerSessionWaiting
-                    ? `账号可能正在其他位置操作，${waitTimeLabel(runner?.session_wait_seconds)}后重新登录`
-                    : queuedControl
+                    ? '账号已在别处登录'
+                    : offlineMode
                       ? runner?.control?.status === 'reconnect_wait'
-                        ? runner?.control?.detail?.last_error ||
+                        ? liveActivityLabel ||
+                          formatAccountError(
+                            runner?.control?.detail?.last_error,
+                          ) ||
                           '等待后台 Worker 重新连接账号'
-                        : '启动请求已提交，正在等待后台 Worker 接手'
-                      : liveActivityLabel ||
-                        describeRunnerAction(runner?.last_action)}
+                        : idleSingleMode?.active ||
+                            runner?.control?.status === 'running'
+                          ? '任务已交给游戏服务器，完成后会自动处理结果并开始下一局'
+                          : '启动请求已提交，正在等待后台 Worker 接手'
+                      : queuedControl
+                        ? runner?.control?.status === 'reconnect_wait'
+                          ? liveActivityLabel ||
+                            formatAccountError(
+                              runner?.control?.detail?.last_error,
+                            ) ||
+                            '等待后台 Worker 重新连接账号'
+                          : '启动请求已提交，正在等待后台 Worker 接手'
+                        : liveActivityLabel ||
+                          describeRunnerAction(runner?.last_action)}
               </p>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                <span>
-                  体力 {currentRunnerStats.hp ?? activeCareer?.vital ?? 0}/
-                  {currentRunnerStats.max_hp ?? activeCareer?.max_vital ?? 100}
-                </span>
-                <span>干劲 {currentRunnerStats.motivation ?? '-'}</span>
-              </div>
+              {!offlineMode ? (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <span>
+                    体力 {currentRunnerStats.hp ?? activeCareer?.vital ?? 0}/
+                    {currentRunnerStats.max_hp ??
+                      activeCareer?.max_vital ??
+                      100}
+                  </span>
+                  <span>干劲 {currentRunnerStats.motivation ?? '-'}</span>
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={abandonCareer}
-              disabled={busy === 'abandon'}
+              disabled={[
+                'abandon',
+                'stop',
+                'idle-single-mode-abandon',
+              ].includes(busy)}
               className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
-              <Trash2 size={16} />
-              {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
+              {serverHostedMode ? (
+                <CircleStop size={16} />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              {['abandon', 'stop', 'idle-single-mode-abandon'].includes(busy)
+                ? serverHostedMode
+                  ? '正在停止托管…'
+                  : '正在放弃…'
+                : serverHostedMode
+                  ? '停止服务器托管'
+                  : '放弃本次育成'}
             </button>
           </div>
         </div>
@@ -180,22 +232,22 @@ export default function ProgressTab({
         {runner?.last_error ? (
           <div className="mt-4 flex items-start gap-2 border-t border-red-100 pt-4 text-sm text-red-700">
             <CircleStop size={16} className="mt-0.5 flex-none" />
-            <span>{runner.last_error}</span>
+            <span>{formatAccountError(runner.last_error)}</span>
           </div>
         ) : null}
 
         {runnerStopping ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            自动育成运行在独立进程中，暂停会立即结束自动操作；当前育成不会被放弃，之后仍可继续。
+            正在等待服务器 Worker 完全停止。托管结束前，本地登录和游戏 API
+            操作仍保持禁用；当前育成不会被放弃。
           </div>
         ) : null}
 
         {runnerSessionWaiting ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-amber-100 pt-4 text-sm text-amber-700">
             <span>
-              错误码 217 再次出现，自动操作已暂停。将在{' '}
-              {waitTimeLabel(runner?.session_wait_seconds)}
-              后重新登录并继续当前养马。
+              账号已在别处登录，服务端将在{' '}
+              {waitTimeLabel(runner?.session_wait_seconds)} 后重新连接。
             </span>
             <button
               type="button"
@@ -214,26 +266,35 @@ export default function ProgressTab({
           </div>
         ) : null}
 
-        <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-3 xl:grid-cols-6">
-          {[
-            ['速度', currentRunnerStats.speed],
-            ['耐力', currentRunnerStats.stamina],
-            ['力量', currentRunnerStats.power],
-            ['毅力', currentRunnerStats.guts],
-            ['智力', currentRunnerStats.wit],
-            ['PT', currentRunnerStats.skill_point],
-          ].map(([label, value]) => (
-            <div
-              key={String(label)}
-              className="border-b border-r border-slate-100 px-4 py-3 last:border-r-0 sm:border-b-0"
-            >
-              <p className="text-xs text-slate-400">{label}</p>
-              <p className="mt-1 text-xl font-bold text-slate-800">
-                {value ?? '-'}
-              </p>
-            </div>
-          ))}
-        </div>
+        {!offlineMode ? (
+          <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-3 xl:grid-cols-6">
+            {[
+              ['速度', currentRunnerStats.speed],
+              ['耐力', currentRunnerStats.stamina],
+              ['力量', currentRunnerStats.power],
+              ['毅力', currentRunnerStats.guts],
+              ['智力', currentRunnerStats.wit],
+              ['PT', currentRunnerStats.skill_point],
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="border-b border-r border-slate-100 px-4 py-3 last:border-r-0 sm:border-b-0"
+              >
+                <p className="text-xs text-slate-400">{label}</p>
+                <p className="mt-1 text-xl font-bold text-slate-800">
+                  {value ?? '-'}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : idleSingleMode?.active ? (
+          <div className="mt-5 rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            <span className="font-semibold">离线任务已启动</span>
+            <span className="ml-2 text-xs text-sky-600">
+              完成后将自动处理结果并继续运行计划
+            </span>
+          </div>
+        ) : null}
 
         {dailyJewelSchedule?.enabled ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
@@ -286,58 +347,60 @@ export default function ProgressTab({
         ) : null}
       </section>
 
-      <section className={panelClass('overflow-hidden')}>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <div>
-            <h3 className="font-bold text-slate-900">当前流程</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              按游戏日期显示训练、事件和比赛结果。
-            </p>
+      {!offlineMode ? (
+        <section className={panelClass('overflow-hidden')}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h3 className="font-bold text-slate-900">当前流程</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                按游戏日期显示训练、事件和比赛结果。
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <Trophy size={14} className="text-amber-500" />
+                比赛大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount}{' '}
+                场
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Gem size={14} className="text-violet-500" />
+                本局 {runner?.jewel_drop_count || 0} 次 /{' '}
+                {runner?.jewels_earned || 0} 个
+              </span>
+              <span>
+                今天 {runner?.daily_jewel_drop_count || 0}/
+                {runner?.daily_jewel_drop_limit || 20} 次
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <Trophy size={14} className="text-amber-500" />
-              比赛大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount}{' '}
-              场
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Gem size={14} className="text-violet-500" />
-              本局 {runner?.jewel_drop_count || 0} 次 /{' '}
-              {runner?.jewels_earned || 0} 个
-            </span>
-            <span>
-              今天 {runner?.daily_jewel_drop_count || 0}/
-              {runner?.daily_jewel_drop_limit || 20} 次
-            </span>
+          <div className="max-h-[560px] cursor-text select-text overflow-auto">
+            {runnerLog
+              .slice()
+              .reverse()
+              .map((row) => (
+                <div
+                  key={`${runner?.run_id || 'legacy'}:${row.id}`}
+                  className="grid gap-1 border-b border-slate-50 px-5 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
+                >
+                  <span className="whitespace-nowrap font-medium text-indigo-600">
+                    {turnDateLabel(row.turn)}
+                  </span>
+                  <span className="font-semibold text-slate-700">
+                    {describeLogAction(row.action)}
+                  </span>
+                  <span className="text-slate-500">
+                    {describeLogDetail(row.detail)}
+                  </span>
+                </div>
+              ))}
+            {!runnerLog.length ? (
+              <p className="p-10 text-center text-sm text-slate-400">
+                暂无流程记录
+              </p>
+            ) : null}
           </div>
-        </div>
-        <div className="max-h-[560px] cursor-text select-text overflow-auto">
-          {runnerLog
-            .slice()
-            .reverse()
-            .map((row) => (
-              <div
-                key={`${runner?.run_id || 'legacy'}:${row.id}`}
-                className="grid gap-1 border-b border-slate-50 px-5 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
-              >
-                <span className="whitespace-nowrap font-medium text-indigo-600">
-                  {turnDateLabel(row.turn)}
-                </span>
-                <span className="font-semibold text-slate-700">
-                  {describeLogAction(row.action)}
-                </span>
-                <span className="text-slate-500">
-                  {describeLogDetail(row.detail)}
-                </span>
-              </div>
-            ))}
-          {!runnerLog.length ? (
-            <p className="p-10 text-center text-sm text-slate-400">
-              暂无流程记录
-            </p>
-          ) : null}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   ) : (
     <section
@@ -373,7 +436,7 @@ export default function ProgressTab({
         </p>
         {dailyJewelSchedule?.last_error ? (
           <p className="mt-2 text-xs text-red-500">
-            {dailyJewelSchedule.last_error}
+            {formatAccountError(dailyJewelSchedule.last_error)}
           </p>
         ) : null}
       </div>

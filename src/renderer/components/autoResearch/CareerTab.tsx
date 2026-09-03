@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
 import { Dispatch, SetStateAction } from 'react';
 import {
+  AlertTriangle,
   Database,
   Play,
   Plus,
@@ -38,6 +39,7 @@ type CareerTabProps = {
   accountCareerSettings: CareerSetting[];
   matchingCareerSettings: CareerSetting[];
   applyCareerSetting: (settingId: string) => void;
+  editPresetForCareerSetting: (settingId: string) => void;
   continueWithSetting: (settingId: string) => void;
   deleteCareerSetting: (settingId: string) => void;
   newCareerSaveName: string;
@@ -48,7 +50,6 @@ type CareerTabProps = {
   busy: string;
   activeCareer?: SessionAccount['career'];
   activeCareerIconPath?: string;
-  unsupportedCareer: boolean;
   abandonCareer: () => Promise<void>;
   continuingCurrentCareer: boolean;
   canContinueCurrentCareer: boolean;
@@ -133,6 +134,7 @@ export default function CareerTab(props: CareerTabProps) {
     accountCareerSettings,
     matchingCareerSettings,
     applyCareerSetting,
+    editPresetForCareerSetting,
     continueWithSetting,
     deleteCareerSetting,
     newCareerSaveName,
@@ -143,7 +145,6 @@ export default function CareerTab(props: CareerTabProps) {
     busy,
     activeCareer,
     activeCareerIconPath,
-    unsupportedCareer,
     abandonCareer,
     continuingCurrentCareer,
     canContinueCurrentCareer,
@@ -220,6 +221,9 @@ export default function CareerTab(props: CareerTabProps) {
     offlineSkillSettings,
     setOfflineSkillSettings,
   } = props;
+  const offlineDetailBlockedByActiveCareer = Boolean(
+    careerSaveOpen && careerMode === 'offline' && activeCareer?.active,
+  );
   return activeCareer?.active && !careerSaveOpen ? (
     <section className={panelClass('p-5')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -278,10 +282,10 @@ export default function CareerTab(props: CareerTabProps) {
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => applyCareerSetting(setting.id)}
+                    onClick={() => editPresetForCareerSetting(setting.id)}
                     className="rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                   >
-                    查看详设
+                    编辑预设
                   </button>
                   <button
                     type="button"
@@ -301,6 +305,38 @@ export default function CareerTab(props: CareerTabProps) {
             没有找到与当前育成匹配的养马详设。请放弃当前育成后重新选择。
           </p>
         )}
+      </div>
+    </section>
+  ) : offlineDetailBlockedByActiveCareer ? (
+    <section className={panelClass('p-5')}>
+      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <AlertTriangle size={20} className="mt-0.5 flex-none text-amber-600" />
+        <div>
+          <h2 className="font-semibold">当前普通育成尚未结束</h2>
+          <p className="mt-1 text-sm leading-6 text-amber-800">
+            游戏仍报告“{activeCareer?.name || '当前育成'}
+            ”正在进行，不能启动离线育成详设。
+            请先放弃当前育成，或返回详设选择界面。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={closeCareerEditor}
+              className="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              返回详设选择界面
+            </button>
+            <button
+              type="button"
+              onClick={abandonCareer}
+              disabled={busy === 'abandon'}
+              className="flex items-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <Trash2 size={15} />
+              {busy === 'abandon' ? '正在放弃…' : '放弃当前育成'}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   ) : !careerSaveOpen && !automationActive ? (
@@ -556,7 +592,6 @@ export default function CareerTab(props: CareerTabProps) {
                   onClick={saveAndRunCareer}
                   disabled={
                     Boolean(busy) ||
-                    unsupportedCareer ||
                     (continuingCurrentCareer && !canContinueCurrentCareer) ||
                     (careerMode === 'offline' &&
                       (!offlineSetup || !offlineRaceDeckNum))
@@ -573,27 +608,14 @@ export default function CareerTab(props: CareerTabProps) {
                     : careerMode === 'offline' &&
                         (!offlineSetup || !offlineRaceDeckNum)
                       ? '请先读取游戏赛程'
-                      : unsupportedCareer
-                        ? '请先放弃当前育成'
-                        : continuingCurrentCareer
-                          ? canContinueCurrentCareer
-                            ? '保存并继续'
-                            : '当前详设不匹配'
-                          : '保存并开始'}
+                      : continuingCurrentCareer
+                        ? canContinueCurrentCareer
+                          ? '保存并继续'
+                          : '当前详设不匹配'
+                        : '保存并开始'}
                 </button>
               </>
             )}
-            {dashboard.account.career?.active ? (
-              <button
-                type="button"
-                onClick={abandonCareer}
-                disabled={busy === 'abandon'}
-                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-              >
-                <Trash2 size={16} />
-                {busy === 'abandon' ? '正在放弃…' : '放弃本次育成'}
-              </button>
-            ) : null}
           </div>
         </div>
 

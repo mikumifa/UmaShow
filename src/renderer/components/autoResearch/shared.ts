@@ -140,6 +140,23 @@ export class AutoResearchRequestError extends Error {
   }
 }
 
+export function formatAccountError(message: unknown) {
+  const detail = String(message || '');
+  if (
+    /(?:错误码|result[_ ]?code|response[_ ]?code|code)[^\d]*(?:217|218)\b/i.test(
+      detail,
+    ) ||
+    /\b(?:217|218)\b/.test(detail) ||
+    /\b(?:sid|session)\b.*(?:失效|无效|变化|错误|不匹配|changed|invalid|expired)/i.test(
+      detail,
+    ) ||
+    /账号.*(?:其他位置|别处).*(?:登录|操作)/.test(detail)
+  ) {
+    return '账号已在别处登录';
+  }
+  return detail;
+}
+
 export function needsRelogin(error: unknown) {
   if (error instanceof AutoResearchRequestError && error.status === 401) {
     return true;

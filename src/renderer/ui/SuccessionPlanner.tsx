@@ -92,6 +92,8 @@ type PositionCompatibilityScore = {
   coParentLabel?: string;
   coParentName?: string;
   coParentBase?: number;
+  coParentG1Count?: number;
+  coParentG1Source?: 'detailed' | 'route';
   coParentTotal?: number;
   relationNames?: string[];
   ancestorDetails?: Array<{
@@ -1037,6 +1039,10 @@ export function winSaddleCompatibilityBonus(g1Counts: number[]) {
     g1Counts.reduce((total, count) => total + count, 0) *
     G1_COMPATIBILITY_POINTS
   );
+}
+
+export function parentPairCompatibilityTotal(base: number, g1Count: number) {
+  return base + g1Count * G1_COMPATIBILITY_POINTS;
 }
 
 function capturedRedFactor(rows: any): CapturedFactor | null {
@@ -2305,7 +2311,7 @@ function compatibilityTitle(compatibility: PositionCompatibilityScore) {
     `自身：与${targetName}相性 ${compatibility.base}`,
     ...(compatibility.coParentName
       ? [
-          `亲代：与${compatibility.coParentLabel || '另一亲代'} ${compatibility.coParentName}相性 ${compatibility.coParentBase || 0}`,
+          `亲代：与${compatibility.coParentLabel || '另一亲代'} ${compatibility.coParentName}基础相性 ${compatibility.coParentBase || 0}\n${compatibility.coParentG1Source === 'detailed' ? '双亲胜鞍' : '双亲路线估算胜鞍'}：共同 G1 ${compatibility.coParentG1Count || 0} 场 × ${G1_COMPATIBILITY_POINTS}；小计 ${compatibility.coParentTotal || 0}`,
         ]
       : []),
     ...ancestorDetails.map(
@@ -6377,9 +6383,9 @@ function SuccessionPlanner({
     return inherited?.umaId === expectedUmaId ? inherited : undefined;
   };
   const resolvedCommonG1 = (
-    firstMember: Pick<TrainedLineageMember, 'winSaddleIds'> | undefined,
+    firstMember: { winSaddleIds?: number[] } | undefined,
     firstRoute: Route,
-    secondMember: Pick<TrainedLineageMember, 'winSaddleIds'> | undefined,
+    secondMember: { winSaddleIds?: number[] } | undefined,
     secondRoute: Route,
   ) => {
     const detailedCount = detailedCommonG1Count(
@@ -6515,6 +6521,43 @@ function SuccessionPlanner({
     );
   };
 
+  const parentPairScore = (
+    firstId: number,
+    firstSlot: LineageSlot,
+    secondId: number,
+    secondSlot: LineageSlot,
+    firstMember?: { winSaddleIds?: number[] },
+    secondMember?: { winSaddleIds?: number[] },
+  ) => {
+    const base = relationScore(firstId, secondId);
+    if (!firstId || !secondId || firstId === secondId) {
+      return {
+        base,
+        g1Count: 0,
+        g1Source: 'route' as const,
+        total: base,
+      };
+    }
+    const resolvedFirstMember = firstMember?.winSaddleIds?.length
+      ? firstMember
+      : trainedMemberForSlot(firstSlot, firstId);
+    const resolvedSecondMember = secondMember?.winSaddleIds?.length
+      ? secondMember
+      : trainedMemberForSlot(secondSlot, secondId);
+    const g1 = resolvedCommonG1(
+      resolvedFirstMember,
+      routeSettingForSlot(firstSlot, firstId).route,
+      resolvedSecondMember,
+      routeSettingForSlot(secondSlot, secondId).route,
+    );
+    return {
+      base,
+      g1Count: g1.count,
+      g1Source: g1.source,
+      total: parentPairCompatibilityTotal(base, g1.count),
+    };
+  };
+
   const positionScore = (
     slot: LineageSlot,
     branch: BranchKey,
@@ -6555,8 +6598,14 @@ function SuccessionPlanner({
     };
   };
 
-  const parentPairBase = relationScore(lineage.father, lineage.mother);
-  const parentPairCompatibility = parentPairBase;
+  const parentPair = parentPairScore(
+    lineage.father,
+    'father',
+    lineage.mother,
+    'mother',
+  );
+  const parentPairBase = parentPair.base;
+  const parentPairCompatibility = parentPair.total;
 
   const paternalACompatibility = positionScore(
     'paternalA',
@@ -6576,6 +6625,8 @@ function SuccessionPlanner({
     coParentLabel: SLOT_LABELS.mother,
     coParentName: umaById.get(lineage.mother)?.name,
     coParentBase: parentPairBase,
+    coParentG1Count: parentPair.g1Count,
+    coParentG1Source: parentPair.g1Source,
     coParentTotal: parentPairCompatibility,
     ancestorDetails: [
       {
@@ -6614,6 +6665,8 @@ function SuccessionPlanner({
     coParentLabel: SLOT_LABELS.father,
     coParentName: umaById.get(lineage.father)?.name,
     coParentBase: parentPairBase,
+    coParentG1Count: parentPair.g1Count,
+    coParentG1Source: parentPair.g1Source,
     coParentTotal: parentPairCompatibility,
     ancestorDetails: [
       {
@@ -7543,6 +7596,8 @@ function SuccessionPlanner({
       const targetRelationTypes = new Set(target?.relationTypes || []);
       const fixedCoParentId =
         branch === 'paternal' ? lineage.mother : lineage.father;
+      const coParentSlot: LineageSlot =
+        branch === 'paternal' ? 'mother' : 'father';
       const metrics = new Map(
         candidates.map((candidate) => {
           const relationTypes = new Set(candidate.relationTypes);
@@ -7551,7 +7606,12 @@ function SuccessionPlanner({
             {
               compatibility: relationScore(targetId, candidate.id),
               coParentCompatibility: fixedCoParentId
-                ? relationScore(candidate.id, fixedCoParentId)
+                ? parentPairScore(
+                    candidate.id,
+                    parent,
+                    fixedCoParentId,
+                    coParentSlot,
+                  ).total
                 : 0,
               demand: factorRequirementForCandidate(
                 parent,
@@ -8255,6 +8315,7 @@ function SuccessionPlanner({
     type BranchProbabilitySummary = {
       strategy: BranchFactorStrategy;
       parentId: number;
+      parentPosition: CompleteDesignPosition;
       factors: Array<ProbabilityFactor & { parent: boolean }>;
       capturedParentFactors: CapturedInheritanceFactor[];
       capturedAncestorTargetMissProbabilities: number[];
@@ -8405,6 +8466,7 @@ function SuccessionPlanner({
       const summary = {
         strategy,
         parentId,
+        parentPosition,
         factors,
         capturedParentFactors,
         capturedAncestorTargetMissProbabilities:
@@ -8526,10 +8588,14 @@ function SuccessionPlanner({
       paternal: BranchProbabilitySummary,
       maternal: BranchProbabilitySummary,
     ) => {
-      const parentPairCompatibility = relationScore(
+      const parentPairCompatibility = parentPairScore(
         paternal.parentId,
+        'father',
         maternal.parentId,
-      );
+        'mother',
+        paternal.parentPosition,
+        maternal.parentPosition,
+      ).total;
       return [...paternal.factors, ...maternal.factors].map((factor) => {
         const compatibility =
           factor.compatibility + (factor.parent ? parentPairCompatibility : 0);
@@ -8546,10 +8612,15 @@ function SuccessionPlanner({
       paternal: BranchProbabilityGroup,
       maternal: BranchProbabilityGroup,
     ) => {
-      const parentPairCompatibility = relationScore(
+      const parentPair = parentPairScore(
         paternal.representative.parentId,
+        'father',
         maternal.representative.parentId,
+        'mother',
+        paternal.representative.parentPosition,
+        maternal.representative.parentPosition,
       );
+      const parentPairCompatibility = parentPair.total;
       const materializeBranch = (group: BranchProbabilityGroup) =>
         resolvedPositions(group.representative.strategy).map((position) => {
           const detail =
@@ -8557,7 +8628,7 @@ function SuccessionPlanner({
           const compatibility =
             detail?.total + (detail?.parent ? parentPairCompatibility : 0);
           const compatibilityTitle = detail?.parent
-            ? `${detail.formula} + 父母基础相性 ${parentPairCompatibility} = ${compatibility}`
+            ? `${detail.formula} + 父母基础相性 ${parentPair.base} + ${parentPair.g1Source === 'detailed' ? '双亲胜鞍' : '双亲路线估算胜鞍'}共同 G1 ${parentPair.g1Count} 场 × ${G1_COMPATIBILITY_POINTS} = ${compatibility}`
             : detail?.formula;
           const options = [
             ...(group.positionOptions.get(position.code)?.values() || []),
@@ -8795,10 +8866,14 @@ function SuccessionPlanner({
         }
         let targetProbabilities: number[] = [];
         if (activeCapturedFactorTargets.length) {
-          const parentPairCompatibility = relationScore(
+          const parentPairCompatibility = parentPairScore(
             paternalSummary.parentId,
+            'father',
             maternalSummary.parentId,
-          );
+            'mother',
+            paternalSummary.parentPosition,
+            maternalSummary.parentPosition,
+          ).total;
           targetProbabilities = activeCapturedFactorTargets.map(
             (factorTarget, targetIndex) => {
               const parentMissProbability = (
@@ -9463,10 +9538,14 @@ function SuccessionPlanner({
           ) {
             continue;
           }
-          const parentPairCompatibility = relationScore(
+          const parentPairCompatibility = parentPairScore(
             paternal.candidate.umaId,
+            'father',
             maternal.candidate.umaId,
-          );
+            'mother',
+            paternal.candidate,
+            maternal.candidate,
+          ).total;
           const probabilityFactors = [
             ...paternal.probabilityFactors,
             ...maternal.probabilityFactors,
@@ -10213,17 +10292,31 @@ function SuccessionPlanner({
       const route = routeSettingForSlot(slot, candidate.umaId).route;
       const coParentSlot: LineageSlot =
         branch === 'paternal' ? 'mother' : 'father';
-      const coParentBase = lineage[coParentSlot]
-        ? relationScore(candidate.umaId, lineage[coParentSlot])
-        : 0;
+      const coParentId = lineage[coParentSlot];
+      const coParentPair = coParentId
+        ? parentPairScore(
+            candidate.umaId,
+            slot,
+            coParentId,
+            coParentSlot,
+            candidate,
+          )
+        : {
+            base: 0,
+            g1Count: 0,
+            g1Source: 'route' as const,
+            total: 0,
+          };
       const ancestorBase = candidate.parents.reduce(
         (total, parent) =>
           total + relationScore(targetId, candidate.umaId, parent.umaId),
         0,
       );
       const base =
-        relationScore(targetId, candidate.umaId) + coParentBase + ancestorBase;
-      const g1Details = candidate.parents.map((parent) => {
+        relationScore(targetId, candidate.umaId) +
+        coParentPair.base +
+        ancestorBase;
+      const ancestorG1Details = candidate.parents.map((parent) => {
         const exact = detailedCommonG1Count(
           candidate.winSaddleIds,
           parent.winSaddleIds,
@@ -10236,6 +10329,18 @@ function SuccessionPlanner({
           detailed: exact !== undefined,
         };
       });
+      const g1Details = [
+        ...(coParentId
+          ? [
+              {
+                label: `和另一亲代${umaById.get(coParentId)?.name || ''}的胜鞍`,
+                count: coParentPair.g1Count,
+                detailed: coParentPair.g1Source === 'detailed',
+              },
+            ]
+          : []),
+        ...ancestorG1Details,
+      ];
       const g1Count = g1Details.reduce(
         (total, detail) => total + detail.count,
         0,
@@ -10304,16 +10409,27 @@ function SuccessionPlanner({
 
     if (position.generation === 1) {
       const coParentCode = branch === 'paternal' ? 'B' : 'A';
-      const coParentId =
-        design.positions.find((item) => item.code === coParentCode)?.uma?.id ||
-        0;
+      const coParentPosition = design.positions.find(
+        (item) => item.code === coParentCode,
+      );
+      const coParentId = coParentPosition?.uma?.id || 0;
+      const coParentSlot: LineageSlot =
+        branch === 'paternal' ? 'mother' : 'father';
       const parentRoute = routeSettingForSlot(
         parentSlot,
         candidate.umaId,
       ).route;
+      const parentPair = parentPairScore(
+        candidate.umaId,
+        parentSlot,
+        coParentId,
+        coParentSlot,
+        candidate,
+        coParentPosition,
+      );
       compatibility =
-        relationScore(targetId, candidate.umaId) +
-        relationScore(candidate.umaId, coParentId);
+        relationScore(targetId, candidate.umaId) + parentPair.total;
+      g1Count = parentPair.g1Count;
       candidate.parents.forEach((grandparent, index) => {
         const grandparentRoute = routeSettingForSlot(
           grandparents[index],

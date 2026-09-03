@@ -11,6 +11,7 @@ const DEBUG_PACKET_FILE_SUFFIX = '.json';
 type DebugPacketType = 'request' | 'response';
 
 export interface DebugRequestMetadata {
+  BASE_URL?: string;
   COMMON_HEADER?: string;
   COMMON_HEADER2?: string;
   SID_SUFFIX?: string;
