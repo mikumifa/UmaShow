@@ -268,17 +268,6 @@ export function storeAutoResearchGameClientSession(
   return storeGameClientSession(session);
 }
 
-function storeAutoResearchAccountSession(
-  id: string,
-  session: SuccessionGameSession,
-) {
-  const credential = getAutoResearchAccountCredential(id);
-  if (String(session?.uid || '') !== credential.uid) {
-    throw new Error('游戏会话与当前账号不匹配');
-  }
-  return storeGameClientSession(session);
-}
-
 function importUsersDb(contentBase64: string) {
   const bytes = Buffer.from(contentBase64, 'base64');
   if (!bytes.length || bytes.length > 32 * 1024 * 1024) {
@@ -427,11 +416,6 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   ipcMain.handle('autoresearch:account-current-session', (_, id: string) => {
     return getAutoResearchCurrentSession(id);
   });
-  ipcMain.handle(
-    'autoresearch:account-store-session',
-    (_, id: string, session: SuccessionGameSession) =>
-      storeAutoResearchAccountSession(id, session),
-  );
   ipcMain.handle(
     'autoresearch:account-login-session',
     async (event, id: string, loginId: string) => {

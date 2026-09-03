@@ -155,13 +155,8 @@ const electronHandler = {
     },
   },
   autoResearch: {
-    getUiSetting: (key: string, legacyValue: string | null, source: string) =>
-      ipcRenderer.sendSync(
-        'autoresearch:ui-setting-get',
-        key,
-        legacyValue,
-        source,
-      ) as string | null,
+    getUiSetting: (key: string) =>
+      ipcRenderer.sendSync('autoresearch:ui-setting-get', key) as string | null,
     setUiSetting: (key: string, value: string) =>
       ipcRenderer.sendSync(
         'autoresearch:ui-setting-set',
@@ -185,8 +180,6 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-credential', id),
     currentSession: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-current-session', id),
-    storeSession: (id: string, session: Record<string, string>) =>
-      ipcRenderer.invoke('autoresearch:account-store-session', id, session),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
     dailyTasksOverview: (id: string, config: Record<string, unknown>) =>

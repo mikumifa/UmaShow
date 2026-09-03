@@ -20,22 +20,17 @@ export const CAREER_SETTINGS_KEY = 'autoResearch.careerSettings';
 export const LAST_ACCOUNT_KEY = 'autoResearch.lastLoggedInAccount';
 
 export function getSharedStorageItem(key: string) {
-  const legacyValue = localStorage.getItem(key);
   try {
-    const value = window.electron.autoResearch.getUiSetting(
-      key,
-      legacyValue,
-      window.location.origin,
-    );
+    const value = window.electron.autoResearch.getUiSetting(key);
     if (value === null) {
       localStorage.removeItem(key);
-    } else if (value !== legacyValue) {
+    } else if (value !== localStorage.getItem(key)) {
       localStorage.setItem(key, value);
     }
     return value;
   } catch (error) {
     console.error('Failed to read shared auto research setting:', error);
-    return legacyValue;
+    return null;
   }
 }
 
@@ -65,13 +60,14 @@ export const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
 export function createDefaultOfflineFactorSelection(): OfflineFactorSelection {
   return {
     enabled: true,
+    evaluation_mode: 'parent',
     use_skill_priority: true,
     blue_factor_minimums: {
-      speed: 0,
-      stamina: 0,
-      power: 0,
-      guts: 0,
-      wit: 0,
+      speed: 1,
+      stamina: 1,
+      power: 1,
+      guts: 1,
+      wit: 1,
     },
     targets: [],
     lineage: {

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { AutoResearchSkill, skillIconPath } from './SkillSelector';
+import EditableNumberInput from './EditableNumberInput';
 import {
   DEFAULT_PRESET_NAME,
   MONTH_OPTIONS,
@@ -427,12 +428,9 @@ export default function PresetsTab(props: PresetsTabProps) {
           </label>
           <label className="text-sm">
             学技能最低技能点
-            <input
-              type="number"
+            <EditableNumberInput
               value={skillThreshold}
-              onChange={(event) =>
-                setSkillThreshold(Number(event.target.value))
-              }
+              onValueChange={setSkillThreshold}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
             />
           </label>
@@ -755,17 +753,14 @@ export default function PresetsTab(props: PresetsTabProps) {
                   {STAT_LABELS.map((label, index) => (
                     <label key={label} className="text-xs text-slate-600">
                       {label}
-                      <input
-                        type="number"
+                      <EditableNumberInput
                         min={0}
                         step={10}
                         value={uraAiTargetAttributes[index] ?? 0}
-                        onChange={(event) =>
+                        onValueChange={(nextValue) =>
                           setUraAiTargetAttributes((current) =>
                             current.map((value, valueIndex) =>
-                              valueIndex === index
-                                ? Number(event.target.value)
-                                : value,
+                              valueIndex === index ? nextValue : value,
                             ),
                           )
                         }
@@ -882,16 +877,15 @@ export default function PresetsTab(props: PresetsTabProps) {
                               className="text-[11px] text-slate-600"
                             >
                               {label}
-                              <input
-                                type="number"
+                              <EditableNumberInput
                                 min={0}
                                 step={10}
                                 value={stage.target_attributes[index] ?? 0}
-                                onChange={(event) =>
+                                onValueChange={(nextValue) =>
                                   updateTargetAttributeStage(
                                     stage.turn,
                                     index,
-                                    Number(event.target.value),
+                                    nextValue,
                                   )
                                 }
                                 className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800"
@@ -955,16 +949,13 @@ export default function PresetsTab(props: PresetsTabProps) {
                       className="text-xs text-slate-600"
                     >
                       {String(label)}
-                      <input
-                        type="number"
+                      <EditableNumberInput
                         step={Number(step)}
                         min={Number(min)}
                         max={Number(max)}
                         value={Number(value)}
-                        onChange={(event) =>
-                          (setter as (next: number) => void)(
-                            Number(event.target.value),
-                          )
+                        onValueChange={(nextValue) =>
+                          (setter as (next: number) => void)(nextValue)
                         }
                         className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
                       />

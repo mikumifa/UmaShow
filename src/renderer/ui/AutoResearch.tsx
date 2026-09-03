@@ -22,7 +22,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Server,
   Settings2,
   Trash2,
   Upload,
@@ -34,6 +33,7 @@ import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import DailyTasksTab from 'renderer/components/autoResearch/DailyTasksTab';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
+import EditableNumberInput from 'renderer/components/autoResearch/EditableNumberInput';
 import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
@@ -264,15 +264,42 @@ const normalizeOfflineFactorSelection = (
   value?: Partial<OfflineFactorSelection>,
 ): OfflineFactorSelection => {
   const defaults = createDefaultOfflineFactorSelection();
+  const legacyBlueMinimums = !value?.evaluation_mode;
+  const normalizeBlueMinimum = (
+    key: keyof OfflineFactorSelection['blue_factor_minimums'],
+  ) => {
+    const raw = Number(value?.blue_factor_minimums?.[key]);
+    if (!Number.isFinite(raw)) return defaults.blue_factor_minimums[key];
+    if (legacyBlueMinimums && raw === 0) return 1;
+    return Math.max(0, Math.min(3, Math.round(raw)));
+  };
   return {
     ...defaults,
     ...(value || {}),
+    evaluation_mode:
+      value?.evaluation_mode === 'ancestor' ? 'ancestor' : 'parent',
     use_skill_priority: true,
     blue_factor_minimums: {
-      ...defaults.blue_factor_minimums,
-      ...(value?.blue_factor_minimums || {}),
+      speed: normalizeBlueMinimum('speed'),
+      stamina: normalizeBlueMinimum('stamina'),
+      power: normalizeBlueMinimum('power'),
+      guts: normalizeBlueMinimum('guts'),
+      wit: normalizeBlueMinimum('wit'),
     },
-    targets: Array.isArray(value?.targets) ? value.targets : [],
+    targets: Array.isArray(value?.targets)
+      ? value.targets.flatMap((target) => {
+          const factorGroupId = Number(target?.factor_group_id || 0);
+          if (!factorGroupId) return [];
+          const weight = Number(target?.weight ?? 1);
+          return [
+            {
+              ...target,
+              factor_group_id: factorGroupId,
+              weight: Number.isFinite(weight) ? Math.max(0, weight) : 1,
+            },
+          ];
+        })
+      : [],
     lineage: {
       ...defaults.lineage,
       ...(value?.lineage || {}),
@@ -420,12 +447,10 @@ export default function AutoResearch() {
   );
   const [server, setServer] = useState('');
   const [loginSettingsOpen, setLoginSettingsOpen] = useState(false);
-  const showLegacyLoginScreen = window.location.hash === '#legacy-login';
   const [health, setHealth] = useState<any>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [captured, setCaptured] = useState<CapturedCredential[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [preparedAccountId, setPreparedAccountId] = useState('');
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [presets, setPresets] = useState<Preset[]>(() => [
     createDefaultPreset(),
@@ -1082,11 +1107,6 @@ export default function AutoResearch() {
           ? lastAccountId
           : '';
     setSelectedAccountId(nextAccountId);
-    if (nextAccountId === lastAccountId) {
-      setPreparedAccountId(nextAccountId);
-    } else if (!nextAccountId) {
-      setPreparedAccountId('');
-    }
   }, []);
 
   const updateRuntime = useCallback(
@@ -1171,20 +1191,6 @@ export default function AutoResearch() {
     [invalidateOverviewResponses],
   );
 
-  const storeReturnedGameSession = useCallback(
-    async (
-      accountId: string,
-      response: { game_session?: Record<string, string> },
-    ) => {
-      if (!response.game_session?.sid) return;
-      await window.electron.autoResearch.storeSession(
-        accountId,
-        response.game_session,
-      );
-    },
-    [],
-  );
-
   const commitOverviewResponse = useCallback(
     (accountId: string, response: SessionResponse, requestOrder?: number) => {
       if (requestOrder !== undefined) {
@@ -1194,9 +1200,6 @@ export default function AutoResearch() {
       } else {
         invalidateOverviewResponses(accountId);
       }
-      storeReturnedGameSession(accountId, response).catch((caught) =>
-        setError((caught as Error).message),
-      );
       const responseOwner = runtimeSessionOwner(response.runtime);
       const options = accountOptionsCache.current.get(accountId);
       const normalized = {
@@ -1225,7 +1228,7 @@ export default function AutoResearch() {
       updateRuntime(accountId, normalized);
       return true;
     },
-    [invalidateOverviewResponses, storeReturnedGameSession, updateRuntime],
+    [invalidateOverviewResponses, updateRuntime],
   );
 
   const commitRunnerStream = useCallback(
@@ -1318,13 +1321,9 @@ export default function AutoResearch() {
           Authorization: `Bearer ${token}`,
         },
       });
-      await storeReturnedGameSession(
-        accountId,
-        result as { game_session?: Record<string, string> },
-      );
       return result;
     },
-    [request, storeReturnedGameSession],
+    [request],
   );
 
   const applyAccountOptions = useCallback(
@@ -1444,13 +1443,12 @@ export default function AutoResearch() {
           const credential = (await window.electron.autoResearch.credential(
             accountId,
           )) as { uid: string; accessKey: string };
-          return request<AuthResponse>('/api/auth/login', {
+          return request<AuthResponse>('/api/auth/attach', {
             method: 'POST',
             signal: attachController.signal,
             body: JSON.stringify({
               uid: credential.uid,
               access_key: credential.accessKey,
-              reuse_only: true,
             }),
           });
         })();
@@ -2219,7 +2217,6 @@ export default function AutoResearch() {
     try {
       await window.electron.autoResearch.credential(accountId);
       setSelectedAccountId(accountId);
-      setPreparedAccountId(accountId);
       localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
     } catch (caught) {
       setError((caught as Error).message);
@@ -2393,36 +2390,17 @@ export default function AutoResearch() {
           const credential = (await window.electron.autoResearch.credential(
             accountId,
           )) as { uid: string; accessKey: string };
-          let localSession: Record<string, string> | null = null;
-          if (allowAccountLogin) {
-            localSession = (await window.electron.autoResearch.loginSession(
-              accountId,
-              loginId,
-            )) as Record<string, string>;
-          } else {
-            localSession = (await window.electron.autoResearch.currentSession(
-              accountId,
-            )) as Record<string, string> | null;
-            if (!localSession) {
-              throw new Error(
-                '当前没有可交接的本地 SID；继续登录会刷新游戏会话，需要用户二次确认',
-              );
-            }
-          }
           const authenticated = await request<AuthResponse>('/api/auth/login', {
             method: 'POST',
             body: JSON.stringify({
-              uid: localSession?.uid || credential.uid,
-              access_key: localSession?.access_key || credential.accessKey,
+              uid: credential.uid,
+              access_key: credential.accessKey,
               login_id: loginId,
               force_login: forceLogin,
               allow_account_login: allowAccountLogin,
-              reset_existing: allowAccountLogin,
-              session: localSession,
             }),
           });
           sessionTokens.current.set(accountId, authenticated.token);
-          await storeReturnedGameSession(accountId, authenticated);
           return authenticated;
         } finally {
           progressController.abort();
@@ -2685,7 +2663,6 @@ export default function AutoResearch() {
     setServer('');
     setHealth(null);
     setSession(null);
-    setPreparedAccountId('');
     setActiveTab('career');
   };
 
@@ -4283,263 +4260,6 @@ export default function AutoResearch() {
     setError('');
   };
 
-  // 登录设置已整合进详设页顶部的弹窗；旧页仅供排查旧工作流使用。
-  if (
-    showLegacyLoginScreen &&
-    !server &&
-    !['presets', 'daily'].includes(activeTab)
-  ) {
-    return (
-      <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
-        <ErrorToast message={error} onClose={dismissError} />
-        <div className="mx-auto max-w-6xl space-y-4">
-          <header className="flex min-h-[60px] flex-wrap items-end justify-between gap-3 border-b border-gray-200 pb-4">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-600">
-                <Activity size={24} />
-                <h1 className="text-xl font-semibold text-gray-800">
-                  自动育成
-                </h1>
-              </div>
-              <p className="mt-1 text-sm text-slate-500">
-                预设可直接在本地配置；选择马娘、继承马和卡组时再登录读取最新数据。
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab('presets')}
-              className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
-            >
-              <Settings2 size={16} />
-              配置预设（无需登录）
-            </button>
-          </header>
-
-          <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
-            <aside className="space-y-4">
-              <section className={panelClass('p-4')}>
-                <h2 className="flex items-center gap-2 font-bold">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
-                    1
-                  </span>
-                  添加账号
-                </h2>
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-slate-700">
-                    方法一：导入 users.db
-                  </p>
-                  <p className="mt-0.5 break-all text-xs text-slate-400">
-                    文件路径：
-                    /data/user/0/com.bilibili.umamusu/databases/users.db
-                  </p>
-                  <div
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setDragging(true);
-                    }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={onDrop}
-                    className={`mt-2 rounded-xl border-2 border-dashed p-4 text-center text-sm ${
-                      dragging
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-slate-200'
-                    }`}
-                  >
-                    <Database
-                      className="mx-auto mb-2 text-slate-400"
-                      size={24}
-                    />
-                    <p>拖入手机导出的 users.db</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      需要 Root 权限或能够访问应用数据目录。
-                    </p>
-                    <label className="mt-3 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50">
-                      <Upload className="mr-1" size={14} />
-                      选择文件
-                      <input
-                        type="file"
-                        accept=".db,application/x-sqlite3"
-                        className="hidden"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) importUsersDb(file);
-                          event.target.value = '';
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <p className="text-sm font-semibold text-slate-700">
-                    方法二：手动填写
-                  </p>
-                  <div className="mt-2 grid gap-2">
-                    <input
-                      value={manualUid}
-                      onChange={(event) => setManualUid(event.target.value)}
-                      placeholder="uid"
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                    <input
-                      value={manualAccessKey}
-                      onChange={(event) =>
-                        setManualAccessKey(event.target.value)
-                      }
-                      placeholder="access_key"
-                      type="password"
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={addManual}
-                      disabled={Boolean(busy)}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      手动添加
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <p className="text-sm font-semibold text-slate-700">
-                    方法三：通过 Localify 自动捕获
-                  </p>
-                  <ol className="mt-2 space-y-2 text-xs text-slate-600">
-                    <li className="flex items-start gap-2">
-                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
-                        1
-                      </span>
-                      <span>开启 Localify。</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
-                        2
-                      </span>
-                      <span>
-                        打开 <strong>Dump MessagePack</strong>，并启用其中的{' '}
-                        <strong>Dump request</strong>。
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500">
-                        3
-                      </span>
-                      <span>重新登录游戏，UmaShow 会自动捕获并保存账号。</span>
-                    </li>
-                  </ol>
-                  <div
-                    className={`mt-3 rounded-lg px-3 py-2 text-xs ${
-                      captured.length
-                        ? 'bg-emerald-50 text-emerald-800'
-                        : 'bg-indigo-50 text-indigo-700'
-                    }`}
-                  >
-                    {captured.length
-                      ? `已经通过请求捕获 ${captured.length} 个登录凭据，账号会自动出现在右侧列表。`
-                      : '等待游戏请求；捕获成功后账号会自动出现在右侧列表。'}
-                  </div>
-                </div>
-              </section>
-            </aside>
-
-            <main className="space-y-4 min-w-0">
-              <section className={panelClass('p-4')}>
-                <h2 className="flex items-center gap-2 font-bold">
-                  <Users size={18} />
-                  选择账号
-                </h2>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {accounts.map((account) => (
-                    <button
-                      type="button"
-                      key={account.id}
-                      onClick={() => {
-                        prepareAccountBeforeServer(account.id).catch(
-                          () => undefined,
-                        );
-                      }}
-                      disabled={Boolean(busy)}
-                      className={`rounded-xl border p-3 text-left transition disabled:opacity-50 ${
-                        selectedAccountId === account.id
-                          ? 'border-indigo-400 bg-indigo-50'
-                          : 'border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      <p className="truncate font-semibold">
-                        {account.label || `UID ${account.uid}`}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {account.uid} · {account.accessKeyPreview}
-                      </p>
-                    </button>
-                  ))}
-                  {!accounts.length ? (
-                    <p className="col-span-full py-8 text-center text-sm text-slate-400">
-                      请先添加一个账号。
-                    </p>
-                  ) : null}
-                </div>
-              </section>
-
-              {selectedAccount && preparedAccountId === selectedAccount.id ? (
-                <section className={panelClass('p-5')}>
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-full bg-emerald-100 p-2 text-emerald-700">
-                      <Check size={20} />
-                    </div>
-                    <div>
-                      <h2 className="font-bold">账号已经准备好</h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {selectedAccount.label || `UID ${selectedAccount.uid}`}
-                      </p>
-                    </div>
-                  </div>
-                  <label
-                    className="mt-5 block text-sm font-semibold text-slate-700"
-                    htmlFor="auto-server"
-                  >
-                    填写自动育成服务器网址
-                  </label>
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      id="auto-server"
-                      value={serverAddress}
-                      onChange={(event) => setServerAddress(event.target.value)}
-                      onKeyDown={(event) =>
-                        event.key === 'Enter' &&
-                        connect().catch(() => undefined)
-                      }
-                      className="min-w-0 flex-1 rounded-md border border-gray-200 px-4 py-3 outline-none focus:border-indigo-400"
-                      placeholder={DEFAULT_SERVER}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => connect().catch(() => undefined)}
-                      disabled={busy === 'connect'}
-                      className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      <Server size={16} />
-                      {busy === 'connect' ? '连接中…' : '连接并进入'}
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-400">
-                    此处只连接自动育成服务，不会登录游戏账号。进入“详设”后由你手动登录并读取最新数据。
-                  </p>
-                </section>
-              ) : (
-                <section className={panelClass('p-12 text-center')}>
-                  <LogIn className="mx-auto text-slate-300" size={42} />
-                  <p className="mt-3 text-slate-500">
-                    选择一个账号后，会在这里填写自动育成服务器网址。
-                  </p>
-                </section>
-              )}
-            </main>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
       <ErrorToast message={error} onClose={dismissError} />
@@ -4781,22 +4501,18 @@ export default function AutoResearch() {
                           当前 Hint 低于此等级时不会学习
                         </span>
                       </span>
-                      <input
-                        type="number"
+                      <EditableNumberInput
                         min={0}
                         max={5}
                         step={1}
                         value={setting.min_hint_level}
-                        onChange={(event) =>
+                        onValueChange={(nextValue) =>
                           updateSkillLearningSetting(
                             editingSkillSelection.skill_names,
                             {
                               min_hint_level: Math.max(
                                 0,
-                                Math.min(
-                                  5,
-                                  Math.trunc(Number(event.target.value) || 0),
-                                ),
+                                Math.min(5, Math.trunc(nextValue)),
                               ),
                             },
                           )
@@ -5907,7 +5623,7 @@ export default function AutoResearch() {
                 {dashboard?.account && activeTab === 'accounts' ? (
                   <>
                     <section
-                      className={`${panelClass('p-4')} grid gap-3 sm:grid-cols-2 lg:grid-cols-7`}
+                      className={`${panelClass('p-4')} grid gap-3 sm:grid-cols-2 lg:grid-cols-8`}
                     >
                       {[
                         [
@@ -5918,6 +5634,12 @@ export default function AutoResearch() {
                         ['金币', dashboard.account.gold],
                         ['闹钟', dashboard.account.clocks],
                         ['能量饮料30', dashboard.account.energy_drinks || 0],
+                        [
+                          '好友借马',
+                          dashboard.account.rental_succession?.known
+                            ? `${dashboard.account.rental_succession.remaining} 次剩余（${dashboard.account.rental_succession.used}/${dashboard.account.rental_succession.max}）`
+                            : '未读取',
+                        ],
                         [
                           '育成',
                           dashboard.account.career?.active

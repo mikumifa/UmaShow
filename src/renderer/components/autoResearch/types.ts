@@ -197,6 +197,12 @@ export type SessionAccount = {
   gold: number;
   clocks: number;
   energy_drinks: number;
+  rental_succession?: {
+    known: boolean;
+    used: number;
+    max: number;
+    remaining: number;
+  };
   career?: {
     active: boolean;
     card_id?: number | string;
@@ -362,8 +368,6 @@ export type DailyTaskResult = {
 
 export type DailyTasksConfig = {
   schema_version?: number;
-  enabled?: boolean;
-  run_time?: string;
   run_with_career: boolean;
   daily_race: {
     enabled: boolean;
@@ -391,10 +395,6 @@ export type DailyTasksConfig = {
   daily_legend_race_done?: boolean;
   limited_shop_open_count?: number;
   pending_shop_sources?: string[];
-  next_shop_check_at?: number;
-  next_stadium_at?: number;
-  next_wake_at?: number;
-  next_wake_reason?: string;
   last_trigger?: string;
   last_run_date?: string;
   last_started_at?: string;
@@ -545,6 +545,7 @@ export type OfflineFactorTarget = {
   factor_group_id: number;
   name: string;
   kind: 'aptitude' | 'skill';
+  weight: number;
 };
 
 export type OfflineSkillSettings = {
@@ -566,6 +567,7 @@ export type OfflineSkillSettings = {
 
 export type OfflineFactorSelection = {
   enabled: boolean;
+  evaluation_mode: 'parent' | 'ancestor';
   use_skill_priority: boolean;
   blue_factor_minimums: {
     speed: number;
@@ -674,7 +676,6 @@ export type OfflineSingleModeSetup = {
 
 export type SessionResponse = {
   success: boolean;
-  game_session?: Record<string, string> | null;
   dashboard?: Dashboard;
   runtime?: Partial<Account['runtime']>;
   runner?: Runner;

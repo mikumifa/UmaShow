@@ -43,58 +43,19 @@ function writeValue(key: string, value: string) {
     .run(key, value, new Date().toISOString());
 }
 
-function mergeLegacyValue(key: string, shared: string | null, legacy: string) {
-  if (!shared) return legacy;
-  try {
-    const sharedItems = JSON.parse(shared);
-    const legacyItems = JSON.parse(legacy);
-    if (!Array.isArray(sharedItems) || !Array.isArray(legacyItems)) {
-      return shared;
-    }
-    const identity = key === 'autoResearch.presets' ? 'name' : 'id';
-    const merged = new Map<string, unknown>();
-    [...sharedItems, ...legacyItems].forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const itemKey = String((item as Record<string, unknown>)[identity] || '');
-      if (itemKey && !merged.has(itemKey)) merged.set(itemKey, item);
-    });
-    return JSON.stringify([...merged.values()]);
-  } catch {
-    return shared;
-  }
-}
-
-function readAndMigrate(key: string, legacy: unknown, source: unknown) {
-  const shared = readValue(key);
-  if (typeof legacy !== 'string' || !legacy) return shared;
-
-  const sourceId =
-    typeof source === 'string' && source ? source.slice(0, 300) : 'unknown';
-  const migrationKey = `migration:${sourceId}:${key}`;
-  if (readValue(migrationKey)) return shared;
-
-  const merged = mergeLegacyValue(key, shared, legacy);
-  writeValue(key, merged);
-  writeValue(migrationKey, '1');
-  return merged;
-}
-
 export default function handleAutoResearchUiSettings(ipcMain: IpcMain) {
-  ipcMain.on(
-    'autoresearch:ui-setting-get',
-    (event, key: unknown, legacy: unknown, source: unknown) => {
-      try {
-        if (typeof key !== 'string' || !key.trim()) {
-          event.returnValue = typeof legacy === 'string' ? legacy : null;
-          return;
-        }
-        event.returnValue = readAndMigrate(key, legacy, source);
-      } catch (error) {
-        console.error('Failed to read shared auto research setting:', error);
-        event.returnValue = typeof legacy === 'string' ? legacy : null;
+  ipcMain.on('autoresearch:ui-setting-get', (event, key: unknown) => {
+    try {
+      if (typeof key !== 'string' || !key.trim()) {
+        event.returnValue = null;
+        return;
       }
-    },
-  );
+      event.returnValue = readValue(key);
+    } catch (error) {
+      console.error('Failed to read shared auto research setting:', error);
+      event.returnValue = null;
+    }
+  });
   ipcMain.on(
     'autoresearch:ui-setting-set',
     (event, key: unknown, value: unknown) => {

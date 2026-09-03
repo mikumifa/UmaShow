@@ -63,16 +63,16 @@ const BLUE_FACTORS = [
 ] as const;
 
 const APTITUDE_FACTORS: OfflineFactorTarget[] = [
-  { factor_group_id: 11, name: '草地', kind: 'aptitude' },
-  { factor_group_id: 12, name: '泥地', kind: 'aptitude' },
-  { factor_group_id: 21, name: '领跑', kind: 'aptitude' },
-  { factor_group_id: 22, name: '跟前', kind: 'aptitude' },
-  { factor_group_id: 23, name: '居中', kind: 'aptitude' },
-  { factor_group_id: 24, name: '后追', kind: 'aptitude' },
-  { factor_group_id: 31, name: '短距离', kind: 'aptitude' },
-  { factor_group_id: 32, name: '英里', kind: 'aptitude' },
-  { factor_group_id: 33, name: '中距离', kind: 'aptitude' },
-  { factor_group_id: 34, name: '长距离', kind: 'aptitude' },
+  { factor_group_id: 11, name: '草地', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 12, name: '泥地', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 21, name: '领跑', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 22, name: '跟前', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 23, name: '居中', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 24, name: '后追', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 31, name: '短距离', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 32, name: '英里', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 33, name: '中距离', kind: 'aptitude', weight: 1 },
+  { factor_group_id: 34, name: '长距离', kind: 'aptitude', weight: 1 },
 ];
 
 type LineageTreeSlot = keyof OfflineFactorSelection['lineage']['tree'];
@@ -168,6 +168,16 @@ export default function OfflineCareerSettings({
       ];
       return { ...current, targets };
     });
+  };
+  const updateTargetWeight = (factorGroupId: number, weight: number) => {
+    setFactorSelection((current) => ({
+      ...current,
+      targets: current.targets.map((target) =>
+        target.factor_group_id === factorGroupId
+          ? { ...target, weight: Math.max(0, weight) }
+          : target,
+      ),
+    }));
   };
   const selectedSkillNames = factorSelection.targets
     .filter((target) => target.kind === 'skill')
@@ -757,9 +767,53 @@ export default function OfflineCareerSettings({
           ) : (
             <div className="mt-4 space-y-4">
               <div>
+                <strong className="text-sm text-slate-800">使用场景</strong>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      [
+                        'parent',
+                        '父辈模式',
+                        '把本次结果作为直接父辈，并综合另一侧完整谱系比较。',
+                      ],
+                      [
+                        'ancestor',
+                        '祖辈模式',
+                        '把本次结果作为祖辈，只按自身因子与设置权重比较。',
+                      ],
+                    ] as const
+                  ).map(([mode, label, description]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={factorSelection.evaluation_mode === mode}
+                      onClick={() =>
+                        updateFactorSelection({ evaluation_mode: mode })
+                      }
+                      className={`rounded-lg border px-3 py-2 text-left transition ${
+                        factorSelection.evaluation_mode === mode
+                          ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
+                          : 'border-slate-200 bg-white hover:border-fuchsia-200'
+                      }`}
+                    >
+                      <strong className="block text-sm text-slate-800">
+                        {label}
+                      </strong>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <strong className="text-sm text-slate-800">
                   属性因子最低星数
                 </strong>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  每种属性可设最低星级或标记为不要；候选只检查自己实际抽到的属性类型。
+                </p>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {BLUE_FACTORS.map(([key, label]) => (
                     <label key={key} className="text-xs text-slate-600">
@@ -778,7 +832,7 @@ export default function OfflineCareerSettings({
                       >
                         {[0, 1, 2, 3].map((stars) => (
                           <option key={stars} value={stars}>
-                            {stars ? `${stars} 星` : '不限'}
+                            {stars ? `至少 ${stars} 星` : '不要'}
                           </option>
                         ))}
                       </select>
@@ -791,10 +845,14 @@ export default function OfflineCareerSettings({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <strong className="text-sm text-slate-800">
-                      适应性与技能优先级
+                      {factorSelection.evaluation_mode === 'ancestor'
+                        ? '适应性与技能因子权重'
+                        : '适应性与技能优先级'}
                     </strong>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      候选按所选适应性与技能的综合继承概率排序；综合概率相同时，再按下方顺序逐项比较。
+                      {factorSelection.evaluation_mode === 'ancestor'
+                        ? '只统计本次结果自身的因子；每个因子的两次继承判定分别计入期望跳数，再乘对应权重累加。'
+                        : '把本次结果与选定的另一侧谱系合并，先比较所选适应性与技能至少继承一次的综合概率；相同时按下方顺序逐项比较，最后以全部白因子的逐次继承概率兜底。'}
                     </p>
                   </div>
                   <button
@@ -806,8 +864,7 @@ export default function OfflineCareerSettings({
                   </button>
                 </div>
                 <p className="mt-2 rounded-md bg-fuchsia-50 px-3 py-2 text-xs leading-5 text-fuchsia-900">
-                  始终自动追加第 5
-                  步“结束自动点技能”的技能优先级，无需单独开启。
+                  所选技能自动设置为优先级最高，不需要再设置到技能优先级列表里。
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {APTITUDE_FACTORS.map((target) => {
@@ -836,30 +893,55 @@ export default function OfflineCareerSettings({
                       key={`${target.kind}:${target.factor_group_id}`}
                       className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
                     >
-                      <b className="w-5 text-center text-xs text-fuchsia-700">
-                        {index + 1}
-                      </b>
+                      {factorSelection.evaluation_mode === 'parent' ? (
+                        <b className="w-5 text-center text-xs text-fuchsia-700">
+                          {index + 1}
+                        </b>
+                      ) : null}
                       <span className="min-w-0 flex-1 truncate">
                         {target.name}
                       </span>
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => moveTarget(index, -1)}
-                        className="disabled:opacity-30"
-                        title="提高优先级"
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === factorSelection.targets.length - 1}
-                        onClick={() => moveTarget(index, 1)}
-                        className="disabled:opacity-30"
-                        title="降低优先级"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
+                      {factorSelection.evaluation_mode === 'ancestor' ? (
+                        <label className="flex items-center gap-1 text-xs text-slate-500">
+                          权重
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.1}
+                            value={target.weight}
+                            onChange={(event) =>
+                              updateTargetWeight(
+                                target.factor_group_id,
+                                Number(event.target.value),
+                              )
+                            }
+                            className="w-20 rounded border border-slate-200 px-2 py-1 text-sm text-slate-700"
+                          />
+                        </label>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => moveTarget(index, -1)}
+                            className="disabled:opacity-30"
+                            title="提高优先级"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              index === factorSelection.targets.length - 1
+                            }
+                            onClick={() => moveTarget(index, 1)}
+                            className="disabled:opacity-30"
+                            title="降低优先级"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => toggleTarget(target)}
@@ -872,62 +954,82 @@ export default function OfflineCareerSettings({
                 </div>
               </div>
 
-              <div>
-                <strong className="text-sm text-slate-800">
-                  兄弟辈 / 另一侧谱系
-                </strong>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  仅从当前账号自己的已育成马娘和好友记录中比较，不使用通用种马库。
-                </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  {(
-                    [
-                      ['none', '不设置', '不限制另一侧谱系'],
-                      ['specific', '指定已有马娘', '直接选择一组完整谱系'],
-                      ['rules', '按谱系条件', '设置父辈、祖辈与星数'],
-                    ] as const
-                  ).map(([mode, label, description]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      aria-pressed={factorSelection.lineage.mode === mode}
-                      onClick={() =>
-                        updateFactorSelection({
-                          lineage: { ...factorSelection.lineage, mode },
-                        })
-                      }
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        factorSelection.lineage.mode === mode
-                          ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
-                          : 'border-slate-200 bg-white hover:border-fuchsia-200'
-                      }`}
-                    >
-                      <strong className="block text-sm text-slate-800">
-                        {label}
-                      </strong>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        {description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              {factorSelection.evaluation_mode === 'parent' ? (
+                <div>
+                  <strong className="text-sm text-slate-800">
+                    兄弟辈 / 另一侧谱系
+                  </strong>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    仅从当前账号自己的已育成马娘和好友记录中比较，不使用通用种马库。
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {(
+                      [
+                        ['none', '不设置', '不限制另一侧谱系'],
+                        ['specific', '指定已有马娘', '直接选择一组完整谱系'],
+                        ['rules', '按谱系条件', '设置父辈、祖辈与星数'],
+                      ] as const
+                    ).map(([mode, label, description]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={factorSelection.lineage.mode === mode}
+                        onClick={() =>
+                          updateFactorSelection({
+                            lineage: { ...factorSelection.lineage, mode },
+                          })
+                        }
+                        className={`rounded-lg border px-3 py-2 text-left transition ${
+                          factorSelection.lineage.mode === mode
+                            ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
+                            : 'border-slate-200 bg-white hover:border-fuchsia-200'
+                        }`}
+                      >
+                        <strong className="block text-sm text-slate-800">
+                          {label}
+                        </strong>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          {description}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
 
-                {factorSelection.lineage.mode === 'specific' ? (
-                  <div className="mt-3">
-                    <div className="mb-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <div>
-                          <strong className="text-sm text-fuchsia-900">
-                            当前已选马娘
-                          </strong>
-                          <p className="mt-0.5 text-xs text-fuchsia-700">
-                            此马娘将作为固定的另一侧完整谱系使用。
-                          </p>
+                  {factorSelection.lineage.mode === 'specific' ? (
+                    <div className="mt-3">
+                      <div className="mb-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div>
+                            <strong className="text-sm text-fuchsia-900">
+                              当前已选马娘
+                            </strong>
+                            <p className="mt-0.5 text-xs text-fuchsia-700">
+                              此马娘将作为固定的另一侧完整谱系使用。
+                            </p>
+                          </div>
+                          {factorSelection.lineage.selection_id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateFactorSelection({
+                                  lineage: {
+                                    ...factorSelection.lineage,
+                                    selection_id: '',
+                                  },
+                                })
+                              }
+                              className="inline-flex flex-none items-center gap-1 rounded-md border border-fuchsia-200 bg-white px-2.5 py-1.5 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100"
+                            >
+                              <X size={13} /> 清除选择
+                            </button>
+                          ) : null}
                         </div>
-                        {factorSelection.lineage.selection_id ? (
-                          <button
-                            type="button"
-                            onClick={() =>
+                        {selectedLineageParent ? (
+                          <ParentChoiceCard
+                            parent={selectedLineageParent}
+                            selected
+                            disabled={false}
+                            onSelect={() =>
                               updateFactorSelection({
                                 lineage: {
                                   ...factorSelection.lineage,
@@ -935,117 +1037,111 @@ export default function OfflineCareerSettings({
                                 },
                               })
                             }
-                            className="inline-flex flex-none items-center gap-1 rounded-md border border-fuchsia-200 bg-white px-2.5 py-1.5 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100"
-                          >
-                            <X size={13} /> 清除选择
-                          </button>
+                          />
+                        ) : null}
+                        {!selectedLineageParent &&
+                        factorSelection.lineage.selection_id ? (
+                          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            已保存的马娘当前不在自己或好友列表中，请重新选择。
+                          </p>
+                        ) : null}
+                        {!selectedLineageParent &&
+                        !factorSelection.lineage.selection_id ? (
+                          <p className="rounded-lg border border-dashed border-fuchsia-200 bg-white/70 px-3 py-4 text-center text-sm text-fuchsia-500">
+                            尚未选择已有马娘
+                          </p>
                         ) : null}
                       </div>
-                      {selectedLineageParent ? (
-                        <ParentChoiceCard
-                          parent={selectedLineageParent}
-                          selected
-                          disabled={false}
-                          onSelect={() =>
-                            updateFactorSelection({
-                              lineage: {
-                                ...factorSelection.lineage,
-                                selection_id: '',
-                              },
-                            })
-                          }
-                        />
-                      ) : null}
-                      {!selectedLineageParent &&
-                      factorSelection.lineage.selection_id ? (
-                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                          已保存的马娘当前不在自己或好友列表中，请重新选择。
+                      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                        <p className="text-xs font-medium text-slate-600">
+                          从下面选择或更换自己、好友的已育成马娘；卡片显示本体、两位父辈和因子。
                         </p>
-                      ) : null}
-                      {!selectedLineageParent &&
-                      !factorSelection.lineage.selection_id ? (
-                        <p className="rounded-lg border border-dashed border-fuchsia-200 bg-white/70 px-3 py-4 text-center text-sm text-fuchsia-500">
-                          尚未选择已有马娘
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-                      <p className="text-xs font-medium text-slate-600">
-                        从下面选择或更换自己、好友的已育成马娘；卡片显示本体、两位父辈和因子。
-                      </p>
-                      <label className="relative block w-full sm:w-80">
-                        <Search
-                          size={15}
-                          className="pointer-events-none absolute left-3 top-2.5 text-slate-400"
-                        />
-                        <input
-                          value={specificLineageSearch}
-                          onChange={(event) =>
-                            setSpecificLineageSearch(event.target.value)
-                          }
-                          placeholder="搜索马娘、玩家、评价或因子"
-                          className="w-full cursor-text select-text rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
-                        />
-                      </label>
-                    </div>
-                    <div className="grid max-h-[520px] gap-2 overflow-y-auto pr-1 xl:grid-cols-2">
-                      {filteredLineageParents.map((parent) => (
-                        <ParentChoiceCard
-                          key={parent.selection_id}
-                          parent={parent}
-                          selected={
-                            factorSelection.lineage.selection_id ===
-                            parent.selection_id
-                          }
-                          disabled={false}
-                          onSelect={() =>
-                            updateFactorSelection({
-                              lineage: {
-                                ...factorSelection.lineage,
-                                selection_id:
-                                  factorSelection.lineage.selection_id ===
-                                  parent.selection_id
-                                    ? ''
-                                    : parent.selection_id,
-                              },
-                            })
-                          }
-                        />
-                      ))}
-                      {!filteredLineageParents.length ? (
-                        <p className="py-10 text-center text-sm text-slate-400 xl:col-span-2">
-                          {emptyLineageParentMessage}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-
-                {factorSelection.lineage.mode === 'rules' ? (
-                  <div className="mt-3 rounded-xl border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/40 p-4">
-                    <div className="mb-4">
-                      <strong className="text-sm text-slate-800">
-                        另一侧完整谱系树
-                      </strong>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        与继承规划一致：上方设置直接父辈，下方分别设置这位父辈的两位父辈。三个槽位均可独立指定马娘类型和最低因子星数。
-                      </p>
-                    </div>
-                    <div className="mx-auto max-w-4xl">
-                      <div className="mx-auto max-w-md">
-                        {lineageTreeNode('parent', '另一侧父辈', 'parent')}
+                        <label className="relative block w-full sm:w-80">
+                          <Search
+                            size={15}
+                            className="pointer-events-none absolute left-3 top-2.5 text-slate-400"
+                          />
+                          <input
+                            value={specificLineageSearch}
+                            onChange={(event) =>
+                              setSpecificLineageSearch(event.target.value)
+                            }
+                            placeholder="搜索马娘、玩家、评价或因子"
+                            className="w-full cursor-text select-text rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
+                          />
+                        </label>
                       </div>
-                      <div className="relative pt-7">
-                        <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-7 border-l-2 border-r-2 border-t-2 border-fuchsia-200" />
-                        <div className="grid grid-cols-2 gap-3">
-                          {lineageTreeNode('ancestor_1', '祖辈 1', 'ancestor')}
-                          {lineageTreeNode('ancestor_2', '祖辈 2', 'ancestor')}
+                      <div className="grid max-h-[520px] gap-2 overflow-y-auto pr-1 xl:grid-cols-2">
+                        {filteredLineageParents.map((parent) => (
+                          <ParentChoiceCard
+                            key={parent.selection_id}
+                            parent={parent}
+                            selected={
+                              factorSelection.lineage.selection_id ===
+                              parent.selection_id
+                            }
+                            disabled={false}
+                            onSelect={() =>
+                              updateFactorSelection({
+                                lineage: {
+                                  ...factorSelection.lineage,
+                                  selection_id:
+                                    factorSelection.lineage.selection_id ===
+                                    parent.selection_id
+                                      ? ''
+                                      : parent.selection_id,
+                                },
+                              })
+                            }
+                          />
+                        ))}
+                        {!filteredLineageParents.length ? (
+                          <p className="py-10 text-center text-sm text-slate-400 xl:col-span-2">
+                            {emptyLineageParentMessage}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {factorSelection.lineage.mode === 'rules' ? (
+                    <div className="mt-3 rounded-xl border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/40 p-4">
+                      <div className="mb-4">
+                        <strong className="text-sm text-slate-800">
+                          另一侧完整谱系树
+                        </strong>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          与继承规划一致：上方设置直接父辈，下方分别设置这位父辈的两位父辈。三个槽位均可独立指定马娘类型和最低因子星数。
+                        </p>
+                      </div>
+                      <div className="mx-auto max-w-4xl">
+                        <div className="mx-auto max-w-md">
+                          {lineageTreeNode('parent', '另一侧父辈', 'parent')}
+                        </div>
+                        <div className="relative pt-7">
+                          <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-7 border-l-2 border-r-2 border-t-2 border-fuchsia-200" />
+                          <div className="grid grid-cols-2 gap-3">
+                            {lineageTreeNode(
+                              'ancestor_1',
+                              '祖辈 1',
+                              'ancestor',
+                            )}
+                            {lineageTreeNode(
+                              'ancestor_2',
+                              '祖辈 2',
+                              'ancestor',
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                  祖辈模式不会读取或比较另一侧谱系；本次候选的非属性因子只看自身。
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1197,7 +1293,11 @@ export default function OfflineCareerSettings({
       <SkillSelector
         open={factorSkillPickerOpen}
         title="选择目标白因子技能"
-        description="选择顺序就是因子比较优先级；也可以回到列表中上下调整。"
+        description={
+          factorSelection.evaluation_mode === 'ancestor'
+            ? '选择后回到列表中设置每个技能因子的权重。'
+            : '选择顺序就是因子比较优先级；也可以回到列表中上下调整。'
+        }
         skills={skills.filter((skill) => skill.rarity === 1)}
         selectedNames={selectedSkillNames}
         showRarityFilter={false}
@@ -1208,6 +1308,7 @@ export default function OfflineCareerSettings({
             factor_group_id: skill.group_id || Math.floor(skill.id / 10),
             name: skill.name,
             kind: 'skill',
+            weight: 1,
           })
         }
         onClose={() => setFactorSkillPickerOpen(false)}
