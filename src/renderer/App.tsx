@@ -13,7 +13,7 @@ import SuccessionPlanner from 'renderer/ui/SuccessionPlanner';
 
 export default function App() {
   return (
-    <div className="min-h-screen select-none font-sans">
+    <div className="min-h-screen font-sans">
       <style>
         {`
           img {

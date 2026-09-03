@@ -6,6 +6,10 @@ import {
   randomUUID,
 } from 'crypto';
 import { decode, encode } from '@msgpack/msgpack';
+import {
+  findActiveIdleSingleMode,
+  hasActiveSingleModeCareer,
+} from './AutoResearchGameState';
 
 const GAME_HOST = 'https://le1-prod-bili-gs-uma.bilibiligame.net';
 const LOGIN_HOST = 'https://line1-sdk-center-login-sh.biligame.net';
@@ -53,6 +57,39 @@ export type SuccessionGameSession = {
   viewer_id: string;
   captured_at?: string;
 };
+
+const UNCERTAIN_GAME_REQUEST = Symbol('uncertain-game-request');
+
+type SuccessionGameUncertainRequestError = Error & {
+  [UNCERTAIN_GAME_REQUEST]: true;
+};
+
+/**
+ * The request may have reached the game server even though UmaShow cannot
+ * safely recover the response (timeout, transport failure, non-success HTTP
+ * response, or undecipherable payload). Retrying with the current SID would
+ * be unsafe because the server may already have advanced it.
+ */
+function uncertainGameRequestError(endpoint: string, detail: string) {
+  const error = new Error(
+    `${endpoint} 请求结果未确认：${detail}；请重新登录后再试`,
+  ) as SuccessionGameUncertainRequestError;
+  error.name = 'SuccessionGameUncertainRequestError';
+  error[UNCERTAIN_GAME_REQUEST] = true;
+  return error;
+}
+
+export function isSuccessionGameRequestUncertain(
+  error: unknown,
+): error is SuccessionGameUncertainRequestError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      (error as Partial<SuccessionGameUncertainRequestError>)[
+        UNCERTAIN_GAME_REQUEST
+      ],
+  );
+}
 
 const SCENARIO_FAMILY: Record<number, string> = {
   1: 'single_mode',
@@ -188,6 +225,11 @@ function gameError(endpoint: string, result: Record<string, any>) {
   return new Error(`${endpoint} 请求失败：${message}`);
 }
 
+function errorDetail(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 export function careerTurnFromResponse(message: unknown) {
   if (!message || typeof message !== 'object') return 0;
   const record = message as Record<string, any>;
@@ -224,6 +266,15 @@ export class SuccessionGameClient {
 
   private lastRequestAt = 0;
 
+  private hasConfirmedGameResponse = false;
+
+  private sessionUncertain = false;
+
+  // A SID is advanced by each game response. Keep this guard in the protocol
+  // client as a second line of defence for callers that accidentally issue
+  // two `call`s without awaiting the first one.
+  private callTail: Promise<void> = Promise.resolve();
+
   constructor(
     uid: string,
     accessKey: string,
@@ -251,6 +302,14 @@ export class SuccessionGameClient {
 
   get viewerId() {
     return this.user.viewerId;
+  }
+
+  get hasConfirmedResponse() {
+    return this.hasConfirmedGameResponse;
+  }
+
+  get hasUncertainSession() {
+    return this.sessionUncertain;
   }
 
   get session(): SuccessionGameSession {
@@ -341,38 +400,67 @@ export class SuccessionGameClient {
     this.user.bumaOpenId = this.user.uid;
   }
 
-  private async postGame(endpoint: string, payload: Record<string, unknown>) {
-    const body = encryptSuccessionGameRequest(this.user, payload);
-    const response = await fetchWithTimeout(`${GAME_HOST}/${endpoint}`, {
-      method: 'POST',
-      headers: {
-        Accept: '*/*',
-        'APP-VER': this.user.appVer,
-        'APP-VER-CODE': this.user.appVerCode,
-        'BUMA-OPEN-ID': this.user.bumaOpenId,
-        'BUMA-RID': md5HexBytes(randomUUID()),
-        'BX-Accept-Language': 'zh',
-        'Content-Type': 'application/x-msgpack',
-        Device: '2',
-        'Device-SubType': '1',
-        'RES-VER': this.user.resVer,
-        SID: this.user.sid,
-        'User-Agent':
-          'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
-        ViewerID: this.user.viewerId,
-        'X-Ba-Catch-Control': 'no-cache',
-        'X-Ba-Charset': 'utf8',
-        'X-Unity-Version': '2020.3.49f1',
-      },
-      body,
-    });
-    if (!response.ok) {
-      throw new Error(`${endpoint} 网络请求失败：HTTP ${response.status}`);
+  private ensureSessionCertain() {
+    if (this.sessionUncertain) {
+      throw new Error('本地游戏会话状态未确认，请重新登录后再试');
     }
-    const result = decryptSuccessionGameResponse(
-      this.user,
-      await response.text(),
-    );
+  }
+
+  private markSessionUncertain(endpoint: string, detail: string) {
+    this.sessionUncertain = true;
+    return uncertainGameRequestError(endpoint, detail);
+  }
+
+  private async postGame(endpoint: string, payload: Record<string, unknown>) {
+    this.ensureSessionCertain();
+    const body = encryptSuccessionGameRequest(this.user, payload);
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(`${GAME_HOST}/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Accept: '*/*',
+          'APP-VER': this.user.appVer,
+          'APP-VER-CODE': this.user.appVerCode,
+          'BUMA-OPEN-ID': this.user.bumaOpenId,
+          'BUMA-RID': md5HexBytes(randomUUID()),
+          'BX-Accept-Language': 'zh',
+          'Content-Type': 'application/x-msgpack',
+          Device: '2',
+          'Device-SubType': '1',
+          'RES-VER': this.user.resVer,
+          SID: this.user.sid,
+          'User-Agent':
+            'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
+          ViewerID: this.user.viewerId,
+          'X-Ba-Catch-Control': 'no-cache',
+          'X-Ba-Charset': 'utf8',
+          'X-Unity-Version': '2020.3.49f1',
+        },
+        body,
+      });
+    } catch (error) {
+      throw this.markSessionUncertain(
+        endpoint,
+        errorDetail(error, '网络请求失败'),
+      );
+    }
+    if (!response.ok) {
+      throw this.markSessionUncertain(
+        endpoint,
+        `网络请求失败：HTTP ${response.status}`,
+      );
+    }
+    let result: Record<string, any>;
+    try {
+      result = decryptSuccessionGameResponse(this.user, await response.text());
+    } catch (error) {
+      throw this.markSessionUncertain(
+        endpoint,
+        errorDetail(error, '无法读取游戏响应'),
+      );
+    }
+    this.hasConfirmedGameResponse = true;
     const sid = result.data_headers?.sid;
     if (sid) this.user.sid = getSid(String(sid));
     const resourceVersion = result.data?.resource_version;
@@ -382,18 +470,37 @@ export class SuccessionGameClient {
     return result;
   }
 
-  async call(endpoint: string, args: Record<string, unknown> = {}) {
-    const elapsed = Date.now() - this.lastRequestAt;
-    if (elapsed < 160) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, 160 - elapsed);
-      });
+  private async enqueueCall<T>(operation: () => Promise<T>) {
+    const previous = this.callTail;
+    let release: () => void = () => undefined;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.callTail = current;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
     }
-    this.lastRequestAt = Date.now();
-    return this.postGame(endpoint, { ...args, ...this.devicePayload() });
+  }
+
+  async call(endpoint: string, args: Record<string, unknown> = {}) {
+    return this.enqueueCall(async () => {
+      this.ensureSessionCertain();
+      const elapsed = Date.now() - this.lastRequestAt;
+      if (elapsed < 160) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 160 - elapsed);
+        });
+      }
+      this.lastRequestAt = Date.now();
+      return this.postGame(endpoint, { ...args, ...this.devicePayload() });
+    });
   }
 
   async login() {
+    this.ensureSessionCertain();
     this.onProgress?.({ stage: 'login', detail: '正在验证 UID 与 access_key' });
     this.user.sid = getSid(
       `${this.user.viewerId}${this.user.deviceId.toLowerCase()}`,
@@ -425,6 +532,32 @@ export class SuccessionGameClient {
     return this.call('load/index', { adid: '' });
   }
 
+  async prepareIdleSingleMode(scenarioId = 0) {
+    return this.call('idle_single_mode/pre_start', {
+      scenario_id: Math.max(0, Math.trunc(Number(scenarioId) || 0)),
+    });
+  }
+
+  async saveIdleSingleModeRaceDeck(
+    scenarioId: number,
+    deckNum: number,
+    deckName: string,
+    addRaceArray: Array<{ year: number; program_id: number }>,
+    cancelRaceArray: Array<{ year: number; program_id: number }>,
+    isDefault = false,
+  ) {
+    return this.call('idle_single_mode/multi_race_reserve_deck', {
+      scenario_id: Math.trunc(Number(scenarioId) || 0),
+      multi_race_reserve_deck: {
+        deck_num: Math.trunc(Number(deckNum) || 0),
+        deck_name: String(deckName || ''),
+        add_race_array: addRaceArray,
+        cancel_race_array: cancelRaceArray,
+        is_default: Number(isDefault),
+      },
+    });
+  }
+
   async loadCareer(scenarioId: number) {
     const family = SCENARIO_FAMILY[Math.trunc(Number(scenarioId))];
     if (!family) {
@@ -442,6 +575,23 @@ export class SuccessionGameClient {
   }
 
   async abandonCareer(scenarioId: number, fallbackTurn = 1) {
+    // The dashboard snapshot can be stale.  Confirm the live game state before
+    // issuing a force-delete request: an idle-training summary also carries a
+    // `single_mode_chara_light` object, but must never be handled by the
+    // ordinary single_mode/finish endpoint.
+    const before = await this.loadIndex();
+    const beforeData = before.data || {};
+    if (findActiveIdleSingleMode(beforeData)) {
+      throw new Error(
+        '当前为离线自动育成，不能执行普通育成的放弃操作；请先在游戏内处理离线育成',
+      );
+    }
+    if (!hasActiveSingleModeCareer(beforeData)) {
+      throw new Error(
+        '游戏服务器未确认有进行中的普通育成，拒绝发送放弃请求；请重新登录后再检查',
+      );
+    }
+
     let currentTurn = Math.max(1, Math.trunc(Number(fallbackTurn) || 1));
     try {
       const loaded = await this.loadCareer(scenarioId);
@@ -453,7 +603,12 @@ export class SuccessionGameClient {
     await this.finishCareer(currentTurn, true);
     const index = await this.loadIndex();
     const data = index.data || {};
-    if (data.single_mode_chara_light || data.single_mode_chara) {
+    if (findActiveIdleSingleMode(data)) {
+      throw new Error(
+        '放弃普通育成后游戏服务器报告离线自动育成，无法安全确认普通育成状态；请重新登录后检查',
+      );
+    }
+    if (hasActiveSingleModeCareer(data)) {
       throw new Error(
         '游戏服务器仍报告有进行中的育成，放弃操作尚未生效；请重新登录后再试',
       );

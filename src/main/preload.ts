@@ -182,10 +182,25 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-current-session', id),
     loginSession: (id: string, loginId: string) =>
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
+    localOverview: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-local-overview', id),
+    clearLocalSession: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-local-session-clear', id),
     dailyTasksOverview: (id: string, config: Record<string, unknown>) =>
       ipcRenderer.invoke('autoresearch:daily-tasks-overview', id, config),
     runDailyTasks: (id: string, config: Record<string, unknown>) =>
       ipcRenderer.invoke('autoresearch:daily-tasks-run', id, config),
+    prepareIdleSingleMode: (id: string, request: Record<string, unknown>) =>
+      ipcRenderer.invoke('autoresearch:idle-single-mode-prepare', id, request),
+    saveIdleSingleModeRaceDeck: (
+      id: string,
+      request: Record<string, unknown>,
+    ) =>
+      ipcRenderer.invoke(
+        'autoresearch:idle-single-mode-race-deck',
+        id,
+        request,
+      ),
     abandonCareer: (id: string, scenarioId: number, currentTurn: number) =>
       ipcRenderer.invoke(
         'autoresearch:account-abandon-career',

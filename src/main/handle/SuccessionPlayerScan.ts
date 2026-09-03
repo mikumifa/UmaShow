@@ -1,13 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { app, IpcMain } from 'electron';
-import {
-  getAutoResearchAccountCredential,
-  saveAutoResearchAccountCredential,
-} from './AutoResearchCredentials';
+import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
 import {
   parseSuccessionPlayerIds,
-  SuccessionGameClient,
   SuccessionGameProgress,
 } from './SuccessionGameClient';
 
@@ -158,7 +154,6 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
       if (!pending.length) {
         return { players: currentPlayers, added: [], errors: [], skipped };
       }
-      const credential = getAutoResearchAccountCredential(accountId);
       scanRunning = true;
       const progress = (value: SuccessionGameProgress) => {
         event.sender.send('succession-player-scan:progress', {
@@ -166,63 +161,62 @@ export function handleSuccessionPlayerScan(ipcMain: IpcMain) {
           detail: value.stage === 'login' ? '正在准备所选账号' : value.detail,
         });
       };
-      const client = new SuccessionGameClient(
-        credential.uid,
-        credential.accessKey,
-        progress,
-      );
       const added: StoredSuccessionPlayer[] = [];
       const errors: Array<{ viewerId: string; message: string }> = [];
       try {
-        await client.login();
-        const refreshedCredential = client.credential;
-        if (refreshedCredential.accessKey !== credential.accessKey) {
-          saveAutoResearchAccountCredential({
-            ...refreshedCredential,
-            source: '玩家扫描登录刷新',
-            capturedAt: new Date().toISOString(),
-          });
-        }
-        let lastScanStartedAt = 0;
-        for (let index = 0; index < pending.length; index += 1) {
-          const viewerId = pending[index];
-          const waitMs = 500 - (Date.now() - lastScanStartedAt);
-          if (waitMs > 0) {
-            // 玩家搜索固定按至少 0.5 秒的间隔顺序请求。
-            // eslint-disable-next-line no-await-in-loop
-            await new Promise((resolve) => {
-              setTimeout(resolve, waitMs);
-            });
-          }
-          lastScanStartedAt = Date.now();
-          progress({
-            stage: 'scan',
-            detail: `正在扫描玩家 ${viewerId}`,
-            viewerId,
-            current: index + 1,
-            total: pending.length,
-          });
-          try {
-            // 游戏接口需要按顺序更新 SID，不能并发请求。
-            // eslint-disable-next-line no-await-in-loop
-            const result = await client.searchPlayer(viewerId);
-            added.push({
-              viewerId,
-              name: String(result.userInfo?.name || `玩家 ${viewerId}`),
-              fetchedAt: new Date().toISOString(),
-              userInfo: result.userInfo,
-              practicePartner: result.practicePartner,
-            });
-          } catch (error) {
-            errors.push({
-              viewerId,
-              message: (error as Error).message,
-            });
-          }
-        }
-        const players = mergeStoredSuccessionPlayers(readPlayers(), added);
-        writePlayers(players);
-        return { players, added, errors, skipped };
+        const result = await withAutoResearchLocalGameClient(
+          accountId,
+          {
+            login: 'force',
+            credentialRefreshSource: '玩家扫描登录刷新',
+            onProgress: progress,
+          },
+          async (client) => {
+            let lastScanStartedAt = 0;
+            for (let index = 0; index < pending.length; index += 1) {
+              const viewerId = pending[index];
+              const waitMs = 500 - (Date.now() - lastScanStartedAt);
+              if (waitMs > 0) {
+                // 玩家搜索固定按至少 0.5 秒的间隔顺序请求。
+                // eslint-disable-next-line no-await-in-loop
+                await new Promise((resolve) => {
+                  setTimeout(resolve, waitMs);
+                });
+              }
+              lastScanStartedAt = Date.now();
+              progress({
+                stage: 'scan',
+                detail: `正在扫描玩家 ${viewerId}`,
+                viewerId,
+                current: index + 1,
+                total: pending.length,
+              });
+              try {
+                // 游戏接口需要按顺序更新 SID，不能并发请求。
+                // eslint-disable-next-line no-await-in-loop
+                const playerResult = await client.searchPlayer(viewerId);
+                added.push({
+                  viewerId,
+                  name: String(
+                    playerResult.userInfo?.name || `玩家 ${viewerId}`,
+                  ),
+                  fetchedAt: new Date().toISOString(),
+                  userInfo: playerResult.userInfo,
+                  practicePartner: playerResult.practicePartner,
+                });
+              } catch (error) {
+                errors.push({
+                  viewerId,
+                  message: (error as Error).message,
+                });
+              }
+            }
+            const players = mergeStoredSuccessionPlayers(readPlayers(), added);
+            writePlayers(players);
+            return { players, added, errors, skipped };
+          },
+        );
+        return result;
       } finally {
         scanRunning = false;
       }

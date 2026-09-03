@@ -4,10 +4,14 @@ import { createHash, randomUUID } from 'crypto';
 import Database from 'better-sqlite3';
 import { app, BrowserWindow, IpcMain } from 'electron';
 import {
-  SuccessionGameClient,
   SuccessionGameProgress,
   SuccessionGameSession,
 } from './SuccessionGameClient';
+import {
+  invalidateAutoResearchLocalGameClient,
+  withAutoResearchLocalGameClient,
+} from './AutoResearchLocalGameClient';
+import { buildLocalDashboard } from './AutoResearchLocalDashboard';
 
 export interface CapturedAutoResearchCredential {
   uid: string;
@@ -70,13 +74,6 @@ const capturedSessions = new Map<string, CapturedAutoResearchSession>();
 const DEFAULT_APP_VER = '2.0.2';
 const DEFAULT_APP_VER_CODE = '11150';
 const DEFAULT_RES_VER = '10012300:TS7TsHl6FUZl';
-const SID_SUFFIX = 'sK5R8VeFU4';
-let lastSessionContext: {
-  uid: string;
-  viewerId: string;
-  deviceId: string;
-  metadata: AutoResearchSessionMetadata;
-} | null = null;
 
 function accountId(uid: string) {
   return createHash('sha256').update(uid).digest('hex');
@@ -157,14 +154,32 @@ function publicAccount(
   };
 }
 
+function invalidateLocalClientsForUid(uid: string) {
+  if (!uid) return;
+  readAccounts()
+    .filter((account) => account.uid === uid)
+    .forEach((account) => {
+      // The broker revision prevents an in-flight older client from writing
+      // its SID back after an externally captured session wins.
+      invalidateAutoResearchLocalGameClient(account.id).catch(() => undefined);
+    });
+}
+
 function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
   const accounts = readAccounts();
   const byUid = new Map(accounts.map((account) => [account.uid, account]));
+  const invalidatedUids = new Set<string>();
   credentials.forEach((credential) => {
     const uid = credential.uid.trim();
     const accessKey = credential.accessKey.trim();
     if (!uid || !accessKey) return;
     const current = byUid.get(uid);
+    if (current && current.accessKey !== accessKey) {
+      // An access_key change establishes a different server-side authority.
+      // Its previous SID must never be reused for this UID.
+      capturedSessions.delete(uid);
+      invalidatedUids.add(uid);
+    }
     byUid.set(uid, {
       id: current?.id || accountId(uid),
       uid,
@@ -179,6 +194,7 @@ function upsertAccounts(credentials: CapturedAutoResearchCredential[]) {
     right.updatedAt.localeCompare(left.updatedAt),
   );
   writeAccounts(result);
+  invalidatedUids.forEach(invalidateLocalClientsForUid);
   return result.map(publicAccount);
 }
 
@@ -266,6 +282,16 @@ export function storeAutoResearchGameClientSession(
   session: SuccessionGameSession,
 ) {
   return storeGameClientSession(session);
+}
+
+export async function clearAutoResearchLocalSession(id: string) {
+  const credential = getAutoResearchAccountCredential(id);
+  capturedSessions.delete(credential.uid);
+  // Invalidation is also a FIFO barrier. A local request that was already
+  // queued can finish between the first delete and this barrier, so discard
+  // its rolled SID once more before handing the account to a server Worker.
+  await invalidateAutoResearchLocalGameClient(id);
+  capturedSessions.delete(credential.uid);
 }
 
 function importUsersDb(contentBase64: string) {
@@ -358,37 +384,29 @@ export function captureAutoResearchCredentials(
       ? (decodedData as Record<string, unknown>)
       : {};
   const viewerId = String(metadata.viewerId || record.viewer_id || '0');
-  const deviceId = String(record.device_id || '').trim();
   const packetUid = String(record.buma_uid || '').trim();
   const uid =
     packetUid ||
     savedUidForViewer(viewerId) ||
     (added.length === 1 ? added[0].uid : '');
-  lastSessionContext = { uid, viewerId, deviceId, metadata };
-  if (metadata.sid) {
-    storeCapturedSession(uid, viewerId, deviceId, metadata.sid, metadata);
+  if (uid) {
+    // Packet notifications do not contain a request correlation ID.  Reusing
+    // a game-client SID observed here could attach an A response to B's
+    // request.  External activity therefore only invalidates UmaShow's local
+    // client; the next local operation must explicitly establish a fresh
+    // session through the shared broker.
+    capturedSessions.delete(uid);
+    invalidateLocalClientsForUid(uid);
   }
   return added;
 }
 
 export function captureAutoResearchSessionResponse(decodedData: unknown) {
-  if (!decodedData || typeof decodedData !== 'object') return null;
-  const record = decodedData as Record<string, any>;
-  const headers = record.data_headers || {};
-  const rawSid = String(headers.sid || '').trim();
-  if (!rawSid || !lastSessionContext) return null;
-  const viewerId = String(
-    headers.viewer_id || record.data?.viewer_id || lastSessionContext.viewerId,
-  );
-  const uid = lastSessionContext.uid || savedUidForViewer(viewerId);
-  const sid = createHash('md5').update(`${rawSid}${SID_SUFFIX}`).digest('hex');
-  return storeCapturedSession(
-    uid,
-    viewerId,
-    lastSessionContext.deviceId,
-    sid,
-    lastSessionContext.metadata,
-  );
+  // See captureAutoResearchCredentials: a response cannot be safely matched
+  // to the intercepted request, so it must never become an executable local
+  // SID. Credential discovery still happens on the corresponding request.
+  if (!decodedData) return null;
+  return null;
 }
 
 export function handleAutoResearchCredentials(ipcMain: IpcMain) {
@@ -406,8 +424,14 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
       upsertAccounts(credentials),
   );
   ipcMain.handle('autoresearch:account-delete', (_, id: string) => {
-    const accounts = readAccounts().filter((account) => account.id !== id);
+    const previous = readAccounts();
+    const deleted = previous.find((account) => account.id === id);
+    const accounts = previous.filter((account) => account.id !== id);
     writeAccounts(accounts);
+    if (deleted) {
+      capturedSessions.delete(deleted.uid);
+      invalidateAutoResearchLocalGameClient(id).catch(() => undefined);
+    }
     return accounts.map(publicAccount);
   });
   ipcMain.handle('autoresearch:account-credential', (_, id: string) => {
@@ -416,57 +440,70 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   ipcMain.handle('autoresearch:account-current-session', (_, id: string) => {
     return getAutoResearchCurrentSession(id);
   });
+  ipcMain.handle('autoresearch:account-local-session-clear', (_, id: string) =>
+    clearAutoResearchLocalSession(id),
+  );
+  ipcMain.handle('autoresearch:account-local-overview', async (_, id: string) =>
+    withAutoResearchLocalGameClient(
+      id,
+      {
+        login: 'required',
+        credentialRefreshSource: '详设本地数据刷新',
+      },
+      async (client) => {
+        const index = await client.loadIndex();
+        const dashboard = buildLocalDashboard(index, {
+          source: 'UmaShow 本地 load/index',
+        });
+        return {
+          success: true,
+          dashboard,
+          runtime: {
+            logged_in: true,
+            session_owner: 'local',
+            last_error: '',
+            last_refreshed_at: new Date().toISOString(),
+            runner: { running: false },
+            account: dashboard.account,
+          },
+        };
+      },
+    ),
+  );
   ipcMain.handle(
     'autoresearch:account-login-session',
     async (event, id: string, loginId: string) => {
-      const credential = getAutoResearchAccountCredential(id);
       const progress = (value: SuccessionGameProgress) => {
         event.sender.send('autoresearch:local-login-progress', {
           loginId,
           ...value,
         });
       };
-      const client = new SuccessionGameClient(
-        credential.uid,
-        credential.accessKey,
-        progress,
+      return withAutoResearchLocalGameClient(
+        id,
+        {
+          login: 'force',
+          credentialRefreshSource: '自动育成本地登录刷新',
+          onProgress: progress,
+        },
+        async (client) => client.session,
       );
-      await client.login();
-      const refreshedCredential = client.credential;
-      if (refreshedCredential.accessKey !== credential.accessKey) {
-        saveAutoResearchAccountCredential({
-          ...refreshedCredential,
-          source: '自动育成本地登录刷新',
-          capturedAt: new Date().toISOString(),
-        });
-      }
-      storeGameClientSession(client.session);
-      return client.session;
     },
   );
   ipcMain.handle(
     'autoresearch:account-abandon-career',
     async (_, id: string, scenarioId: number, currentTurn: number) => {
-      const credential = getAutoResearchAccountCredential(id);
-      const storedSession = capturedSessions.get(credential.uid) || null;
-      const client = new SuccessionGameClient(
-        credential.uid,
-        credential.accessKey,
-        undefined,
-        storedSession,
+      return withAutoResearchLocalGameClient(
+        id,
+        {
+          login: 'required',
+          credentialRefreshSource: '本地放弃育成刷新',
+        },
+        async (client) => {
+          const result = await client.abandonCareer(scenarioId, currentTurn);
+          return { ...result, session: client.session };
+        },
       );
-      if (!storedSession) await client.login();
-      try {
-        const result = await client.abandonCareer(scenarioId, currentTurn);
-        const session = storeGameClientSession(client.session);
-        return { ...result, session };
-      } catch (error) {
-        // Every successful game request rolls SID. Preserve the newest value
-        // even when the final verification fails, so a retry does not reuse
-        // the already-invalid pre-operation SID.
-        storeGameClientSession(client.session);
-        throw error;
-      }
     },
   );
   ipcMain.handle(

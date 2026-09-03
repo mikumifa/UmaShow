@@ -153,7 +153,43 @@ const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
 
 const LOCAL_DAILY_TASKS_KEY = 'autoResearch.dailyTasks.v1';
 
-type LocalDailySessionState = 'unknown' | 'checking' | 'ready' | 'missing';
+// A local game session belongs to an account, not a tab.  Daily work and the
+// career-detail editor deliberately share this state and the same main-process
+// game client.
+type LocalAccountSessionState = 'unknown' | 'checking' | 'ready' | 'missing';
+
+type LocalOfflineSetupResponse = {
+  success?: unknown;
+  offline_setup?: unknown;
+};
+
+const isMissingLocalGameSession = (error: unknown) => {
+  const message = String((error as Error)?.message || '');
+  return message.includes('请先登录') || message.includes('本地游戏会话');
+};
+
+function isOfflineSingleModeSetup(
+  value: unknown,
+): value is OfflineSingleModeSetup {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const setup = value as Record<string, unknown>;
+  const challenge = setup.training_challenge;
+  if (!challenge || typeof challenge !== 'object' || Array.isArray(challenge)) {
+    return false;
+  }
+  const challengeInfo = challenge as Record<string, unknown>;
+  return (
+    Number.isFinite(Number(setup.scenario_id)) &&
+    Number(setup.scenario_id) > 0 &&
+    typeof setup.scenario_name === 'string' &&
+    Array.isArray(setup.scenarios) &&
+    Array.isArray(setup.required_race_array) &&
+    Array.isArray(setup.race_decks) &&
+    typeof challengeInfo.available === 'boolean'
+  );
+}
 
 const defaultDailyTasksConfig = (): DailyTasksConfig => ({
   schema_version: 3,
@@ -561,6 +597,7 @@ export default function AutoResearch() {
   const [careerMode, setCareerMode] = useState<'online' | 'offline'>('online');
   const [offlineSetup, setOfflineSetup] =
     useState<OfflineSingleModeSetup | null>(null);
+  const [offlineSetupAccountId, setOfflineSetupAccountId] = useState('');
   const [offlineScenarioId, setOfflineScenarioId] = useState(0);
   const [offlineChallengeMode, setOfflineChallengeMode] = useState(false);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
@@ -581,8 +618,8 @@ export default function AutoResearch() {
     useState<DailyTasksResponse | null>(null);
   const [dailyTasksLoading, setDailyTasksLoading] = useState(false);
   const [dailyTasksLoadError, setDailyTasksLoadError] = useState('');
-  const [localDailySessionStates, setLocalDailySessionStates] = useState<
-    Record<string, LocalDailySessionState>
+  const [localAccountSessionStates, setLocalAccountSessionStates] = useState<
+    Record<string, LocalAccountSessionState>
   >({});
 
   const skillPriorityNames = useMemo(
@@ -609,8 +646,6 @@ export default function AutoResearch() {
     (serverAccount
       ? { ...emptyAccountOptions(), account: serverAccount }
       : undefined);
-  const loggedInAccount = accounts.find((account) => account.runtime.logged_in);
-  const loggedInAccountId = loggedInAccount?.id || '';
   const runner = session?.runtime?.runner || selectedAccount?.runtime.runner;
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
@@ -642,10 +677,9 @@ export default function AutoResearch() {
         : 'none';
   const serverHostedMode = sessionOwner === 'server';
   const localSessionMode = sessionOwner === 'local';
-  const localDailySessionState = selectedAccountId
-    ? localDailySessionStates[selectedAccountId] || 'unknown'
+  const localAccountSessionState = selectedAccountId
+    ? localAccountSessionStates[selectedAccountId] || 'unknown'
     : 'unknown';
-  const dailyLocalLoginMode = activeTab === 'daily' && !serverHostedMode;
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
@@ -1344,9 +1378,7 @@ export default function AutoResearch() {
 
   const loadAccountOptions = useCallback(
     (accountId: string, refresh = false): Promise<void> => {
-      if (!accountId || !sessionTokens.current.has(accountId)) {
-        return Promise.resolve();
-      }
+      if (!accountId) return Promise.resolve();
       const cached = accountOptionsCache.current.get(accountId);
       if (cached && !refresh) {
         applyAccountOptions(accountId, cached);
@@ -1355,10 +1387,33 @@ export default function AutoResearch() {
       const requestKey = `${accountId}:${refresh ? 'refresh' : 'cached'}`;
       const existing = accountOptionsRequests.current.get(requestKey);
       if (existing) return existing;
-      const promise = accountRequest<AccountOptionsResponse>(
-        accountId,
-        refresh ? '/api/account/options/refresh' : '/api/account/options',
-        refresh ? { method: 'POST', body: '{}' } : undefined,
+      const promise = (
+        serverHostedMode && sessionTokens.current.has(accountId)
+          ? accountRequest<AccountOptionsResponse>(
+              accountId,
+              refresh ? '/api/account/options/refresh' : '/api/account/options',
+              refresh ? { method: 'POST', body: '{}' } : undefined,
+            )
+          : window.electron.autoResearch
+              .localOverview(accountId)
+              .then((result) => {
+                const response = result as SessionResponse;
+                if (!response.success || !response.dashboard) {
+                  throw new Error('本地游戏没有返回账号详设数据');
+                }
+                return {
+                  success: true,
+                  options: {
+                    umas: response.dashboard.umas,
+                    supports: response.dashboard.supports,
+                    decks: response.dashboard.decks,
+                    parents: response.dashboard.parents,
+                    friends: response.dashboard.friends,
+                    friend_exclude_ids: response.dashboard.friend_exclude_ids,
+                    offline_scenarios: response.dashboard.offline_scenarios,
+                  },
+                } as AccountOptionsResponse;
+              })
       )
         .then((result) => applyAccountOptions(accountId, result.options))
         .finally(() => {
@@ -1367,7 +1422,7 @@ export default function AutoResearch() {
       accountOptionsRequests.current.set(requestKey, promise);
       return promise;
     },
-    [accountRequest, applyAccountOptions],
+    [accountRequest, applyAccountOptions, serverHostedMode],
   );
 
   const loadOverview = useCallback(
@@ -1378,20 +1433,32 @@ export default function AutoResearch() {
         activeConnectionAccountIdRef.current === accountId
       )
         return;
-      if (!sessionTokens.current.has(accountId)) {
-        setSession(null);
-        return;
-      }
       const requestVersion =
         overviewRequestVersions.current.get(accountId) || 0;
       const requestOrder = invalidateOverviewResponses(accountId);
       let result: SessionResponse;
       try {
-        result = await accountRequest<SessionResponse>(
-          accountId,
-          '/api/account/overview',
-        );
+        result =
+          serverHostedMode && sessionTokens.current.has(accountId)
+            ? await accountRequest<SessionResponse>(
+                accountId,
+                '/api/account/overview',
+              )
+            : ((await window.electron.autoResearch.localOverview(
+                accountId,
+              )) as SessionResponse);
       } catch (caught) {
+        if (!serverHostedMode && isMissingLocalGameSession(caught)) {
+          setLocalAccountSessionStates((current) => ({
+            ...current,
+            [accountId]: 'missing',
+          }));
+          if (selectedAccountIdRef.current === accountId) {
+            setSession(null);
+            updateRuntime(accountId, null);
+          }
+          return;
+        }
         if (
           disconnectingAccountIdRef.current === accountId ||
           activeConnectionAccountIdRef.current === accountId ||
@@ -1410,8 +1477,20 @@ export default function AutoResearch() {
       )
         return;
       commitOverviewResponse(accountId, result, requestOrder);
+      if (!serverHostedMode) {
+        setLocalAccountSessionStates((current) => ({
+          ...current,
+          [accountId]: 'ready',
+        }));
+      }
     },
-    [accountRequest, commitOverviewResponse, invalidateOverviewResponses],
+    [
+      accountRequest,
+      commitOverviewResponse,
+      invalidateOverviewResponses,
+      serverHostedMode,
+      updateRuntime,
+    ],
   );
 
   const attachExistingRuntime = useCallback(
@@ -1576,7 +1655,7 @@ export default function AutoResearch() {
             daily_tasks: { ...result.daily_tasks, ...localConfig },
           });
         }
-        setLocalDailySessionStates((current) => ({
+        setLocalAccountSessionStates((current) => ({
           ...current,
           [accountId]: 'ready',
         }));
@@ -1586,7 +1665,7 @@ export default function AutoResearch() {
           String((caught as Error).message || '').includes('请先登录') ||
           needsRelogin(caught);
         if (loginRequired) {
-          setLocalDailySessionStates((current) => ({
+          setLocalAccountSessionStates((current) => ({
             ...current,
             [accountId]: 'missing',
           }));
@@ -1611,7 +1690,7 @@ export default function AutoResearch() {
     [accounts],
   );
 
-  const loginDailyTasksLocally = useCallback(
+  const loginLocalAccount = useCallback(
     async (accountId: string) => {
       if (!accountId) return;
       if (serverHostedMode) {
@@ -1627,7 +1706,7 @@ export default function AutoResearch() {
       );
       if (!confirmed) return;
 
-      const operationId = `daily-local-login-${accountId}-${Date.now()}`;
+      const operationId = `local-login-${accountId}-${Date.now()}`;
       const loginId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const startedAt = Date.now();
       activeLoginOperation.current = operationId;
@@ -1635,7 +1714,7 @@ export default function AutoResearch() {
       setSelectedAccountId(accountId);
       setBusy(`login-${accountId}`);
       setError('');
-      setLocalDailySessionStates((current) => ({
+      setLocalAccountSessionStates((current) => ({
         ...current,
         [accountId]: 'checking',
       }));
@@ -1662,11 +1741,22 @@ export default function AutoResearch() {
       }, 250);
       try {
         await window.electron.autoResearch.loginSession(accountId, loginId);
-        const loaded = await loadDailyTasks(accountId);
-        if (!loaded) throw new Error('本地登录完成，但每日日常数据读取失败');
+        // The login IPC owns the client until it returns.  Release the UI-only
+        // guard before asking the same queued client for its dashboard.
+        if (activeConnectionAccountIdRef.current === accountId) {
+          activeConnectionAccountIdRef.current = '';
+        }
+        await loadOverview(accountId);
+        setLocalAccountSessionStates((current) => ({
+          ...current,
+          [accountId]: 'ready',
+        }));
+        if (activeTab === 'daily') {
+          await loadDailyTasks(accountId);
+        }
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
       } catch (caught) {
-        setLocalDailySessionStates((current) => ({
+        setLocalAccountSessionStates((current) => ({
           ...current,
           [accountId]: 'missing',
         }));
@@ -1681,7 +1771,43 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [loadDailyTasks, serverHostedMode],
+    [activeTab, loadDailyTasks, loadOverview, serverHostedMode],
+  );
+
+  const logoutLocalAccount = useCallback(
+    async (accountId: string) => {
+      if (!accountId) return;
+      if (serverHostedMode) {
+        setError('服务器托管任务运行中，不能清除本地游戏会话');
+        return;
+      }
+      if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
+        setError('另一个账号操作正在进行，请等待完成');
+        return;
+      }
+      setBusy(`logout-${accountId}`);
+      setError('');
+      try {
+        await window.electron.autoResearch.clearLocalSession(accountId);
+        accountOptionsCache.current.delete(accountId);
+        setLocalAccountSessionStates((current) => ({
+          ...current,
+          [accountId]: 'missing',
+        }));
+        if (selectedAccountIdRef.current === accountId) {
+          setSession(null);
+          updateRuntime(accountId, null);
+        }
+        if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
+          localStorage.removeItem(LAST_ACCOUNT_KEY);
+        }
+      } catch (caught) {
+        setError((caught as Error).message);
+      } finally {
+        setBusy('');
+      }
+    },
+    [serverHostedMode, updateRuntime],
   );
 
   const saveDailyTasks = useCallback(
@@ -1916,25 +2042,31 @@ export default function AutoResearch() {
   useEffect(() => {
     if (!selectedAccountId) {
       setSession(null);
-      return;
+      return undefined;
     }
-    loadOverview(selectedAccountId).catch((caught) =>
-      setError((caught as Error).message),
-    );
-  }, [loadOverview, selectedAccountId]);
-
-  useEffect(() => {
-    if (
-      !server ||
-      !selectedAccountId ||
-      sessionTokens.current.has(selectedAccountId)
-    ) {
-      return;
-    }
-    attachExistingRuntime(selectedAccountId).catch((caught) =>
-      setError((caught as Error).message),
-    );
-  }, [attachExistingRuntime, selectedAccountId, server]);
+    const accountId = selectedAccountId;
+    let cancelled = false;
+    (async () => {
+      // A server Worker may already own this account.  Attach/read that state
+      // first; only fall back to Electron's local game client when no hosted
+      // task exists, never race the two SID owners.
+      if (server && !sessionTokens.current.has(accountId)) {
+        try {
+          if (await attachExistingRuntime(accountId)) return;
+        } catch (caught) {
+          if (!cancelled) setError((caught as Error).message);
+          return;
+        }
+      }
+      if (cancelled || selectedAccountIdRef.current !== accountId) return;
+      loadOverview(accountId).catch((caught) => {
+        if (!cancelled) setError((caught as Error).message);
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachExistingRuntime, loadOverview, selectedAccountId, server]);
 
   useEffect(() => {
     if (
@@ -1981,6 +2113,8 @@ export default function AutoResearch() {
   }, [careerSettings, selectedAccount?.uid, selectedCareerSettingId]);
 
   useEffect(() => {
+    setSession(null);
+    setBusy('');
     setSelectedCareerSettingId('');
     setCareerSettingName('');
     setCareerPresetName('');
@@ -1993,6 +2127,13 @@ export default function AutoResearch() {
     setDailyTasksOverview(null);
     setDailyTasksLoading(false);
     setDailyTasksLoadError('');
+    setOfflineSetup(null);
+    setOfflineSetupAccountId('');
+    setOfflineScenarioId(0);
+    setOfflineChallengeMode(false);
+    setOfflineRaceDeckNum(0);
+    setOfflineRaceDeckName('');
+    setOfflineRaceIds([]);
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -2016,35 +2157,26 @@ export default function AutoResearch() {
   ]);
 
   useEffect(() => {
-    if (activeTab !== 'daily' || !selectedAccountId || serverHostedMode) {
+    if (
+      activeTab !== 'daily' ||
+      !selectedAccountId ||
+      serverHostedMode ||
+      localAccountSessionState !== 'ready'
+    ) {
       return undefined;
     }
     const accountId = selectedAccountId;
     let cancelled = false;
-    setLocalDailySessionStates((current) => ({
-      ...current,
-      [accountId]: 'checking',
-    }));
     (async () => {
       try {
-        const currentSession =
-          await window.electron.autoResearch.currentSession(accountId);
-        if (cancelled || selectedAccountIdRef.current !== accountId) return;
-        if (!currentSession?.sid) {
-          setDailyTasksOverview(null);
-          setDailyTasksLoadError('');
-          setLocalDailySessionStates((current) => ({
-            ...current,
-            [accountId]: 'missing',
-          }));
-          return;
-        }
         await loadDailyTasks(accountId);
       } catch (caught) {
         if (cancelled || selectedAccountIdRef.current !== accountId) return;
-        setLocalDailySessionStates((current) => ({
+        setLocalAccountSessionStates((current) => ({
           ...current,
-          [accountId]: 'missing',
+          [accountId]: isMissingLocalGameSession(caught)
+            ? 'missing'
+            : current[accountId] || 'ready',
         }));
         setError((caught as Error).message);
       }
@@ -2052,7 +2184,13 @@ export default function AutoResearch() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, loadDailyTasks, serverHostedMode, selectedAccountId]);
+  }, [
+    activeTab,
+    loadDailyTasks,
+    localAccountSessionState,
+    selectedAccountId,
+    serverHostedMode,
+  ]);
 
   useEffect(() => {
     if (!selectedAccountId || !automationActive) return undefined;
@@ -2263,7 +2401,9 @@ export default function AutoResearch() {
     action: 'login' | 'logout' | 'refresh',
   ) => {
     const otherLoggedInAccount = accounts.find(
-      (account) => account.runtime.logged_in && account.id !== accountId,
+      (account) =>
+        runtimeSessionOwner(account.runtime) === 'server' &&
+        account.id !== accountId,
     );
     const otherConnectedAccountId = Array.from(
       sessionTokens.current.keys(),
@@ -2656,9 +2796,43 @@ export default function AutoResearch() {
     }
   };
 
+  const ensureServerTaskSession = async (accountId: string) => {
+    if (!server) {
+      setError('启动后台任务前，请先连接自动育成服务器');
+      return false;
+    }
+
+    // A server Worker owns a different long-running game client.  Hand the
+    // account over only after dropping Electron's client/SID, so it cannot be
+    // used again after the server establishes its own session. Do this even
+    // when a Worker is already attached: a stale local SID must never remain
+    // available as a fallback owner.
+    try {
+      await window.electron.autoResearch.clearLocalSession(accountId);
+      setLocalAccountSessionStates((current) => ({
+        ...current,
+        [accountId]: 'missing',
+      }));
+    } catch (caught) {
+      setError(`无法移交本地游戏会话：${(caught as Error).message}`);
+      return false;
+    }
+
+    if (serverHostedMode && sessionTokens.current.has(accountId)) return true;
+
+    // accountAction intentionally reports UI errors instead of rethrowing.
+    // Remove any stale bearer first, otherwise a failed server login could be
+    // mistaken for success merely because an old token remains in this map.
+    sessionTokens.current.delete(accountId);
+    await accountAction(accountId, 'login');
+    return sessionTokens.current.has(accountId);
+  };
+
   const exitAutoResearchLogin = async () => {
     if (selectedAccountId && sessionTokens.current.has(selectedAccountId)) {
       await accountAction(selectedAccountId, 'logout');
+    } else if (selectedAccountId) {
+      await logoutLocalAccount(selectedAccountId);
     }
     setServer('');
     setHealth(null);
@@ -2689,10 +2863,11 @@ export default function AutoResearch() {
 
   const refreshCurrentAccount = () => {
     if (!selectedAccountId) return;
-    accountAction(
-      selectedAccountId,
-      serverHostedMode || localSessionMode ? 'refresh' : 'login',
-    ).catch(() => undefined);
+    if (serverHostedMode) {
+      accountAction(selectedAccountId, 'refresh').catch(() => undefined);
+      return;
+    }
+    loginLocalAccount(selectedAccountId).catch(() => undefined);
   };
 
   const deleteAccount = async (accountId: string) => {
@@ -2982,6 +3157,7 @@ export default function AutoResearch() {
       setError(selectionConflict);
       return false;
     }
+    if (!(await ensureServerTaskSession(selectedAccountId))) return false;
     setBusy('run');
     setError('');
     try {
@@ -3059,6 +3235,7 @@ export default function AutoResearch() {
         : currentDeck?.support_card_ids.length === 5
           ? currentDeck.support_card_ids
           : setting.support_card_ids || [];
+    if (!(await ensureServerTaskSession(selectedAccountId))) return false;
     setBusy(busyKey);
     setError('');
     try {
@@ -3326,6 +3503,7 @@ export default function AutoResearch() {
       setCareerSettingName('');
       setCareerPresetName('');
       setOfflineSetup(null);
+      setOfflineSetupAccountId('');
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
@@ -3335,6 +3513,12 @@ export default function AutoResearch() {
 
   const refreshIdleSingleMode = async () => {
     if (!selectedAccountId) return;
+    if (!serverHostedMode) {
+      await loadOverview(selectedAccountId).catch((caught) =>
+        setError((caught as Error).message),
+      );
+      return;
+    }
     setBusy('idle-single-mode-refresh');
     setError('');
     try {
@@ -3617,6 +3801,7 @@ export default function AutoResearch() {
     }
     setCareerSaveOpen(false);
     setOfflineSetup(null);
+    setOfflineSetupAccountId('');
     setError('');
   };
 
@@ -3710,6 +3895,7 @@ export default function AutoResearch() {
     setRecoverTpWithItem(Boolean(setting.recover_tp_with_item));
     setRecoverTpWithJewels(Boolean(setting.recover_tp_with_jewels));
     setOfflineSetup(null);
+    setOfflineSetupAccountId('');
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
     setOfflineChallengeMode(Boolean(setting.offline_training_challenge_mode));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
@@ -3758,6 +3944,7 @@ export default function AutoResearch() {
     setRecoverTpWithItem(false);
     setRecoverTpWithJewels(false);
     setOfflineSetup(null);
+    setOfflineSetupAccountId('');
     setOfflineScenarioId(0);
     setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
@@ -3893,7 +4080,7 @@ export default function AutoResearch() {
     });
   };
 
-  const offlineSelectionRequest = () => ({
+  const offlineSelectionRequest = (scenarioOverride?: number) => ({
     card_id: effectiveCardId,
     support_card_ids: effectiveSupportCardIds,
     friend_viewer_id: 0,
@@ -3906,7 +4093,8 @@ export default function AutoResearch() {
     parent_2_viewer_id:
       selectedParent2?.viewer_id ||
       parentViewerIdFromSelection(effectiveParentKey2),
-    scenario_id: offlineSetup?.scenario_id || offlineScenarioId,
+    scenario_id:
+      scenarioOverride ?? offlineSetup?.scenario_id ?? offlineScenarioId,
     deck_id: effectiveDeckId || 1,
     use_tp: 15,
     recover_tp_with_item: recoverTpWithItem,
@@ -3935,6 +4123,15 @@ export default function AutoResearch() {
 
   const prepareOfflineCareer = async () => {
     if (!selectedAccountId) return;
+    const accountId = selectedAccountId;
+    if (
+      automationActive ||
+      currentCareerActive ||
+      currentIdleSingleMode?.active
+    ) {
+      setError('当前账号已有进行中的育成或后台任务，不能修改离线育成准备');
+      return;
+    }
     if (
       !effectiveCardId ||
       !effectiveDeckId ||
@@ -3952,44 +4149,55 @@ export default function AutoResearch() {
     setBusy('idle-prepare');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/idle-single-mode/prepare',
-        {
-          method: 'POST',
-          body: JSON.stringify(offlineSelectionRequest()),
-        },
-      );
-      if (!result.offline_setup) {
+      const result = (await window.electron.autoResearch.prepareIdleSingleMode(
+        accountId,
+        offlineSelectionRequest(offlineScenarioId),
+      )) as LocalOfflineSetupResponse;
+      if (!isOfflineSingleModeSetup(result?.offline_setup)) {
         throw new Error('游戏没有返回离线育成赛程信息');
       }
-      commitOverviewResponse(selectedAccountId, result);
-      setOfflineSetup(result.offline_setup);
+      if (selectedAccountIdRef.current !== accountId) return;
+      const setup = result.offline_setup;
+      setOfflineSetup(setup);
+      setOfflineSetupAccountId(accountId);
       setOfflineChallengeMode((current) =>
-        result.offline_setup?.training_challenge.available ? current : false,
+        setup.training_challenge.available ? current : false,
       );
       selectOfflineRaceDeck(
-        result.offline_setup,
+        setup,
         offlineRaceDeckNum || selectedCareerSetting?.offline_race_deck_num,
       );
     } catch (caught) {
-      setError((caught as Error).message);
+      if (selectedAccountIdRef.current === accountId) {
+        setError((caught as Error).message);
+      }
     } finally {
-      setBusy('');
+      if (selectedAccountIdRef.current === accountId) setBusy('');
     }
   };
 
   const saveOfflineRaceDeck = async () => {
     if (!selectedAccountId || !offlineSetup || !offlineRaceDeckNum) return;
+    const accountId = selectedAccountId;
+    if (offlineSetupAccountId !== accountId) {
+      setError('当前账号的离线赛程尚未读取，请重新读取后再保存');
+      return;
+    }
+    if (
+      automationActive ||
+      currentCareerActive ||
+      currentIdleSingleMode?.active
+    ) {
+      setError('当前账号已有进行中的育成或后台任务，不能修改离线赛程');
+      return;
+    }
     setBusy('idle-race-deck');
     setError('');
     try {
-      const result = await accountRequest<SessionResponse>(
-        selectedAccountId,
-        '/api/account/idle-single-mode/race-deck',
-        {
-          method: 'POST',
-          body: JSON.stringify({
+      const result =
+        (await window.electron.autoResearch.saveIdleSingleModeRaceDeck(
+          accountId,
+          {
             card_id: effectiveCardId,
             scenario_id: offlineSetup.scenario_id,
             deck_num: offlineRaceDeckNum,
@@ -4000,17 +4208,22 @@ export default function AutoResearch() {
               program_id: id % 100000,
             })),
             is_default: offlineSetup.default_deck_num === offlineRaceDeckNum,
-          }),
-        },
-      );
-      if (result.offline_setup) {
-        setOfflineSetup(result.offline_setup);
-        selectOfflineRaceDeck(result.offline_setup, offlineRaceDeckNum);
+          },
+        )) as LocalOfflineSetupResponse;
+      if (!isOfflineSingleModeSetup(result?.offline_setup)) {
+        throw new Error('游戏没有返回有效的离线育成赛程信息');
       }
+      if (selectedAccountIdRef.current !== accountId) return;
+      const setup = result.offline_setup;
+      setOfflineSetup(setup);
+      setOfflineSetupAccountId(accountId);
+      selectOfflineRaceDeck(setup, offlineRaceDeckNum);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (selectedAccountIdRef.current === accountId) {
+        setError((caught as Error).message);
+      }
     } finally {
-      setBusy('');
+      if (selectedAccountIdRef.current === accountId) setBusy('');
     }
   };
 
@@ -4020,6 +4233,11 @@ export default function AutoResearch() {
       return false;
     }
     const accountId = selectedAccountId;
+    if (offlineSetupAccountId !== accountId) {
+      setError('当前账号的离线赛程尚未读取，请重新读取后再开始');
+      return false;
+    }
+    if (!(await ensureServerTaskSession(accountId))) return false;
     setBusy('idle-start');
     setError('');
     try {
@@ -4053,15 +4271,19 @@ export default function AutoResearch() {
           }),
         },
       );
+      if (selectedAccountIdRef.current !== accountId) return false;
       commitOverviewResponse(accountId, result);
       setCareerSaveOpen(false);
       setOfflineSetup(null);
+      setOfflineSetupAccountId('');
       return true;
     } catch (caught) {
-      setError((caught as Error).message);
+      if (selectedAccountIdRef.current === accountId) {
+        setError((caught as Error).message);
+      }
       return false;
     } finally {
-      setBusy('');
+      if (selectedAccountIdRef.current === accountId) setBusy('');
     }
   };
 
@@ -5088,33 +5310,31 @@ export default function AutoResearch() {
                   ? 'UmaShow 本地每日日常'
                   : '本地预设编辑'}
             </p>
-            {(server || activeTab === 'daily') && selectedAccount ? (
+            {selectedAccount ? (
               <span
                 className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                   serverHostedMode
                     ? 'bg-violet-100 text-violet-700'
-                    : localSessionMode || localDailySessionState === 'ready'
+                    : localSessionMode || localAccountSessionState === 'ready'
                       ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-slate-100 text-slate-500'
                 }`}
               >
                 {serverHostedMode
                   ? '服务器托管模式 · 本地游戏 API 已禁用'
-                  : localSessionMode || localDailySessionState === 'ready'
+                  : localSessionMode || localAccountSessionState === 'ready'
                     ? '本地模式 · 可登录、刷新和配置'
                     : '未登录游戏 · 等待本地登录'}
               </span>
             ) : null}
           </div>
-          {server || activeTab === 'daily' ? (
+          {selectedAccount ? (
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  if (dailyLocalLoginMode && selectedAccountId) {
-                    loginDailyTasksLocally(selectedAccountId).catch(
-                      () => undefined,
-                    );
+                  if (!serverHostedMode && selectedAccountId) {
+                    loginLocalAccount(selectedAccountId).catch(() => undefined);
                     return;
                   }
                   refreshCurrentAccount();
@@ -5123,11 +5343,6 @@ export default function AutoResearch() {
                   !selectedAccountId ||
                   Boolean(disconnectingAccountId) ||
                   Boolean(checkingExistingRuntimeAccountId) ||
-                  (!dailyLocalLoginMode &&
-                    Boolean(
-                      loggedInAccountId &&
-                        loggedInAccountId !== selectedAccountId,
-                    )) ||
                   busy === `refresh-${selectedAccountId}` ||
                   busy === `login-${selectedAccountId}`
                 }
@@ -5143,17 +5358,13 @@ export default function AutoResearch() {
                     : '重新登录中…'
                   : busy === `login-${selectedAccountId}`
                     ? '登录中…'
-                    : dailyLocalLoginMode
-                      ? localDailySessionState === 'ready'
+                    : serverHostedMode
+                      ? '刷新服务器状态'
+                      : localAccountSessionState === 'ready'
                         ? '重新登录'
-                        : '登录并读取最新数据'
-                      : serverHostedMode
-                        ? '刷新服务器状态'
-                        : localSessionMode
-                          ? '重新登录'
-                          : '登录本地模式'}
+                        : '登录本地模式'}
               </button>
-              {!dailyLocalLoginMode ? (
+              {serverHostedMode ? (
                 <button
                   type="button"
                   onClick={() => exitAutoResearchLogin().catch(() => undefined)}
@@ -5370,7 +5581,20 @@ export default function AutoResearch() {
                         <>
                           <button
                             type="button"
-                            onClick={() => accountAction(account.id, 'refresh')}
+                            onClick={() => {
+                              if (
+                                runtimeSessionOwner(account.runtime) ===
+                                'server'
+                              ) {
+                                accountAction(account.id, 'refresh').catch(
+                                  () => undefined,
+                                );
+                                return;
+                              }
+                              loginLocalAccount(account.id).catch(
+                                () => undefined,
+                              );
+                            }}
                             disabled={
                               Boolean(loginProgress) ||
                               Boolean(disconnectingAccountId) ||
@@ -5414,7 +5638,20 @@ export default function AutoResearch() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => accountAction(account.id, 'logout')}
+                            onClick={() => {
+                              if (
+                                runtimeSessionOwner(account.runtime) ===
+                                'server'
+                              ) {
+                                accountAction(account.id, 'logout').catch(
+                                  () => undefined,
+                                );
+                                return;
+                              }
+                              logoutLocalAccount(account.id).catch(
+                                () => undefined,
+                              );
+                            }}
                             disabled={Boolean(
                               busy || loginProgress || disconnectingAccountId,
                             )}
@@ -5429,12 +5666,11 @@ export default function AutoResearch() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => accountAction(account.id, 'login')}
+                          onClick={() =>
+                            loginLocalAccount(account.id).catch(() => undefined)
+                          }
                           disabled={Boolean(
-                            loginProgress ||
-                              disconnectingAccountId ||
-                              (loggedInAccountId &&
-                                loggedInAccountId !== account.id),
+                            loginProgress || disconnectingAccountId,
                           )}
                           className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                         >
@@ -5443,10 +5679,7 @@ export default function AutoResearch() {
                             ? `登录中 ${loginProgress.elapsed}s`
                             : loginProgress
                               ? '等待登录'
-                              : loggedInAccountId &&
-                                  loggedInAccountId !== account.id
-                                ? '已有账号登录'
-                                : '登录并读取'}
+                              : '登录并读取'}
                         </button>
                       )}
                       <button
@@ -5472,20 +5705,7 @@ export default function AutoResearch() {
           </aside>
 
           <main className="space-y-4 min-w-0">
-            {!server && !['presets', 'daily'].includes(activeTab) ? (
-              <section className={panelClass('p-12 text-center')}>
-                <LogIn className="mx-auto text-slate-300" size={42} />
-                <h2 className="mt-3 font-bold text-slate-800">请先登录</h2>
-                <button
-                  type="button"
-                  onClick={() => setLoginSettingsOpen(true)}
-                  className="mt-5 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                >
-                  <LogIn size={16} />
-                  登录
-                </button>
-              </section>
-            ) : activeTab !== 'presets' && !selectedAccount ? (
+            {activeTab !== 'presets' && !selectedAccount ? (
               <section
                 className={panelClass('p-12 text-center text-slate-400')}
               >
@@ -5540,10 +5760,9 @@ export default function AutoResearch() {
                 </div>
               </section>
             ) : activeTab !== 'presets' &&
-              (activeTab === 'daily'
-                ? !serverHostedMode && localDailySessionState === 'missing'
-                : (!selectedAccount?.runtime.logged_in || !dashboard) &&
-                  !automationActive) ? (
+              !automationActive &&
+              (!dashboard ||
+                (!serverHostedMode && localAccountSessionState !== 'ready')) ? (
               <section className={panelClass('p-12 text-center')}>
                 {activeTab !== 'daily' &&
                 checkingExistingRuntimeAccountId === selectedAccount?.id ? (
@@ -5555,14 +5774,11 @@ export default function AutoResearch() {
                   <LogIn className="mx-auto text-slate-300" size={42} />
                 )}
                 <h2 className="mt-3 font-bold text-slate-800">
-                  {activeTab === 'daily'
-                    ? '请先登录'
-                    : checkingExistingRuntimeAccountId === selectedAccount?.id
-                      ? '正在连接账号'
-                      : '登录并读取本账号的最新育成数据'}
+                  {checkingExistingRuntimeAccountId === selectedAccount?.id
+                    ? '正在连接服务器上的托管任务'
+                    : '登录并读取本账号的最新育成数据'}
                 </h2>
-                {activeTab === 'daily' ||
-                missingExistingRuntimeAccountId === selectedAccount?.id ? (
+                {missingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
                     <AlertTriangle size={18} className="mt-0.5 flex-none" />
                     <span>
@@ -5574,20 +5790,13 @@ export default function AutoResearch() {
                   <button
                     type="button"
                     onClick={() =>
-                      selectedAccount &&
-                      (activeTab === 'daily'
-                        ? loginDailyTasksLocally(selectedAccount.id)
-                        : accountAction(selectedAccount.id, 'login'))
+                      selectedAccount && loginLocalAccount(selectedAccount.id)
                     }
                     disabled={Boolean(
                       loginProgress ||
                         disconnectingAccountId ||
-                        (activeTab !== 'daily' &&
-                          checkingExistingRuntimeAccountId ===
-                            selectedAccount?.id) ||
-                        (activeTab !== 'daily' &&
-                          loggedInAccountId &&
-                          loggedInAccountId !== selectedAccount?.id),
+                        checkingExistingRuntimeAccountId ===
+                          selectedAccount?.id,
                     )}
                     className="rounded-md bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
                   >
@@ -5595,17 +5804,12 @@ export default function AutoResearch() {
                       ? `登录中 ${loginProgress?.elapsed || 0}s · ${loginProgress?.detail || '正在连接登录服务'}`
                       : loginProgress
                         ? '请等待其他账号登录完成'
-                        : activeTab === 'daily'
-                          ? '登录并读取最新数据'
-                          : checkingExistingRuntimeAccountId ===
-                              selectedAccount?.id
-                            ? '正在连接账号'
-                            : disconnectingAccountId
-                              ? '请等待账号退出完成'
-                              : loggedInAccountId &&
-                                  loggedInAccountId !== selectedAccount?.id
-                                ? '请先退出当前账号'
-                                : '登录并读取最新数据'}
+                        : checkingExistingRuntimeAccountId ===
+                            selectedAccount?.id
+                          ? '正在连接账号'
+                          : disconnectingAccountId
+                            ? '请等待账号退出完成'
+                            : '登录并读取最新数据'}
                   </button>
                   {activeTab !== 'daily' ? (
                     <button
@@ -5903,6 +6107,7 @@ export default function AutoResearch() {
                     changeOfflineScenario={(selectedScenarioId) => {
                       setOfflineScenarioId(selectedScenarioId);
                       setOfflineSetup(null);
+                      setOfflineSetupAccountId('');
                       setOfflineChallengeMode(false);
                       setOfflineRaceDeckNum(0);
                       setOfflineRaceDeckName('');
@@ -5917,6 +6122,7 @@ export default function AutoResearch() {
                     setOfflineRaceIds={setOfflineRaceIds}
                     resetOfflineCareer={() => {
                       setOfflineSetup(null);
+                      setOfflineSetupAccountId('');
                       setOfflineRaceDeckNum(0);
                       setOfflineRaceDeckName('');
                       setOfflineRaceIds([]);
@@ -6001,8 +6207,8 @@ export default function AutoResearch() {
                     overview={dailyTasksOverview}
                     loading={
                       dailyTasksLoading ||
-                      localDailySessionState === 'unknown' ||
-                      localDailySessionState === 'checking' ||
+                      localAccountSessionState === 'unknown' ||
+                      localAccountSessionState === 'checking' ||
                       checkingExistingRuntimeAccountId === selectedAccountId
                     }
                     loadError={dailyTasksLoadError}
