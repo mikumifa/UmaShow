@@ -6019,17 +6019,17 @@ export default function AutoResearch() {
                         : activeTab === 'daily'
                           ? '登录'
                           : checkingExistingRuntimeAccountId ===
-                            selectedAccount?.id
-                          ? '正在检查已有养马'
-                          : missingExistingRuntimeAccountId !==
                               selectedAccount?.id
-                            ? '等待服务端检查'
-                            : disconnectingAccountId
-                              ? '请等待账号退出完成'
-                              : loggedInAccountId &&
-                                  loggedInAccountId !== selectedAccount?.id
-                                ? '请先退出当前账号'
-                                : '登录并读取最新数据'}
+                            ? '正在检查已有养马'
+                            : missingExistingRuntimeAccountId !==
+                                selectedAccount?.id
+                              ? '等待服务端检查'
+                              : disconnectingAccountId
+                                ? '请等待账号退出完成'
+                                : loggedInAccountId &&
+                                    loggedInAccountId !== selectedAccount?.id
+                                  ? '请先退出当前账号'
+                                  : '登录并读取最新数据'}
                   </button>
                   {activeTab !== 'daily' ? (
                     <button
