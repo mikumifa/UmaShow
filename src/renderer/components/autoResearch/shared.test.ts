@@ -11,6 +11,10 @@ describe('describeLogAction', () => {
     expect(describeLogAction('venus_spirit_use')).toBe('发动女神知识');
     expect(describeLogAction('venus_race_progress')).toBe('女神杯比赛');
   });
+
+  it('describes settings updates in Chinese', () => {
+    expect(describeLogAction('settings_updated')).toBe('详设已更新');
+  });
 });
 
 describe('online scenario presets', () => {

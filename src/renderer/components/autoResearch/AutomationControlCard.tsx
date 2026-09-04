@@ -325,7 +325,7 @@ export default function AutomationControlCard({
       ) : null}
 
       {!queue?.active && !repeatDaily && runMode === 'jewel_drops' ? (
-        <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50/60 px-2.5 py-1.5 text-xs text-violet-700">
+        <label className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50/60 px-2.5 py-1.5 text-xs text-violet-700">
           {repeatDaily ? '每天累计达到' : '从现在起获得'}
           <input
             type="number"

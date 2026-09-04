@@ -1,12 +1,11 @@
 /* eslint-disable no-nested-ternary */
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Activity,
   CircleStop,
   Database,
-  Gem,
   RefreshCw,
   Trash2,
-  Trophy,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -48,6 +47,224 @@ type ProgressTabProps = {
   idleSingleMode?: SessionAccount['idle_single_mode'];
   abandonCareer: () => Promise<void>;
 };
+
+type StatDelta = {
+  id: number;
+  amount: number;
+};
+
+type AnimatedStatValueProps = {
+  label: string;
+  value?: number;
+  resetKey: string;
+};
+
+type AnimatedStatNumberProps = {
+  value?: number;
+  resetKey: string;
+  className?: string;
+};
+
+function FloatingStatDelta({
+  delta,
+  onFinished,
+}: {
+  delta: StatDelta;
+  onFinished: (id: number) => void;
+}) {
+  const elementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return undefined;
+
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+    if (reducedMotion) {
+      const timeout = window.setTimeout(() => onFinished(delta.id), 650);
+      return () => window.clearTimeout(timeout);
+    }
+
+    const animation = element.animate(
+      [
+        { opacity: 0, transform: 'translate(-50%, 6px) scale(0.85)' },
+        {
+          opacity: 1,
+          offset: 0.12,
+          transform: 'translate(-50%, -1px) scale(1)',
+        },
+        {
+          opacity: 1,
+          offset: 0.38,
+          transform: 'translate(-50%, -4px) scale(1)',
+        },
+        {
+          opacity: 1,
+          offset: 0.78,
+          transform: 'translate(-50%, -20px) scale(1)',
+        },
+        { opacity: 0, transform: 'translate(-50%, -30px) scale(0.94)' },
+      ],
+      {
+        duration: 2800,
+        easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        fill: 'forwards',
+      },
+    );
+    const finish = () => onFinished(delta.id);
+    animation.addEventListener('finish', finish);
+    return () => {
+      animation.removeEventListener('finish', finish);
+      animation.cancel();
+    };
+  }, [delta.id, onFinished]);
+
+  return (
+    <span
+      ref={elementRef}
+      className={`pointer-events-none absolute bottom-3 left-1/2 z-10 whitespace-nowrap text-lg font-black tabular-nums drop-shadow-sm ${
+        delta.amount > 0 ? 'text-emerald-600' : 'text-red-600'
+      }`}
+    >
+      {delta.amount > 0 ? '+' : ''}
+      {delta.amount}
+    </span>
+  );
+}
+
+function AnimatedStatNumber({
+  value,
+  resetKey,
+  className,
+}: AnimatedStatNumberProps) {
+  const normalizedValue =
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  const [displayedValue, setDisplayedValue] = useState(normalizedValue);
+  const [deltas, setDeltas] = useState<StatDelta[]>([]);
+  const resetKeyRef = useRef(resetKey);
+  const targetValueRef = useRef(normalizedValue);
+  const displayedValueRef = useRef(normalizedValue);
+  const animationFrameRef = useRef<number | undefined>(undefined);
+  const deltaIdRef = useRef(0);
+  const valueElementRef = useRef<HTMLSpanElement>(null);
+
+  const removeDelta = useCallback((id: number) => {
+    setDeltas((current) => current.filter((delta) => delta.id !== id));
+  }, []);
+
+  useEffect(() => {
+    const reset = resetKeyRef.current !== resetKey;
+    const previousTarget = targetValueRef.current;
+    resetKeyRef.current = resetKey;
+    targetValueRef.current = normalizedValue;
+
+    if (animationFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
+    if (
+      reset ||
+      previousTarget === undefined ||
+      normalizedValue === undefined
+    ) {
+      displayedValueRef.current = normalizedValue;
+      setDisplayedValue(normalizedValue);
+      setDeltas([]);
+      return undefined;
+    }
+
+    const amount = normalizedValue - previousTarget;
+    if (!amount) {
+      displayedValueRef.current = normalizedValue;
+      setDisplayedValue(normalizedValue);
+      return undefined;
+    }
+
+    deltaIdRef.current += 1;
+    setDeltas((current) => [
+      ...current.slice(-2),
+      { id: deltaIdRef.current, amount },
+    ]);
+
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+    if (reducedMotion) {
+      displayedValueRef.current = normalizedValue;
+      setDisplayedValue(normalizedValue);
+      return undefined;
+    }
+
+    valueElementRef.current?.animate(
+      [
+        { transform: 'translateY(2px) scale(0.92)', opacity: 0.65 },
+        { transform: 'translateY(-1px) scale(1.08)', opacity: 1 },
+        { transform: 'translateY(0) scale(1)', opacity: 1 },
+      ],
+      { duration: 720, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+    );
+
+    const from = displayedValueRef.current ?? previousTarget;
+    const startedAt = performance.now();
+    const duration = 950;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - (1 - progress) ** 3;
+      const nextDisplayedValue = Math.round(
+        from + (normalizedValue - from) * eased,
+      );
+      displayedValueRef.current = nextDisplayedValue;
+      setDisplayedValue(nextDisplayedValue);
+      if (progress < 1) {
+        animationFrameRef.current = window.requestAnimationFrame(tick);
+      } else {
+        animationFrameRef.current = undefined;
+      }
+    };
+    animationFrameRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      if (animationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
+      }
+    };
+  }, [normalizedValue, resetKey]);
+
+  return (
+    <span className="relative inline-flex min-h-7 items-end">
+      {deltas.map((delta) => (
+        <FloatingStatDelta
+          key={delta.id}
+          delta={delta}
+          onFinished={removeDelta}
+        />
+      ))}
+      <span
+        ref={valueElementRef}
+        className={
+          className ||
+          'origin-bottom text-xl font-bold tabular-nums text-slate-800'
+        }
+      >
+        {displayedValue ?? '-'}
+      </span>
+    </span>
+  );
+}
+
+function AnimatedStatValue({ label, value, resetKey }: AnimatedStatValueProps) {
+  return (
+    <div className="relative min-w-[92px] bg-white px-4 py-3">
+      <p className="text-xs text-slate-400">{label}</p>
+      <div className="mt-1">
+        <AnimatedStatNumber value={value} resetKey={resetKey} />
+      </div>
+    </div>
+  );
+}
 
 function visibleRunnerLog(runner?: Runner) {
   const visibleRows = (runner?.log || []).filter(
@@ -134,6 +351,10 @@ export default function ProgressTab({
     busy === 'stop' || runner?.control?.desired_state === 'stopped';
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
+  const statAnimationResetKey =
+    runner?.run_id ||
+    runner?.state_epoch ||
+    `${activeCareer?.card_id || currentCareerUma?.id || 'career'}:${activeCareer?.scenario_id || 0}`;
   const activeQueue =
     runner?.run_plan?.queue || runner?.control?.detail?.run_queue;
   const activeQueueItem = activeQueue?.items?.[activeQueue.current_index];
@@ -159,9 +380,6 @@ export default function ProgressTab({
       (message, index, messages) =>
         Boolean(message) && messages.indexOf(message) === index,
     );
-  const runnerG123RaceCount = Object.values(
-    runner?.g123_race_counts || {},
-  ).reduce((sum, count) => sum + Number(count || 0), 0);
   const queuedControl = Boolean(
     runner?.control?.desired_state === 'running' &&
       !runner?.running &&
@@ -322,14 +540,8 @@ export default function ProgressTab({
           </div>
         ) : null}
 
-        {runnerPaused ? (
-          <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            原计划及已完成进度已保留
-          </div>
-        ) : null}
-
         {!offlineMode ? (
-          <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-3 xl:grid-cols-6">
+          <div className="mt-5 inline-grid max-w-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-100 sm:grid-cols-3 xl:grid-cols-9">
             {[
               ['速度', currentRunnerStats.speed],
               ['耐力', currentRunnerStats.stamina],
@@ -338,16 +550,55 @@ export default function ProgressTab({
               ['智力', currentRunnerStats.wit],
               ['PT', currentRunnerStats.skill_point],
             ].map(([label, value]) => (
-              <div
+              <AnimatedStatValue
                 key={String(label)}
-                className="border-b border-r border-slate-100 px-4 py-3 last:border-r-0 sm:border-b-0"
-              >
-                <p className="text-xs text-slate-400">{label}</p>
-                <p className="mt-1 text-xl font-bold text-slate-800">
-                  {value ?? '-'}
-                </p>
-              </div>
+                label={String(label)}
+                value={typeof value === 'number' ? value : undefined}
+                resetKey={statAnimationResetKey}
+              />
             ))}
+            <div className="min-w-[112px] bg-white px-4 py-3">
+              <p className="text-xs text-slate-400">大差</p>
+              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
+                <AnimatedStatNumber
+                  value={runner?.large_margin_count || 0}
+                  resetKey={statAnimationResetKey}
+                />
+                <span className="pb-0.5 text-xs">场</span>
+              </div>
+            </div>
+            <div className="min-w-[132px] bg-white px-4 py-3">
+              <p className="text-xs text-slate-400">本局宝石</p>
+              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
+                <AnimatedStatNumber
+                  value={runner?.jewel_drop_count || 0}
+                  resetKey={statAnimationResetKey}
+                />
+                <span className="pb-0.5 text-xs">次 /</span>
+                <AnimatedStatNumber
+                  value={runner?.jewels_earned || 0}
+                  resetKey={statAnimationResetKey}
+                  className="origin-bottom text-lg font-bold tabular-nums text-slate-700"
+                />
+                <span className="pb-0.5 text-xs">个</span>
+              </div>
+            </div>
+            <div className="min-w-[112px] bg-white px-4 py-3">
+              <p className="text-xs text-slate-400">今日宝石</p>
+              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
+                <AnimatedStatNumber
+                  value={runner?.daily_jewel_drop_count || 0}
+                  resetKey={statAnimationResetKey}
+                />
+                <span className="pb-0.5 text-xs">/</span>
+                <AnimatedStatNumber
+                  value={runner?.daily_jewel_drop_limit || 20}
+                  resetKey={statAnimationResetKey}
+                  className="origin-bottom text-lg font-bold tabular-nums text-slate-700"
+                />
+                <span className="pb-0.5 text-xs">次</span>
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -376,25 +627,8 @@ export default function ProgressTab({
 
       {!offlineMode ? (
         <section className={panelClass('overflow-hidden')}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-            <div>
-              <h3 className="font-bold text-slate-900">当前流程</h3>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <Trophy size={14} className="text-amber-500" />
-                大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount} 场
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Gem size={14} className="text-violet-500" />
-                本局 {runner?.jewel_drop_count || 0} 次 /{' '}
-                {runner?.jewels_earned || 0} 个
-              </span>
-              <span>
-                今天 {runner?.daily_jewel_drop_count || 0}/
-                {runner?.daily_jewel_drop_limit || 20} 次
-              </span>
-            </div>
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h3 className="font-bold text-slate-900">当前流程</h3>
           </div>
           <div className="cursor-text select-text">
             {runnerLog

@@ -456,6 +456,7 @@ export function describeRunnerAction(value?: string) {
   if (action === 'race_progress') return '正在完成比赛流程';
   if (action === 'finish') return '正在完成本次养马';
   if (action === 'idle') return '正在等待游戏进入下一状态';
+  if (action === 'settings_updated') return '详设已更新';
   if (action.startsWith('skills:')) {
     return `刚刚学习了：${action.slice('skills:'.length)}`;
   }
@@ -559,6 +560,7 @@ export function describeLogAction(value: string) {
     items_buy: '购买道具',
     items_use: '使用道具',
     update_setting: '更新设置',
+    settings_updated: '详设已更新',
     recover: '恢复养马状态',
     finish: '完成养马',
     stop: '停止养马',
