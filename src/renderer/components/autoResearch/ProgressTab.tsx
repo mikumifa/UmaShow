@@ -140,7 +140,7 @@ export default function ProgressTab({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-bold text-slate-900">
-                  {activeCareer?.name || currentCareerUma?.name || '当前养马'}
+                  {activeCareer?.name || currentCareerUma?.name || '-'}
                 </h2>
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerPaused ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}

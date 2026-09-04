@@ -1,4 +1,22 @@
-import { formatAccountError, needsRelogin } from './shared';
+import {
+  formatAccountError,
+  needsRelogin,
+  normalizeOnlineScenarioId,
+  onlineScenarioLabel,
+} from './shared';
+
+describe('online scenario presets', () => {
+  it.each([
+    [1, 1, 'URA'],
+    [5, 5, '荣耀女神杯'],
+    ['5', 5, '荣耀女神杯'],
+    [undefined, 1, 'URA'],
+    [99, 1, 'URA'],
+  ])('normalizes %p to scenario %i', (value, scenarioId, label) => {
+    expect(normalizeOnlineScenarioId(value)).toBe(scenarioId);
+    expect(onlineScenarioLabel(value)).toBe(label);
+  });
+});
 
 describe('formatAccountError', () => {
   it.each([

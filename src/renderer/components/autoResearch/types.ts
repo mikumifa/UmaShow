@@ -624,8 +624,6 @@ export type CareerSetting = {
   recover_tp_with_jewels: boolean;
   offline_training_challenge_mode?: boolean;
   offline_race_deck_num?: number;
-  offline_race_deck_name?: string;
-  offline_race_array?: Array<{ year: number; program_id: number }>;
   offline_skill_settings?: OfflineSkillSettings;
   offline_factor_selection?: OfflineFactorSelection;
   run_queue?: CareerRunQueueItem[];

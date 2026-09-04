@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 import {
   AlertTriangle,
   Database,
@@ -11,13 +11,16 @@ import {
   Trash2,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import {
+  SuccessionPickerDialog,
+  SuccessionPickerTrigger,
+} from 'renderer/components/succession/SuccessionPicker';
 import OfflineCareerSettings from './OfflineCareerSettings';
 import {
   DeckChoiceCard,
   horseIconPath,
   ParentChoiceCard,
   SupportChoiceCard,
-  UmaChoiceCard,
 } from './SelectionCards';
 import { panelClass, scrollToSection } from './shared';
 import { AutoResearchSkill } from './SkillSelector';
@@ -67,20 +70,12 @@ type CareerTabProps = {
   selectedUma?: Dashboard['umas'][number];
   cardId: number;
   setCardId: Dispatch<SetStateAction<number>>;
-  filteredUmas: Dashboard['umas'];
-  umaSearch: string;
-  setUmaSearch: Dispatch<SetStateAction<string>>;
   selectedParent1?: Dashboard['parents'][number];
   selectedParent2?: Dashboard['parents'][number];
   parent1: string;
   parent2: string;
   setParent1: Dispatch<SetStateAction<string>>;
   setParent2: Dispatch<SetStateAction<string>>;
-  filteredParents: Dashboard['parents'];
-  parentSearch: string;
-  setParentSearch: Dispatch<SetStateAction<string>>;
-  parentSelectionSlot: 1 | 2;
-  setParentSelectionSlot: Dispatch<SetStateAction<1 | 2>>;
   deckId: number;
   setDeckId: Dispatch<SetStateAction<number>>;
   setSupportCardIds: Dispatch<SetStateAction<number[]>>;
@@ -113,12 +108,13 @@ type CareerTabProps = {
   setOfflineChallengeMode: Dispatch<SetStateAction<boolean>>;
   offlineRaceDeckNum: number;
   setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
-  setOfflineRaceDeckName: Dispatch<SetStateAction<string>>;
-  offlineRaceIds: number[];
-  setOfflineRaceIds: Dispatch<SetStateAction<number[]>>;
   resetOfflineCareer: () => void;
-  prepareOfflineCareer: () => Promise<void>;
-  saveOfflineRaceDeck: () => Promise<void>;
+  prepareOfflineCareer: () => Promise<OfflineSingleModeSetup | null>;
+  saveOfflineRaceDeck: (
+    deckNum: number,
+    deckName: string,
+    raceIds: number[],
+  ) => Promise<boolean>;
   races: RaceOption[];
   skills: AutoResearchSkill[];
   offlineFactorSelection: OfflineFactorSelection;
@@ -162,20 +158,12 @@ export default function CareerTab(props: CareerTabProps) {
     selectedUma,
     cardId,
     setCardId,
-    filteredUmas,
-    umaSearch,
-    setUmaSearch,
     selectedParent1,
     selectedParent2,
     parent1,
     parent2,
     setParent1,
     setParent2,
-    filteredParents,
-    parentSearch,
-    setParentSearch,
-    parentSelectionSlot,
-    setParentSelectionSlot,
     deckId,
     setDeckId,
     setSupportCardIds,
@@ -208,9 +196,6 @@ export default function CareerTab(props: CareerTabProps) {
     setOfflineChallengeMode,
     offlineRaceDeckNum,
     setOfflineRaceDeckNum,
-    setOfflineRaceDeckName,
-    offlineRaceIds,
-    setOfflineRaceIds,
     resetOfflineCareer,
     prepareOfflineCareer,
     saveOfflineRaceDeck,
@@ -221,6 +206,36 @@ export default function CareerTab(props: CareerTabProps) {
     offlineSkillSettings,
     setOfflineSkillSettings,
   } = props;
+  const [umaPickerOpen, setUmaPickerOpen] = useState(false);
+  const [umaPickerSearch, setUmaPickerSearch] = useState('');
+  const [parentPickerSlot, setParentPickerSlot] = useState<1 | 2 | null>(null);
+  const [parentPickerSearch, setParentPickerSearch] = useState('');
+  const normalizedUmaSearch = umaPickerSearch.trim().toLowerCase();
+  const pickerUmas = dashboard.umas.filter(
+    (uma) =>
+      !normalizedUmaSearch ||
+      `${uma.name} ${uma.id}`.toLowerCase().includes(normalizedUmaSearch),
+  );
+  const normalizedParentSearch = parentPickerSearch.trim().toLowerCase();
+  const pickerParents = dashboard.parents
+    .filter((parent) => {
+      if (!normalizedParentSearch) return true;
+      const factorText = [
+        ...(parent.factors || []),
+        ...(parent.ancestors || []).flatMap(
+          (ancestor) => ancestor.factors || [],
+        ),
+      ]
+        .map((factor) => factor.name)
+        .join(' ');
+      return `${parent.name} ${parent.card_id} ${parent.owner_name} ${factorText}`
+        .toLowerCase()
+        .includes(normalizedParentSearch);
+    })
+    .sort(
+      (left, right) =>
+        right.rank_score - left.rank_score || right.rank - left.rank,
+    );
   const offlineDetailBlockedByActiveCareer = Boolean(
     careerSaveOpen && careerMode === 'offline' && activeCareer?.active,
   );
@@ -241,7 +256,7 @@ export default function CareerTab(props: CareerTabProps) {
             )}
           </span>
           <div>
-            <h2 className="text-lg font-bold">当前已有进行中的育成</h2>
+            <h2 className="text-lg font-bold">进行中的育成</h2>
             <p className="mt-1 font-medium text-gray-800">
               {activeCareer.name}
             </p>
@@ -521,7 +536,7 @@ export default function CareerTab(props: CareerTabProps) {
           ['career-selection', '选择阵容'],
           ...(careerMode === 'offline'
             ? [
-                ['offline-career-setup', '离线赛程'],
+                ['offline-career-setup', '赛程槽位'],
                 ['career-options', '结束点技能'],
                 ['career-factor-options', '因子筛选'],
               ]
@@ -593,8 +608,7 @@ export default function CareerTab(props: CareerTabProps) {
                   disabled={
                     Boolean(busy) ||
                     (continuingCurrentCareer && !canContinueCurrentCareer) ||
-                    (careerMode === 'offline' &&
-                      (!offlineSetup || !offlineRaceDeckNum))
+                    (careerMode === 'offline' && !offlineRaceDeckNum)
                   }
                   className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
@@ -605,9 +619,8 @@ export default function CareerTab(props: CareerTabProps) {
                       : careerMode === 'offline'
                         ? '正在启动离线育成…'
                         : '正在保存并开始…'
-                    : careerMode === 'offline' &&
-                        (!offlineSetup || !offlineRaceDeckNum)
-                      ? '请先读取游戏赛程'
+                    : careerMode === 'offline' && !offlineRaceDeckNum
+                      ? '请选择赛程槽位'
                       : continuingCurrentCareer
                         ? canContinueCurrentCareer
                           ? '保存并继续'
@@ -621,93 +634,178 @@ export default function CareerTab(props: CareerTabProps) {
 
         {!dashboard.account.career?.active ? (
           <div id="career-selection" className="mt-5 scroll-mt-28 space-y-5">
-            <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="grid gap-5 xl:grid-cols-3">
+              <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                    1
-                  </span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      选择育成马娘
-                    </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                      1
+                    </span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">
+                        选择育成马娘
+                      </h3>
+                    </div>
                   </div>
                 </div>
-                <label className="relative block w-full sm:w-72">
-                  <Search
-                    size={15}
-                    className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <input
-                    value={umaSearch}
-                    onChange={(event) => setUmaSearch(event.target.value)}
-                    placeholder="搜索马娘"
-                    className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
-                  />
-                </label>
-              </div>
-              <div className="mt-3 flex max-h-[420px] flex-wrap content-start gap-2 overflow-auto pr-1">
-                {filteredUmas.map((uma) => (
-                  <UmaChoiceCard
-                    key={uma.id}
-                    uma={uma}
-                    selected={cardId === uma.id}
-                    onSelect={() => {
-                      setCardId(uma.id);
-                      setDeckId(0);
-                      setSupportCardIds([]);
-                      setFriendCardId(0);
-                      setParent1('');
-                      setParent2('');
-                      setParentSelectionSlot(1);
-                      resetOfflineCareer();
-                    }}
-                  />
-                ))}
-              </div>
-            </section>
+                <div className="mt-3 max-w-xl">
+                  <SuccessionPickerTrigger
+                    label="育成马娘"
+                    selected={Boolean(selectedUma)}
+                    required
+                    portrait={
+                      selectedUma ? (
+                        <AssetIcon
+                          path={
+                            horseIconPath(
+                              selectedUma.id,
+                              selectedUma.rarity,
+                              selectedUma.race_cloth_id,
+                            ) || ''
+                          }
+                          alt={selectedUma.name}
+                          className="successionPortrait object-cover"
+                        />
+                      ) : null
+                    }
+                    onOpen={() => setUmaPickerOpen(true)}
+                  >
+                    {selectedUma ? (
+                      <>
+                        <strong>{selectedUma.name}</strong>
+                        <small className="mt-1 block text-gray-500">
+                          角色 ID {selectedUma.chara_id} · 才能等级{' '}
+                          {selectedUma.talent_level}
+                        </small>
+                      </>
+                    ) : null}
+                  </SuccessionPickerTrigger>
+                </div>
+              </section>
 
-            <section
-              className={`rounded-lg border p-4 ${
-                selectedUma
-                  ? 'border-gray-200 bg-gray-50/60'
-                  : 'border-dashed border-gray-200 bg-gray-50 opacity-60'
-              }`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              {umaPickerOpen ? (
+                <SuccessionPickerDialog
+                  ariaLabel="选择育成马娘"
+                  eyebrow="SELECT UMAMUSUME"
+                  title="选择育成马娘"
+                  description="输入名称或 ID 搜索，点击头像完成选择。"
+                  onClose={() => setUmaPickerOpen(false)}
+                  searchValue={umaPickerSearch}
+                  searchPlaceholder="输入马娘名称或 ID"
+                  searchAriaLabel="搜索育成马娘"
+                  onSearchChange={setUmaPickerSearch}
+                  meta={
+                    <>
+                      <span>找到 {pickerUmas.length} 位马娘</span>
+                      {umaPickerSearch ? (
+                        <button
+                          type="button"
+                          onClick={() => setUmaPickerSearch('')}
+                        >
+                          清空搜索
+                        </button>
+                      ) : null}
+                    </>
+                  }
+                  bodyClassName="successionPickerGrid"
+                  footer={
+                    <>
+                      <span>当前显示 {pickerUmas.length} 位马娘</span>
+                      <button
+                        type="button"
+                        onClick={() => setUmaPickerOpen(false)}
+                      >
+                        完成
+                      </button>
+                    </>
+                  }
+                >
+                  {pickerUmas.length ? (
+                    pickerUmas.map((uma) => {
+                      const selected = cardId === uma.id;
+                      return (
+                        <button
+                          type="button"
+                          className={`successionPickerCard ${
+                            selected ? 'selected' : ''
+                          }`}
+                          aria-label={`选择${uma.name}`}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            setCardId(uma.id);
+                            setDeckId(0);
+                            setSupportCardIds([]);
+                            setFriendCardId(0);
+                            setParent1('');
+                            setParent2('');
+                            resetOfflineCareer();
+                            setUmaPickerOpen(false);
+                          }}
+                          key={uma.id}
+                        >
+                          <AssetIcon
+                            path={
+                              horseIconPath(
+                                uma.id,
+                                uma.rarity,
+                                uma.race_cloth_id,
+                              ) || ''
+                            }
+                            alt={uma.name}
+                            className="successionPortrait large object-cover"
+                          />
+                          <div className="successionPickerCardBody">
+                            <strong>{uma.name}</strong>
+                            <small className="mt-1 block text-gray-500">
+                              角色 ID {uma.chara_id} · 才能等级{' '}
+                              {uma.talent_level}
+                            </small>
+                          </div>
+                          {selected ? <em aria-label="当前选择">✓</em> : null}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="successionPickerEmpty">
+                      <strong>没有符合条件的马娘</strong>
+                      <p>尝试修改名称、ID，或清空搜索。</p>
+                      <button
+                        type="button"
+                        onClick={() => setUmaPickerSearch('')}
+                      >
+                        清空搜索
+                      </button>
+                    </div>
+                  )}
+                </SuccessionPickerDialog>
+              ) : null}
+
+              <section
+                className={`rounded-lg border p-4 xl:col-span-2 ${
+                  selectedUma
+                    ? 'border-gray-200 bg-gray-50/60'
+                    : 'border-dashed border-gray-200 bg-gray-50 opacity-60'
+                }`}
+              >
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                    2
-                  </span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      选择继承马娘
-                    </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                      2
+                    </span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">
+                        选择继承马娘
+                      </h3>
+                    </div>
                   </div>
                 </div>
-                {selectedUma ? (
-                  <label className="relative block w-full sm:w-80">
-                    <Search
-                      size={15}
-                      className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
-                    />
-                    <input
-                      value={parentSearch}
-                      onChange={(event) => setParentSearch(event.target.value)}
-                      placeholder="搜索马娘名或因子"
-                      className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
-                    />
-                  </label>
-                ) : null}
-              </div>
 
-              {!selectedUma ? (
-                <div className="py-12 text-center text-sm text-gray-500">
-                  请先完成第 1 步，选择要养的马娘。
-                </div>
-              ) : (
-                <>
-                  <div className="mt-3 flex gap-2">
+                {!selectedUma ? (
+                  <div className="py-12 text-center text-sm text-gray-500">
+                    请先完成第 1 步，选择要养的马娘。
+                  </div>
+                ) : (
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     {[
                       [1, selectedParent1],
                       [2, selectedParent2],
@@ -717,76 +815,127 @@ export default function CareerTab(props: CareerTabProps) {
                         | Dashboard['parents'][number]
                         | undefined;
                       return (
-                        <button
+                        <SuccessionPickerTrigger
                           key={slotNumber}
-                          type="button"
-                          onClick={() => setParentSelectionSlot(slotNumber)}
-                          className={`flex h-20 w-20 flex-col items-center justify-center overflow-hidden rounded-lg border p-1 text-center ${
-                            parentSelectionSlot === slotNumber
-                              ? 'border-indigo-400 bg-indigo-50'
-                              : 'border-gray-200 bg-white'
-                          }`}
+                          label={`继承马娘 ${slotNumber}`}
+                          selected={Boolean(selectedParent)}
+                          required
+                          portrait={
+                            selectedParent ? (
+                              <AssetIcon
+                                path={
+                                  horseIconPath(
+                                    selectedParent.card_id,
+                                    selectedParent.rarity,
+                                    selectedParent.race_cloth_id,
+                                  ) || ''
+                                }
+                                alt={selectedParent.name}
+                                className="successionPortrait object-cover"
+                              />
+                            ) : null
+                          }
+                          placeholder={`请选择继承马娘 ${slotNumber}`}
+                          onOpen={() => setParentPickerSlot(slotNumber)}
+                          onClear={
+                            selectedParent
+                              ? () =>
+                                  slotNumber === 1
+                                    ? setParent1('')
+                                    : setParent2('')
+                              : undefined
+                          }
                         >
                           {selectedParent ? (
-                            <AssetIcon
-                              path={
-                                horseIconPath(
-                                  selectedParent.card_id,
-                                  selectedParent.rarity,
-                                  selectedParent.race_cloth_id,
-                                ) || ''
-                              }
-                              alt={selectedParent.name}
-                              className="h-full w-full rounded object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs text-gray-500">
-                              继承马娘 {slotNumber}
-                            </span>
-                          )}
-                        </button>
+                            <>
+                              <strong>{selectedParent.name}</strong>
+                              <small className="mt-1 block text-gray-500">
+                                {selectedParent.source === 'rental'
+                                  ? `借用 · ${selectedParent.owner_name || '未知玩家'}`
+                                  : '自己的马娘'}
+                                {selectedParent.rank_score
+                                  ? ` · 评分 ${selectedParent.rank_score}`
+                                  : ''}
+                              </small>
+                            </>
+                          ) : null}
+                        </SuccessionPickerTrigger>
                       );
                     })}
                   </div>
-                  <div className="mt-3 grid max-h-[720px] gap-2 overflow-auto pr-1 xl:grid-cols-2">
-                    {filteredParents.map((parent) => {
-                      const currentValue =
-                        parentSelectionSlot === 1 ? parent1 : parent2;
-                      const otherValue =
-                        parentSelectionSlot === 1 ? parent2 : parent1;
-                      const otherParent = dashboard.parents.find(
-                        (item) => item.selection_id === otherValue,
-                      );
-                      const blockedCharaIds = new Set([
-                        selectedUma.chara_id,
-                        otherParent?.chara_id || 0,
-                      ]);
-                      return (
-                        <ParentChoiceCard
-                          key={parent.selection_id}
-                          parent={parent}
-                          selected={currentValue === parent.selection_id}
-                          disabled={
-                            otherValue === parent.selection_id ||
-                            blockedCharaIds.has(parent.chara_id) ||
-                            (parent.source === 'rental' &&
-                              otherParent?.source === 'rental')
-                          }
-                          onSelect={() => {
-                            if (parentSelectionSlot === 1) {
-                              setParent1(parent.selection_id);
-                              setParentSelectionSlot(2);
-                            } else {
-                              setParent2(parent.selection_id);
+                )}
+              </section>
+
+              {selectedUma && parentPickerSlot ? (
+                <SuccessionPickerDialog
+                  ariaLabel={`选择继承马娘 ${parentPickerSlot}`}
+                  title="选择已有马娘"
+                  description={`为继承位 ${parentPickerSlot} 选择已有马娘；可查看本体、祖辈与全部因子。`}
+                  onClose={() => setParentPickerSlot(null)}
+                  dialogClassName="successionCapturedPickerDialog"
+                  searchValue={parentPickerSearch}
+                  searchPlaceholder="搜索马娘、因子、玩家或 ID"
+                  searchAriaLabel="搜索已有马娘"
+                  onSearchChange={setParentPickerSearch}
+                  meta={<span>找到 {pickerParents.length} 个已有实例</span>}
+                  footer={
+                    <>
+                      <span>正在选择继承位 {parentPickerSlot}</span>
+                      <button
+                        type="button"
+                        onClick={() => setParentPickerSlot(null)}
+                      >
+                        完成
+                      </button>
+                    </>
+                  }
+                >
+                  {pickerParents.length ? (
+                    <div className="successionCapturedPickerGrid">
+                      {pickerParents.map((parent) => {
+                        const currentValue =
+                          parentPickerSlot === 1 ? parent1 : parent2;
+                        const otherValue =
+                          parentPickerSlot === 1 ? parent2 : parent1;
+                        const otherParent = dashboard.parents.find(
+                          (item) => item.selection_id === otherValue,
+                        );
+                        const blockedCharaIds = new Set([
+                          selectedUma.chara_id,
+                          otherParent?.chara_id || 0,
+                        ]);
+                        return (
+                          <ParentChoiceCard
+                            key={parent.selection_id}
+                            parent={parent}
+                            selected={currentValue === parent.selection_id}
+                            disabled={
+                              otherValue === parent.selection_id ||
+                              blockedCharaIds.has(parent.chara_id) ||
+                              (parent.source === 'rental' &&
+                                otherParent?.source === 'rental')
                             }
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </section>
+                            onSelect={() => {
+                              if (parentPickerSlot === 1) {
+                                setParent1(parent.selection_id);
+                                setParentPickerSlot(2);
+                              } else {
+                                setParent2(parent.selection_id);
+                                setParentPickerSlot(null);
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="successionCapturedPickerEmpty">
+                      没有符合搜索条件的已有马娘。
+                    </div>
+                  )}
+                </SuccessionPickerDialog>
+              ) : null}
+            </div>
 
             <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
               <div className="flex items-center gap-2">
@@ -977,9 +1126,6 @@ export default function CareerTab(props: CareerTabProps) {
                       races={races}
                       selectedDeckNum={offlineRaceDeckNum}
                       setSelectedDeckNum={setOfflineRaceDeckNum}
-                      setDeckName={setOfflineRaceDeckName}
-                      selectedRaceIds={offlineRaceIds}
-                      setSelectedRaceIds={setOfflineRaceIds}
                       challengeMode={offlineChallengeMode}
                       setChallengeMode={setOfflineChallengeMode}
                       busy={busy}
@@ -1004,7 +1150,7 @@ export default function CareerTab(props: CareerTabProps) {
                       TP 恢复设置
                     </strong>
                     <span className="mt-0.5 block text-xs text-slate-500">
-                      离线赛程的基础消耗选项，不属于第 5、6 步。
+                      离线赛程的基础消耗选项，不属于第 5、6、7 步。
                     </span>
                   </div>
                 ) : null}

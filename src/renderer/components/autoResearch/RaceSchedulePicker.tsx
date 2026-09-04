@@ -14,8 +14,6 @@ import { RaceOption } from './types';
 type Props = {
   id?: string;
   title: string;
-  description: string;
-  notice?: string;
   races: RaceOption[];
   selectedRaceIds: number[];
   setSelectedRaceIds: Dispatch<SetStateAction<number[]>>;
@@ -24,8 +22,6 @@ type Props = {
 export default function RaceSchedulePicker({
   id,
   title,
-  description,
-  notice,
   races,
   selectedRaceIds,
   setSelectedRaceIds,
@@ -49,15 +45,11 @@ export default function RaceSchedulePicker({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-slate-900">{title}</h3>
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-slate-500">
             已选择 {selectedRaceIds.length} 场
           </p>
-          {notice ? (
-            <p className="mt-1 text-xs text-indigo-600">{notice}</p>
-          ) : null}
         </div>
       </div>
 

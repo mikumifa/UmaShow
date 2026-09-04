@@ -226,6 +226,22 @@ async function fetchWithTimeout(
   }
 }
 
+async function fetchTextWithTimeout(
+  url: string,
+  init: Parameters<typeof fetch>[1],
+  timeout = 30_000,
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const responseText = await response.text();
+    return { response, responseText };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function gameError(endpoint: string, result: Record<string, any>) {
   const headers = result.data_headers || {};
   const resultCode = Number(headers.result_code ?? result.response_code ?? 0);
@@ -448,30 +464,34 @@ export class SuccessionGameClient {
     this.ensureSessionCertain();
     const body = encryptSuccessionGameRequest(this.user, payload);
     let response: Response;
+    let responseText: string;
     try {
-      response = await fetchWithTimeout(`${GAME_HOST}/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          Accept: '*/*',
-          'APP-VER': this.user.appVer,
-          'APP-VER-CODE': this.user.appVerCode,
-          'BUMA-OPEN-ID': this.user.bumaOpenId,
-          'BUMA-RID': md5HexBytes(randomUUID()),
-          'BX-Accept-Language': 'zh',
-          'Content-Type': 'application/x-msgpack',
-          Device: '2',
-          'Device-SubType': '1',
-          'RES-VER': this.user.resVer,
-          SID: this.user.sid,
-          'User-Agent':
-            'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
-          ViewerID: this.user.viewerId,
-          'X-Ba-Catch-Control': 'no-cache',
-          'X-Ba-Charset': 'utf8',
-          'X-Unity-Version': '2020.3.49f1',
+      ({ response, responseText } = await fetchTextWithTimeout(
+        `${GAME_HOST}/${endpoint}`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: '*/*',
+            'APP-VER': this.user.appVer,
+            'APP-VER-CODE': this.user.appVerCode,
+            'BUMA-OPEN-ID': this.user.bumaOpenId,
+            'BUMA-RID': md5HexBytes(randomUUID()),
+            'BX-Accept-Language': 'zh',
+            'Content-Type': 'application/x-msgpack',
+            Device: '2',
+            'Device-SubType': '1',
+            'RES-VER': this.user.resVer,
+            SID: this.user.sid,
+            'User-Agent':
+              'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
+            ViewerID: this.user.viewerId,
+            'X-Ba-Catch-Control': 'no-cache',
+            'X-Ba-Charset': 'utf8',
+            'X-Unity-Version': '2020.3.49f1',
+          },
+          body,
         },
-        body,
-      });
+      ));
     } catch (error) {
       throw this.markSessionUncertain(
         endpoint,
@@ -486,7 +506,7 @@ export class SuccessionGameClient {
     }
     let result: Record<string, any>;
     try {
-      result = decryptSuccessionGameResponse(this.user, await response.text());
+      result = decryptSuccessionGameResponse(this.user, responseText);
     } catch (error) {
       throw this.markSessionUncertain(
         endpoint,
@@ -563,6 +583,22 @@ export class SuccessionGameClient {
 
   async loadIndex() {
     return this.call('load/index', { adid: '' });
+  }
+
+  async loadSingleModeOptions(excludeViewerIds: number[] = []) {
+    const normalizedExcludeViewerIds = [
+      ...new Set(
+        excludeViewerIds
+          .map((viewerId) => Math.trunc(Number(viewerId) || 0))
+          .filter((viewerId) => viewerId > 0),
+      ),
+    ];
+    return this.call(
+      'pre_single_mode/index',
+      normalizedExcludeViewerIds.length
+        ? { exclude_viewer_id_array: normalizedExcludeViewerIds }
+        : {},
+    );
   }
 
   async prepareIdleSingleMode(scenarioId = 0) {

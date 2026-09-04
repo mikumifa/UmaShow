@@ -130,6 +130,11 @@ export async function loginAutoResearchLocalGameClient(
     );
     try {
       const loginIndex = await client.login();
+      options.onProgress?.({
+        stage: 'load',
+        detail: '正在读取育成角色、继承与好友支援信息',
+      });
+      const optionIndex = await client.loadSingleModeOptions();
       persistLoggedInIdentity(
         client,
         credential,
@@ -140,7 +145,7 @@ export async function loginAutoResearchLocalGameClient(
         uid: client.credential.uid,
         client,
       };
-      return { loginIndex, session: { ...client.session } };
+      return { loginIndex, optionIndex, session: { ...client.session } };
     } catch (error) {
       await retireLocalGameClient(client);
       throw error;

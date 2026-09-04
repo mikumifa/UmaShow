@@ -16,6 +16,8 @@ import EditableNumberInput from './EditableNumberInput';
 import {
   DEFAULT_PRESET_NAME,
   MONTH_OPTIONS,
+  normalizeOnlineScenarioId,
+  onlineScenarioLabel,
   panelClass,
   scrollToSection,
   skillPurchaseTurn,
@@ -53,6 +55,8 @@ type PresetsTabProps = {
   busy: string;
   presetSaved: boolean;
   savePresetAndContinue: () => Promise<void>;
+  scenarioId: number;
+  setScenarioId: Dispatch<SetStateAction<number>>;
   runningStyle: number;
   setRunningStyle: Dispatch<SetStateAction<number>>;
   skillSelections: SkillSelectionEntry[];
@@ -79,7 +83,6 @@ type PresetsTabProps = {
   setSkillLearningSettings: Dispatch<
     SetStateAction<Record<string, SkillLearningSetting>>
   >;
-  health: any;
   uraAiTargetAttributes: number[];
   setUraAiTargetAttributes: Dispatch<SetStateAction<number[]>>;
   uraAiTargetAttributeStages: TargetAttributeStage[];
@@ -123,6 +126,8 @@ export default function PresetsTab(props: PresetsTabProps) {
     busy,
     presetSaved,
     savePresetAndContinue,
+    scenarioId,
+    setScenarioId,
     runningStyle,
     setRunningStyle,
     skillSelections,
@@ -147,7 +152,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     setSkillPurchaseTurns,
     editingSkillSelectionId,
     setSkillLearningSettings,
-    health,
     uraAiTargetAttributes,
     setUraAiTargetAttributes,
     uraAiTargetAttributeStages,
@@ -261,7 +265,6 @@ export default function PresetsTab(props: PresetsTabProps) {
                     </div>
                   ) : (
                     <label className="block text-xs text-gray-500">
-                      预设名称
                       <input
                         key={preset.name}
                         defaultValue={preset.name}
@@ -280,8 +283,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     </label>
                   )}
                   <p className="mt-2 text-xs text-gray-500">
-                    URA · {skillCount} 个优先技能 ·{' '}
-                    {(preset.extra_race_list || []).length} 场额外赛事
+                    {`${onlineScenarioLabel(preset.scenario_id)} · ${skillCount} 个优先技能 · ${(preset.extra_race_list || []).length} 场额外赛事`}
                   </p>
                   {referencedCount ? (
                     <p className="mt-1 text-xs text-slate-400">
@@ -368,9 +370,6 @@ export default function PresetsTab(props: PresetsTabProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">预设编辑 · {presetName}</h2>
-            <p className="text-sm text-slate-400">
-              技能和赛事数据来自当前 master.mdb。
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -378,7 +377,7 @@ export default function PresetsTab(props: PresetsTabProps) {
               onClick={() => setPresetEditorOpen(false)}
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
-              返回预设槽位
+              返回
             </button>
             <button
               type="button"
@@ -407,11 +406,20 @@ export default function PresetsTab(props: PresetsTabProps) {
             </button>
           </div>
         </div>
-        <p className="mt-2 text-xs text-gray-500">
-          预设的改名和删除只能在预设槽位界面操作。
-        </p>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <label className="text-sm">
+            育成剧本
+            <select
+              value={scenarioId}
+              onChange={(event) =>
+                setScenarioId(normalizeOnlineScenarioId(event.target.value))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            >
+              <option value={1}>URA</option>
+              <option value={5}>荣耀女神杯</option>
+            </select>
+          </label>
           <label className="text-sm">
             跑法
             <select
@@ -442,7 +450,7 @@ export default function PresetsTab(props: PresetsTabProps) {
               <div>
                 <p className="font-semibold text-slate-800">育成中技能选择</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  只会学习这里选择的技能；越靠上越优先，可拖动调整顺序。
+                  越靠上优先级越高，可拖动调整顺序。
                 </p>
               </div>
               <button
@@ -739,8 +747,20 @@ export default function PresetsTab(props: PresetsTabProps) {
         </div>
 
         <section id="preset-training" className="mt-4 scroll-mt-28">
-          {health?.umarl?.installed ? (
+          <div className="contents">
             <div className="space-y-4">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
+                <p className="text-sm font-semibold text-indigo-950">
+                  {scenarioId === 5
+                    ? '使用女神杯手写规则策略'
+                    : '默认使用 UmaRL 蒙特卡洛育成决策'}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-indigo-700">
+                  {scenarioId === 5
+                    ? '不会进入 URA 的 MCTS 搜索；目标属性仍用于手写训练评分，当前不参考女神碎片。'
+                    : 'UmaRL 已随 AutoResearch 默认安装；搜索异常、超时或样本不足时会自动回退到内置策略。'}
+                </p>
+              </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="text-sm font-semibold text-slate-800">
                   最终目标属性
@@ -904,89 +924,78 @@ export default function PresetsTab(props: PresetsTabProps) {
                 </div>
               </div>
 
-              <details className="rounded-xl border border-slate-200 bg-white">
-                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
-                  高级采样设置
-                </summary>
-                <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
-                  {[
-                    [
-                      '每回合秒数',
-                      uraAiTimeBudget,
-                      setUraAiTimeBudget,
-                      0.5,
-                      0.5,
-                      2,
-                    ],
-                    [
-                      '最少模拟次数',
-                      uraAiMinRollouts,
-                      setUraAiMinRollouts,
-                      1,
-                      32,
-                      128,
-                    ],
-                    [
-                      '最多模拟次数',
-                      uraAiMaxRollouts,
-                      setUraAiMaxRollouts,
-                      1,
-                      32,
-                      256,
-                    ],
-                    ['CPU 并行进程', uraAiWorkers, setUraAiWorkers, 1, 1, 64],
-                    [
-                      '高分偏好',
-                      uraAiRiskFactor,
-                      setUraAiRiskFactor,
-                      0.1,
-                      -2,
-                      2,
-                    ],
-                  ].map(([label, value, setter, step, min, max]) => (
-                    <label
-                      key={String(label)}
-                      className="text-xs text-slate-600"
-                    >
-                      {String(label)}
-                      <EditableNumberInput
-                        step={Number(step)}
-                        min={Number(min)}
-                        max={Number(max)}
-                        value={Number(value)}
-                        onValueChange={(nextValue) =>
-                          (setter as (next: number) => void)(nextValue)
-                        }
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <p className="px-4 pb-4 text-xs leading-5 text-slate-500">
-                  当前快速模式的有效范围为 0.5–2 秒、32–128 次最少模拟和 32–256
-                  次最多模拟。
-                </p>
-              </details>
+              {scenarioId === 1 ? (
+                <details className="rounded-xl border border-slate-200 bg-white">
+                  <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+                    高级采样设置
+                  </summary>
+                  <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                    {[
+                      [
+                        '每回合秒数',
+                        uraAiTimeBudget,
+                        setUraAiTimeBudget,
+                        0.5,
+                        0.5,
+                        2,
+                      ],
+                      [
+                        '最少模拟次数',
+                        uraAiMinRollouts,
+                        setUraAiMinRollouts,
+                        1,
+                        32,
+                        128,
+                      ],
+                      [
+                        '最多模拟次数',
+                        uraAiMaxRollouts,
+                        setUraAiMaxRollouts,
+                        1,
+                        32,
+                        256,
+                      ],
+                      ['CPU 并行进程', uraAiWorkers, setUraAiWorkers, 1, 1, 64],
+                      [
+                        '高分偏好',
+                        uraAiRiskFactor,
+                        setUraAiRiskFactor,
+                        0.1,
+                        -2,
+                        2,
+                      ],
+                    ].map(([label, value, setter, step, min, max]) => (
+                      <label
+                        key={String(label)}
+                        className="text-xs text-slate-600"
+                      >
+                        {String(label)}
+                        <EditableNumberInput
+                          step={Number(step)}
+                          min={Number(min)}
+                          max={Number(max)}
+                          value={Number(value)}
+                          onValueChange={(nextValue) =>
+                            (setter as (next: number) => void)(nextValue)
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="px-4 pb-4 text-xs leading-5 text-slate-500">
+                    当前快速模式的有效范围为 0.5–2 秒、32–128 次最少模拟和
+                    32–256 次最多模拟。
+                  </p>
+                </details>
+              ) : null}
             </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-              <strong className="block">当前 AutoResearch 未安装 UmaRL</strong>
-              <span className="mt-1 block text-xs leading-5">
-                请在后端使用
-                <code className="mx-1 rounded bg-white px-1.5 py-0.5">
-                  uv run --extra umarl python main.py
-                </code>
-                启动。未安装时后端仍会使用内置兜底策略，但不再提供旧系数调节入口。
-              </span>
-            </div>
-          )}
+          </div>
         </section>
         <div className="mt-5">
           <RaceSchedulePicker
             id="preset-races"
             title="预设比赛"
-            description="先选择育成日期，再选择该日期要参加的一场比赛。"
-            notice="所选比赛可参加时必须执行，UmaRL 不会改选其他行动"
             races={races}
             selectedRaceIds={selectedRaceIds}
             setSelectedRaceIds={setSelectedRaceIds}

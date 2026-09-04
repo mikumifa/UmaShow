@@ -117,7 +117,7 @@ function buildOptions(data: Record<string, any>) {
     const pieces = new Map<number, number>(
       (data.piece_list || []).map((row: Record<string, any>) => [
         numberValue(row.piece_id),
-        numberValue(row.number),
+        numberValue(row.piece_num ?? row.number),
       ]),
     );
     const dailyRaces = database
@@ -136,7 +136,7 @@ function buildOptions(data: Record<string, any>) {
       .map((row: any) => ({
         ...row,
         distance_type: distanceType(numberValue(row.distance)),
-        ground_name: numberValue(row.ground) === 1 ? '芝' : '泥地',
+        ground_name: numberValue(row.ground) === 1 ? '草地' : '泥地',
         name: dailyRaceName(numberValue(row.group_id)),
       }));
     const legendRaces = database
@@ -162,7 +162,7 @@ function buildOptions(data: Record<string, any>) {
         name: row.name || `传奇赛事 ${row.id}`,
         owned_piece_count: pieces.get(numberValue(row.piece_id)) || 0,
         distance_type: distanceType(numberValue(row.distance)),
-        ground_name: numberValue(row.ground) === 1 ? '芝' : '泥地',
+        ground_name: numberValue(row.ground) === 1 ? '草地' : '泥地',
       }));
     const items = itemMap(data);
     const dailyRecords =
@@ -246,12 +246,6 @@ async function run(id: string, config: DailyConfig) {
 
     const loaded = await client.loadIndex();
     loadedData = loaded.data || {};
-    if (findActiveIdleSingleMode(loadedData)) {
-      throw new Error('离线自动育成进行中，不能执行本地日常');
-    }
-    if (hasActiveSingleModeCareer(loadedData)) {
-      throw new Error('育成进行中，不能执行本地日常');
-    }
     items = itemMap(loadedData);
     const horses = new Map<number, Record<string, any>>(
       (loadedData.trained_chara || []).map((horse: Record<string, any>) => [

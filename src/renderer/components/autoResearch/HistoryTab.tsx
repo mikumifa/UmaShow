@@ -570,10 +570,7 @@ export default function HistoryTab({
             养马记录
             {historyCareerSetting ? ` · ${historyCareerSetting.name}` : ''}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            仅保留最近 3 个养马日；同一详设按天聚合五维、比赛大差
-            次数、宝石掉落和完成次数；同比赛的大差情况可在每日详情底部查看。
-          </p>
+          <p className="mt-1 text-sm text-slate-500">仅保留最近 3 个养马日</p>
         </div>
         <button
           type="button"

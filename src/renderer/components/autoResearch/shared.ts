@@ -17,6 +17,14 @@ export const DEFAULT_SERVER = 'http://127.0.0.1:18765';
 export const DEFAULT_PRESET_NAME = 'URA 默认';
 export const LOCAL_PRESETS_KEY = 'autoResearch.presets';
 export const CAREER_SETTINGS_KEY = 'autoResearch.careerSettings';
+
+export function normalizeOnlineScenarioId(value: unknown): number {
+  return Number(value) === 5 ? 5 : 1;
+}
+
+export function onlineScenarioLabel(value: unknown): string {
+  return normalizeOnlineScenarioId(value) === 5 ? '荣耀女神杯' : 'URA';
+}
 export const LAST_ACCOUNT_KEY = 'autoResearch.lastLoggedInAccount';
 
 export function getSharedStorageItem(key: string) {

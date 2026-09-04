@@ -57,6 +57,7 @@ import {
   LOCAL_PRESETS_KEY,
   MONTH_OPTIONS,
   needsRelogin,
+  normalizeOnlineScenarioId,
   normalizeRaceSelection,
   normalizeServer,
   normalizeSkillLearningSettings,
@@ -556,7 +557,7 @@ export default function AutoResearch() {
   const [friendCardId, setFriendCardId] = useState(0);
   const [parent1, setParent1] = useState('');
   const [parent2, setParent2] = useState('');
-  const scenarioId = 1;
+  const [scenarioId, setScenarioId] = useState(1);
   const [presetName, setPresetName] = useState(DEFAULT_PRESET_NAME);
   const [presetEditorOpen, setPresetEditorOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -605,10 +606,7 @@ export default function AutoResearch() {
   const [targetAttributeStageYearOffset, setTargetAttributeStageYearOffset] =
     useState(0);
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
-  const [umaSearch, setUmaSearch] = useState('');
-  const [parentSearch, setParentSearch] = useState('');
   const [supportSearch, setSupportSearch] = useState('');
-  const [parentSelectionSlot, setParentSelectionSlot] = useState<1 | 2>(1);
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
   const [selectedCareerSettingId, setSelectedCareerSettingId] = useState('');
   const [careerSettingName, setCareerSettingName] = useState('');
@@ -626,8 +624,6 @@ export default function AutoResearch() {
   const [offlineScenarioId, setOfflineScenarioId] = useState(0);
   const [offlineChallengeMode, setOfflineChallengeMode] = useState(false);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
-  const [offlineRaceDeckName, setOfflineRaceDeckName] = useState('');
-  const [offlineRaceIds, setOfflineRaceIds] = useState<number[]>([]);
   const [offlineFactorSelection, setOfflineFactorSelection] =
     useState<OfflineFactorSelection>(() =>
       createDefaultOfflineFactorSelection(),
@@ -965,35 +961,6 @@ export default function AutoResearch() {
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
   );
-  const filteredUmas = useMemo(() => {
-    const keyword = umaSearch.trim().toLowerCase();
-    return (dashboard?.umas || []).filter(
-      (uma) =>
-        !keyword || `${uma.name} ${uma.id}`.toLowerCase().includes(keyword),
-    );
-  }, [dashboard?.umas, umaSearch]);
-  const filteredParents = useMemo(() => {
-    const keyword = parentSearch.trim().toLowerCase();
-    return (dashboard?.parents || [])
-      .filter((parent) => {
-        if (!keyword) return true;
-        const factorText = [
-          ...(parent.factors || []),
-          ...(parent.ancestors || []).flatMap(
-            (ancestor) => ancestor.factors || [],
-          ),
-        ]
-          .map((factor) => factor.name)
-          .join(' ');
-        return `${parent.name} ${parent.card_id} ${factorText}`
-          .toLowerCase()
-          .includes(keyword);
-      })
-      .sort(
-        (left, right) =>
-          right.rank_score - left.rank_score || right.rank - left.rank,
-      );
-  }, [dashboard?.parents, parentSearch]);
   const filteredSupports = useMemo(() => {
     const keyword = supportSearch.trim().toLowerCase();
     const rarityOrder: Record<string, number> = { SSR: 0, SR: 1, R: 2 };
@@ -1253,9 +1220,9 @@ export default function AutoResearch() {
             }
           : undefined;
       if (localDashboardOptions) {
-        // Local login/local overview already came from one complete load/index.
-        // Reuse it for the detail selectors so entering the Career tab does not
-        // issue another SID-advancing account-local-overview request.
+        // Local login/local overview already merged load/index with
+        // pre_single_mode/index. Reuse it for the detail selectors so entering
+        // the Career tab does not issue more SID-advancing game requests.
         accountOptionsCache.current.set(accountId, localDashboardOptions);
       }
       const options =
@@ -1423,26 +1390,42 @@ export default function AutoResearch() {
               refresh ? '/api/account/options/refresh' : '/api/account/options',
               refresh ? { method: 'POST', body: '{}' } : undefined,
             )
-          : window.electron.autoResearch
-              .localOverview(accountId)
-              .then((result) => {
-                const response = result as SessionResponse;
-                if (!response.success || !response.dashboard) {
-                  throw new Error('本地游戏没有返回账号详设数据');
-                }
-                return {
-                  success: true,
-                  options: {
-                    umas: response.dashboard.umas,
-                    supports: response.dashboard.supports,
-                    decks: response.dashboard.decks,
-                    parents: response.dashboard.parents,
-                    friends: response.dashboard.friends,
-                    friend_exclude_ids: response.dashboard.friend_exclude_ids,
-                    offline_scenarios: response.dashboard.offline_scenarios,
-                  },
-                } as AccountOptionsResponse;
-              })
+          : refresh && cached
+            ? window.electron.autoResearch
+                .localOptions(accountId)
+                .then((result) => {
+                  const refreshed = result as AccountOptionsResponse;
+                  return {
+                    ...refreshed,
+                    options: {
+                      ...cached,
+                      supports: refreshed.options.supports,
+                      parents: refreshed.options.parents,
+                      friends: refreshed.options.friends,
+                      friend_exclude_ids: refreshed.options.friend_exclude_ids,
+                    },
+                  } as AccountOptionsResponse;
+                })
+            : window.electron.autoResearch
+                .localOverview(accountId)
+                .then((result) => {
+                  const response = result as SessionResponse;
+                  if (!response.success || !response.dashboard) {
+                    throw new Error('本地游戏没有返回账号详设数据');
+                  }
+                  return {
+                    success: true,
+                    options: {
+                      umas: response.dashboard.umas,
+                      supports: response.dashboard.supports,
+                      decks: response.dashboard.decks,
+                      parents: response.dashboard.parents,
+                      friends: response.dashboard.friends,
+                      friend_exclude_ids: response.dashboard.friend_exclude_ids,
+                      offline_scenarios: response.dashboard.offline_scenarios,
+                    },
+                  } as AccountOptionsResponse;
+                })
       )
         .then((result) => {
           if (
@@ -1731,7 +1714,7 @@ export default function AutoResearch() {
   const loadDailyTasks = useCallback(
     async (accountId: string): Promise<boolean> => {
       if (!accountId) return false;
-      const account = accounts.find((item) => item.id === accountId);
+      const account = accountsRef.current.find((item) => item.id === accountId);
       if (!account) {
         setDailyTasksOverview(null);
         setDailyTasksLoading(false);
@@ -1795,7 +1778,7 @@ export default function AutoResearch() {
         }
       }
     },
-    [accounts],
+    [],
   );
 
   const loginLocalAccount = useCallback(
@@ -2181,7 +2164,12 @@ export default function AutoResearch() {
       const storedPresets = JSON.parse(
         getSharedStorageItem(LOCAL_PRESETS_KEY) || '[]',
       );
-      if (Array.isArray(storedPresets)) localPresets = storedPresets;
+      if (Array.isArray(storedPresets)) {
+        localPresets = storedPresets.map((preset: Preset) => ({
+          ...preset,
+          scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
+        }));
+      }
       const stored = JSON.parse(
         getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
       );
@@ -2264,6 +2252,7 @@ export default function AutoResearch() {
   useEffect(() => {
     const preset = presets.find((item) => item.name === presetName);
     if (!preset) return;
+    setScenarioId(normalizeOnlineScenarioId(preset.scenario_id));
     setRunningStyle(Number(preset.running_style ?? 0));
     setSkillSelections(
       normalizeSkillSelections(
@@ -2460,6 +2449,7 @@ export default function AutoResearch() {
     ) {
       return;
     }
+    if (accountOptionsCache.current.has(selectedAccountId)) return;
     loadAccountOptions(selectedAccountId).catch((caught) =>
       setError((caught as Error).message),
     );
@@ -2506,8 +2496,6 @@ export default function AutoResearch() {
     setOfflineScenarioId(0);
     setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
-    setOfflineRaceDeckName('');
-    setOfflineRaceIds([]);
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -3001,10 +2989,6 @@ export default function AutoResearch() {
 
   const refreshOptionsIndex = async () => {
     if (!selectedAccountId) return;
-    if (serverHostedMode) {
-      await loadOverview(selectedAccountId);
-      return;
-    }
     setBusy('options-index');
     setError('');
     try {
@@ -3346,7 +3330,7 @@ export default function AutoResearch() {
         parent_2_viewer_id:
           selectedParent2?.viewer_id ||
           parentViewerIdFromSelection(effectiveParentKey2),
-        scenario_id: scenarioId,
+        scenario_id: normalizeOnlineScenarioId(boundPreset.scenario_id),
         deck_id: effectiveDeckId || 1,
         use_tp: 30,
         recover_tp_with_item: recoverTpWithItem,
@@ -3415,7 +3399,7 @@ export default function AutoResearch() {
         parent_id_2: setting.parent_id_2,
         parent_1_viewer_id: parentViewerIdFromSelection(setting.parent_key_1),
         parent_2_viewer_id: parentViewerIdFromSelection(setting.parent_key_2),
-        scenario_id: Number(setting.scenario_id || preset.scenario_id || 1),
+        scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
         deck_id: setting.deck_id || 1,
         use_tp: 30,
         recover_tp_with_item: setting.recover_tp_with_item,
@@ -3643,7 +3627,7 @@ export default function AutoResearch() {
     try {
       const result = await window.electron.autoResearch.abandonCareer(
         accountId,
-        Number(dashboard.account.career.scenario_id || scenarioId || 1),
+        normalizeOnlineScenarioId(dashboard.account.career.scenario_id),
         Number(runner?.turn ?? dashboard.account.career.turn ?? 1),
       );
       if (!result?.careerDeleted) {
@@ -3843,7 +3827,7 @@ export default function AutoResearch() {
         ...createDefaultPreset(name),
         ...(raw as Partial<Preset>),
         name,
-        scenario_id: 1,
+        scenario_id: normalizeOnlineScenarioId(raw.scenario_id),
       };
       const nextPresets = [...presets, importedPreset];
       setPresets(nextPresets);
@@ -4087,12 +4071,6 @@ export default function AutoResearch() {
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
     setOfflineChallengeMode(Boolean(setting.offline_training_challenge_mode));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
-    setOfflineRaceDeckName(setting.offline_race_deck_name || '');
-    setOfflineRaceIds(
-      (setting.offline_race_array || []).map(
-        (race) => race.year * 100000 + race.program_id,
-      ),
-    );
     setOfflineFactorSelection(
       normalizeOfflineFactorSelection(setting.offline_factor_selection),
     );
@@ -4126,7 +4104,6 @@ export default function AutoResearch() {
     setFriendCardId(0);
     setParent1('');
     setParent2('');
-    setParentSelectionSlot(1);
     setMaxSteps(2500);
     setBurnClocks(false);
     setRecoverTpWithItem(false);
@@ -4136,8 +4113,6 @@ export default function AutoResearch() {
     setOfflineScenarioId(0);
     setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
-    setOfflineRaceDeckName('');
-    setOfflineRaceIds([]);
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
@@ -4188,11 +4163,18 @@ export default function AutoResearch() {
       setError(selectionConflict);
       return false;
     }
+    if (careerMode === 'offline' && !offlineRaceDeckNum) {
+      setError('请为离线详设选择一个游戏赛程槽位');
+      return false;
+    }
     const existing = careerSettings.find(
       (setting) => setting.id === selectedCareerSettingId,
     );
     const boundPresetName =
       careerMode === 'offline' ? '' : existing?.preset_name || careerPresetName;
+    const boundPreset = presets.find(
+      (preset) => preset.name === boundPresetName,
+    );
     const setting: CareerSetting = {
       id: existing?.id || `${selectedAccount.uid}-${Date.now()}`,
       name,
@@ -4207,7 +4189,10 @@ export default function AutoResearch() {
       parent_id_2: effectiveParentId2,
       parent_key_1: effectiveParentKey1,
       parent_key_2: effectiveParentKey2,
-      scenario_id: scenarioId,
+      scenario_id:
+        careerMode === 'online'
+          ? normalizeOnlineScenarioId(boundPreset?.scenario_id)
+          : undefined,
       offline_scenario_id:
         careerMode === 'offline' ? offlineScenarioId : undefined,
       max_steps: maxSteps,
@@ -4218,15 +4203,6 @@ export default function AutoResearch() {
         careerMode === 'offline' ? offlineChallengeMode : undefined,
       offline_race_deck_num:
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
-      offline_race_deck_name:
-        careerMode === 'offline' ? offlineRaceDeckName : undefined,
-      offline_race_array:
-        careerMode === 'offline'
-          ? offlineRaceIds.map((id) => ({
-              year: Math.floor(id / 100000),
-              program_id: id % 100000,
-            }))
-          : undefined,
       offline_skill_settings:
         careerMode === 'offline'
           ? normalizeOfflineSkillSettings(offlineSkillSettings)
@@ -4289,87 +4265,71 @@ export default function AutoResearch() {
     recover_tp_with_jewels: recoverTpWithJewels,
   });
 
-  const selectOfflineRaceDeck = (
-    setup: OfflineSingleModeSetup,
-    requestedDeckNum?: number,
-  ) => {
-    const deck =
-      setup.race_decks.find(
-        (item) => item.deck_num === Number(requestedDeckNum || 0),
-      ) ||
-      setup.race_decks.find(
-        (item) => item.deck_num === setup.default_deck_num,
-      ) ||
-      setup.race_decks[0];
-    if (!deck) return;
-    setOfflineRaceDeckNum(deck.deck_num);
-    setOfflineRaceDeckName(deck.deck_name || `我的参赛计划${deck.deck_num}`);
-    setOfflineRaceIds(
-      deck.race_array.map((item) => item.year * 100000 + item.program_id),
-    );
-  };
-
-  const prepareOfflineCareer = async () => {
-    if (!selectedAccountId) return;
-    const accountId = selectedAccountId;
-    if (
-      automationActive ||
-      currentCareerActive ||
-      currentIdleSingleMode?.active
-    ) {
-      setError('当前账号已有进行中的育成或后台任务，不能修改离线育成准备');
-      return;
-    }
-    if (
-      !effectiveCardId ||
-      !effectiveDeckId ||
-      !effectiveFriendCardId ||
-      !effectiveParentId1 ||
-      !effectiveParentId2
-    ) {
-      setError('请先完整选择育成马娘、卡组、好友支援和两位继承马娘');
-      return;
-    }
-    if (selectionConflict) {
-      setError(selectionConflict);
-      return;
-    }
-    setBusy('idle-prepare');
-    setError('');
-    try {
-      const result = (await window.electron.autoResearch.prepareIdleSingleMode(
-        accountId,
-        offlineSelectionRequest(offlineScenarioId),
-      )) as LocalOfflineSetupResponse;
-      if (!isOfflineSingleModeSetup(result?.offline_setup)) {
-        throw new Error('游戏没有返回离线育成赛程信息');
+  const prepareOfflineCareer =
+    async (): Promise<OfflineSingleModeSetup | null> => {
+      if (!selectedAccountId) return null;
+      const accountId = selectedAccountId;
+      if (
+        automationActive ||
+        currentCareerActive ||
+        currentIdleSingleMode?.active
+      ) {
+        setError('当前账号已有进行中的育成或后台任务，不能修改离线育成准备');
+        return null;
       }
-      if (selectedAccountIdRef.current !== accountId) return;
-      const setup = result.offline_setup;
-      setOfflineSetup(setup);
-      setOfflineSetupAccountId(accountId);
-      setOfflineChallengeMode((current) =>
-        setup.training_challenge.available ? current : false,
-      );
-      selectOfflineRaceDeck(
-        setup,
-        offlineRaceDeckNum || selectedCareerSetting?.offline_race_deck_num,
-      );
-    } catch (caught) {
-      if (selectedAccountIdRef.current === accountId) {
-        setError((caught as Error).message);
+      if (
+        !effectiveCardId ||
+        !effectiveDeckId ||
+        !effectiveFriendCardId ||
+        !effectiveParentId1 ||
+        !effectiveParentId2
+      ) {
+        setError('请先完整选择育成马娘、卡组、好友支援和两位继承马娘');
+        return null;
       }
-    } finally {
-      if (selectedAccountIdRef.current === accountId) setBusy('');
-    }
-  };
+      if (selectionConflict) {
+        setError(selectionConflict);
+        return null;
+      }
+      setBusy('idle-prepare');
+      setError('');
+      try {
+        const result =
+          (await window.electron.autoResearch.prepareIdleSingleMode(
+            accountId,
+            offlineSelectionRequest(offlineScenarioId),
+          )) as LocalOfflineSetupResponse;
+        if (!isOfflineSingleModeSetup(result?.offline_setup)) {
+          throw new Error('游戏没有返回离线育成赛程信息');
+        }
+        if (selectedAccountIdRef.current !== accountId) return null;
+        const setup = result.offline_setup;
+        setOfflineSetup(setup);
+        setOfflineSetupAccountId(accountId);
+        setOfflineChallengeMode((current) =>
+          setup.training_challenge.available ? current : false,
+        );
+        return setup;
+      } catch (caught) {
+        if (selectedAccountIdRef.current === accountId) {
+          setError((caught as Error).message);
+        }
+        return null;
+      } finally {
+        if (selectedAccountIdRef.current === accountId) setBusy('');
+      }
+    };
 
-  const saveOfflineRaceDeck = async () => {
-    if (!selectedAccountId || !offlineSetup || !offlineRaceDeckNum) return;
+  const saveOfflineRaceDeck = async (
+    deckNum: number,
+    deckName: string,
+    raceIds: number[],
+  ): Promise<boolean> => {
+    if (!selectedAccountId || !offlineSetup || !deckNum) return false;
     const accountId = selectedAccountId;
     if (offlineSetupAccountId !== accountId) {
       setError('当前账号的离线赛程尚未读取，请重新读取后再保存');
-      return;
+      return false;
     }
     if (
       automationActive ||
@@ -4377,7 +4337,7 @@ export default function AutoResearch() {
       currentIdleSingleMode?.active
     ) {
       setError('当前账号已有进行中的育成或后台任务，不能修改离线赛程');
-      return;
+      return false;
     }
     setBusy('idle-race-deck');
     setError('');
@@ -4388,43 +4348,39 @@ export default function AutoResearch() {
           {
             card_id: effectiveCardId,
             scenario_id: offlineSetup.scenario_id,
-            deck_num: offlineRaceDeckNum,
-            deck_name:
-              offlineRaceDeckName.trim() || `我的参赛计划${offlineRaceDeckNum}`,
-            race_array: offlineRaceIds.map((id) => ({
+            deck_num: deckNum,
+            deck_name: deckName.trim() || `我的参赛计划${deckNum}`,
+            race_array: raceIds.map((id) => ({
               year: Math.floor(id / 100000),
               program_id: id % 100000,
             })),
-            is_default: offlineSetup.default_deck_num === offlineRaceDeckNum,
+            is_default: offlineSetup.default_deck_num === deckNum,
           },
         )) as LocalOfflineSetupResponse;
       if (!isOfflineSingleModeSetup(result?.offline_setup)) {
         throw new Error('游戏没有返回有效的离线育成赛程信息');
       }
-      if (selectedAccountIdRef.current !== accountId) return;
+      if (selectedAccountIdRef.current !== accountId) return false;
       const setup = result.offline_setup;
       setOfflineSetup(setup);
       setOfflineSetupAccountId(accountId);
-      selectOfflineRaceDeck(setup, offlineRaceDeckNum);
+      return true;
     } catch (caught) {
       if (selectedAccountIdRef.current === accountId) {
         setError((caught as Error).message);
       }
+      return false;
     } finally {
       if (selectedAccountIdRef.current === accountId) setBusy('');
     }
   };
 
   const startOfflineCareer = async (mode: RunMode, target: number) => {
-    if (!selectedAccountId || !offlineSetup || !offlineRaceDeckNum) {
-      setError('请先读取并选择一个游戏赛程槽位');
+    if (!selectedAccountId || !offlineRaceDeckNum) {
+      setError('请先选择一个游戏赛程槽位');
       return false;
     }
     const accountId = selectedAccountId;
-    if (offlineSetupAccountId !== accountId) {
-      setError('当前账号的离线赛程尚未读取，请重新读取后再开始');
-      return false;
-    }
     if (!(await prepareServerTaskSubmission(accountId))) return false;
     setBusy('idle-start');
     setError('');
@@ -4446,10 +4402,7 @@ export default function AutoResearch() {
         factor_selection: normalizeOfflineFactorSelection(
           offlineFactorSelection,
         ),
-        race_array: offlineRaceIds.map((id) => ({
-          year: Math.floor(id / 100000),
-          program_id: id % 100000,
-        })),
+        race_deck_num: offlineRaceDeckNum,
       });
       if (selectedAccountIdRef.current !== accountId) return false;
       commitOverviewResponse(accountId, {
@@ -4459,6 +4412,82 @@ export default function AutoResearch() {
       setCareerSaveOpen(false);
       setOfflineSetup(null);
       setOfflineSetupAccountId('');
+      return true;
+    } catch (caught) {
+      if (selectedAccountIdRef.current === accountId) {
+        setError((caught as Error).message);
+      }
+      return false;
+    } finally {
+      if (selectedAccountIdRef.current === accountId) setBusy('');
+    }
+  };
+
+  const startOfflineCareerWithSetting = async (
+    setting: CareerSetting,
+    mode: RunMode,
+    target: number,
+  ) => {
+    if (!selectedAccountId || !setting.offline_race_deck_num) {
+      setError('这个离线详设尚未选择游戏赛程槽位');
+      return false;
+    }
+    const accountId = selectedAccountId;
+    const parentOne = dashboard?.parents.find(
+      (parent) => parent.selection_id === setting.parent_key_1,
+    );
+    const parentTwo = dashboard?.parents.find(
+      (parent) => parent.selection_id === setting.parent_key_2,
+    );
+    if (!(await prepareServerTaskSubmission(accountId))) return false;
+    setBusy(`idle-start-${setting.id}`);
+    setError('');
+    try {
+      const result = await submitServerTask(accountId, 'idle_single_mode', {
+        card_id: setting.card_id,
+        support_card_ids: setting.support_card_ids,
+        friend_viewer_id: 0,
+        friend_card_id: setting.friend_card_id,
+        parent_id_1: setting.parent_id_1,
+        parent_id_2: setting.parent_id_2,
+        parent_1_viewer_id:
+          parentOne?.viewer_id ||
+          parentViewerIdFromSelection(setting.parent_key_1),
+        parent_2_viewer_id:
+          parentTwo?.viewer_id ||
+          parentViewerIdFromSelection(setting.parent_key_2),
+        scenario_id: setting.offline_scenario_id || 0,
+        deck_id: setting.deck_id || 1,
+        use_tp: 15,
+        recover_tp_with_item: setting.recover_tp_with_item,
+        recover_tp_with_jewels: setting.recover_tp_with_jewels,
+        running_style: 0,
+        training_challenge_mode: Boolean(
+          setting.offline_training_challenge_mode,
+        ),
+        run_mode: mode,
+        run_target: target,
+        repeat_daily: repeatDaily,
+        schedule_start_time: scheduleStartTime,
+        schedule_end_time: scheduleEndTime,
+        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
+        career_setting_id: setting.id,
+        career_setting_name: setting.name,
+        offline_skill_settings: normalizeOfflineSkillSettings(
+          setting.offline_skill_settings,
+        ),
+        factor_selection: normalizeOfflineFactorSelection(
+          setting.offline_factor_selection,
+        ),
+        race_deck_num: setting.offline_race_deck_num,
+      });
+      if (selectedAccountIdRef.current !== accountId) return false;
+      setSelectedCareerSettingId(setting.id);
+      setCareerSettingName(setting.name);
+      commitOverviewResponse(accountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
       return true;
     } catch (caught) {
       if (selectedAccountIdRef.current === accountId) {
@@ -4510,10 +4539,8 @@ export default function AutoResearch() {
         `详设“${resolved.name}”绑定的预设不存在：${resolved.preset_name}`,
       );
     }
-    if (offline && !resolved.offline_race_array?.length) {
-      throw new Error(
-        `离线详设“${resolved.name}”尚未保存赛程，请进入该详设读取游戏赛程后保存`,
-      );
+    if (offline && !resolved.offline_race_deck_num) {
+      throw new Error(`离线详设“${resolved.name}”尚未选择游戏赛程槽位`);
     }
     return {
       id: queueItem.id,
@@ -4534,7 +4561,7 @@ export default function AutoResearch() {
         parent_2_viewer_id: parentTwo?.viewer_id || 0,
         scenario_id: offline
           ? resolved.offline_scenario_id || 0
-          : resolved.scenario_id || 1,
+          : normalizeOnlineScenarioId(preset?.scenario_id),
         deck_id: resolved.deck_id || 1,
         use_tp: offline ? 15 : 30,
         recover_tp_with_item: resolved.recover_tp_with_item,
@@ -4552,7 +4579,7 @@ export default function AutoResearch() {
         factor_selection: normalizeOfflineFactorSelection(
           resolved.offline_factor_selection,
         ),
-        race_array: resolved.offline_race_array || [],
+        race_deck_num: resolved.offline_race_deck_num || 0,
       },
     };
   };
@@ -4632,10 +4659,10 @@ export default function AutoResearch() {
         return;
       }
       if (setting.mode === 'offline') {
-        setError('请先进入离线详设读取游戏赛程，再选择运行计划');
-        return;
+        started = await startOfflineCareerWithSetting(setting, runMode, target);
+      } else {
+        started = await resumeCareerWithSetting(setting, runMode, target);
       }
-      started = await resumeCareerWithSetting(setting, runMode, target);
     } else if (careerMode === 'offline') {
       started = await startOfflineCareer(runMode, target);
     } else {
@@ -4676,24 +4703,6 @@ export default function AutoResearch() {
             aria-label="自动育成登录设置"
             className="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
           >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                  <LogIn size={19} className="text-indigo-600" />
-                  登录自动育成
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  选择本地已保存的游戏账号，并填写自动育成服务器地址。
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeLoginSettings}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                取消
-              </button>
-            </div>
             <div className="space-y-5 p-5">
               <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                 <div className="flex items-center gap-2">
@@ -4776,8 +4785,7 @@ export default function AutoResearch() {
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-slate-500">
-                  也可在游戏重新登录后由 Localify
-                  自动捕获账号；捕获成功后会立即出现在下方列表。
+                  也可在游戏重新登录后由 Localify 自动捕获账号
                 </p>
                 {captured.length ? (
                   <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
@@ -5110,7 +5118,7 @@ export default function AutoResearch() {
                     (item) => item.id === setting.card_id,
                   );
                   const invalid = offline
-                    ? !setting.offline_race_array?.length
+                    ? !setting.offline_race_deck_num
                     : !presets.some(
                         (preset) => preset.name === setting.preset_name,
                       );
@@ -5127,7 +5135,7 @@ export default function AutoResearch() {
                           <span className="mt-1 block truncate text-xs text-slate-500">
                             {uma?.name || `马娘 ${setting.card_id}`} ·{' '}
                             {offline
-                              ? `离线赛程 ${setting.offline_race_array?.length || 0} 场`
+                              ? `游戏赛程槽位 ${setting.offline_race_deck_num || '-'}`
                               : setting.preset_name}
                           </span>
                         </div>
@@ -5150,7 +5158,7 @@ export default function AutoResearch() {
                       {invalid ? (
                         <p className="mt-3 text-xs text-red-600">
                           {offline
-                            ? '该离线详设尚未保存赛程'
+                            ? '该离线详设尚未选择游戏赛程槽位'
                             : '绑定的预设不存在'}
                         </p>
                       ) : null}
@@ -5986,7 +5994,7 @@ export default function AutoResearch() {
                 <h2 className="mt-3 font-bold text-slate-800">
                   {checkingExistingRuntimeAccountId === selectedAccount?.id
                     ? '正在连接服务器上的托管任务'
-                    : '登录并读取本账号的最新育成数据'}
+                    : '未登录'}
                 </h2>
                 {missingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
@@ -6019,17 +6027,8 @@ export default function AutoResearch() {
                           ? '正在连接账号'
                           : disconnectingAccountId
                             ? '请等待账号退出完成'
-                            : '登录并读取最新数据'}
+                            : '登录'}
                   </button>
-                  {activeTab !== 'daily' ? (
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab('presets', 'preset-basic')}
-                      className="rounded-md border border-gray-200 bg-white px-5 py-2.5 font-semibold text-gray-600 hover:bg-gray-50"
-                    >
-                      先配置预设
-                    </button>
-                  ) : null}
                 </div>
               </section>
             ) : (
@@ -6179,6 +6178,8 @@ export default function AutoResearch() {
                     busy={busy}
                     presetSaved={presetSaved}
                     savePresetAndContinue={savePresetAndContinue}
+                    scenarioId={scenarioId}
+                    setScenarioId={setScenarioId}
                     runningStyle={runningStyle}
                     setRunningStyle={setRunningStyle}
                     skillSelections={skillSelections}
@@ -6203,7 +6204,6 @@ export default function AutoResearch() {
                     setSkillPurchaseTurns={setSkillPurchaseTurns}
                     editingSkillSelectionId={editingSkillSelectionId}
                     setSkillLearningSettings={setSkillLearningSettings}
-                    health={health}
                     uraAiTargetAttributes={uraAiTargetAttributes}
                     setUraAiTargetAttributes={setUraAiTargetAttributes}
                     uraAiTargetAttributeStages={uraAiTargetAttributeStages}
@@ -6269,20 +6269,12 @@ export default function AutoResearch() {
                     selectedUma={selectedUma}
                     cardId={cardId}
                     setCardId={setCardId}
-                    filteredUmas={filteredUmas}
-                    umaSearch={umaSearch}
-                    setUmaSearch={setUmaSearch}
                     selectedParent1={selectedParent1}
                     selectedParent2={selectedParent2}
                     parent1={parent1}
                     parent2={parent2}
                     setParent1={setParent1}
                     setParent2={setParent2}
-                    filteredParents={filteredParents}
-                    parentSearch={parentSearch}
-                    setParentSearch={setParentSearch}
-                    parentSelectionSlot={parentSelectionSlot}
-                    setParentSelectionSlot={setParentSelectionSlot}
                     deckId={deckId}
                     setDeckId={setDeckId}
                     setSupportCardIds={setSupportCardIds}
@@ -6320,22 +6312,15 @@ export default function AutoResearch() {
                       setOfflineSetupAccountId('');
                       setOfflineChallengeMode(false);
                       setOfflineRaceDeckNum(0);
-                      setOfflineRaceDeckName('');
-                      setOfflineRaceIds([]);
                     }}
                     offlineChallengeMode={offlineChallengeMode}
                     setOfflineChallengeMode={setOfflineChallengeMode}
                     offlineRaceDeckNum={offlineRaceDeckNum}
                     setOfflineRaceDeckNum={setOfflineRaceDeckNum}
-                    setOfflineRaceDeckName={setOfflineRaceDeckName}
-                    offlineRaceIds={offlineRaceIds}
-                    setOfflineRaceIds={setOfflineRaceIds}
                     resetOfflineCareer={() => {
                       setOfflineSetup(null);
                       setOfflineSetupAccountId('');
                       setOfflineRaceDeckNum(0);
-                      setOfflineRaceDeckName('');
-                      setOfflineRaceIds([]);
                     }}
                     prepareOfflineCareer={prepareOfflineCareer}
                     saveOfflineRaceDeck={saveOfflineRaceDeck}

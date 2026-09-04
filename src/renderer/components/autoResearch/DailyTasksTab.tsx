@@ -269,9 +269,6 @@ export default function DailyTasksTab({
           <p className="mt-3 font-medium text-slate-700">
             服务器托管进行中，本地日常暂不可用
           </p>
-          <p className="mt-1 text-xs text-slate-500">
-            暂停当前计划后，日常状态和立即执行将继续由本机处理。
-          </p>
         </div>
       </section>
     );
@@ -373,13 +370,10 @@ export default function DailyTasksTab({
               <h2 className="font-bold text-slate-800">每日日常配置</h2>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              配置只保存在本机；开启随养马执行后，启动养马时才会随任务提交到服务器。
+              启动后，养马过程中会完成任务。
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">
-              {draft.run_with_career ? '随养马执行' : '仅本地单次执行'}
-            </span>
             <Toggle
               checked={draft.run_with_career}
               label="养马同时完成日常"
@@ -591,9 +585,6 @@ export default function DailyTasksTab({
             reason={stadiumAvailability?.reason}
             readyDetail={`当前竞技场 RP：${stadiumAvailability?.current_rp || 0}`}
           />
-          <div className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            对手强度固定为高。
-          </div>
         </section>
 
         <section className={panelClass('p-5')}>
@@ -623,7 +614,7 @@ export default function DailyTasksTab({
             />
           </div>
           <div className="mt-4 rounded-lg bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-800">
-            服务端会先计算全部未购买商品的总价。任一种货币不足时，一件也不购买；全部足够时才一次性全买。
+            服务端会先计算全部未购买商品的总价。全部足够时才一次性全买。
           </div>
         </section>
       </div>

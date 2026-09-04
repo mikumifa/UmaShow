@@ -25,6 +25,10 @@ import successionSkillMetaData from 'renderer/data/succession_skill_meta.json';
 import SkillSelector, {
   type AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
+import {
+  SuccessionPickerDialog,
+  SuccessionPickerTrigger,
+} from 'renderer/components/succession/SuccessionPicker';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { horseIconPath } from 'renderer/components/autoResearch/SelectionCards';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
@@ -2364,20 +2368,6 @@ function UmaSelect({
     );
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
   const chooseUma = (umaId: number) => {
     onChange(umaId);
     setOpen(false);
@@ -2390,119 +2380,78 @@ function UmaSelect({
   }, [openRequest]);
 
   return (
-    <div
-      className={`successionUmaSelect ${selected ? 'selected' : ''}${modeSelector ? ' withModeSelector' : ''}`}
-    >
-      <div className="successionUmaSelectTitle">
-        <span>{!selected && modeSelector ? '未设置' : label}</span>
-        {selected && (titleActions || !displayOnly || onClear) && (
-          <div className="successionUmaSelectActions">
-            {titleActions}
-            {(!displayOnly || onClear) && (
-              <button
-                type="button"
-                onClick={() => (onClear ? onClear() : onChange(0))}
-                aria-label={`清除${label}`}
-              >
-                清除
+    <>
+      <SuccessionPickerTrigger
+        label={label}
+        selected={Boolean(selected)}
+        required={required}
+        disabled={displayOnly}
+        portrait={selected ? portrait || <UmaPortrait uma={selected} /> : null}
+        trailing={
+          compatibility ? (
+            <span
+              className="successionUmaCompatibility"
+              title={compatibilityTitle(compatibility)}
+            >
+              <small>相性</small>
+              <strong>{compatibility.total}</strong>
+            </span>
+          ) : null
+        }
+        titleActions={titleActions}
+        modeSelector={modeSelector}
+        footer={footer}
+        onOpen={() => setOpen(true)}
+        onClear={
+          !displayOnly || onClear
+            ? () => (onClear ? onClear() : onChange(0))
+            : undefined
+        }
+      >
+        {selected ? (
+          <>
+            <strong>{selected.name}</strong>
+            <UmaAptitudeRows uma={selected} />
+          </>
+        ) : null}
+      </SuccessionPickerTrigger>
+
+      {open ? (
+        <SuccessionPickerDialog
+          ariaLabel={`选择${label}`}
+          eyebrow="SELECT UMAMUSUME"
+          title={`选择${label}`}
+          description="输入名称或 ID 搜索，点击头像完成选择。"
+          onClose={() => setOpen(false)}
+          searchValue={query}
+          searchPlaceholder="输入马娘名称或 ID"
+          searchAriaLabel={`搜索${label}`}
+          onSearchChange={setQuery}
+          meta={
+            <>
+              <span>找到 {options.length} 位马娘</span>
+              {query ? (
+                <button type="button" onClick={clearSearch}>
+                  清空搜索
+                </button>
+              ) : null}
+              {!required && value !== 0 ? (
+                <button type="button" onClick={() => chooseUma(0)}>
+                  设为不固定
+                </button>
+              ) : null}
+            </>
+          }
+          bodyClassName="successionPickerGrid"
+          footer={
+            <>
+              <span>当前显示 {options.length} 位马娘</span>
+              <button type="button" onClick={() => setOpen(false)}>
+                完成
               </button>
-            )}
-          </div>
-        )}
-      </div>
-      {(selected || !modeSelector) && (
-        <button
-          type="button"
-          className="successionUmaTrigger"
-          aria-label={label}
-          disabled={displayOnly}
-          onClick={() => setOpen(true)}
+            </>
+          }
         >
-          {selected ? (
-            <Fragment>
-              {portrait || <UmaPortrait uma={selected} />}
-              <div className="successionSelectedUma">
-                <strong>{selected.name}</strong>
-                <UmaAptitudeRows uma={selected} />
-              </div>
-              {compatibility && (
-                <span
-                  className="successionUmaCompatibility"
-                  title={compatibilityTitle(compatibility)}
-                >
-                  <small>相性</small>
-                  <strong>{compatibility.total}</strong>
-                </span>
-              )}
-            </Fragment>
-          ) : (
-            <Fragment>
-              {required && <span className="successionPortrait empty">+</span>}
-              <div className="successionUmaPlaceholder">
-                <strong>{required ? '请选择马娘' : '不固定'}</strong>
-              </div>
-            </Fragment>
-          )}
-        </button>
-      )}
-      {modeSelector}
-      {selected && footer}
-
-      {open && (
-        <div
-          className="successionPickerOverlay"
-          onMouseDown={() => setOpen(false)}
-        >
-          <section
-            className="successionPickerDialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`选择${label}`}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <header className="successionPickerHeader">
-              <div>
-                <span>SELECT UMAMUSUME</span>
-                <h3>选择{label}</h3>
-                <p>输入名称或 ID 搜索，点击头像完成选择。</p>
-              </div>
-              <button
-                type="button"
-                className="successionPickerClose"
-                aria-label="关闭选择界面"
-                onClick={() => setOpen(false)}
-              >
-                ×
-              </button>
-            </header>
-
-            <div className="successionPickerToolbar">
-              <label className="successionPickerSearch">
-                <input
-                  type="text"
-                  value={query}
-                  autoFocus
-                  placeholder="输入马娘名称或 ID"
-                  aria-label={`搜索${label}`}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
-                />
-              </label>
-              <div className="successionPickerMeta">
-                <span>找到 {options.length} 位马娘</span>
-                {query && (
-                  <button type="button" onClick={clearSearch}>
-                    清空搜索
-                  </button>
-                )}
-                {!required && value !== 0 && (
-                  <button type="button" onClick={() => chooseUma(0)}>
-                    设为不固定
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="successionPickerGrid">
               {options.length ? (
                 options.map((uma) => {
                   const selected = uma.id === value;
@@ -2543,17 +2492,9 @@ function UmaSelect({
                   </button>
                 </div>
               )}
-            </div>
-            <footer className="successionPickerFooter">
-              <span>当前显示 {options.length} 位马娘</span>
-              <button type="button" onClick={() => setOpen(false)}>
-                完成
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
-    </div>
+        </SuccessionPickerDialog>
+      ) : null}
+    </>
   );
 }
 
@@ -3602,54 +3543,30 @@ function CapturedUmaPickerModal({
     setCandidatePage((current) => Math.min(current, pageCount - 1));
   }, [pageCount]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      if (detailCandidate) setDetailCandidate(undefined);
-      else onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [detailCandidate, onClose]);
-
   return (
-    <div className="successionPickerOverlay" onMouseDown={onClose}>
-      <section
-        className="successionPickerDialog successionCapturedPickerDialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`选择${SLOT_LABELS[slot]}已有马娘`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="successionPickerHeader">
-          <div>
-            <h3>选择已有马娘</h3>
-            <p>点击候选卡片直接选择；“查看详细”可查看本体、父辈与全部因子。</p>
-          </div>
-          <button
-            type="button"
-            className="successionPickerClose"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
-        <div className="successionPickerToolbar">
-          <label className="successionPickerSearch">
-            <input
-              autoFocus
-              value={search}
-              placeholder="搜索马娘、红因子、玩家或 ID"
-              onChange={(event) => setSearch(event.currentTarget.value)}
-            />
-          </label>
-          <div className="successionPickerMeta">
-            找到 {visible.length} 个已有实例
-            {visible.length > MAX_CAPTURED_PICKER_CANDIDATES
-              ? `，分页显示前 ${MAX_CAPTURED_PICKER_CANDIDATES} 个`
-              : ''}
-          </div>
-        </div>
+    <SuccessionPickerDialog
+      ariaLabel={`选择${SLOT_LABELS[slot]}已有马娘`}
+      title="选择已有马娘"
+      description="点击候选卡片直接选择；“查看详细”可查看本体、父辈与全部因子。"
+      onClose={onClose}
+      onEscape={() => {
+        if (detailCandidate) setDetailCandidate(undefined);
+        else onClose();
+      }}
+      dialogClassName="successionCapturedPickerDialog"
+      searchValue={search}
+      searchPlaceholder="搜索马娘、红因子、玩家或 ID"
+      searchAriaLabel="搜索已有马娘"
+      onSearchChange={setSearch}
+      meta={
+        <span>
+          找到 {visible.length} 个已有实例
+          {visible.length > MAX_CAPTURED_PICKER_CANDIDATES
+            ? `，分页显示前 ${MAX_CAPTURED_PICKER_CANDIDATES} 个`
+            : ''}
+        </span>
+      }
+    >
         {pagedVisible.length ? (
           <>
             <div className="successionCapturedPickerPagination">
@@ -3782,7 +3699,6 @@ function CapturedUmaPickerModal({
               : '尚未捕获 load/index 或 pre_single_mode。请保持 UmaShow 监听开启，然后在游戏中进入育成准备或重新登录。'}
           </div>
         )}
-      </section>
       {detailCandidate ? (
         <CapturedUmaDetailModal
           candidate={detailCandidate}
@@ -3790,7 +3706,7 @@ function CapturedUmaPickerModal({
           onClose={() => setDetailCandidate(undefined)}
         />
       ) : null}
-    </div>
+    </SuccessionPickerDialog>
   );
 }
 

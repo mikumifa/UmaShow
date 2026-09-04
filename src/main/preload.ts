@@ -184,6 +184,8 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-login-session', id, loginId),
     localOverview: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-local-overview', id),
+    localOptions: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-local-options', id),
     clearLocalSession: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-local-session-clear', id),
     dailyTasksOverview: (id: string, config: Record<string, unknown>) =>

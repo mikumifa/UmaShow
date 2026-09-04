@@ -12,7 +12,10 @@ import {
   loginAutoResearchLocalGameClient,
   withAutoResearchLocalGameClient,
 } from './AutoResearchLocalGameClient';
-import { buildLocalDashboard } from './AutoResearchLocalDashboard';
+import {
+  buildLocalDashboard,
+  buildLocalDashboardOptions,
+} from './AutoResearchLocalDashboard';
 
 export interface CapturedAutoResearchCredential {
   uid: string;
@@ -70,6 +73,29 @@ function maskSecret(value: string) {
 
 function storePath() {
   return path.join(app.getPath('userData'), 'auto-research-accounts.json');
+}
+
+function responseData(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const record = value as Record<string, unknown>;
+  const { data } = record;
+  return data && typeof data === 'object' && !Array.isArray(data)
+    ? (data as Record<string, unknown>)
+    : record;
+}
+
+function mergeDashboardResponses(index: unknown, options: unknown) {
+  const indexRecord =
+    index && typeof index === 'object' && !Array.isArray(index)
+      ? (index as Record<string, unknown>)
+      : {};
+  return {
+    ...indexRecord,
+    data: {
+      ...responseData(index),
+      ...responseData(options),
+    },
+  };
 }
 
 function readStoredAccessKey(account: SerializedAutoResearchAccount) {
@@ -367,9 +393,13 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   ipcMain.handle('autoresearch:account-local-overview', async (_, id: string) =>
     withAutoResearchLocalGameClient(id, async (client) => {
       const index = await client.loadIndex();
-      const dashboard = buildLocalDashboard(index, {
-        source: 'UmaShow 本地 load/index',
-      });
+      const options = await client.loadSingleModeOptions();
+      const dashboard = buildLocalDashboard(
+        mergeDashboardResponses(index, options),
+        {
+          source: 'UmaShow 本地 load/index + pre_single_mode/index',
+        },
+      );
       return {
         success: true,
         dashboard,
@@ -384,6 +414,17 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
       };
     }),
   );
+  ipcMain.handle('autoresearch:account-local-options', async (_, id: string) =>
+    withAutoResearchLocalGameClient(id, async (client) => {
+      const options = await client.loadSingleModeOptions();
+      return {
+        success: true,
+        options: buildLocalDashboardOptions(options, {
+          source: 'UmaShow 本地 pre_single_mode/index',
+        }),
+      };
+    }),
+  );
   ipcMain.handle(
     'autoresearch:account-login-session',
     async (event, id: string, loginId: string) => {
@@ -393,17 +434,18 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
           ...value,
         });
       };
-      const { loginIndex, session } = await loginAutoResearchLocalGameClient(
-        id,
-        {
+      const { loginIndex, optionIndex, session } =
+        await loginAutoResearchLocalGameClient(id, {
           credentialRefreshSource: '自动育成本地登录刷新',
           onProgress: progress,
+        });
+      if (!loginIndex) throw new Error('游戏登录没有返回账号数据');
+      const dashboard = buildLocalDashboard(
+        mergeDashboardResponses(loginIndex, optionIndex),
+        {
+          source: 'UmaShow 本地登录 load/index + pre_single_mode/index',
         },
       );
-      if (!loginIndex) throw new Error('游戏登录没有返回账号数据');
-      const dashboard = buildLocalDashboard(loginIndex, {
-        source: 'UmaShow 本地登录 load/index',
-      });
       return {
         success: true,
         dashboard,
@@ -433,9 +475,14 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     async (_, id: string, currentTurn: number) => {
       return withAutoResearchLocalGameClient(id, async (client) => {
         const result = await client.abandonIdleSingleMode(currentTurn);
-        const dashboard = buildLocalDashboard(result.index, {
-          source: 'UmaShow 本地放弃离线育成 load/index',
-        });
+        const optionIndex = await client.loadSingleModeOptions();
+        const dashboard = buildLocalDashboard(
+          mergeDashboardResponses(result.index, optionIndex),
+          {
+            source:
+              'UmaShow 本地放弃离线育成 load/index + pre_single_mode/index',
+          },
+        );
         return {
           success: true,
           dashboard,

@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   Check,
-  Download,
+  Pencil,
   Plus,
   Save,
   Search,
@@ -35,14 +35,15 @@ type Props = {
   races: RaceOption[];
   selectedDeckNum: number;
   setSelectedDeckNum: Dispatch<SetStateAction<number>>;
-  setDeckName: Dispatch<SetStateAction<string>>;
-  selectedRaceIds: number[];
-  setSelectedRaceIds: Dispatch<SetStateAction<number[]>>;
   challengeMode: boolean;
   setChallengeMode: Dispatch<SetStateAction<boolean>>;
   busy: string;
-  prepare: () => Promise<void>;
-  saveDeck: () => Promise<void>;
+  prepare: () => Promise<OfflineSingleModeSetup | null>;
+  saveDeck: (
+    deckNum: number,
+    deckName: string,
+    raceIds: number[],
+  ) => Promise<boolean>;
   factorSelection: OfflineFactorSelection;
   setFactorSelection: Dispatch<SetStateAction<OfflineFactorSelection>>;
   parents: Dashboard['parents'];
@@ -91,9 +92,6 @@ export default function OfflineCareerSettings({
   races,
   selectedDeckNum,
   setSelectedDeckNum,
-  setDeckName,
-  selectedRaceIds,
-  setSelectedRaceIds,
   challengeMode,
   setChallengeMode,
   busy,
@@ -109,6 +107,9 @@ export default function OfflineCareerSettings({
 }: Props) {
   const [factorSkillPickerOpen, setFactorSkillPickerOpen] = useState(false);
   const [finalSkillPickerOpen, setFinalSkillPickerOpen] = useState(false);
+  const [editingDeckNum, setEditingDeckNum] = useState(0);
+  const [editingDeckName, setEditingDeckName] = useState('');
+  const [editingRaceIds, setEditingRaceIds] = useState<number[]>([]);
   const [specificLineageSearch, setSpecificLineageSearch] = useState('');
   const [lineageTreeSearch, setLineageTreeSearch] = useState('');
   const [lineageTreePicker, setLineageTreePicker] = useState<
@@ -129,12 +130,58 @@ export default function OfflineCareerSettings({
       return left.id - right.id;
     });
 
-  const selectDeck = (deckNum: number) => {
-    const deck = setup?.race_decks.find((item) => item.deck_num === deckNum);
+  const deckOptions = useMemo(() => {
+    const serverDecks = new Map(
+      (setup?.race_decks || []).map((deck) => [deck.deck_num, deck]),
+    );
+    return Array.from({ length: 8 }, (_, index) => {
+      const deckNum = index + 1;
+      return (
+        serverDecks.get(deckNum) || {
+          deck_num: deckNum,
+          deck_name: '',
+          race_array: [],
+        }
+      );
+    });
+  }, [setup]);
+
+  useEffect(() => {
+    setEditingDeckNum(0);
+    setEditingDeckName('');
+    setEditingRaceIds([]);
+  }, [selectedScenarioId]);
+
+  useEffect(() => {
+    if (!setup || !editingDeckNum) return;
+    const deck = setup.race_decks.find(
+      (item) => item.deck_num === editingDeckNum,
+    );
     if (!deck) return;
-    setSelectedDeckNum(deckNum);
-    setDeckName(deck.deck_name || `我的参赛计划${deckNum}`);
-    setSelectedRaceIds(
+    setEditingDeckName(deck.deck_name || `我的参赛计划${deck.deck_num}`);
+    setEditingRaceIds(
+      deck.race_array.map((item) => raceKey(item.year, item.program_id)),
+    );
+  }, [editingDeckNum, setup]);
+
+  useEffect(() => {
+    if (!editingDeckNum) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) setEditingDeckNum(0);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [busy, editingDeckNum]);
+
+  const editDeck = async (deckNum: number) => {
+    const availableSetup = setup || (await prepare());
+    const deck = availableSetup?.race_decks.find(
+      (item) => item.deck_num === deckNum,
+    );
+    if (!deck) return;
+    setEditingDeckNum(deckNum);
+    setEditingDeckName(deck.deck_name || `我的参赛计划${deckNum}`);
+    setEditingRaceIds(
       deck.race_array.map((item) => raceKey(item.year, item.program_id)),
     );
   };
@@ -436,25 +483,20 @@ export default function OfflineCareerSettings({
     <>
       <section
         id="offline-career-setup"
-        className="rounded-lg border border-sky-200 bg-sky-50/60 p-4"
+        className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-sky-950">游戏离线自动育成</h3>
-            <p className="mt-1 text-xs text-sky-700">
-              读取游戏内 8
-              个赛程槽位，服务器会自动补入当前马娘和剧本的必跑比赛。
-            </p>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              5
+            </span>
+            <div>
+              <h3 className="font-semibold text-gray-800">赛程设置</h3>
+              <p className="text-xs text-gray-500">
+                详设只保存游戏赛程槽位 ID，启动时直接使用服务器上的槽位内容。
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={prepare}
-            disabled={Boolean(busy)}
-            className="flex items-center gap-2 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
-          >
-            <Download size={15} />
-            {busy === 'idle-prepare' ? '正在读取…' : '读取所选剧本赛程'}
-          </button>
         </div>
 
         <label className="mt-4 block text-sm text-slate-700">
@@ -463,7 +505,7 @@ export default function OfflineCareerSettings({
             value={selectedScenarioId}
             disabled={Boolean(busy)}
             onChange={(event) => onScenarioChange(Number(event.target.value))}
-            className="mt-1.5 w-full rounded-md border border-sky-200 bg-white px-3 py-2 text-slate-900"
+            className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
           >
             <option value={0}>自动选择最新可用剧本</option>
             {scenarios.map((scenario) => (
@@ -472,119 +514,202 @@ export default function OfflineCareerSettings({
               </option>
             ))}
           </select>
-          <span className="mt-1 block text-xs text-slate-500">
-            切换剧本后需要重新读取赛程，必跑比赛和活动模式会按所选剧本计算。
-          </span>
         </label>
 
         {setup ? (
-          <>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-sky-100 bg-white p-3 text-sm">
-                <span className="text-slate-500">当前主剧本</span>
-                <strong className="ml-2 text-slate-900">
-                  {setup.scenario_name || `剧本 ${setup.scenario_id}`}
-                </strong>
-              </div>
-              <label className="flex items-start gap-3 rounded-lg border border-sky-100 bg-white p-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={challengeMode}
-                  disabled={!setup.training_challenge.available}
-                  onChange={(event) => setChallengeMode(event.target.checked)}
-                  className="mt-1"
-                />
-                <span>
-                  <strong className="block text-slate-900">参加活动模式</strong>
-                  <span className="text-xs text-slate-500">
-                    {setup.training_challenge.available
-                      ? `检测到当前育成挑战（活动 ${setup.training_challenge.id}）`
-                      : '当前没有可参加的育成挑战活动'}
-                  </span>
-                </span>
-              </label>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
+              <span className="text-slate-500">当前主剧本</span>
+              <strong className="ml-2 text-slate-900">
+                {setup.scenario_name || `剧本 ${setup.scenario_id}`}
+              </strong>
             </div>
+            <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={challengeMode}
+                disabled={!setup.training_challenge.available}
+                onChange={(event) => setChallengeMode(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <strong className="block text-slate-900">参加活动模式</strong>
+                <span className="text-xs text-slate-500">
+                  {setup.training_challenge.available
+                    ? `检测到当前育成挑战（活动 ${setup.training_challenge.id}）`
+                    : '当前没有可参加的育成挑战活动'}
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
 
-            <div className="mt-4">
-              <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {setup.race_decks.map((deck) => (
+        <div className="mt-4">
+          <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {deckOptions.map((deck) => {
+              const selected = selectedDeckNum === deck.deck_num;
+              return (
+                <article
+                  key={deck.deck_num}
+                  className={`flex min-w-0 items-center gap-2 rounded-lg border bg-white p-2 text-sm transition ${
+                    selected
+                      ? 'border-indigo-400 ring-2 ring-indigo-100'
+                      : 'border-slate-200'
+                  }`}
+                >
                   <button
-                    key={deck.deck_num}
                     type="button"
-                    onClick={() => selectDeck(deck.deck_num)}
-                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                      selectedDeckNum === deck.deck_num
-                        ? 'border-sky-400 bg-sky-100 text-sky-950'
-                        : 'border-slate-200 bg-white text-slate-700'
-                    }`}
+                    aria-pressed={selected}
+                    onClick={() => setSelectedDeckNum(deck.deck_num)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
                   >
-                    <strong className="block truncate">
-                      {deck.deck_num}. {deck.deck_name || '空槽位'}
-                    </strong>
-                    <span className="text-xs text-slate-500">
-                      {deck.race_array.length} 场
+                    <span
+                      className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
+                        selected
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-slate-300 text-transparent'
+                      }`}
+                    >
+                      <Check size={12} strokeWidth={3} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate">
+                        槽位 {deck.deck_num} · {deck.deck_name || '空槽位'}
+                      </strong>
+                      <span className="text-xs text-slate-500">
+                        {setup
+                          ? `${deck.race_array.length} 场比赛`
+                          : '暂无数据'}
+                      </span>
                     </span>
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => editDeck(deck.deck_num)}
+                    disabled={Boolean(busy)}
+                    className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                  >
+                    <Pencil size={12} /> 编辑
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {editingDeckNum ? (
+        <div className="fixed inset-0 z-[1450] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="关闭赛程槽位编辑"
+            onClick={() => setEditingDeckNum(0)}
+            disabled={Boolean(busy)}
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm disabled:cursor-wait"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`编辑游戏赛程槽位 ${editingDeckNum}`}
+            className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <header className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <label className="min-w-64 flex-1 text-sm text-slate-700">
+                <strong className="block text-lg text-slate-900">
+                  编辑游戏赛程槽位 {editingDeckNum}
+                </strong>
+                <span className="mt-1 block text-xs text-slate-500">
+                  保存后会覆盖游戏服务器上对应槽位的名称与赛程。
+                </span>
+                <input
+                  value={editingDeckName}
+                  maxLength={20}
+                  disabled={Boolean(busy)}
+                  onChange={(event) => setEditingDeckName(event.target.value)}
+                  placeholder={`我的参赛计划${editingDeckNum}`}
+                  className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 disabled:bg-slate-50"
+                />
+              </label>
+              <button
+                type="button"
+                aria-label="关闭赛程槽位编辑"
+                onClick={() => setEditingDeckNum(0)}
+                disabled={Boolean(busy)}
+                className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+              >
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              <RaceSchedulePicker
+                id={`offline-races-${editingDeckNum}`}
+                title="赛程详细"
+                description="选择这个游戏槽位中要保存的比赛。"
+                notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
+                races={races}
+                selectedRaceIds={editingRaceIds}
+                setSelectedRaceIds={setEditingRaceIds}
+              />
+
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <p className="text-sm font-medium text-amber-950">
+                  必跑比赛（自动加入）
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {requiredRaces.length ? (
+                    requiredRaces.map((item) => (
+                      <span
+                        key={item.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-amber-800"
+                      >
+                        <Check size={12} />{' '}
+                        {item.race
+                          ? `${item.race.date} · ${item.race.name}`
+                          : `第 ${item.year} 年 · 比赛 ${item.program_id}`}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-amber-700/60">
+                      暂无固定比赛
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            {selectedDeckNum ? (
-              <>
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={saveDeck}
-                    disabled={Boolean(busy)}
-                    className="flex items-center justify-center gap-2 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
-                  >
-                    <Save size={15} />
-                    {busy === 'idle-race-deck' ? '正在保存…' : '保存赛程到游戏'}
-                  </button>
-                </div>
-
-                <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-                  <RaceSchedulePicker
-                    id="offline-races"
-                    title="赛程详细"
-                    description="可以再次修改赛程；保存后会覆盖游戏内对应槽位的赛程。"
-                    notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
-                    races={races}
-                    selectedRaceIds={selectedRaceIds}
-                    setSelectedRaceIds={setSelectedRaceIds}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-                  <p className="text-sm font-medium text-amber-950">
-                    必跑比赛（自动加入）
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {requiredRaces.length ? (
-                      requiredRaces.map((item) => (
-                        <span
-                          key={item.id}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-amber-800"
-                        >
-                          <Check size={12} />{' '}
-                          {item.race
-                            ? `${item.race.date} · ${item.race.name}`
-                            : `第 ${item.year} 年 · 比赛 ${item.program_id}`}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-amber-700/60">
-                        暂无固定比赛
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </>
-        ) : null}
-      </section>
+            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setEditingDeckNum(0)}
+                disabled={Boolean(busy)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const saved = await saveDeck(
+                    editingDeckNum,
+                    editingDeckName,
+                    editingRaceIds,
+                  );
+                  if (saved) setEditingDeckNum(0);
+                }}
+                disabled={Boolean(busy)}
+                className="flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <Save size={15} />
+                {busy === 'idle-race-deck'
+                  ? '正在保存…'
+                  : `保存槽位 ${editingDeckNum}`}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
 
       <section
         id="career-options"
@@ -592,136 +717,104 @@ export default function OfflineCareerSettings({
       >
         <div className="flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-            5
+            6
           </span>
-          <div>
-            <h3 className="font-semibold text-gray-800">结束自动点技能</h3>
-            <p className="text-xs text-gray-500">
-              固定开启；在因子结算前完成技能购买。
-            </p>
-          </div>
+          <h3 className="font-semibold text-gray-800">结束自动点技能</h3>
         </div>
 
-        <div className="mt-4 rounded-lg border border-violet-200 bg-white p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="max-w-3xl text-xs leading-5 text-slate-500">
-              优先学习列表技能；列表处理完后，会继续从可学习技能中按评价分最大化购买。双圈技能是否提前购买完全由下方优先级决定：未列入时，会在列表完成后与其金技能等候选按优先级处理。
-            </p>
-            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-700">
-              自动点技能始终开启
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <strong className="text-sm text-slate-800">技能优先级</strong>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  越靠前越优先；同一组里的技能视为同级候选。无需设置 Hint 门槛。
-                </p>
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {skillSettings.learn_skill_list.map((group, index) => (
+              <div
+                key={`${index}:${group.join('|')}`}
+                className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm"
+              >
+                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-violet-50 text-xs text-violet-700">
+                  {index + 1}
+                </b>
+                <span className="relative h-9 w-12 flex-none">
+                  {group.slice(0, 3).map((name, iconIndex) => {
+                    const skill = skillByName.get(name);
+                    const iconPath = skillIconPath(skill);
+                    return (
+                      <span
+                        key={name}
+                        className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
+                        style={{
+                          left: `${iconIndex * 7}px`,
+                          zIndex: 3 - iconIndex,
+                        }}
+                      >
+                        {iconPath ? (
+                          <AssetIcon
+                            path={iconPath}
+                            alt={name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
+                            ?
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-800">
+                    {skillSettings.learn_skill_group_labels[index] ||
+                      group.join(' / ')}
+                  </span>
+                  <span
+                    className="mt-0.5 block truncate text-[11px] text-slate-500"
+                    title={group.join('、')}
+                  >
+                    {group.length > 1
+                      ? `包含 ${group.length} 个技能`
+                      : group[0]}
+                  </span>
+                </span>
+                <span className="flex flex-none items-center gap-0.5">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveFinalSkillGroup(index, -1)}
+                    className="disabled:opacity-30"
+                    title="提高优先级"
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      index === skillSettings.learn_skill_list.length - 1
+                    }
+                    onClick={() => moveFinalSkillGroup(index, 1)}
+                    className="disabled:opacity-30"
+                    title="降低优先级"
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeFinalSkillGroup(index)}
+                    title="移除"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
               </div>
+            ))}
+            {!skillSettings.learn_skill_list.length ? (
               <button
                 type="button"
                 onClick={() => setFinalSkillPickerOpen(true)}
-                className="flex items-center gap-1 rounded-md border border-violet-200 px-2.5 py-1.5 text-xs font-medium text-violet-700"
+                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 md:col-span-4"
               >
-                <Plus size={13} /> 添加技能
+                <Plus size={15} className="mr-1" />
+                添加希望优先学习的技能
               </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {skillSettings.learn_skill_list.map((group, index) => (
-                <div
-                  key={`${index}:${group.join('|')}`}
-                  className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm"
-                >
-                  <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-violet-50 text-xs text-violet-700">
-                    {index + 1}
-                  </b>
-                  <span className="relative h-9 w-12 flex-none">
-                    {group.slice(0, 3).map((name, iconIndex) => {
-                      const skill = skillByName.get(name);
-                      const iconPath = skillIconPath(skill);
-                      return (
-                        <span
-                          key={name}
-                          className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
-                          style={{
-                            left: `${iconIndex * 7}px`,
-                            zIndex: 3 - iconIndex,
-                          }}
-                        >
-                          {iconPath ? (
-                            <AssetIcon
-                              path={iconPath}
-                              alt={name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
-                              ?
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-800">
-                      {skillSettings.learn_skill_group_labels[index] ||
-                        group.join(' / ')}
-                    </span>
-                    <span
-                      className="mt-0.5 block truncate text-[11px] text-slate-500"
-                      title={group.join('、')}
-                    >
-                      {group.length > 1
-                        ? `包含 ${group.length} 个技能`
-                        : group[0]}
-                    </span>
-                  </span>
-                  <span className="flex flex-none items-center gap-0.5">
-                    <button
-                      type="button"
-                      disabled={index === 0}
-                      onClick={() => moveFinalSkillGroup(index, -1)}
-                      className="disabled:opacity-30"
-                      title="提高优先级"
-                    >
-                      <ArrowUp size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        index === skillSettings.learn_skill_list.length - 1
-                      }
-                      onClick={() => moveFinalSkillGroup(index, 1)}
-                      className="disabled:opacity-30"
-                      title="降低优先级"
-                    >
-                      <ArrowDown size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeFinalSkillGroup(index)}
-                      title="移除"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                </div>
-              ))}
-              {!skillSettings.learn_skill_list.length ? (
-                <button
-                  type="button"
-                  onClick={() => setFinalSkillPickerOpen(true)}
-                  className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 md:col-span-4"
-                >
-                  <Plus size={15} className="mr-1" />
-                  添加希望优先学习的技能
-                </button>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -732,7 +825,7 @@ export default function OfflineCareerSettings({
       >
         <div className="flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-            6
+            7
           </span>
           <h3 className="font-semibold text-gray-800">免费因子重抽与筛选</h3>
         </div>
