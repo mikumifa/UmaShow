@@ -416,12 +416,16 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   );
   ipcMain.handle('autoresearch:account-local-options', async (_, id: string) =>
     withAutoResearchLocalGameClient(id, async (client) => {
+      const index = await client.loadIndex();
       const options = await client.loadSingleModeOptions();
       return {
         success: true,
-        options: buildLocalDashboardOptions(options, {
-          source: 'UmaShow 本地 pre_single_mode/index',
-        }),
+        options: buildLocalDashboardOptions(
+          mergeDashboardResponses(index, options),
+          {
+            source: 'UmaShow 本地 load/index + pre_single_mode/index',
+          },
+        ),
       };
     }),
   );
