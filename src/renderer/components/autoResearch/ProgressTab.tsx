@@ -4,8 +4,6 @@ import {
   CircleStop,
   Database,
   Gem,
-  Pause,
-  Play,
   RefreshCw,
   Trash2,
   Trophy,
@@ -20,9 +18,17 @@ import {
   formatDailyJewelScheduleWindow,
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
+  runModeLabel,
+  statusBadgeClass,
   turnDateLabel,
 } from './shared';
-import { Dashboard, Runner, RunnerStats, SessionAccount } from './types';
+import {
+  CareerSetting,
+  Dashboard,
+  Runner,
+  RunnerStats,
+  SessionAccount,
+} from './types';
 
 type ProgressTabProps = {
   currentCareerActive: boolean;
@@ -35,9 +41,7 @@ type ProgressTabProps = {
   automationActive: boolean;
   currentRunnerStats: RunnerStats;
   busy: string;
-  pauseCareer: () => Promise<void>;
-  resumeCareer: () => Promise<void>;
-  closeCareerPlan: () => Promise<void>;
+  activeSetting?: CareerSetting;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   offlineMode: boolean;
   serverHostedMode: boolean;
@@ -80,6 +84,34 @@ function dailyPlanGoalLabel(
   }
 }
 
+function currentRunPlanLabel(runner?: Runner) {
+  const queue = runner?.run_plan?.queue || runner?.control?.detail?.run_queue;
+  const queueItem = queue?.items?.[queue.current_index];
+  const mode =
+    queueItem?.goal ||
+    runner?.run_plan?.mode ||
+    runner?.control?.request?.run_mode;
+  const target =
+    queueItem?.target ||
+    runner?.run_plan?.target ||
+    runner?.control?.request?.run_target ||
+    1;
+
+  switch (mode) {
+    case 'count':
+      return `完成 ${target} 次`;
+    case 'jewel_drops':
+      return `获得 ${target} 次钻石`;
+    case 'daily_count':
+      return `每日完成 ${target} 次`;
+    case 'daily_jewel_drops':
+    case 'daily_jewel_schedule':
+      return `每日获得 ${target} 次钻石`;
+    default:
+      return runModeLabel(mode);
+  }
+}
+
 export default function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
@@ -91,9 +123,7 @@ export default function ProgressTab({
   automationActive,
   currentRunnerStats,
   busy,
-  pauseCareer,
-  resumeCareer,
-  closeCareerPlan,
+  activeSetting,
   dailyJewelSchedule,
   offlineMode,
   serverHostedMode,
@@ -104,6 +134,15 @@ export default function ProgressTab({
     busy === 'stop' || runner?.control?.desired_state === 'stopped';
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
+  const activeQueue =
+    runner?.run_plan?.queue || runner?.control?.detail?.run_queue;
+  const activeQueueItem = activeQueue?.items?.[activeQueue.current_index];
+  const currentSettingName =
+    activeSetting?.name ||
+    activeQueueItem?.career_setting_name ||
+    activeCareer?.name ||
+    currentCareerUma?.name ||
+    '当前详设';
   const runnerErrors = [runner?.last_error, runner?.control?.detail?.last_error]
     .map(formatAccountError)
     .filter(
@@ -144,10 +183,16 @@ export default function ProgressTab({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-bold text-slate-900">
-                  {activeCareer?.name || currentCareerUma?.name || '-'}
+                  {currentSettingName} · {currentRunPlanLabel(runner)}
                 </h2>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerPaused ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                  className={statusBadgeClass(
+                    runnerStopping || runnerPaused
+                      ? 'amber'
+                      : automationActive
+                        ? 'emerald'
+                        : 'slate',
+                  )}
                 >
                   {runnerStopping
                     ? runnerClosing
@@ -227,41 +272,8 @@ export default function ProgressTab({
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {runnerPaused ? (
-              <button
-                type="button"
-                onClick={resumeCareer}
-                disabled={Boolean(busy)}
-                className="flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                <Play size={16} />
-                {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
-              </button>
-            ) : serverHostedMode ? (
-              <>
-                <button
-                  type="button"
-                  onClick={pauseCareer}
-                  disabled={runnerStopping || busy === 'pause'}
-                  className="flex items-center gap-2 rounded-md border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                >
-                  <Pause size={16} />
-                  {runnerStopping && !runnerClosing
-                    ? '正在暂停…'
-                    : '暂停当前计划'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeCareerPlan}
-                  disabled={runnerStopping || Boolean(busy)}
-                  className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  <CircleStop size={16} />
-                  {runnerClosing ? '正在关闭…' : '关闭计划'}
-                </button>
-              </>
-            ) : (
+          {!serverHostedMode && !runnerPaused ? (
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={abandonCareer}
@@ -277,19 +289,8 @@ export default function ProgressTab({
                   ? '正在放弃…'
                   : '放弃本次育成'}
               </button>
-            )}
-            {runnerPaused ? (
-              <button
-                type="button"
-                onClick={closeCareerPlan}
-                disabled={runnerStopping || Boolean(busy)}
-                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-              >
-                <CircleStop size={16} />
-                {runnerClosing ? '正在关闭…' : '关闭计划'}
-              </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
 
         {runnerErrors.length ? (

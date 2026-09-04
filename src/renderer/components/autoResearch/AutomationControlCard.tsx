@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Settings2,
 } from 'lucide-react';
-import { panelClass, runModeLabel } from './shared';
+import { panelClass, runModeLabel, statusBadgeClass } from './shared';
 import { CareerSetting, Runner, RunMode } from './types';
 
 type AutomationControlCardProps = {
@@ -122,7 +122,11 @@ export default function AutomationControlCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-bold text-slate-900">运行计划</h2>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            <span
+              className={statusBadgeClass(
+                runnerStopping || runnerPaused ? 'amber' : 'emerald',
+              )}
+            >
               {runnerStopping
                 ? runnerClosing
                   ? '正在关闭…'
@@ -134,14 +138,12 @@ export default function AutomationControlCard({
                     : runModeLabel(currentMode)}
             </span>
             {countProgress ? (
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+              <span className={statusBadgeClass('sky')}>
                 {countProgress.completed}/{countProgress.target} 次
               </span>
             ) : null}
             {repeatDaily ? (
-              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-                每日任务
-              </span>
+              <span className={statusBadgeClass('violet')}>每日任务</span>
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">

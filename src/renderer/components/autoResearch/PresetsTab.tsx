@@ -24,6 +24,7 @@ import {
   skillPurchaseTurnLabel,
   SKILL_PURCHASE_YEAR_OPTIONS,
   STAT_LABELS,
+  statusBadgeClass,
 } from './shared';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import {
@@ -240,21 +241,25 @@ export default function PresetsTab(props: PresetsTabProps) {
           return (
             <article
               key={preset.name}
-              className="rounded-lg border border-gray-200 bg-gray-50/60 p-3"
+              className="relative rounded-lg border border-gray-200 bg-gray-50/60 p-3"
             >
+              {isDefault ? (
+                <span
+                  className={`absolute right-3 top-3 ${statusBadgeClass('violet')}`}
+                >
+                  默认预设
+                </span>
+              ) : null}
               <div className="flex items-start gap-3">
                 <span className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                   <Settings2 size={22} />
                 </span>
                 <div className="min-w-0 flex-1">
                   {isDefault ? (
-                    <div>
-                      <p className="truncate font-semibold text-gray-800">
+                    <div className="pr-24">
+                      <p className="truncate pt-1 font-semibold text-gray-800">
                         {preset.name}
                       </p>
-                      <span className="mt-1 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-                        默认预设
-                      </span>
                     </div>
                   ) : (
                     <label className="block text-xs text-gray-500">

@@ -24,7 +24,11 @@ import {
   ParentChoiceCard,
   SupportChoiceCard,
 } from './SelectionCards';
-import { panelClass, scrollToSection } from './shared';
+import {
+  careerSettingModeBadgeClass,
+  panelClass,
+  scrollToSection,
+} from './shared';
 import { parentCompatibilityPreview } from './successionCompatibility';
 import { AutoResearchSkill } from './SkillSelector';
 import {
@@ -455,18 +459,15 @@ export default function CareerTab(props: CareerTabProps) {
                         : setting.preset_name}
                     </p>
                     <span
-                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        presetExists
-                          ? 'bg-violet-50 text-violet-700'
-                          : 'bg-red-50 text-red-600'
-                      }`}
+                      className={`mt-1 ${careerSettingModeBadgeClass(offline)}`}
                     >
-                      {offline
-                        ? '离线详设'
-                        : presetExists
-                          ? '已绑定预设'
-                          : '绑定预设不存在'}
+                      {offline ? '离线' : '在线'}
                     </span>
+                    {!presetExists ? (
+                      <span className="ml-2 text-xs font-medium text-red-600">
+                        绑定预设不存在
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mt-auto flex gap-2 pt-3">

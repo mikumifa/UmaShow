@@ -1,4 +1,4 @@
-"""Copy selectable career race thumbnails into UmaShow's local assets."""
+"""Copy career race images used by AutoResearch into UmaShow's assets."""
 
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ FROM single_mode_program AS program
 JOIN race_instance AS instance ON instance.id = program.race_instance_id
 JOIN race ON race.id = instance.race_id
 WHERE COALESCE(program.base_program_id, 0) = 0
-  AND program.race_permission IN (1, 2, 3, 4)
-  AND race.grade IN (100, 200, 300, 400, 700)
+  AND race.grade IN (100, 200, 300, 400, 700, 1000)
   AND COALESCE(race.thumbnail_id, 0) <> 0
 ORDER BY race.thumbnail_id
 """

@@ -34,13 +34,18 @@ import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import DailyTasksTab from 'renderer/components/autoResearch/DailyTasksTab';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import EditableNumberInput from 'renderer/components/autoResearch/EditableNumberInput';
+import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
-import { horseIconPath } from 'renderer/components/autoResearch/SelectionCards';
+import {
+  horseIconPath,
+  supportIconPath,
+} from 'renderer/components/autoResearch/SelectionCards';
 import {
   AutoResearchRequestError,
   CAREER_SETTINGS_KEY,
+  careerSettingModeBadgeClass,
   careerSettingMatchesCurrent,
   compareRaces,
   createDefaultOfflineFactorSelection,
@@ -102,7 +107,7 @@ import {
   TargetAttributeStage,
 } from 'renderer/components/autoResearch/types';
 
-import { loadUMDB } from 'renderer/utils/umdb';
+import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import autoResearchCatalog from '../../../assets/data/auto_research_catalog.json';
 
 const localCatalog = autoResearchCatalog as {
@@ -574,6 +579,7 @@ export default function AutoResearch() {
   const [pendingLocalLogin, setPendingLocalLogin] = useState(false);
   const [pendingLocalLoginReady, setPendingLocalLoginReady] = useState(false);
   const [health, setHealth] = useState<any>(null);
+  const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [captured, setCaptured] = useState<CapturedCredential[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
@@ -2241,7 +2247,9 @@ export default function AutoResearch() {
   );
 
   useEffect(() => {
-    loadUMDB().catch(() => undefined);
+    loadUMDB()
+      .then(setUmaDatabase)
+      .catch(() => undefined);
     let localPresets: Preset[] = [];
     try {
       const storedPresets = JSON.parse(
@@ -4282,12 +4290,35 @@ export default function AutoResearch() {
       preset_name: boundPresetName,
       card_id: effectiveCardId,
       deck_id: effectiveDeckId,
+      deck_name: selectedDeck?.name || existing?.deck_name,
       support_card_ids: [...effectiveSupportCardIds],
       friend_card_id: effectiveFriendCardId,
+      friend_support_name:
+        selectedFriendSupport?.name ||
+        dashboard.friends.find(
+          (friend) => friend.support_card_id === effectiveFriendCardId,
+        )?.support_name ||
+        existing?.friend_support_name,
       parent_id_1: effectiveParentId1,
       parent_id_2: effectiveParentId2,
       parent_key_1: effectiveParentKey1,
       parent_key_2: effectiveParentKey2,
+      parent_1_snapshot: selectedParent1
+        ? {
+            card_id: selectedParent1.card_id,
+            name: selectedParent1.name,
+            rarity: selectedParent1.rarity,
+            race_cloth_id: selectedParent1.race_cloth_id,
+          }
+        : existing?.parent_1_snapshot,
+      parent_2_snapshot: selectedParent2
+        ? {
+            card_id: selectedParent2.card_id,
+            name: selectedParent2.name,
+            rarity: selectedParent2.rarity,
+            race_cloth_id: selectedParent2.race_cloth_id,
+          }
+        : existing?.parent_2_snapshot,
       scenario_id:
         careerMode === 'online'
           ? normalizeOnlineScenarioId(boundPreset?.scenario_id)
@@ -5247,7 +5278,7 @@ export default function AutoResearch() {
                 选择后续养马详设
               </h3>
               <p className="mt-1 text-sm text-slate-500">
-                选择完整保存的详设，然后使用与正常启动相同的运行方式页面确认目标。
+                当前无法修改详设内容，如果想要修改，请关闭当前计划。
               </p>
             </div>
             <div className="overflow-y-auto p-4">
@@ -5260,9 +5291,29 @@ export default function AutoResearch() {
               <div className="grid gap-3 sm:grid-cols-2">
                 {accountCareerSettings.map((setting) => {
                   const offline = setting.mode === 'offline';
-                  const uma = dashboard?.umas.find(
-                    (item) => item.id === setting.card_id,
-                  );
+                  const charaId = Number(String(setting.card_id).slice(0, 4));
+                  const databaseUmaName = [
+                    umaDatabase?.cards?.[setting.card_id]?.name,
+                    umaDatabase?.charas?.[charaId]?.name,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  const umaName = databaseUmaName || '未知马娘';
+                  const deckSupportIds = (
+                    setting.support_card_ids || []
+                  ).filter(Boolean);
+                  const settingFriendCardId =
+                    setting.friend_card_id ||
+                    Number(setting.friend_key?.split(':').pop()) ||
+                    0;
+                  const friendSupportName =
+                    setting.friend_support_name ||
+                    umaDatabase?.supportCards?.[settingFriendCardId]?.name ||
+                    (settingFriendCardId
+                      ? `支援卡 ${settingFriendCardId}`
+                      : '未选择');
+                  const settingParent1 = setting.parent_1_snapshot;
+                  const settingParent2 = setting.parent_2_snapshot;
                   const invalid = offline
                     ? !setting.offline_race_deck_num
                     : !presets.some(
@@ -5279,27 +5330,101 @@ export default function AutoResearch() {
                             {setting.name}
                           </strong>
                           <span className="mt-1 block truncate text-xs text-slate-500">
-                            {uma?.name || `马娘 ${setting.card_id}`} ·{' '}
-                            {offline
-                              ? `游戏赛程槽位 ${setting.offline_race_deck_num || '-'}`
-                              : setting.preset_name}
+                            {umaName} ·{' '}
+                            {offline ? '游戏离线育成' : setting.preset_name}
                           </span>
                         </div>
-                        <span
-                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            offline
-                              ? 'bg-sky-100 text-sky-700'
-                              : 'bg-violet-100 text-violet-700'
-                          }`}
-                        >
-                          {offline ? '离线详设' : '在线详设'}
+                        <span className={careerSettingModeBadgeClass(offline)}>
+                          {offline ? '离线' : '在线'}
                         </span>
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
-                        <span>卡组：{setting.deck_id || '-'}</span>
-                        <span>支援：{setting.support_card_ids.length}/5</span>
-                        <span>继承 1：{setting.parent_id_1 || '-'}</span>
-                        <span>继承 2：{setting.parent_id_2 || '-'}</span>
+                      <div className="mt-3 space-y-2.5 text-xs text-slate-500">
+                        <div>
+                          <div className="flex flex-nowrap gap-1">
+                            {deckSupportIds.map((supportCardId) => {
+                              const supportName =
+                                umaDatabase?.supportCards?.[supportCardId]
+                                  ?.name || `支援卡 ${supportCardId}`;
+                              return (
+                                <span
+                                  key={supportCardId}
+                                  title={supportName}
+                                  className="h-10 w-10 flex-none overflow-hidden rounded border border-slate-200 bg-slate-100"
+                                >
+                                  <AssetIcon
+                                    path={supportIconPath(supportCardId)}
+                                    alt={supportName}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </span>
+                              );
+                            })}
+                            {settingFriendCardId ? (
+                              <>
+                                <span className="flex h-10 flex-none items-center text-sm font-bold text-violet-500">
+                                  +
+                                </span>
+                                <span
+                                  title={`借用支援：${friendSupportName}`}
+                                  className="h-10 w-10 flex-none overflow-hidden rounded border border-violet-300 bg-slate-100"
+                                >
+                                  <AssetIcon
+                                    path={supportIconPath(settingFriendCardId)}
+                                    alt={friendSupportName}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </span>
+                              </>
+                            ) : null}
+                            {!deckSupportIds.length && !settingFriendCardId ? (
+                              <span className="text-slate-400">
+                                未保存卡组信息
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {[
+                            { label: '继承 1', parent: settingParent1 },
+                            { label: '继承 2', parent: settingParent2 },
+                          ].map(({ label, parent }) => {
+                            const parentIconPath = parent
+                              ? horseIconPath(
+                                  parent.card_id,
+                                  parent.rarity,
+                                  parent.race_cloth_id,
+                                )
+                              : undefined;
+                            return (
+                              <div
+                                key={label}
+                                className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
+                              >
+                                <span className="h-10 w-10 flex-none overflow-hidden rounded bg-slate-100">
+                                  {parentIconPath ? (
+                                    <AssetIcon
+                                      path={parentIconPath}
+                                      alt={parent?.name || label}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : null}
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-[10px] text-slate-400">
+                                    {label}
+                                  </span>
+                                  <span
+                                    className="block truncate font-medium text-slate-600"
+                                    title={parent?.name || '未选择'}
+                                  >
+                                    {parent?.name || '未选择'}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                       {invalid ? (
                         <p className="mt-3 text-xs text-red-600">
@@ -6529,9 +6654,7 @@ export default function AutoResearch() {
                       automationActive={automationActive}
                       currentRunnerStats={currentRunnerStats}
                       busy={busy}
-                      pauseCareer={pauseCareerPlan}
-                      resumeCareer={resumeCareerPlan}
-                      closeCareerPlan={closeCareerPlan}
+                      activeSetting={activeAutomationSetting}
                       dailyJewelSchedule={dailyJewelSchedule}
                       offlineMode={offlineControlActive}
                       serverHostedMode={serverHostedMode}

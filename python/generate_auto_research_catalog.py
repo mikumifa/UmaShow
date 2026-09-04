@@ -12,7 +12,14 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MASTER = ROOT / "master.mdb"
 DEFAULT_OUTPUT = ROOT / "assets" / "data" / "auto_research_catalog.json"
 
-GRADE_LABELS = {100: "G1", 200: "G2", 300: "G3", 400: "OP", 700: "PRE-OP"}
+GRADE_LABELS = {
+    100: "G1",
+    200: "G2",
+    300: "G3",
+    400: "OP",
+    700: "PRE-OP",
+    1000: "EX",
+}
 TRACK_LABELS = {
     10001: "札幌",
     10002: "函馆",
@@ -38,6 +45,30 @@ def distance_label(distance: int) -> str:
     if distance <= 2400:
         return "中距离"
     return "长距离"
+
+
+def race_occurrences(
+    program_id: int,
+    race_permission: int,
+    month: int,
+    half: int,
+):
+    if race_permission not in YEAR_OFFSETS:
+        # Scenario-only races can occur outside the normal three-year calendar.
+        # Keep them available for history lookup without placing them into the
+        # editable race schedule.
+        return ((program_id, 0, "剧本专属赛"),)
+    return tuple(
+        (
+            {0: 1, 24: 2, 48: 3}[year_offset] * 100000 + program_id,
+            year_offset + (month - 1) * 2 + half,
+            (
+                f"{YEAR_LABELS[year_offset]} {month}月"
+                f"{'上半' if half == 1 else '下半'}"
+            ),
+        )
+        for year_offset in YEAR_OFFSETS.get(race_permission, ())
+    )
 
 
 def generate_skills(connection: sqlite3.Connection) -> dict[str, dict]:
@@ -114,28 +145,29 @@ def generate_races(connection: sqlite3.Connection) -> list[dict]:
     races: list[dict] = []
     for row in rows:
         program_id = int(row[0] or 0)
-        offsets = YEAR_OFFSETS.get(int(row[1] or 0), ())
+        race_permission = int(row[1] or 0)
         month = int(row[2] or 0)
         half = int(row[3] or 0)
         name = str(row[5] or row[4])
         grade = int(row[6] or 0)
-        if not offsets or grade not in GRADE_LABELS:
+        occurrences = race_occurrences(
+            program_id,
+            race_permission,
+            month,
+            half,
+        )
+        if not occurrences or grade not in GRADE_LABELS:
             continue
         if "Make Debut" in name or "Maiden Race" in name:
             continue
-        for year_offset in offsets:
-            turn = year_offset + (month - 1) * 2 + half
-            year_key = {0: 1, 24: 2, 48: 3}[year_offset]
+        for occurrence_id, turn, date in occurrences:
             races.append(
                 {
-                    "id": year_key * 100000 + program_id,
+                    "id": occurrence_id,
                     "program_id": program_id,
                     "turn": turn,
                     "name": name,
-                    "date": (
-                        f"{YEAR_LABELS[year_offset]} {month}月"
-                        f"{'上半' if half == 1 else '下半'}"
-                    ),
+                    "date": date,
                     "type": GRADE_LABELS[grade],
                     "terrain": "泥地" if int(row[9] or 0) == 2 else "草地",
                     "distance": distance_label(int(row[10] or 0)),
@@ -143,7 +175,14 @@ def generate_races(connection: sqlite3.Connection) -> list[dict]:
                     "thumbnail_id": int(row[7] or 0),
                 }
             )
-    grade_order = {"G1": 1, "G2": 2, "G3": 3, "OP": 4, "PRE-OP": 5}
+    grade_order = {
+        "G1": 1,
+        "G2": 2,
+        "G3": 3,
+        "EX": 4,
+        "OP": 5,
+        "PRE-OP": 6,
+    }
     races.sort(
         key=lambda race: (
             race["turn"],

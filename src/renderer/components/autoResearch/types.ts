@@ -496,6 +496,7 @@ export type G123RaceRecord = {
   race_id: number;
   program_id: number;
   turn: number;
+  race_name?: string;
   recorded_at: string;
   large_margin: boolean;
 };
@@ -620,13 +621,27 @@ export type CareerSetting = {
   preset_name: string;
   card_id: number;
   deck_id: number;
+  deck_name?: string;
   support_card_ids: number[];
   friend_card_id: number;
   friend_key?: string;
+  friend_support_name?: string;
   parent_id_1: number;
   parent_id_2: number;
   parent_key_1?: string;
   parent_key_2?: string;
+  parent_1_snapshot?: {
+    card_id: number;
+    name: string;
+    rarity: number;
+    race_cloth_id: number;
+  };
+  parent_2_snapshot?: {
+    card_id: number;
+    name: string;
+    rarity: number;
+    race_cloth_id: number;
+  };
   scenario_id?: number;
   offline_scenario_id?: number;
   max_steps: number;

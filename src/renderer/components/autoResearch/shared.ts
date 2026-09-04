@@ -264,6 +264,23 @@ export function panelClass(extra = '') {
   return `rounded-lg border border-gray-200 bg-white ${extra}`;
 }
 
+export function statusBadgeClass(
+  tone: 'slate' | 'emerald' | 'amber' | 'sky' | 'violet',
+) {
+  const toneClass = {
+    slate: 'bg-slate-100 text-slate-600',
+    emerald: 'bg-emerald-100 text-emerald-700',
+    amber: 'bg-amber-100 text-amber-700',
+    sky: 'bg-sky-100 text-sky-700',
+    violet: 'bg-violet-100 text-violet-700',
+  }[tone];
+  return `inline-flex flex-none items-center rounded-full px-2.5 py-1 text-xs font-bold tracking-wide ${toneClass}`;
+}
+
+export function careerSettingModeBadgeClass(offline: boolean) {
+  return statusBadgeClass(offline ? 'sky' : 'violet');
+}
+
 export function scrollToSection(target: string) {
   const element = document.getElementById(target);
   if (!element) return;

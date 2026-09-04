@@ -4,7 +4,12 @@ import { Gem, History, RefreshCw, Trash2, Trophy } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import { horseIconPath } from './SelectionCards';
-import { formatAccountError, formatReportTime, panelClass } from './shared';
+import {
+  careerSettingModeBadgeClass,
+  formatAccountError,
+  formatReportTime,
+  panelClass,
+} from './shared';
 import {
   CareerSessionAttributes,
   CareerSessionRecord,
@@ -79,6 +84,7 @@ type AggregatedG123Race = {
   raceId: number;
   programId: number;
   turn: number;
+  raceName: string;
   largeMarginCount: number;
   raceCount: number;
   recordedAt: string;
@@ -110,6 +116,10 @@ const aggregateG123Races = (
           raceId,
           programId,
           turn,
+          raceName:
+            String(raceRecord.race_name || '').trim() ||
+            previous?.raceName ||
+            '',
           largeMarginCount:
             (previous?.largeMarginCount || 0) +
             (raceRecord.large_margin ? 1 : 0),
@@ -150,6 +160,7 @@ const aggregateG123Races = (
         raceId: programId,
         programId,
         turn: 0,
+        raceName: previous?.raceName || '',
         largeMarginCount:
           (previous?.largeMarginCount || 0) + (largeCounts[raceId] || 0),
         raceCount: (previous?.raceCount || 0) + (allRaceCounts[raceId] || 0),
@@ -349,6 +360,9 @@ export default function HistoryTab({
     const aggregate = aggregateRecords(selectedCareerRecords);
     const recordUma = resolveRecordUma(aggregate.cardId);
     const dateKey = recordDateKey(selectedCareerRecords[0]);
+    const offlineHistory =
+      historyCareerSetting?.mode === 'offline' ||
+      selectedCareerRecords.every((record) => record.mode === 'offline');
 
     return (
       <div className="space-y-4">
@@ -425,19 +439,25 @@ export default function HistoryTab({
             </div>
           ) : null}
 
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+          <div
+            className={`mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 ${
+              offlineHistory ? 'xl:grid-cols-7' : 'xl:grid-cols-8'
+            }`}
+          >
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">完成次数</p>
               <strong className="mt-1 block text-xl text-slate-900">
                 {aggregate.count}
               </strong>
             </div>
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">比赛大差</p>
-              <strong className="mt-1 block text-xl text-amber-700">
-                {aggregate.largeMarginCount} / {aggregate.g123RaceCount} 场
-              </strong>
-            </div>
+            {!offlineHistory ? (
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">比赛大差</p>
+                <strong className="mt-1 block text-xl text-amber-700">
+                  {aggregate.largeMarginCount} / {aggregate.g123RaceCount} 场
+                </strong>
+              </div>
+            ) : null}
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">宝石掉落</p>
               <strong className="mt-1 block text-xl text-violet-700">
@@ -459,12 +479,6 @@ export default function HistoryTab({
         </section>
 
         <section className={panelClass('overflow-hidden')}>
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h3 className="font-bold">每次育成结果</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              当天每次育成单独一行，仅显示静态结果。
-            </p>
-          </div>
           {aggregate.rows.length ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-left text-sm">
@@ -477,7 +491,9 @@ export default function HistoryTab({
                         {label}
                       </th>
                     ))}
-                    <th className="px-3 py-3 font-medium">比赛大差</th>
+                    {!offlineHistory ? (
+                      <th className="px-3 py-3 font-medium">比赛大差</th>
+                    ) : null}
                     <th className="px-3 py-3 font-medium">宝石掉落</th>
                   </tr>
                 </thead>
@@ -502,10 +518,12 @@ export default function HistoryTab({
                             {run.attributes?.[key] || 0}
                           </td>
                         ))}
-                        <td className="px-3 py-3 text-amber-700">
-                          {run.large_margin_count || 0} /{' '}
-                          {totalRaceCount(run.g123_race_counts)} 场
-                        </td>
+                        {!offlineHistory ? (
+                          <td className="px-3 py-3 text-amber-700">
+                            {run.large_margin_count || 0} /{' '}
+                            {totalRaceCount(run.g123_race_counts)} 场
+                          </td>
+                        ) : null}
                         <td className="px-3 py-3 text-violet-700">
                           {run.jewel_drop_count || 0} 次 /{' '}
                           {run.jewels_earned || 0} 个
@@ -523,65 +541,67 @@ export default function HistoryTab({
           )}
         </section>
 
-        <section className={panelClass('p-5')}>
-          <h3 className="font-bold text-slate-900">同比赛的大差情况</h3>
-          <p className="mt-1 text-xs text-slate-500">
-            列出当天跑过的 G1、G2、G3；数字为大差场次 / 总参加场次。
-          </p>
-          {aggregate.g123Races.length ? (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {aggregate.g123Races.map((raceRow) => {
-                const race =
-                  raceById.get(raceRow.raceId) ||
-                  raceByProgramAndTurn.get(
-                    `${raceRow.programId}:${raceRow.turn}`,
-                  ) ||
-                  raceByProgramId.get(raceRow.programId);
-                return (
-                  <div
-                    key={`${raceRow.raceId}:${raceRow.programId}:${raceRow.turn}`}
-                    className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50/60 p-2"
-                  >
-                    {race?.thumbnail_id ? (
-                      <AssetIcon
-                        path={`race_thumb/${race.thumbnail_id}.png`}
-                        alt={race.name}
-                        className="h-11 w-16 shrink-0 rounded-md bg-slate-100 object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-white text-amber-500">
-                        <Trophy size={20} />
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-sm text-slate-700">
-                        {race?.name || '未知比赛'}
-                      </strong>
-                      {race ? (
-                        <span className="block truncate text-xs text-slate-500">
-                          {race.date} · {race.type} · {race.terrain} ·{' '}
-                          {race.distance}
-                        </span>
-                      ) : null}
-                      {raceRow.recordedAt ? (
-                        <span className="block truncate text-[11px] text-slate-400">
-                          比赛时间 {formatReportTime(raceRow.recordedAt)}
-                        </span>
-                      ) : null}
-                    </span>
-                    <strong className="shrink-0 text-amber-700">
-                      {raceRow.largeMarginCount} / {raceRow.raceCount} 场
-                    </strong>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="mt-4 rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
-              当天没有 G1、G2、G3 比赛记录
+        {!offlineHistory ? (
+          <section className={panelClass('p-5')}>
+            <h3 className="font-bold text-slate-900">大差情况</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              仅统计 G1、G2、G3、EX；大差场次 / 总参加场次。
             </p>
-          )}
-        </section>
+            {aggregate.g123Races.length ? (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {aggregate.g123Races.map((raceRow) => {
+                  const race =
+                    raceById.get(raceRow.raceId) ||
+                    raceByProgramAndTurn.get(
+                      `${raceRow.programId}:${raceRow.turn}`,
+                    ) ||
+                    raceByProgramId.get(raceRow.programId);
+                  return (
+                    <div
+                      key={`${raceRow.raceId}:${raceRow.programId}:${raceRow.turn}`}
+                      className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50/60 p-2"
+                    >
+                      {race?.thumbnail_id ? (
+                        <AssetIcon
+                          path={`race_thumb/${race.thumbnail_id}.png`}
+                          alt={race.name}
+                          className="h-11 w-16 shrink-0 rounded-md bg-slate-100 object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-white text-amber-500">
+                          <Trophy size={20} />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-sm text-slate-700">
+                          {race?.name || raceRow.raceName || '未知比赛'}
+                        </strong>
+                        {race ? (
+                          <span className="block truncate text-xs text-slate-500">
+                            {race.date} · {race.type} · {race.terrain} ·{' '}
+                            {race.distance}
+                          </span>
+                        ) : null}
+                        {raceRow.recordedAt ? (
+                          <span className="block truncate text-[11px] text-slate-400">
+                            比赛时间 {formatReportTime(raceRow.recordedAt)}
+                          </span>
+                        ) : null}
+                      </span>
+                      <strong className="shrink-0 text-amber-700">
+                        {raceRow.largeMarginCount} / {raceRow.raceCount} 场
+                      </strong>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
+                当天没有 G1、G2、G3、EX 比赛记录
+              </p>
+            )}
+          </section>
+        ) : null}
       </div>
     );
   }
@@ -618,6 +638,7 @@ export default function HistoryTab({
             {accountCareerSettings.map((setting) => {
               const selected = historyCareerSettingId === setting.id;
               const settingUma = resolveRecordUma(setting.card_id);
+              const offline = setting.mode === 'offline';
               return (
                 <button
                   key={setting.id}
@@ -651,16 +672,23 @@ export default function HistoryTab({
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-sm">
-                      {setting.name}
-                    </strong>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <strong className="min-w-0 flex-1 truncate text-sm">
+                        {setting.name}
+                      </strong>
+                      <span className={careerSettingModeBadgeClass(offline)}>
+                        {offline ? '离线' : '在线'}
+                      </span>
+                    </span>
                     <span
                       className={`mt-0.5 block truncate text-xs ${
                         selected ? 'text-indigo-600' : 'text-slate-400'
                       }`}
                     >
                       {settingUma?.name || '尚未选择育成马娘'} ·{' '}
-                      {setting.preset_name || '未绑定预设'}
+                      {offline
+                        ? '游戏离线育成'
+                        : `预设：${setting.preset_name || '未绑定预设'}`}
                     </span>
                   </span>
                 </button>
