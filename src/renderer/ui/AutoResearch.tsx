@@ -593,6 +593,8 @@ export default function AutoResearch() {
   const [loginProgress, setLoginProgress] = useState<LoginProgress | null>(
     null,
   );
+  const [localLoginConfirmationAccountId, setLocalLoginConfirmationAccountId] =
+    useState('');
   const [disconnectingAccountId, setDisconnectingAccountId] = useState('');
   const [
     checkingExistingRuntimeAccountId,
@@ -612,6 +614,12 @@ export default function AutoResearch() {
   const serverTaskHandoffAccountIdRef = useRef('');
   const pendingLocalLoginRef = useRef(false);
   const pendingLocalLoginAccountIdRef = useRef('');
+  const localLoginConfirmationRef = useRef<{
+    accountId: string;
+    promise: Promise<boolean>;
+    resolve: (confirmed: boolean) => void;
+  } | null>(null);
+  const localLoginConfirmButtonRef = useRef<HTMLButtonElement>(null);
   accountsRef.current = accounts;
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
@@ -1863,6 +1871,61 @@ export default function AutoResearch() {
     [],
   );
 
+  const requestLocalLoginConfirmation = useCallback((accountId: string) => {
+    const existing = localLoginConfirmationRef.current;
+    if (existing) {
+      return existing.accountId === accountId
+        ? existing.promise
+        : Promise.resolve(false);
+    }
+
+    let resolveConfirmation: (confirmed: boolean) => void = () => undefined;
+    const promise = new Promise<boolean>((resolve) => {
+      resolveConfirmation = resolve;
+    });
+    localLoginConfirmationRef.current = {
+      accountId,
+      promise,
+      resolve: resolveConfirmation,
+    };
+    setLocalLoginConfirmationAccountId(accountId);
+    return promise;
+  }, []);
+
+  const finishLocalLoginConfirmation = useCallback((confirmed: boolean) => {
+    const pending = localLoginConfirmationRef.current;
+    if (!pending) return;
+    localLoginConfirmationRef.current = null;
+    setLocalLoginConfirmationAccountId('');
+    pending.resolve(confirmed);
+  }, []);
+
+  useEffect(() => {
+    if (!localLoginConfirmationAccountId) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      localLoginConfirmButtonRef.current?.focus();
+    });
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      finishLocalLoginConfirmation(false);
+    };
+    document.addEventListener('keydown', cancelOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', cancelOnEscape);
+    };
+  }, [finishLocalLoginConfirmation, localLoginConfirmationAccountId]);
+
+  useEffect(
+    () => () => {
+      const pending = localLoginConfirmationRef.current;
+      localLoginConfirmationRef.current = null;
+      pending?.resolve(false);
+    },
+    [],
+  );
+
   const loginLocalAccount = useCallback(
     async (accountId: string) => {
       if (!accountId) return;
@@ -1878,9 +1941,7 @@ export default function AutoResearch() {
         setError('另一个账号操作正在进行，请等待完成后再登录');
         return;
       }
-      const confirmed = window.confirm(
-        '登录会刷新该账号的游戏会话，可能使游戏客户端或其他工具中的同账号掉线。\n\n确定要在 UmaShow 本地登录吗？',
-      );
+      const confirmed = await requestLocalLoginConfirmation(accountId);
       if (!confirmed) return;
 
       const operationId = `local-login-${accountId}-${Date.now()}`;
@@ -1991,6 +2052,7 @@ export default function AutoResearch() {
       commitOverviewResponse,
       invalidateOverviewResponses,
       loadDailyTasks,
+      requestLocalLoginConfirmation,
       serverHostedMode,
     ],
   );
@@ -4847,9 +4909,68 @@ export default function AutoResearch() {
     setError('');
   };
 
+  const localLoginConfirmationAccount = accounts.find(
+    (account) => account.id === localLoginConfirmationAccountId,
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
       <ErrorToast message={error} onClose={dismissError} />
+      {localLoginConfirmationAccountId ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="auto-research-local-login-title"
+            aria-describedby="auto-research-local-login-description"
+            className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-amber-100 p-2 text-amber-700">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h2
+                    id="auto-research-local-login-title"
+                    className="font-bold text-slate-900"
+                  >
+                    确定在 UmaShow 本地登录吗？
+                  </h2>
+                  <p
+                    id="auto-research-local-login-description"
+                    className="mt-2 text-sm leading-6 text-slate-600"
+                  >
+                    登录会刷新
+                    {localLoginConfirmationAccount
+                      ? `“${localLoginConfirmationAccount.label || `UID ${localLoginConfirmationAccount.uid}`}”`
+                      : '该账号'}
+                    的游戏会话，可能使游戏客户端或其他工具中的同账号掉线。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => finishLocalLoginConfirmation(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                取消
+              </button>
+              <button
+                ref={localLoginConfirmButtonRef}
+                type="button"
+                onClick={() => finishLocalLoginConfirmation(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                <LogIn size={16} />
+                确认登录
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {loginSettingsOpen ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div
