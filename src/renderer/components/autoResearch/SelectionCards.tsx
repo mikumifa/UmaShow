@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import {
+  SuccessionFactorDetailModal,
+  type SuccessionFactorDetailFactor,
+} from 'renderer/components/succession/SuccessionPicker';
 import { UMDB } from 'renderer/utils/umdb';
 import {
   parentCompatibilityTitle,
@@ -116,20 +120,41 @@ function FactorSummaryView({
   );
 }
 
-function FactorDetailList({ factors }: { factors: FactorInfo[] }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {factors.map((factor) => (
-        <span
-          key={factor.id}
-          className={`rounded border px-1.5 py-0.5 text-[11px] ${FACTOR_COLORS[factor.category] || FACTOR_COLORS.white}`}
-          title={`因子 ID ${factor.id}`}
-        >
-          {factor.name} {'★'.repeat(Math.max(1, factor.stars))}
-        </span>
-      ))}
-    </div>
-  );
+const APTITUDE_FACTOR_GROUP_IDS = new Set([
+  11, 12, 21, 22, 23, 24, 31, 32, 33, 34,
+]);
+
+function factorDetailTone(
+  factor: FactorInfo,
+): SuccessionFactorDetailFactor['tone'] {
+  if (factor.category === 'stat') return 'stat';
+  if (
+    factor.category === 'distance' ||
+    APTITUDE_FACTOR_GROUP_IDS.has(factor.factor_group_id)
+  ) {
+    return 'aptitude';
+  }
+  if (factor.category === 'unique' || factor.factor_type === 3) return 'unique';
+  if (factor.factor_type === 5) return 'race';
+  return 'white';
+}
+
+function factorDetails(factors: FactorInfo[]): SuccessionFactorDetailFactor[] {
+  const toneOrder: Record<SuccessionFactorDetailFactor['tone'], number> = {
+    stat: 0,
+    aptitude: 1,
+    unique: 2,
+    race: 3,
+    white: 4,
+  };
+  return factors
+    .map((factor) => ({
+      id: factor.id,
+      name: factor.name,
+      stars: factor.stars,
+      tone: factorDetailTone(factor),
+    }))
+    .sort((left, right) => toneOrder[left.tone] - toneOrder[right.tone]);
 }
 
 export function ParentChoiceCard({
@@ -145,7 +170,7 @@ export function ParentChoiceCard({
   compatibility?: ParentCompatibilityPreview;
   onSelect: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const iconPath = horseIconPath(
     parent.card_id,
     parent.rarity,
@@ -207,18 +232,11 @@ export function ParentChoiceCard({
           />
           {compatibility ? (
             <span className="successionCapturedCompatibility">
-              <span title={parentCompatibilityTitle(compatibility)}>
-                <small>{compatibility.label}</small>
+              <span
+                title={parentCompatibilityTitle(compatibility)}
+                aria-label={`契合度 ${compatibility.total}，悬停查看详细计算`}
+              >
                 <strong>契合度 {compatibility.total}</strong>
-                <em>
-                  {compatibility.g1Details.length
-                    ? compatibility.g1Details.map((detail) => (
-                        <span key={detail.label}>
-                          {detail.label} · 共同 G1 {detail.count}
-                        </span>
-                      ))
-                    : '仅基础相性'}
-                </em>
               </span>
             </span>
           ) : null}
@@ -259,28 +277,68 @@ export function ParentChoiceCard({
 
       <button
         type="button"
-        onClick={() => setExpanded((current) => !current)}
-        className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
+        onClick={() => setDetailOpen(true)}
+        className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:border-blue-400 hover:bg-blue-100"
       >
-        {expanded ? '收起详细因子' : '查看详细因子'}
+        查看详细
       </button>
-      {expanded ? (
-        <div className="mt-2 space-y-2 border-t border-gray-100 pt-2">
-          <div>
-            <div className="mb-1 text-[11px] font-medium text-gray-500">
-              本体因子
-            </div>
-            <FactorDetailList factors={parent.factors || []} />
-          </div>
-          {parent.ancestors.map((ancestor) => (
-            <div key={`detail-${ancestor.position_id}`}>
-              <div className="mb-1 text-[11px] font-medium text-gray-500">
-                祖辈 {ancestor.position_id === 10 ? '1' : '2'} · {ancestor.name}
-              </div>
-              <FactorDetailList factors={ancestor.factors || []} />
-            </div>
-          ))}
-        </div>
+
+      {detailOpen ? (
+        <SuccessionFactorDetailModal
+          ariaLabel={`${parent.name}全部因子`}
+          title={UMDB.cards[parent.card_id]?.name || parent.name}
+          description={`${
+            parent.source === 'rental'
+              ? `借用 · ${parent.owner_name || '未知玩家'}`
+              : '自己的马娘'
+          } · 完整因子与父辈`}
+          members={[
+            {
+              key: `self:${parent.instance_id}`,
+              label: '本体',
+              name: UMDB.cards[parent.card_id]?.name || parent.name,
+              subtitle: parent.name,
+              portrait: (
+                <span className="successionCapturedPortrait">
+                  {iconPath ? (
+                    <AssetIcon
+                      path={iconPath}
+                      alt={parent.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </span>
+              ),
+              factors: factorDetails(parent.factors || []),
+            },
+            ...parent.ancestors.map((ancestor, index) => {
+              const ancestorIcon = horseIconPath(
+                ancestor.card_id,
+                ancestor.rarity,
+                ancestor.race_cloth_id,
+              );
+              return {
+                key: `ancestor:${ancestor.position_id}:${ancestor.card_id}`,
+                label: `父辈 ${index + 1}`,
+                name: UMDB.cards[ancestor.card_id]?.name || ancestor.name,
+                subtitle: ancestor.name,
+                portrait: (
+                  <span className="successionCapturedPortrait">
+                    {ancestorIcon ? (
+                      <AssetIcon
+                        path={ancestorIcon}
+                        alt={ancestor.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </span>
+                ),
+                factors: factorDetails(ancestor.factors || []),
+              };
+            }),
+          ]}
+          onClose={() => setDetailOpen(false)}
+        />
       ) : null}
     </div>
   );

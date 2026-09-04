@@ -10,6 +10,7 @@ type SuccessionPickerDialogProps = {
   description: string;
   onClose: () => void;
   eyebrow?: string;
+  overlayClassName?: string;
   dialogClassName?: string;
   searchValue?: string;
   searchPlaceholder?: string;
@@ -19,6 +20,7 @@ type SuccessionPickerDialogProps = {
   bodyClassName?: string;
   footer?: ReactNode;
   onEscape?: () => void;
+  escapePriority?: boolean;
   children: ReactNode;
 };
 
@@ -28,6 +30,7 @@ export function SuccessionPickerDialog({
   description,
   onClose,
   eyebrow,
+  overlayClassName = '',
   dialogClassName = '',
   searchValue,
   searchPlaceholder,
@@ -37,26 +40,29 @@ export function SuccessionPickerDialog({
   bodyClassName,
   footer,
   onEscape,
+  escapePriority = false,
   children,
 }: SuccessionPickerDialogProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') (onEscape || onClose)();
+      if (event.key !== 'Escape') return;
+      if (escapePriority) event.stopImmediatePropagation();
+      (onEscape || onClose)();
     };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, escapePriority);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDown, escapePriority);
     };
-  }, [onClose, onEscape]);
+  }, [escapePriority, onClose, onEscape]);
 
   const hasToolbar = onSearchChange || meta;
 
   return createPortal(
     <div
-      className="successionPickerTheme successionPickerOverlay"
+      className={`successionPickerTheme successionPickerOverlay ${overlayClassName}`.trim()}
       onMouseDown={onClose}
     >
       <section
@@ -113,6 +119,86 @@ export function SuccessionPickerDialog({
       </section>
     </div>,
     document.body,
+  );
+}
+
+export type SuccessionFactorDetailFactor = {
+  id: number | string;
+  name: string;
+  stars: number;
+  tone: 'stat' | 'aptitude' | 'unique' | 'race' | 'white';
+};
+
+export type SuccessionFactorDetailMember = {
+  key: string;
+  label: string;
+  name: string;
+  subtitle?: string;
+  portrait: ReactNode;
+  factors: SuccessionFactorDetailFactor[];
+};
+
+export function SuccessionFactorDetailModal({
+  ariaLabel,
+  title,
+  description,
+  members,
+  onClose,
+  onSelect,
+}: {
+  ariaLabel: string;
+  title: string;
+  description: string;
+  members: SuccessionFactorDetailMember[];
+  onClose: () => void;
+  onSelect?: () => void;
+}) {
+  return (
+    <SuccessionPickerDialog
+      ariaLabel={ariaLabel}
+      title={title}
+      description={description}
+      onClose={onClose}
+      escapePriority
+      overlayClassName="successionCapturedDetailOverlay"
+      dialogClassName="successionCapturedDetailDialog"
+    >
+      <div className="successionCapturedDetailMembers">
+        {members.map((member) => (
+          <article key={member.key}>
+            <header>
+              {member.portrait}
+              <span>
+                <small>{member.label}</small>
+                <strong>{member.name}</strong>
+                {member.subtitle ? <em>{member.subtitle}</em> : null}
+              </span>
+            </header>
+            <div className="successionCapturedAllFactors">
+              {member.factors.map((factor, index) => (
+                <span
+                  className={factor.tone}
+                  key={`${factor.id}:${index}`}
+                  title={`因子 ID ${factor.id}`}
+                >
+                  {factor.name} <b>{factor.stars}★</b>
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+      <footer className="successionCapturedDetailActions">
+        <button type="button" onClick={onClose}>
+          关闭
+        </button>
+        {onSelect ? (
+          <button type="button" className="primary" onClick={onSelect}>
+            选择此马娘
+          </button>
+        ) : null}
+      </footer>
+    </SuccessionPickerDialog>
   );
 }
 

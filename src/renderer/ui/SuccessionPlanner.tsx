@@ -26,6 +26,8 @@ import SkillSelector, {
   type AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
 import {
+  SuccessionFactorDetailModal,
+  type SuccessionFactorDetailFactor,
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
@@ -2452,46 +2454,46 @@ function UmaSelect({
             </>
           }
         >
-              {options.length ? (
-                options.map((uma) => {
-                  const selected = uma.id === value;
-                  const occupied = !selected && exclude.includes(uma.id);
-                  return (
-                    <button
-                      type="button"
-                      className={`successionPickerCard ${selected ? 'selected' : ''} ${occupied ? 'occupied' : ''}`}
-                      aria-label={
-                        occupied
-                          ? `${uma.name}，已在其他位置选择`
-                          : `选择${uma.name}`
-                      }
-                      disabled={occupied}
-                      onClick={() => chooseUma(uma.id)}
-                      key={uma.id}
-                    >
-                      <UmaPortrait uma={uma} large />
-                      <div className="successionPickerCardBody">
-                        <strong>{uma.name}</strong>
-                        <UmaAptitudeRows uma={uma} picker />
-                      </div>
-                      {selected && <em aria-label="当前选择">✓</em>}
-                      {occupied && (
-                        <em className="occupied" aria-label="已在其他位置选择">
-                          已选择
-                        </em>
-                      )}
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="successionPickerEmpty">
-                  <strong>没有符合条件的马娘</strong>
-                  <p>尝试修改名称、ID，或清空搜索。</p>
-                  <button type="button" onClick={clearSearch}>
-                    清空搜索
-                  </button>
-                </div>
-              )}
+          {options.length ? (
+            options.map((uma) => {
+              const selected = uma.id === value;
+              const occupied = !selected && exclude.includes(uma.id);
+              return (
+                <button
+                  type="button"
+                  className={`successionPickerCard ${selected ? 'selected' : ''} ${occupied ? 'occupied' : ''}`}
+                  aria-label={
+                    occupied
+                      ? `${uma.name}，已在其他位置选择`
+                      : `选择${uma.name}`
+                  }
+                  disabled={occupied}
+                  onClick={() => chooseUma(uma.id)}
+                  key={uma.id}
+                >
+                  <UmaPortrait uma={uma} large />
+                  <div className="successionPickerCardBody">
+                    <strong>{uma.name}</strong>
+                    <UmaAptitudeRows uma={uma} picker />
+                  </div>
+                  {selected && <em aria-label="当前选择">✓</em>}
+                  {occupied && (
+                    <em className="occupied" aria-label="已在其他位置选择">
+                      已选择
+                    </em>
+                  )}
+                </button>
+              );
+            })
+          ) : (
+            <div className="successionPickerEmpty">
+              <strong>没有符合条件的马娘</strong>
+              <p>尝试修改名称、ID，或清空搜索。</p>
+              <button type="button" onClick={clearSearch}>
+                清空搜索
+              </button>
+            </div>
+          )}
         </SuccessionPickerDialog>
       ) : null}
     </>
@@ -3347,11 +3349,9 @@ export function capturedDetailFactorOrder(
   ];
 }
 
-function CapturedMemberAllFactors({
-  member,
-}: {
-  member: CapturedLineageMember;
-}) {
+function capturedMemberDetailFactors(
+  member: CapturedLineageMember,
+): SuccessionFactorDetailFactor[] {
   const factorMeta = UMDB.successionFactorMeta as Record<
     number,
     SuccessionFactorMeta
@@ -3362,36 +3362,38 @@ function CapturedMemberAllFactors({
     member.factor.id,
     factorMeta,
   );
-  return (
-    <div className="successionCapturedAllFactors">
-      {member.blueFactor ? (
-        <span className="stat">
-          {member.blueFactor.name} <b>{member.blueFactor.stars}★</b>
-        </span>
-      ) : null}
-      <span className="aptitude">
-        {APTITUDE_LABELS[member.factor.type]} <b>{member.factor.stars}★</b>
-      </span>
-      {remainingFactors.map((factor, index) => {
-        const meta = factorMeta[factor.id];
-        return (
-          <span
-            className={
-              meta?.factorType === 3
-                ? 'unique'
-                : meta?.factorType === 5
-                  ? 'race'
-                  : 'white'
-            }
-            key={`${factor.id}:${index}`}
-            title={`因子 ID ${factor.id}`}
-          >
-            {meta?.name || `因子 ${factor.id}`} <b>{factor.stars}★</b>
-          </span>
-        );
-      })}
-    </div>
-  );
+  return [
+    ...(member.blueFactor
+      ? [
+          {
+            id: member.blueFactor.id,
+            name: member.blueFactor.name,
+            stars: member.blueFactor.stars,
+            tone: 'stat' as const,
+          },
+        ]
+      : []),
+    {
+      id: member.factor.id,
+      name: APTITUDE_LABELS[member.factor.type],
+      stars: member.factor.stars,
+      tone: 'aptitude' as const,
+    },
+    ...remainingFactors.map((factor) => {
+      const meta = factorMeta[factor.id];
+      return {
+        id: factor.id,
+        name: meta?.name || `因子 ${factor.id}`,
+        stars: factor.stars,
+        tone:
+          meta?.factorType === 3
+            ? 'unique'
+            : meta?.factorType === 5
+              ? 'race'
+              : ('white' as const),
+      };
+    }),
+  ];
 }
 
 function CapturedUmaDetailModal({
@@ -3408,66 +3410,26 @@ function CapturedUmaDetailModal({
     { label: '父辈 1', member: candidate.parents[0] },
     { label: '父辈 2', member: candidate.parents[1] },
   ];
-  return createPortal(
-    <div
-      className="successionPickerOverlay successionCapturedDetailOverlay"
-      onMouseDown={onClose}
-    >
-      <section
-        className="successionPickerDialog successionCapturedDetailDialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${candidate.name}全部因子`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="successionPickerHeader">
-          <div>
-            <h3>{UMDB.cards[candidate.cardId]?.name || candidate.name}</h3>
-            <p>
-              {candidate.source === 'own'
-                ? '自己的马娘'
-                : `借用 · ${candidate.ownerName}`}
-              {' · '}完整因子与父辈
-            </p>
-          </div>
-          <button
-            type="button"
-            className="successionPickerClose"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
-        <div className="successionCapturedDetailMembers">
-          {members.map(({ label, member }) => (
-            <article key={`${label}:${member.trainedCharaId}:${member.cardId}`}>
-              <header>
-                <CapturedMemberPortrait member={member} />
-                <span>
-                  <small>{label}</small>
-                  <strong>
-                    {UMDB.cards[member.cardId]?.name || member.name}
-                  </strong>
-                  <em>{member.name}</em>
-                </span>
-              </header>
-              <CapturedMemberAllFactors member={member} />
-            </article>
-          ))}
-        </div>
-        <footer className="successionCapturedDetailActions">
-          <button type="button" onClick={onClose}>
-            关闭
-          </button>
-          {onSelect ? (
-            <button type="button" className="primary" onClick={onSelect}>
-              选择此马娘
-            </button>
-          ) : null}
-        </footer>
-      </section>
-    </div>,
-    document.body,
+  return (
+    <SuccessionFactorDetailModal
+      ariaLabel={`${candidate.name}全部因子`}
+      title={UMDB.cards[candidate.cardId]?.name || candidate.name}
+      description={`${
+        candidate.source === 'own'
+          ? '自己的马娘'
+          : `借用 · ${candidate.ownerName}`
+      } · 完整因子与父辈`}
+      members={members.map(({ label, member }) => ({
+        key: `${label}:${member.trainedCharaId}:${member.cardId}`,
+        label,
+        name: UMDB.cards[member.cardId]?.name || member.name,
+        subtitle: member.name,
+        portrait: <CapturedMemberPortrait member={member} />,
+        factors: capturedMemberDetailFactors(member),
+      }))}
+      onSelect={onSelect}
+      onClose={onClose}
+    />
   );
 }
 
@@ -3567,138 +3529,138 @@ function CapturedUmaPickerModal({
         </span>
       }
     >
-        {pagedVisible.length ? (
-          <>
-            <div className="successionCapturedPickerPagination">
-              <button
-                type="button"
-                disabled={candidatePage === 0}
-                onClick={() => setCandidatePage((current) => current - 1)}
-              >
-                上一匹
-              </button>
-              <strong>
-                {candidatePage + 1} / {pageCount}
-              </strong>
-              <button
-                type="button"
-                disabled={candidatePage >= pageCount - 1}
-                onClick={() => setCandidatePage((current) => current + 1)}
-              >
-                下一匹
-              </button>
-            </div>
-            <div className="successionCapturedPickerGrid">
-              {pagedVisible.map((candidate) => {
-                const dressName = UMDB.cards[candidate.cardId]?.name;
-                const previews = compatibilityPreviews(candidate);
-                return (
-                  <article
-                    className="successionCapturedPickerCard"
-                    key={candidate.selectionId}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onSave(capturedSetting(candidate, routeId))}
-                    onKeyDown={(event) => {
-                      if (event.target !== event.currentTarget) return;
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        onSave(capturedSetting(candidate, routeId));
-                      }
-                    }}
-                  >
-                    <div className="successionCapturedPickerSelf">
-                      <CapturedMemberPortrait member={candidate} />
-                      <div className="successionCapturedIdentity">
-                        <strong>{dressName || candidate.name}</strong>
-                        <span>
-                          {dressName && dressName !== candidate.name
-                            ? `${candidate.name} · `
-                            : ''}
-                          {candidate.source === 'own'
-                            ? '自己的马娘'
-                            : `借用 · ${candidate.ownerName}`}
-                          {candidate.rankScore
-                            ? ` · 评分 ${candidate.rankScore}`
-                            : ''}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="successionCapturedViewDetails"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setDetailCandidate(candidate);
-                        }}
-                      >
-                        查看详细
-                      </button>
+      {pagedVisible.length ? (
+        <>
+          <div className="successionCapturedPickerPagination">
+            <button
+              type="button"
+              disabled={candidatePage === 0}
+              onClick={() => setCandidatePage((current) => current - 1)}
+            >
+              上一匹
+            </button>
+            <strong>
+              {candidatePage + 1} / {pageCount}
+            </strong>
+            <button
+              type="button"
+              disabled={candidatePage >= pageCount - 1}
+              onClick={() => setCandidatePage((current) => current + 1)}
+            >
+              下一匹
+            </button>
+          </div>
+          <div className="successionCapturedPickerGrid">
+            {pagedVisible.map((candidate) => {
+              const dressName = UMDB.cards[candidate.cardId]?.name;
+              const previews = compatibilityPreviews(candidate);
+              return (
+                <article
+                  className="successionCapturedPickerCard"
+                  key={candidate.selectionId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSave(capturedSetting(candidate, routeId))}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSave(capturedSetting(candidate, routeId));
+                    }
+                  }}
+                >
+                  <div className="successionCapturedPickerSelf">
+                    <CapturedMemberPortrait member={candidate} />
+                    <div className="successionCapturedIdentity">
+                      <strong>{dressName || candidate.name}</strong>
+                      <span>
+                        {dressName && dressName !== candidate.name
+                          ? `${candidate.name} · `
+                          : ''}
+                        {candidate.source === 'own'
+                          ? '自己的马娘'
+                          : `借用 · ${candidate.ownerName}`}
+                        {candidate.rankScore
+                          ? ` · 评分 ${candidate.rankScore}`
+                          : ''}
+                      </span>
                     </div>
-                    <CapturedMemberDetails member={candidate} />
-                    {previews.length ? (
-                      <div className="successionCapturedCompatibility">
-                        {previews.map((preview) => (
-                          <span
-                            key={preview.label}
-                            title={
-                              preview.g1Details?.length
-                                ? `基础相性 ${preview.base} + ${preview.g1Details
-                                    .map(
-                                      (detail) =>
-                                        `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
-                                    )
-                                    .join('\n')}\n总计 ${preview.total}`
-                                : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
-                            }
-                          >
-                            <small>{preview.label}</small>
-                            <strong>契合度 {preview.total}</strong>
-                            <em>
-                              {preview.g1Details?.length
-                                ? preview.g1Details.map((detail) => (
-                                    <span key={detail.label}>
-                                      {detail.detailed
-                                        ? detail.label
-                                        : `${detail.label}（路线估算）`}
-                                      {' · '}共同 G1 {detail.count}
-                                    </span>
-                                  ))
-                                : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
-                            </em>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className="successionCapturedPickerParents">
-                      {candidate.parents.map((parent, index) => (
-                        <section
-                          key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`}
+                    <button
+                      type="button"
+                      className="successionCapturedViewDetails"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailCandidate(candidate);
+                      }}
+                    >
+                      查看详细
+                    </button>
+                  </div>
+                  <CapturedMemberDetails member={candidate} />
+                  {previews.length ? (
+                    <div className="successionCapturedCompatibility">
+                      {previews.map((preview) => (
+                        <span
+                          key={preview.label}
+                          title={
+                            preview.g1Details?.length
+                              ? `基础相性 ${preview.base} + ${preview.g1Details
+                                  .map(
+                                    (detail) =>
+                                      `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
+                                  )
+                                  .join('\n')}\n总计 ${preview.total}`
+                              : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
+                          }
                         >
-                          <div className="successionCapturedParentHeader">
-                            <CapturedMemberPortrait member={parent} />
-                            <span>
-                              <small>父辈 {index + 1}</small>
-                              <strong>
-                                {UMDB.cards[parent.cardId]?.name || parent.name}
-                              </strong>
-                            </span>
-                          </div>
-                          <CapturedMemberDetails member={parent} />
-                        </section>
+                          <small>{preview.label}</small>
+                          <strong>契合度 {preview.total}</strong>
+                          <em>
+                            {preview.g1Details?.length
+                              ? preview.g1Details.map((detail) => (
+                                  <span key={detail.label}>
+                                    {detail.detailed
+                                      ? detail.label
+                                      : `${detail.label}（路线估算）`}
+                                    {' · '}共同 G1 {detail.count}
+                                  </span>
+                                ))
+                              : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
+                          </em>
+                        </span>
                       ))}
                     </div>
-                  </article>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="successionCapturedPickerEmpty">
-            {candidates.length
-              ? '没有符合当前角色及血统排除条件的已有马娘。'
-              : '尚未捕获 load/index 或 pre_single_mode。请保持 UmaShow 监听开启，然后在游戏中进入育成准备或重新登录。'}
+                  ) : null}
+                  <div className="successionCapturedPickerParents">
+                    {candidate.parents.map((parent, index) => (
+                      <section
+                        key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`}
+                      >
+                        <div className="successionCapturedParentHeader">
+                          <CapturedMemberPortrait member={parent} />
+                          <span>
+                            <small>父辈 {index + 1}</small>
+                            <strong>
+                              {UMDB.cards[parent.cardId]?.name || parent.name}
+                            </strong>
+                          </span>
+                        </div>
+                        <CapturedMemberDetails member={parent} />
+                      </section>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        )}
+        </>
+      ) : (
+        <div className="successionCapturedPickerEmpty">
+          {candidates.length
+            ? '没有符合当前角色及血统排除条件的已有马娘。'
+            : '尚未捕获 load/index 或 pre_single_mode。请保持 UmaShow 监听开启，然后在游戏中进入育成准备或重新登录。'}
+        </div>
+      )}
       {detailCandidate ? (
         <CapturedUmaDetailModal
           candidate={detailCandidate}

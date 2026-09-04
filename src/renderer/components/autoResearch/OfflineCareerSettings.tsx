@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import successionData from 'renderer/data/succession_data.json';
 import {
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
@@ -120,6 +121,12 @@ const LINEAGE_ROUTES = [
     g1Count: 0,
   },
 ] as const;
+
+const successionUmaOptions = (
+  successionData as {
+    umas: Array<{ id: number; name: string; icon?: string | null }>;
+  }
+).umas;
 
 type LineageTreeSlot = keyof OfflineFactorSelection['lineage']['tree'];
 
@@ -422,12 +429,21 @@ export default function OfflineCareerSettings({
   const lineageCharaOptions = Array.from(
     new Map(
       [
+        ...successionUmaOptions.map((uma) => ({
+          chara_id: uma.id,
+          card_id: 0,
+          name: uma.name,
+          rarity: 0,
+          race_cloth_id: 0,
+          icon: uma.icon || undefined,
+        })),
         ...umas.map((uma) => ({
           chara_id: uma.chara_id,
           card_id: uma.id,
           name: uma.name,
           rarity: uma.rarity,
           race_cloth_id: uma.race_cloth_id,
+          icon: undefined,
         })),
         ...parents.flatMap((parent) => [
           {
@@ -436,6 +452,7 @@ export default function OfflineCareerSettings({
             name: parent.name,
             rarity: parent.rarity,
             race_cloth_id: parent.race_cloth_id,
+            icon: undefined,
           },
           ...parent.ancestors.map((ancestor) => ({
             chara_id: ancestor.chara_id,
@@ -443,6 +460,7 @@ export default function OfflineCareerSettings({
             name: ancestor.name,
             rarity: ancestor.rarity,
             race_cloth_id: ancestor.race_cloth_id,
+            icon: undefined,
           })),
         ]),
       ].map((uma) => [uma.chara_id, uma]),
@@ -483,7 +501,7 @@ export default function OfflineCareerSettings({
       (option) => option.chara_id === setting.chara_id,
     );
     const iconPath = uma
-      ? horseIconPath(uma.card_id, uma.rarity, uma.race_cloth_id)
+      ? horseIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) || uma.icon
       : undefined;
     const redFactor = APTITUDE_FACTORS.find(
       (factor) => factor.factor_group_id === setting.red_factor_group_id,
@@ -540,9 +558,6 @@ export default function OfflineCareerSettings({
             <strong className="block truncate text-sm text-slate-800">
               {uma?.name || '不固定马娘类型'}
             </strong>
-            <span className="mt-0.5 block text-xs text-slate-500">
-              点击搜索并选择
-            </span>
           </span>
         </button>
         {uma ? (
@@ -1283,14 +1298,14 @@ export default function OfflineCareerSettings({
                     兄弟辈 / 另一侧谱系
                   </strong>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    仅从当前账号自己的已育成马娘和好友记录中比较，不使用通用种马库。
+                    可指定任意马娘类型；执行时从自己与好友的已育成记录中寻找符合条件的完整谱系。
                   </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     {(
                       [
                         ['none', '不设置', '不限制另一侧谱系'],
                         ['specific', '指定已有马娘', '直接选择一组完整谱系'],
-                        ['rules', '按谱系条件', '设置父辈、祖辈与星数'],
+                        ['rules', '按谱系条件', '设置任意马娘、红因子与赛程'],
                       ] as const
                     ).map(([mode, label, description]) => (
                       <button
@@ -1319,7 +1334,7 @@ export default function OfflineCareerSettings({
                   </div>
 
                   {factorSelection.lineage.mode === 'specific' ? (
-                    <div className="mt-3">
+                    <div className="mt-3 max-w-xl">
                       <SuccessionPickerTrigger
                         label="指定已有马娘"
                         selected={Boolean(selectedLineageParent)}
@@ -1381,9 +1396,6 @@ export default function OfflineCareerSettings({
                         <strong className="text-sm text-slate-800">
                           另一侧完整谱系树
                         </strong>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          与继承规划的“已育成马娘”一致：上方设置直接父辈，下方设置她的两位父辈；每个槽位都可指定马娘、红因子与育成赛程。
-                        </p>
                       </div>
                       <div className="mx-auto max-w-4xl">
                         <div className="mx-auto max-w-md">
@@ -1659,18 +1671,6 @@ export default function OfflineCareerSettings({
                 );
               })}
             </div>
-            <footer className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
-              <span className="text-xs text-slate-500">
-                已育成马娘不会再反推适性因子；这里只校验对应胜鞍。
-              </span>
-              <button
-                type="button"
-                onClick={() => setLineageRoutePicker('')}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                完成
-              </button>
-            </footer>
           </section>
         </div>
       ) : null}
@@ -1796,11 +1796,9 @@ export default function OfflineCareerSettings({
                       factorSelection.lineage.tree[slot].chara_id ===
                         uma.chara_id,
                   );
-                  const iconPath = horseIconPath(
-                    uma.card_id,
-                    uma.rarity,
-                    uma.race_cloth_id,
-                  );
+                  const iconPath =
+                    horseIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) ||
+                    uma.icon;
                   return (
                     <button
                       key={uma.chara_id}
