@@ -519,6 +519,8 @@ export function describeLogAction(value: string) {
     race_end_skip: '比赛已经结束',
     race_end_reconciled: '比赛状态已恢复',
     race_out_reconciled: '比赛状态已恢复',
+    venus_spirit_use: '发动女神知识',
+    venus_race_progress: '女神杯比赛',
     daily_jewel_limit: '达到本周期上限',
     finish_reconciled: '结束状态已恢复',
     skills: '学习技能',

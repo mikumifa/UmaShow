@@ -2639,14 +2639,25 @@ export default function AutoResearch() {
   useEffect(() => {
     if (!stoppingAccountId) return;
     const account = accounts.find((item) => item.id === stoppingAccountId);
+    const accountRuntime =
+      stoppingAccountId === selectedAccountId
+        ? session?.runtime || account?.runtime
+        : account?.runtime;
     const accountRunner =
       stoppingAccountId === selectedAccountId
-        ? session?.runtime?.runner || account?.runtime.runner
+        ? accountRuntime?.runner
         : account?.runtime.runner;
+    const controlStatus = accountRunner?.control?.status || '';
+    const closePending = Boolean(
+      accountRunner?.control?.desired_state === 'stopped' ||
+        controlStatus === 'stopping',
+    );
+    const pausePending = controlStatus === 'pausing';
     if (
+      !closePending &&
+      !pausePending &&
       !accountRunner?.running &&
-      !accountRunner?.run_plan?.active &&
-      accountRunner?.control?.desired_state !== 'running'
+      !accountRunner?.run_plan?.active
     ) {
       setStoppingAccountId('');
     }

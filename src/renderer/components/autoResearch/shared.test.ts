@@ -1,9 +1,17 @@
 import {
+  describeLogAction,
   formatAccountError,
   needsRelogin,
   normalizeOnlineScenarioId,
   onlineScenarioLabel,
 } from './shared';
+
+describe('describeLogAction', () => {
+  it('describes Grand Masters actions in Chinese', () => {
+    expect(describeLogAction('venus_spirit_use')).toBe('发动女神知识');
+    expect(describeLogAction('venus_race_progress')).toBe('女神杯比赛');
+  });
+});
 
 describe('online scenario presets', () => {
   it.each([
