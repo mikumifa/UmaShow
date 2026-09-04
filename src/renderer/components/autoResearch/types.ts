@@ -149,6 +149,7 @@ export type Runner = {
     detail?: {
       last_error?: string;
       reason?: string;
+      current_turn?: number;
       idle_single_mode?: {
         detected: boolean;
         active: boolean;

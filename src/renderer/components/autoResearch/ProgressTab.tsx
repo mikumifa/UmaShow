@@ -143,6 +143,16 @@ export default function ProgressTab({
     activeCareer?.name ||
     currentCareerUma?.name ||
     '当前详设';
+  const liveRunnerTurn = [
+    runner?.turn,
+    runner?.control?.detail?.current_turn,
+    ...(runner?.action_history || []).map((row) => row.turn),
+    ...(runner?.log || []).map((row) => row.turn),
+  ].reduce((latest, value) => {
+    const turn = Number(value);
+    return Number.isFinite(turn) && turn > latest ? turn : latest;
+  }, 0);
+  const currentCareerTurn = liveRunnerTurn || activeCareer?.turn;
   const runnerErrors = [runner?.last_error, runner?.control?.detail?.last_error]
     .map(formatAccountError)
     .filter(
@@ -224,7 +234,7 @@ export default function ProgressTab({
                       ? `游戏服务器正在执行离线育成 · 预计结束：${idleSingleMode.ends_at}`
                       : '游戏服务器正在执行离线育成 · 等待服务器返回结束时间'
                     : '离线育成启动队列'
-                  : turnDateLabel(runner?.turn || activeCareer?.turn)}
+                  : turnDateLabel(currentCareerTurn)}
               </p>
               <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
                 {runnerStopping || runnerPaused ? (
