@@ -231,8 +231,8 @@ export default function ProgressTab({
                 {offlineMode
                   ? idleSingleMode?.active
                     ? idleSingleMode.ends_at
-                      ? `游戏服务器正在执行离线育成 · 预计结束：${idleSingleMode.ends_at}`
-                      : '游戏服务器正在执行离线育成 · 等待服务器返回结束时间'
+                      ? `${idleSingleMode.ends_at} 完成`
+                      : '等待服务器返回结束时间'
                     : '离线育成启动队列'
                   : turnDateLabel(currentCareerTurn)}
               </p>
