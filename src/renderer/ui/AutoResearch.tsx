@@ -3521,11 +3521,7 @@ export default function AutoResearch() {
 
   const closeCareerPlan = async () => {
     if (!selectedAccountId) return;
-    if (
-      !window.confirm(
-        '确定关闭当前计划吗？计划配置和未执行队列将被清除，之后无法恢复；游戏中的当前育成不会被放弃。',
-      )
-    ) {
+    if (!window.confirm('确定关闭当前计划吗？游戏中的当前育成不会被放弃。')) {
       return;
     }
     await stopCareer();
@@ -4297,6 +4293,37 @@ export default function AutoResearch() {
     recover_tp_with_jewels: recoverTpWithJewels,
   });
 
+  const loadOfflineRaceArray = async (
+    accountId: string,
+    selectionRequest: Parameters<
+      typeof window.electron.autoResearch.prepareIdleSingleMode
+    >[1],
+    raceDeckNum: number,
+  ) => {
+    const result = (await window.electron.autoResearch.prepareIdleSingleMode(
+      accountId,
+      selectionRequest,
+    )) as LocalOfflineSetupResponse;
+    if (!isOfflineSingleModeSetup(result?.offline_setup)) {
+      throw new Error('游戏没有返回有效的离线育成赛程信息');
+    }
+    const setup = result.offline_setup;
+    const raceDeck = setup.race_decks.find(
+      (item) => item.deck_num === raceDeckNum,
+    );
+    if (!raceDeck) {
+      throw new Error(`游戏中不存在离线赛程槽位 ${raceDeckNum}`);
+    }
+    if (selectedAccountIdRef.current === accountId) {
+      setOfflineSetup(setup);
+      setOfflineSetupAccountId(accountId);
+    }
+    return raceDeck.race_array.map((item) => ({
+      year: item.year,
+      program_id: item.program_id,
+    }));
+  };
+
   const prepareOfflineCareer =
     async (): Promise<OfflineSingleModeSetup | null> => {
       if (!selectedAccountId) return null;
@@ -4413,12 +4440,18 @@ export default function AutoResearch() {
       return false;
     }
     const accountId = selectedAccountId;
-    if (!(await prepareServerTaskSubmission(accountId))) return false;
+    const selectionRequest = offlineSelectionRequest();
     setBusy('idle-start');
     setError('');
     try {
+      const raceArray = await loadOfflineRaceArray(
+        accountId,
+        selectionRequest,
+        offlineRaceDeckNum,
+      );
+      if (!(await prepareServerTaskSubmission(accountId))) return false;
       const result = await submitServerTask(accountId, 'idle_single_mode', {
-        ...offlineSelectionRequest(),
+        ...selectionRequest,
         running_style: 0,
         training_challenge_mode: offlineChallengeMode,
         run_mode: mode,
@@ -4435,6 +4468,7 @@ export default function AutoResearch() {
           offlineFactorSelection,
         ),
         race_deck_num: offlineRaceDeckNum,
+        race_array: raceArray,
       });
       if (selectedAccountIdRef.current !== accountId) return false;
       commitOverviewResponse(accountId, {
@@ -4471,28 +4505,36 @@ export default function AutoResearch() {
     const parentTwo = dashboard?.parents.find(
       (parent) => parent.selection_id === setting.parent_key_2,
     );
-    if (!(await prepareServerTaskSubmission(accountId))) return false;
+    const selectionRequest = {
+      card_id: setting.card_id,
+      support_card_ids: setting.support_card_ids,
+      friend_viewer_id: 0,
+      friend_card_id: setting.friend_card_id,
+      parent_id_1: setting.parent_id_1,
+      parent_id_2: setting.parent_id_2,
+      parent_1_viewer_id:
+        parentOne?.viewer_id ||
+        parentViewerIdFromSelection(setting.parent_key_1),
+      parent_2_viewer_id:
+        parentTwo?.viewer_id ||
+        parentViewerIdFromSelection(setting.parent_key_2),
+      scenario_id: setting.offline_scenario_id || 0,
+      deck_id: setting.deck_id || 1,
+      use_tp: 15,
+      recover_tp_with_item: setting.recover_tp_with_item,
+      recover_tp_with_jewels: setting.recover_tp_with_jewels,
+    };
     setBusy(`idle-start-${setting.id}`);
     setError('');
     try {
+      const raceArray = await loadOfflineRaceArray(
+        accountId,
+        selectionRequest,
+        setting.offline_race_deck_num,
+      );
+      if (!(await prepareServerTaskSubmission(accountId))) return false;
       const result = await submitServerTask(accountId, 'idle_single_mode', {
-        card_id: setting.card_id,
-        support_card_ids: setting.support_card_ids,
-        friend_viewer_id: 0,
-        friend_card_id: setting.friend_card_id,
-        parent_id_1: setting.parent_id_1,
-        parent_id_2: setting.parent_id_2,
-        parent_1_viewer_id:
-          parentOne?.viewer_id ||
-          parentViewerIdFromSelection(setting.parent_key_1),
-        parent_2_viewer_id:
-          parentTwo?.viewer_id ||
-          parentViewerIdFromSelection(setting.parent_key_2),
-        scenario_id: setting.offline_scenario_id || 0,
-        deck_id: setting.deck_id || 1,
-        use_tp: 15,
-        recover_tp_with_item: setting.recover_tp_with_item,
-        recover_tp_with_jewels: setting.recover_tp_with_jewels,
+        ...selectionRequest,
         running_style: 0,
         training_challenge_mode: Boolean(
           setting.offline_training_challenge_mode,
@@ -4512,6 +4554,7 @@ export default function AutoResearch() {
           setting.offline_factor_selection,
         ),
         race_deck_num: setting.offline_race_deck_num,
+        race_array: raceArray,
       });
       if (selectedAccountIdRef.current !== accountId) return false;
       setSelectedCareerSettingId(setting.id);
