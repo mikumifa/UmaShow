@@ -368,15 +368,11 @@ export default function ProgressTab({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <div>
               <h3 className="font-bold text-slate-900">当前流程</h3>
-              <p className="mt-0.5 text-xs text-slate-500">
-                按游戏日期显示训练、事件和比赛结果。
-              </p>
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
                 <Trophy size={14} className="text-amber-500" />
-                比赛大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount}{' '}
-                场
+                大差 {runner?.large_margin_count || 0}/{runnerG123RaceCount} 场
               </span>
               <span className="flex items-center gap-1.5">
                 <Gem size={14} className="text-violet-500" />

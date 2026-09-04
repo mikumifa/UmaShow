@@ -5625,10 +5625,10 @@ export default function AutoResearch() {
             aria-label="自动育成设置"
           >
             {[
-              { id: 'daily' as const, label: '每日日常', icon: CalendarCheck },
+              { id: 'daily' as const, label: '日常', icon: CalendarCheck },
               { id: 'presets' as const, label: '预设', icon: Settings2 },
               { id: 'career' as const, label: '详设', icon: ListChecks },
-              { id: 'history' as const, label: '养马记录', icon: History },
+              { id: 'history' as const, label: '记录', icon: History },
             ].map((tab) => {
               const IconComponent = tab.icon;
               return (
@@ -6442,7 +6442,6 @@ export default function AutoResearch() {
 
                 {historyDashboard && activeTab === 'history' ? (
                   <HistoryTab
-                    dashboard={historyDashboard}
                     selectedCareerRecords={selectedCareerRecords}
                     setSelectedCareerRecords={setSelectedCareerRecords}
                     busy={busy}

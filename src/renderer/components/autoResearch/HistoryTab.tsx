@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { Gem, History, RefreshCw, Trash2, Trophy } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import { horseIconPath } from './SelectionCards';
 import { formatAccountError, formatReportTime, panelClass } from './shared';
 import {
@@ -9,13 +10,11 @@ import {
   CareerSessionRecord,
   CareerSessionRun,
   CareerSetting,
-  Dashboard,
   G123RaceRecord,
   RaceOption,
 } from './types';
 
 type HistoryTabProps = {
-  dashboard: Dashboard;
   selectedCareerRecords: CareerSessionRecord[] | null;
   setSelectedCareerRecords: Dispatch<
     SetStateAction<CareerSessionRecord[] | null>
@@ -289,7 +288,6 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
 };
 
 export default function HistoryTab({
-  dashboard,
   selectedCareerRecords,
   setSelectedCareerRecords,
   busy,
@@ -303,6 +301,36 @@ export default function HistoryTab({
   deleteCareerHistory,
   races,
 }: HistoryTabProps) {
+  const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
+
+  useEffect(() => {
+    let active = true;
+    loadUMDB()
+      .then((database) => {
+        if (active) setUmaDatabase(database);
+        return database;
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resolveRecordUma = (cardId: number) => {
+    if (!cardId) return undefined;
+    const charaId = Number(String(cardId).slice(0, 4));
+    const cardName = umaDatabase?.cards?.[cardId]?.name;
+    const charaName = umaDatabase?.charas?.[charaId]?.name;
+    return {
+      id: cardId,
+      name:
+        [cardName, charaName].filter(Boolean).join(' · ') ||
+        `育成马娘 ${cardId}`,
+      rarity: 0,
+      race_cloth_id: cardId,
+    };
+  };
+
   const raceByProgramId = new Map<number, RaceOption>();
   const raceByProgramAndTurn = new Map<string, RaceOption>();
   const raceById = new Map<number, RaceOption>();
@@ -319,7 +347,7 @@ export default function HistoryTab({
 
   if (selectedCareerRecords?.length) {
     const aggregate = aggregateRecords(selectedCareerRecords);
-    const recordUma = dashboard.umas.find((uma) => uma.id === aggregate.cardId);
+    const recordUma = resolveRecordUma(aggregate.cardId);
     const dateKey = recordDateKey(selectedCareerRecords[0]);
 
     return (
@@ -331,7 +359,7 @@ export default function HistoryTab({
               onClick={() => setSelectedCareerRecords(null)}
               className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
-              ← 返回养马记录
+              ← 返回记录
             </button>
             <button
               type="button"
@@ -397,7 +425,7 @@ export default function HistoryTab({
             </div>
           ) : null}
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">完成次数</p>
               <strong className="mt-1 block text-xl text-slate-900">
@@ -416,16 +444,13 @@ export default function HistoryTab({
                 {aggregate.jewelDropCount} 次 / {aggregate.jewelsEarned} 个
               </strong>
             </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {attributeItems.map(([key, label]) => (
               <div
                 key={key}
-                className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-center"
+                className="rounded-lg border border-slate-100 bg-slate-50 p-3"
               >
-                <p className="text-xs text-indigo-500">平均{label}</p>
-                <strong className="mt-1 block text-lg text-indigo-900">
+                <p className="text-xs text-slate-500">平均{label}</p>
+                <strong className="mt-1 block text-xl text-slate-900">
                   {formatMetric(aggregate.attributesAverage[key])}
                 </strong>
               </div>
@@ -634,9 +659,7 @@ export default function HistoryTab({
             {groupRecordsByDate(historyCareerRecords).map(
               ([dateKey, records]) => {
                 const aggregate = aggregateRecords(records);
-                const recordUma = dashboard.umas.find(
-                  (uma) => uma.id === aggregate.cardId,
-                );
+                const recordUma = resolveRecordUma(aggregate.cardId);
                 return (
                   <section
                     key={dateKey}
