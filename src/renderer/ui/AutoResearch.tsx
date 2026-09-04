@@ -253,19 +253,13 @@ function isOfflineSingleModeSetup(
     return false;
   }
   const setup = value as Record<string, unknown>;
-  const challenge = setup.training_challenge;
-  if (!challenge || typeof challenge !== 'object' || Array.isArray(challenge)) {
-    return false;
-  }
-  const challengeInfo = challenge as Record<string, unknown>;
   return (
     Number.isFinite(Number(setup.scenario_id)) &&
     Number(setup.scenario_id) > 0 &&
     typeof setup.scenario_name === 'string' &&
     Array.isArray(setup.scenarios) &&
     Array.isArray(setup.required_race_array) &&
-    Array.isArray(setup.race_decks) &&
-    typeof challengeInfo.available === 'boolean'
+    Array.isArray(setup.race_decks)
   );
 }
 
@@ -697,7 +691,6 @@ export default function AutoResearch() {
     useState<OfflineSingleModeSetup | null>(null);
   const [offlineSetupAccountId, setOfflineSetupAccountId] = useState('');
   const [offlineScenarioId, setOfflineScenarioId] = useState(0);
-  const [offlineChallengeMode, setOfflineChallengeMode] = useState(false);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
   const [offlineFactorSelection, setOfflineFactorSelection] =
     useState<OfflineFactorSelection>(() =>
@@ -2587,7 +2580,6 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(0);
-    setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
   }, [selectedAccountId]);
 
@@ -4176,7 +4168,6 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
-    setOfflineChallengeMode(Boolean(setting.offline_training_challenge_mode));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
     setOfflineFactorSelection(
       normalizeOfflineFactorSelection(setting.offline_factor_selection),
@@ -4218,7 +4209,6 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(0);
-    setOfflineChallengeMode(false);
     setOfflineRaceDeckNum(0);
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
@@ -4329,8 +4319,6 @@ export default function AutoResearch() {
       burn_clocks: burnClocks,
       recover_tp_with_item: recoverTpWithItem,
       recover_tp_with_jewels: recoverTpWithJewels,
-      offline_training_challenge_mode:
-        careerMode === 'offline' ? offlineChallengeMode : undefined,
       offline_race_deck_num:
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
       offline_skill_settings:
@@ -4467,9 +4455,6 @@ export default function AutoResearch() {
         const setup = result.offline_setup;
         setOfflineSetup(setup);
         setOfflineSetupAccountId(accountId);
-        setOfflineChallengeMode((current) =>
-          setup.training_challenge.available ? current : false,
-        );
         return setup;
       } catch (caught) {
         if (selectedAccountIdRef.current === accountId) {
@@ -4555,7 +4540,6 @@ export default function AutoResearch() {
       const result = await submitServerTask(accountId, 'idle_single_mode', {
         ...selectionRequest,
         running_style: 0,
-        training_challenge_mode: offlineChallengeMode,
         run_mode: mode,
         run_target: target,
         repeat_daily: repeatDaily,
@@ -4638,9 +4622,6 @@ export default function AutoResearch() {
       const result = await submitServerTask(accountId, 'idle_single_mode', {
         ...selectionRequest,
         running_style: 0,
-        training_challenge_mode: Boolean(
-          setting.offline_training_challenge_mode,
-        ),
         run_mode: mode,
         run_target: target,
         repeat_daily: repeatDaily,
@@ -4747,9 +4728,6 @@ export default function AutoResearch() {
         max_steps: resolved.max_steps,
         burn_clocks: resolved.burn_clocks,
         running_style: 0,
-        training_challenge_mode: Boolean(
-          resolved.offline_training_challenge_mode,
-        ),
         offline_skill_settings: normalizeOfflineSkillSettings(
           resolved.offline_skill_settings,
         ),
@@ -6574,11 +6552,8 @@ export default function AutoResearch() {
                       setOfflineScenarioId(selectedScenarioId);
                       setOfflineSetup(null);
                       setOfflineSetupAccountId('');
-                      setOfflineChallengeMode(false);
                       setOfflineRaceDeckNum(0);
                     }}
-                    offlineChallengeMode={offlineChallengeMode}
-                    setOfflineChallengeMode={setOfflineChallengeMode}
                     offlineRaceDeckNum={offlineRaceDeckNum}
                     setOfflineRaceDeckNum={setOfflineRaceDeckNum}
                     resetOfflineCareer={() => {

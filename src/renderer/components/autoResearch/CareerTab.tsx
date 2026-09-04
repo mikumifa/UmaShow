@@ -111,8 +111,6 @@ type CareerTabProps = {
   offlineScenarios: Dashboard['offline_scenarios'];
   offlineScenarioId: number;
   changeOfflineScenario: (scenarioId: number) => void;
-  offlineChallengeMode: boolean;
-  setOfflineChallengeMode: Dispatch<SetStateAction<boolean>>;
   offlineRaceDeckNum: number;
   setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
   resetOfflineCareer: () => void;
@@ -199,8 +197,6 @@ export default function CareerTab(props: CareerTabProps) {
     offlineScenarios,
     offlineScenarioId,
     changeOfflineScenario,
-    offlineChallengeMode,
-    setOfflineChallengeMode,
     offlineRaceDeckNum,
     setOfflineRaceDeckNum,
     resetOfflineCareer,
@@ -1244,8 +1240,6 @@ export default function CareerTab(props: CareerTabProps) {
                       races={races}
                       selectedDeckNum={offlineRaceDeckNum}
                       setSelectedDeckNum={setOfflineRaceDeckNum}
-                      challengeMode={offlineChallengeMode}
-                      setChallengeMode={setOfflineChallengeMode}
                       busy={busy}
                       prepare={prepareOfflineCareer}
                       saveDeck={saveOfflineRaceDeck}

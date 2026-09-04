@@ -41,8 +41,6 @@ type Props = {
   races: RaceOption[];
   selectedDeckNum: number;
   setSelectedDeckNum: Dispatch<SetStateAction<number>>;
-  challengeMode: boolean;
-  setChallengeMode: Dispatch<SetStateAction<boolean>>;
   busy: string;
   prepare: () => Promise<OfflineSingleModeSetup | null>;
   saveDeck: (
@@ -144,8 +142,6 @@ export default function OfflineCareerSettings({
   races,
   selectedDeckNum,
   setSelectedDeckNum,
-  challengeMode,
-  setChallengeMode,
   busy,
   prepare,
   saveDeck,
@@ -671,30 +667,11 @@ export default function OfflineCareerSettings({
         </label>
 
         {setup ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
-              <span className="text-slate-500">当前主剧本</span>
-              <strong className="ml-2 text-slate-900">
-                {setup.scenario_name || `剧本 ${setup.scenario_id}`}
-              </strong>
-            </div>
-            <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
-              <input
-                type="checkbox"
-                checked={challengeMode}
-                disabled={!setup.training_challenge.available}
-                onChange={(event) => setChallengeMode(event.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                <strong className="block text-slate-900">参加活动模式</strong>
-                <span className="text-xs text-slate-500">
-                  {setup.training_challenge.available
-                    ? `检测到当前育成挑战（活动 ${setup.training_challenge.id}）`
-                    : '当前没有可参加的育成挑战活动'}
-                </span>
-              </span>
-            </label>
+          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+            <span className="text-slate-500">当前主剧本</span>
+            <strong className="ml-2 text-slate-900">
+              {setup.scenario_name || `剧本 ${setup.scenario_id}`}
+            </strong>
           </div>
         ) : null}
 

@@ -164,20 +164,6 @@ function idleMasterContext(
     const card = database
       .prepare('SELECT running_style FROM card_data WHERE id = ?')
       .get(cardId) as { running_style: unknown } | undefined;
-    const challenge = database
-      .prepare(
-        `
-          SELECT id, start_date, end_date
-          FROM training_challenge_master
-          WHERE target_main_scenario = ?
-            AND start_date <= ? AND end_date >= ?
-          ORDER BY id DESC LIMIT 1
-        `,
-      )
-      .get(scenarioId, timestamp, timestamp) as
-      | { id: unknown; start_date: unknown; end_date: unknown }
-      | undefined;
-
     let route = database
       .prepare(
         `
@@ -292,12 +278,6 @@ function idleMasterContext(
       scenarios: scenarioOptions(database, timestamp),
       running_style: numberValue(card?.running_style, 1),
       required_race_array: required,
-      training_challenge: {
-        available: Boolean(challenge),
-        id: numberValue(challenge?.id),
-        start_time: numberValue(challenge?.start_date),
-        end_time: numberValue(challenge?.end_date),
-      },
     };
   } finally {
     database.close();
@@ -339,7 +319,6 @@ function idleSetupResponse(
     scenario_id: context.scenario_id,
     scenario_name: context.scenario_name,
     scenarios: context.scenarios,
-    training_challenge: context.training_challenge,
     required_race_array: context.required_race_array,
     default_deck_num: numberValue(reserved.default_deck_num),
     needs_default_confirm: booleanValue(reserved.needs_default_confirm),

@@ -648,7 +648,6 @@ export type CareerSetting = {
   burn_clocks: boolean;
   recover_tp_with_item: boolean;
   recover_tp_with_jewels: boolean;
-  offline_training_challenge_mode?: boolean;
   offline_race_deck_num?: number;
   offline_skill_settings?: OfflineSkillSettings;
   offline_factor_selection?: OfflineFactorSelection;
@@ -686,12 +685,6 @@ export type OfflineSingleModeSetup = {
   scenario_id: number;
   scenario_name: string;
   scenarios: OfflineSingleModeScenario[];
-  training_challenge: {
-    available: boolean;
-    id: number;
-    start_time: number;
-    end_time: number;
-  };
   required_race_array: OfflineSingleModeRace[];
   default_deck_num: number;
   needs_default_confirm: boolean;
