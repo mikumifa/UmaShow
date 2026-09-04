@@ -128,6 +128,81 @@ type CareerTabProps = {
   setOfflineSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
 
+const PARENT_BLUE_FACTOR_OPTIONS = [
+  { factor_group_id: 1, name: '速度', abbreviation: '速' },
+  { factor_group_id: 2, name: '耐力', abbreviation: '耐' },
+  { factor_group_id: 3, name: '力量', abbreviation: '力' },
+  { factor_group_id: 4, name: '毅力', abbreviation: '根' },
+  { factor_group_id: 5, name: '智力', abbreviation: '智' },
+];
+
+const PARENT_APTITUDE_FACTOR_GROUPS = [
+  {
+    label: '场地',
+    factors: [
+      { factor_group_id: 11, name: '草地' },
+      { factor_group_id: 12, name: '泥地' },
+    ],
+  },
+  {
+    label: '跑法',
+    factors: [
+      { factor_group_id: 21, name: '领跑' },
+      { factor_group_id: 22, name: '跟前' },
+      { factor_group_id: 23, name: '居中' },
+      { factor_group_id: 24, name: '后追' },
+    ],
+  },
+  {
+    label: '距离',
+    factors: [
+      { factor_group_id: 31, name: '短距离' },
+      { factor_group_id: 32, name: '英里' },
+      { factor_group_id: 33, name: '中距离' },
+      { factor_group_id: 34, name: '长距离' },
+    ],
+  },
+];
+
+const PARENT_APTITUDE_FACTOR_GROUP_IDS = new Set(
+  PARENT_APTITUDE_FACTOR_GROUPS.flatMap((group) =>
+    group.factors.map((factor) => factor.factor_group_id),
+  ),
+);
+
+type ParentPickerSource = 'all' | 'own' | 'rental';
+type ParentPickerSort = 'score' | 'compatibility' | 'blue' | 'aptitude';
+type ParentPickerSortDirection = 'desc' | 'asc';
+
+function parentPickerFactorStars(
+  parent: Dashboard['parents'][number],
+  kind: 'blue' | 'aptitude',
+  factorGroupIds: number[],
+) {
+  return Math.max(
+    0,
+    ...parent.factors
+      .filter((factor) => {
+        if (
+          factorGroupIds.length &&
+          !factorGroupIds.includes(factor.factor_group_id)
+        ) {
+          return false;
+        }
+        if (kind === 'blue') {
+          return factor.factor_type === 1 || factor.category === 'stat';
+        }
+        return (
+          factor.factor_type === 2 ||
+          factor.category === 'distance' ||
+          factor.category === 'aptitude' ||
+          PARENT_APTITUDE_FACTOR_GROUP_IDS.has(factor.factor_group_id)
+        );
+      })
+      .map((factor) => factor.stars),
+  );
+}
+
 export default function CareerTab(props: CareerTabProps) {
   const {
     dashboard,
@@ -214,6 +289,19 @@ export default function CareerTab(props: CareerTabProps) {
   const [umaPickerSearch, setUmaPickerSearch] = useState('');
   const [parentPickerSlot, setParentPickerSlot] = useState<1 | 2 | null>(null);
   const [parentPickerSearch, setParentPickerSearch] = useState('');
+  const [parentPickerSource, setParentPickerSource] =
+    useState<ParentPickerSource>('all');
+  const [parentPickerBlueFactors, setParentPickerBlueFactors] = useState<
+    number[]
+  >([]);
+  const [parentPickerBlueStars, setParentPickerBlueStars] = useState(0);
+  const [parentPickerAptitudeFactors, setParentPickerAptitudeFactors] =
+    useState<number[]>([]);
+  const [parentPickerAptitudeStars, setParentPickerAptitudeStars] = useState(0);
+  const [parentPickerSort, setParentPickerSort] =
+    useState<ParentPickerSort>('score');
+  const [parentPickerSortDirection, setParentPickerSortDirection] =
+    useState<ParentPickerSortDirection>('desc');
   const [successionG1SaddleIds, setSuccessionG1SaddleIds] = useState<number[]>(
     [],
   );
@@ -237,8 +325,48 @@ export default function CareerTab(props: CareerTabProps) {
       `${uma.name} ${uma.id}`.toLowerCase().includes(normalizedUmaSearch),
   );
   const normalizedParentSearch = parentPickerSearch.trim().toLowerCase();
+  const requiredParentPickerBlueStars = parentPickerBlueFactors.length
+    ? Math.max(1, parentPickerBlueStars)
+    : parentPickerBlueStars;
+  const requiredParentPickerAptitudeStars = parentPickerAptitudeFactors.length
+    ? Math.max(1, parentPickerAptitudeStars)
+    : parentPickerAptitudeStars;
+  const parentPickerOtherParent =
+    parentPickerSlot === 1 ? selectedParent2 : selectedParent1;
+  const parentPickerCompatibility = (parent: Dashboard['parents'][number]) =>
+    selectedUma
+      ? parentCompatibilityPreview(
+          selectedUma.chara_id,
+          parent,
+          parentPickerOtherParent,
+          successionG1SaddleIds,
+        ).total
+      : 0;
   const pickerParents = dashboard.parents
     .filter((parent) => {
+      if (
+        parentPickerSource !== 'all' &&
+        parent.source !== parentPickerSource
+      ) {
+        return false;
+      }
+      if (
+        requiredParentPickerBlueStars > 0 &&
+        parentPickerFactorStars(parent, 'blue', parentPickerBlueFactors) <
+          requiredParentPickerBlueStars
+      ) {
+        return false;
+      }
+      if (
+        requiredParentPickerAptitudeStars > 0 &&
+        parentPickerFactorStars(
+          parent,
+          'aptitude',
+          parentPickerAptitudeFactors,
+        ) < requiredParentPickerAptitudeStars
+      ) {
+        return false;
+      }
       if (!normalizedParentSearch) return true;
       const factorText = [
         ...(parent.factors || []),
@@ -252,10 +380,43 @@ export default function CareerTab(props: CareerTabProps) {
         .toLowerCase()
         .includes(normalizedParentSearch);
     })
-    .sort(
-      (left, right) =>
-        right.rank_score - left.rank_score || right.rank - left.rank,
-    );
+    .sort((left, right) => {
+      const direction = parentPickerSortDirection === 'asc' ? 1 : -1;
+      const sortValue = (parent: Dashboard['parents'][number]) => {
+        if (parentPickerSort === 'compatibility') {
+          return parentPickerCompatibility(parent);
+        }
+        if (parentPickerSort === 'blue') {
+          return parentPickerFactorStars(
+            parent,
+            'blue',
+            parentPickerBlueFactors,
+          );
+        }
+        if (parentPickerSort === 'aptitude') {
+          return parentPickerFactorStars(
+            parent,
+            'aptitude',
+            parentPickerAptitudeFactors,
+          );
+        }
+        return parent.rank_score;
+      };
+      return (
+        (sortValue(left) - sortValue(right)) * direction ||
+        (left.rank_score - right.rank_score) * direction ||
+        (left.rank - right.rank) * direction
+      );
+    });
+  const parentPickerHasFilters = Boolean(
+    parentPickerSource !== 'all' ||
+      parentPickerBlueFactors.length ||
+      parentPickerBlueStars ||
+      parentPickerAptitudeFactors.length ||
+      parentPickerAptitudeStars ||
+      parentPickerSort !== 'score' ||
+      parentPickerSortDirection !== 'desc',
+  );
   const offlineDetailBlockedByActiveCareer = Boolean(
     careerSaveOpen && careerMode === 'offline' && activeCareer?.active,
   );
@@ -416,8 +577,13 @@ export default function CareerTab(props: CareerTabProps) {
             return (
               <article
                 key={setting.id}
-                className="flex h-full flex-col rounded-lg border border-gray-200 bg-gray-50/60 p-3"
+                className="relative flex h-full flex-col rounded-lg border border-gray-200 bg-gray-50/60 p-3"
               >
+                <span
+                  className={`absolute right-3 top-3 ${careerSettingModeBadgeClass(offline)}`}
+                >
+                  {offline ? '离线' : '在线'}
+                </span>
                 <div className="flex items-start gap-3">
                   <span className="h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
                     {iconPath ? (
@@ -431,7 +597,7 @@ export default function CareerTab(props: CareerTabProps) {
                       <Database size={24} className="m-5 text-gray-300" />
                     )}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 pr-14">
                     <label className="block text-xs text-gray-500">
                       详设名称
                       <input
@@ -454,13 +620,8 @@ export default function CareerTab(props: CareerTabProps) {
                         ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
                         : setting.preset_name}
                     </p>
-                    <span
-                      className={`mt-1 ${careerSettingModeBadgeClass(offline)}`}
-                    >
-                      {offline ? '离线' : '在线'}
-                    </span>
                     {!presetExists ? (
-                      <span className="ml-2 text-xs font-medium text-red-600">
+                      <span className="mt-1 block text-xs font-medium text-red-600">
                         绑定预设不存在
                       </span>
                     ) : null}
@@ -977,14 +1138,30 @@ export default function CareerTab(props: CareerTabProps) {
                 <SuccessionPickerDialog
                   ariaLabel={`选择继承马娘 ${parentPickerSlot}`}
                   title="选择已有马娘"
-                  description={`为继承位 ${parentPickerSlot} 选择已有马娘；可查看本体、祖辈与全部因子。`}
                   onClose={() => setParentPickerSlot(null)}
                   dialogClassName="successionCapturedPickerDialog"
                   searchValue={parentPickerSearch}
                   searchPlaceholder="搜索马娘、因子、玩家或 ID"
                   searchAriaLabel="搜索已有马娘"
                   onSearchChange={setParentPickerSearch}
-                  meta={<span>找到 {pickerParents.length} 个已有实例</span>}
+                  meta={
+                    parentPickerHasFilters ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParentPickerSource('all');
+                          setParentPickerBlueFactors([]);
+                          setParentPickerBlueStars(0);
+                          setParentPickerAptitudeFactors([]);
+                          setParentPickerAptitudeStars(0);
+                          setParentPickerSort('score');
+                          setParentPickerSortDirection('desc');
+                        }}
+                      >
+                        清空筛选
+                      </button>
+                    ) : null
+                  }
                   footer={
                     <>
                       <span>正在选择继承位 {parentPickerSlot}</span>
@@ -997,6 +1174,255 @@ export default function CareerTab(props: CareerTabProps) {
                     </>
                   }
                 >
+                  <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-2">
+                    <div className="grid gap-2 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
+                      <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <strong className="text-xs text-slate-700">
+                            基础筛选
+                          </strong>
+                          <span className="text-[11px] text-slate-400">
+                            属性可多选
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="w-12 text-[11px] font-medium text-slate-500">
+                            来源
+                          </span>
+                          {(
+                            [
+                              ['all', '全部'],
+                              ['own', '自己的'],
+                              ['rental', '玩家借用'],
+                            ] as const
+                          ).map(([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              aria-pressed={parentPickerSource === value}
+                              onClick={() => setParentPickerSource(value)}
+                              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                parentPickerSource === value
+                                  ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="my-2 border-t border-slate-100" />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="w-12 text-[11px] font-medium text-slate-500">
+                            属性
+                          </span>
+                          <button
+                            type="button"
+                            aria-pressed={!parentPickerBlueFactors.length}
+                            onClick={() => setParentPickerBlueFactors([])}
+                            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              !parentPickerBlueFactors.length
+                                ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                            }`}
+                          >
+                            任意
+                          </button>
+                          {PARENT_BLUE_FACTOR_OPTIONS.map((factor) => {
+                            const selected = parentPickerBlueFactors.includes(
+                              factor.factor_group_id,
+                            );
+                            return (
+                              <button
+                                key={factor.factor_group_id}
+                                type="button"
+                                aria-label={factor.name}
+                                title={factor.name}
+                                aria-pressed={selected}
+                                onClick={() =>
+                                  setParentPickerBlueFactors((current) =>
+                                    selected
+                                      ? current.filter(
+                                          (id) => id !== factor.factor_group_id,
+                                        )
+                                      : [...current, factor.factor_group_id],
+                                  )
+                                }
+                                className={`rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                                  selected
+                                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                }`}
+                              >
+                                {factor.abbreviation}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="w-12 text-[11px] font-medium text-slate-500">
+                            星级
+                          </span>
+                          {[0, 1, 2, 3].map((stars) => (
+                            <button
+                              key={stars}
+                              type="button"
+                              aria-pressed={parentPickerBlueStars === stars}
+                              onClick={() => setParentPickerBlueStars(stars)}
+                              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                parentPickerBlueStars === stars
+                                  ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                              }`}
+                            >
+                              {stars ? `${stars}★` : '不限'}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <strong className="text-xs text-slate-700">
+                            本体适应性因子
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => setParentPickerAptitudeFactors([])}
+                            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                              !parentPickerAptitudeFactors.length
+                                ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200'
+                            }`}
+                          >
+                            任意类型
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {PARENT_APTITUDE_FACTOR_GROUPS.map((group) => (
+                            <div
+                              key={group.label}
+                              className="flex flex-wrap items-center gap-1.5"
+                            >
+                              <span className="w-12 text-[11px] font-medium text-slate-500">
+                                {group.label}
+                              </span>
+                              {group.factors.map((factor) => {
+                                const selected =
+                                  parentPickerAptitudeFactors.includes(
+                                    factor.factor_group_id,
+                                  );
+                                return (
+                                  <button
+                                    key={factor.factor_group_id}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() =>
+                                      setParentPickerAptitudeFactors(
+                                        (current) =>
+                                          selected
+                                            ? current.filter(
+                                                (id) =>
+                                                  id !== factor.factor_group_id,
+                                              )
+                                            : [
+                                                ...current,
+                                                factor.factor_group_id,
+                                              ],
+                                      )
+                                    }
+                                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                      selected
+                                        ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                    }`}
+                                  >
+                                    {factor.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ))}
+                          <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
+                            <span className="w-12 text-[11px] font-medium text-slate-500">
+                              星级
+                            </span>
+                            {[0, 1, 2, 3].map((stars) => (
+                              <button
+                                key={stars}
+                                type="button"
+                                aria-pressed={
+                                  parentPickerAptitudeStars === stars
+                                }
+                                onClick={() =>
+                                  setParentPickerAptitudeStars(stars)
+                                }
+                                className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                  parentPickerAptitudeStars === stars
+                                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                }`}
+                              >
+                                {stars ? `${stars}★` : '不限'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+
+                    <section className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <strong className="mr-1 text-xs text-slate-700">
+                          排序
+                        </strong>
+                        {(
+                          [
+                            ['score', '养成评价'],
+                            ['compatibility', '契合度'],
+                            ['blue', '属性星级'],
+                            ['aptitude', '适应性星级'],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={parentPickerSort === value}
+                            onClick={() => setParentPickerSort(value)}
+                            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              parentPickerSort === value
+                                ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                        {(
+                          [
+                            ['desc', '倒序'],
+                            ['asc', '正序'],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={parentPickerSortDirection === value}
+                            onClick={() => setParentPickerSortDirection(value)}
+                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                              parentPickerSortDirection === value
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
                   {pickerParents.length ? (
                     <div className="successionCapturedPickerGrid">
                       {pickerParents.map((parent) => {
@@ -1044,7 +1470,7 @@ export default function CareerTab(props: CareerTabProps) {
                     </div>
                   ) : (
                     <div className="successionCapturedPickerEmpty">
-                      没有符合搜索条件的已有马娘。
+                      没有符合当前搜索或筛选条件的已有马娘。
                     </div>
                   )}
                 </SuccessionPickerDialog>

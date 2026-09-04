@@ -3,10 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { app, IpcMain } from 'electron';
-import {
-  findActiveIdleSingleMode,
-  hasActiveSingleModeCareer,
-} from './AutoResearchGameState';
 import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
 
 type DailyConfig = Record<string, any>;
@@ -14,6 +10,7 @@ type TaskResult = Record<string, any>;
 
 const DAILY_RACE_TICKET = 96;
 const DAILY_LEGEND_TICKET = 168;
+const DAILY_LEGEND_REQUIRED_TEAM_RANK = 2;
 
 function numberValue(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
@@ -84,7 +81,7 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
         race_cloth_id: numberValue(row.race_cloth_id),
         speed: numberValue(row.speed),
         stamina: numberValue(row.stamina),
-        power: numberValue(row.pow),
+        power: numberValue(row.power ?? row.pow),
         guts: numberValue(row.guts),
         wit: numberValue(row.wiz),
         proper_distance_short: numberValue(row.proper_distance_short),
@@ -106,6 +103,40 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
       (left: Record<string, any>, right: Record<string, any>) =>
         right.rank_score - left.rank_score,
     );
+}
+
+function dailyRaceUnlocks(
+  data: Record<string, any>,
+  database: Database.Database,
+) {
+  const bestTeamEvaluationPoint = numberValue(
+    data.user_info?.best_team_evaluation_point,
+  );
+  const teamRankMinimum = database.prepare(`
+    SELECT team_min_value
+    FROM team_stadium_rank
+    WHERE team_rank = ?
+    ORDER BY id
+    LIMIT 1
+  `);
+  const hasTeamRank = (requiredRank: number) => {
+    if (requiredRank <= 0) return true;
+    const row = teamRankMinimum.get(requiredRank) as
+      | { team_min_value?: unknown }
+      | undefined;
+    return (
+      row !== undefined &&
+      bestTeamEvaluationPoint >= numberValue(row.team_min_value)
+    );
+  };
+  const dailyRaceRequiredRank = numberValue(
+    data.common_define?.need_team_rank_play_daily_race,
+    DAILY_LEGEND_REQUIRED_TEAM_RANK,
+  );
+  return {
+    dailyRace: hasTeamRank(dailyRaceRequiredRank),
+    dailyLegendRace: hasTeamRank(DAILY_LEGEND_REQUIRED_TEAM_RANK),
+  };
 }
 
 function buildOptions(data: Record<string, any>) {
@@ -165,9 +196,7 @@ function buildOptions(data: Record<string, any>) {
         ground_name: numberValue(row.ground) === 1 ? '草地' : '泥地',
       }));
     const items = itemMap(data);
-    const dailyRecords =
-      data.daily_race_playing_info?.daily_race_record_array || [];
-    const legendInfo = data.daily_legend_race_playing_info;
+    const unlocks = dailyRaceUnlocks(data, database);
     const rp = numberValue(
       data.user_info?.current_rp ?? data.rp_info?.current_rp,
     );
@@ -180,19 +209,19 @@ function buildOptions(data: Record<string, any>) {
       trained_charas: trainedCharas(data, database),
       availability: {
         daily_race: {
-          available: dailyRecords.length > 0,
+          available: unlocks.dailyRace,
           can_run_now:
-            dailyRecords.length > 0 && (items.get(DAILY_RACE_TICKET) || 0) > 0,
+            unlocks.dailyRace && (items.get(DAILY_RACE_TICKET) || 0) > 0,
           ticket_count: items.get(DAILY_RACE_TICKET) || 0,
-          reason: dailyRecords.length ? '' : '当前账号没有可参加的每日竞赛',
+          reason: unlocks.dailyRace ? '' : '团队等级达到 E 后解锁',
         },
         daily_legend_race: {
-          available: Boolean(legendInfo && 'state' in legendInfo),
+          available: unlocks.dailyLegendRace,
           can_run_now:
-            Boolean(legendInfo && 'state' in legendInfo) &&
+            unlocks.dailyLegendRace &&
             (items.get(DAILY_LEGEND_TICKET) || 0) > 0,
           ticket_count: items.get(DAILY_LEGEND_TICKET) || 0,
-          reason: legendInfo ? '' : '当前账号没有可参加的每日传奇赛事',
+          reason: unlocks.dailyLegendRace ? '' : '团队等级达到 E 后解锁',
         },
         team_stadium: {
           available: stadiumAvailable,
@@ -247,6 +276,16 @@ async function run(id: string, config: DailyConfig) {
     const loaded = await client.loadIndex();
     loadedData = loaded.data || {};
     items = itemMap(loadedData);
+    const database = new Database(masterDatabasePath(), {
+      readonly: true,
+      fileMustExist: true,
+    });
+    let unlocks: ReturnType<typeof dailyRaceUnlocks>;
+    try {
+      unlocks = dailyRaceUnlocks(loadedData, database);
+    } finally {
+      database.close();
+    }
     const horses = new Map<number, Record<string, any>>(
       (loadedData.trained_chara || []).map((horse: Record<string, any>) => [
         numberValue(horse.trained_chara_id),
@@ -345,6 +384,12 @@ async function run(id: string, config: DailyConfig) {
 
     if (config.daily_race?.enabled) {
       const result = await execute('daily_race', async () => {
+        if (!unlocks.dailyRace) {
+          return {
+            status: 'skipped',
+            detail: '团队等级达到 E 后解锁每日竞赛',
+          };
+        }
         const raceId = numberValue(config.daily_race.daily_race_id);
         const trainedId = numberValue(config.daily_race.trained_chara_id);
         const horse = horses.get(trainedId);
@@ -381,6 +426,12 @@ async function run(id: string, config: DailyConfig) {
 
     if (config.daily_legend_race?.enabled) {
       const result = await execute('daily_legend_race', async () => {
+        if (!unlocks.dailyLegendRace) {
+          return {
+            status: 'skipped',
+            detail: '团队等级达到 E 后解锁每日传奇赛事',
+          };
+        }
         const raceId = numberValue(
           config.daily_legend_race.daily_legend_race_id,
         );

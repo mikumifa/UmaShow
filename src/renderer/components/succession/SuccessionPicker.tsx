@@ -7,7 +7,7 @@ import 'renderer/ui/SuccessionPlanner.css';
 type SuccessionPickerDialogProps = {
   ariaLabel: string;
   title: string;
-  description: string;
+  description?: string;
   onClose: () => void;
   eyebrow?: string;
   overlayClassName?: string;
@@ -76,7 +76,7 @@ export function SuccessionPickerDialog({
           <div>
             {eyebrow ? <span>{eyebrow}</span> : null}
             <h3>{title}</h3>
-            <p>{description}</p>
+            {description ? <p>{description}</p> : null}
           </div>
           <button
             type="button"

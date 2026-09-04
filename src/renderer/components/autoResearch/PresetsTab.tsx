@@ -859,7 +859,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     ))}
                   </div>
 
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                     {uraAiTargetAttributeStages.map((stage) => (
                       <div
                         key={stage.turn}
@@ -880,7 +880,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        <div className="mt-2 grid grid-cols-5 gap-1.5">
                           {STAT_LABELS.map((label, index) => (
                             <label
                               key={label}
@@ -906,7 +906,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                       </div>
                     ))}
                     {!uraAiTargetAttributeStages.length ? (
-                      <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
+                      <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400 md:col-span-2 xl:col-span-3">
                         尚未设置阶段目标，当前会全程使用最终目标属性。
                       </p>
                     ) : null}

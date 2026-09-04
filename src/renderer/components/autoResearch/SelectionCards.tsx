@@ -69,27 +69,48 @@ export function UmaChoiceCard({
 
 const FACTOR_COLORS: Record<string, string> = {
   stat: 'border-blue-200 bg-blue-50 text-blue-700',
-  distance: 'border-pink-200 bg-pink-50 text-pink-700',
-  unique: 'border-amber-200 bg-amber-50 text-amber-800',
-  white: 'border-gray-200 bg-white text-gray-600',
+  distance: 'border-rose-200 bg-rose-50 text-rose-700',
+  aptitude: 'border-rose-200 bg-rose-50 text-rose-700',
+  unique: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  white: 'border-slate-200 bg-white text-slate-600',
 };
+
+const APTITUDE_FACTOR_GROUP_IDS = new Set([
+  11, 12, 21, 22, 23, 24, 31, 32, 33, 34,
+]);
+
+function isAptitudeFactor(factor: FactorInfo) {
+  return (
+    factor.factor_type === 2 ||
+    factor.category === 'distance' ||
+    factor.category === 'aptitude' ||
+    APTITUDE_FACTOR_GROUP_IDS.has(factor.factor_group_id)
+  );
+}
 
 function factorSummary(
   factors: FactorInfo[],
   summary?: FactorSummary,
 ): FactorSummary {
-  return (
-    summary || {
-      stat: factors.find((factor) => factor.category === 'stat') || null,
-      distance:
-        factors.find((factor) => factor.category === 'distance') || null,
-      unique:
-        [...factors].reverse().find((factor) => factor.category === 'unique') ||
-        null,
-      white_count: factors.filter((factor) => factor.category === 'white')
-        .length,
-    }
-  );
+  return {
+    stat:
+      summary?.stat ||
+      factors.find((factor) => factor.category === 'stat') ||
+      null,
+    distance:
+      summary?.distance ||
+      factors.find((factor) => isAptitudeFactor(factor)) ||
+      null,
+    unique:
+      summary?.unique ||
+      [...factors].reverse().find((factor) => factor.category === 'unique') ||
+      null,
+    white_count: factors.length
+      ? factors.filter(
+          (factor) => factor.category === 'white' && !isAptitudeFactor(factor),
+        ).length
+      : summary?.white_count || 0,
+  };
 }
 
 function FactorSummaryView({
@@ -104,25 +125,21 @@ function FactorSummaryView({
     Boolean,
   ) as FactorInfo[];
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1.5">
       {featured.map((factor) => (
         <span
           key={factor.id}
-          className={`rounded border px-1.5 py-0.5 text-[11px] ${FACTOR_COLORS[factor.category] || FACTOR_COLORS.white}`}
+          className={`rounded-md border px-2 py-1 text-xs font-medium leading-none ${FACTOR_COLORS[factor.category] || FACTOR_COLORS.white}`}
         >
           {factor.name} {'★'.repeat(Math.max(1, factor.stars))}
         </span>
       ))}
-      <span className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] text-gray-500">
+      <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium leading-none text-slate-500">
         白因子 ×{current.white_count}
       </span>
     </div>
   );
 }
-
-const APTITUDE_FACTOR_GROUP_IDS = new Set([
-  11, 12, 21, 22, 23, 24, 31, 32, 33, 34,
-]);
 
 function factorDetailTone(
   factor: FactorInfo,
@@ -212,17 +229,13 @@ export function ParentChoiceCard({
               {parent.name}
             </span>
             <span
-              className={`rounded px-1.5 py-0.5 text-[10px] ${
-                parent.source === 'rental'
-                  ? 'bg-violet-100 text-violet-700'
-                  : 'bg-sky-100 text-sky-700'
-              }`}
+              className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
             >
               {parent.source === 'rental' ? '借用' : '自己的'}
             </span>
           </span>
           {parent.source === 'rental' ? (
-            <span className="mb-1 block truncate text-[11px] font-medium text-violet-600">
+            <span className="mb-1 block truncate text-[11px] text-slate-500">
               借用玩家：{parent.owner_name || '未知玩家'}
             </span>
           ) : null}
@@ -278,7 +291,7 @@ export function ParentChoiceCard({
       <button
         type="button"
         onClick={() => setDetailOpen(true)}
-        className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:border-blue-400 hover:bg-blue-100"
+        className="mt-1.5 inline-flex rounded px-1.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
       >
         查看详细
       </button>

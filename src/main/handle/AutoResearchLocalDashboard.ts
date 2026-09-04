@@ -146,11 +146,11 @@ function raceDressId(cardId: number, rarity: number, master: MasterCatalog) {
   return master.raceDressIds.get(`${cardId}:${rarity}`) || cardId;
 }
 
-function factorCategory(factorType: number, factorGroupId: number) {
+function factorCategory(factorType: number) {
   if (factorType === 1) return 'stat';
-  if (factorType === 2 && factorGroupId >= 31 && factorGroupId <= 34) {
-    return 'distance';
-  }
+  // The UI historically called this category `distance`, but factor_type 2
+  // covers every red aptitude factor: ground, running style, and distance.
+  if (factorType === 2) return 'distance';
   if (factorType === 3) return 'unique';
   return 'white';
 }
@@ -346,7 +346,7 @@ function loadMasterCatalog(
         id: factorId,
         name: cleanText(row.name) || `未知因子 (${factorId})`,
         stars: positiveNumber(row.rarity) || factorId % 10 || 1,
-        category: factorCategory(factorType, factorGroupId),
+        category: factorCategory(factorType),
         factor_type: factorType,
         factor_group_id: factorGroupId,
       });

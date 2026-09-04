@@ -80,6 +80,48 @@ const APTITUDE_FACTORS: OfflineFactorTarget[] = [
   { factor_group_id: 34, name: '长距离', kind: 'aptitude', weight: 1 },
 ];
 
+const BLUE_FACTOR_FILTERS = BLUE_FACTORS.map(([, label], index) => ({
+  factor_group_id: index + 1,
+  name: label,
+}));
+
+const APTITUDE_FACTOR_GROUP_IDS = new Set(
+  APTITUDE_FACTORS.map((factor) => factor.factor_group_id),
+);
+
+type LineageSourceFilter = 'all' | 'own' | 'rental';
+type LineageSort = 'score' | 'blue' | 'aptitude';
+type LineageSortDirection = 'desc' | 'asc';
+
+function parentFactorStars(
+  parent: Dashboard['parents'][number],
+  kind: 'blue' | 'aptitude',
+  factorGroupIds: number[],
+) {
+  return Math.max(
+    0,
+    ...parent.factors
+      .filter((factor) => {
+        if (
+          factorGroupIds.length &&
+          !factorGroupIds.includes(factor.factor_group_id)
+        ) {
+          return false;
+        }
+        if (kind === 'blue') {
+          return factor.factor_type === 1 || factor.category === 'stat';
+        }
+        return (
+          factor.factor_type === 2 ||
+          factor.category === 'distance' ||
+          factor.category === 'aptitude' ||
+          APTITUDE_FACTOR_GROUP_IDS.has(factor.factor_group_id)
+        );
+      })
+      .map((factor) => factor.stars),
+  );
+}
+
 const RED_FACTOR_GROUPS = [
   { label: '场地', factors: APTITUDE_FACTORS.slice(0, 2) },
   { label: '跑法', factors: APTITUDE_FACTORS.slice(2, 6) },
@@ -165,6 +207,20 @@ export default function OfflineCareerSettings({
   const [specificLineageSearch, setSpecificLineageSearch] = useState('');
   const [specificLineagePickerOpen, setSpecificLineagePickerOpen] =
     useState(false);
+  const [specificLineageSource, setSpecificLineageSource] =
+    useState<LineageSourceFilter>('all');
+  const [specificLineageBlueFactors, setSpecificLineageBlueFactors] = useState<
+    number[]
+  >([]);
+  const [specificLineageBlueStars, setSpecificLineageBlueStars] = useState(0);
+  const [specificLineageAptitudeFactors, setSpecificLineageAptitudeFactors] =
+    useState<number[]>([]);
+  const [specificLineageAptitudeStars, setSpecificLineageAptitudeStars] =
+    useState(0);
+  const [specificLineageSort, setSpecificLineageSort] =
+    useState<LineageSort>('score');
+  const [specificLineageSortDirection, setSpecificLineageSortDirection] =
+    useState<LineageSortDirection>('desc');
   const [lineageTreeSearch, setLineageTreeSearch] = useState('');
   const [lineageTreePicker, setLineageTreePicker] = useState<
     'parent' | 'ancestor_1' | 'ancestor_2' | ''
@@ -405,23 +461,85 @@ export default function OfflineCareerSettings({
   const selectedLineageParent = parents.find(
     (parent) => parent.selection_id === factorSelection.lineage.selection_id,
   );
-  const filteredLineageParents = parents.filter((parent) => {
-    if (!normalizedSpecificLineageSearch) return true;
-    return [
-      parent.name,
-      parent.owner_name,
-      String(parent.rank_score),
-      ...parent.factors.map((factor) => factor.name),
-      ...parent.ancestors.map((ancestor) => ancestor.name),
-    ].some((value) =>
-      String(value)
-        .toLocaleLowerCase('zh-CN')
-        .includes(normalizedSpecificLineageSearch),
-    );
-  });
-  const emptyLineageParentMessage = normalizedSpecificLineageSearch
-    ? '没有找到符合搜索条件的已育成马娘'
-    : '没有可选择的已育成马娘';
+  const requiredSpecificLineageBlueStars = specificLineageBlueFactors.length
+    ? Math.max(1, specificLineageBlueStars)
+    : specificLineageBlueStars;
+  const requiredSpecificLineageAptitudeStars =
+    specificLineageAptitudeFactors.length
+      ? Math.max(1, specificLineageAptitudeStars)
+      : specificLineageAptitudeStars;
+  const filteredLineageParents = parents
+    .filter((parent) => {
+      if (
+        specificLineageSource !== 'all' &&
+        parent.source !== specificLineageSource
+      ) {
+        return false;
+      }
+      if (
+        requiredSpecificLineageBlueStars > 0 &&
+        parentFactorStars(parent, 'blue', specificLineageBlueFactors) <
+          requiredSpecificLineageBlueStars
+      ) {
+        return false;
+      }
+      if (
+        requiredSpecificLineageAptitudeStars > 0 &&
+        parentFactorStars(parent, 'aptitude', specificLineageAptitudeFactors) <
+          requiredSpecificLineageAptitudeStars
+      ) {
+        return false;
+      }
+      if (!normalizedSpecificLineageSearch) return true;
+      return [
+        parent.name,
+        parent.owner_name,
+        String(parent.rank_score),
+        ...parent.factors.map((factor) => factor.name),
+        ...parent.ancestors.flatMap((ancestor) => [
+          ancestor.name,
+          ...ancestor.factors.map((factor) => factor.name),
+        ]),
+      ].some((value) =>
+        String(value)
+          .toLocaleLowerCase('zh-CN')
+          .includes(normalizedSpecificLineageSearch),
+      );
+    })
+    .sort((left, right) => {
+      const direction = specificLineageSortDirection === 'asc' ? 1 : -1;
+      const sortValue = (parent: Dashboard['parents'][number]) => {
+        if (specificLineageSort === 'blue') {
+          return parentFactorStars(parent, 'blue', specificLineageBlueFactors);
+        }
+        if (specificLineageSort === 'aptitude') {
+          return parentFactorStars(
+            parent,
+            'aptitude',
+            specificLineageAptitudeFactors,
+          );
+        }
+        return parent.rank_score;
+      };
+      return (
+        (sortValue(left) - sortValue(right)) * direction ||
+        (left.rank_score - right.rank_score) * direction ||
+        (left.rank - right.rank) * direction
+      );
+    });
+  const specificLineageHasFilters = Boolean(
+    specificLineageSource !== 'all' ||
+      specificLineageBlueFactors.length ||
+      specificLineageBlueStars ||
+      specificLineageAptitudeFactors.length ||
+      specificLineageAptitudeStars ||
+      specificLineageSort !== 'score' ||
+      specificLineageSortDirection !== 'desc',
+  );
+  const emptyLineageParentMessage =
+    normalizedSpecificLineageSearch || specificLineageHasFilters
+      ? '没有找到符合当前搜索或筛选条件的已育成马娘'
+      : '没有可选择的已育成马娘';
   const lineageCharaOptions = Array.from(
     new Map(
       [
@@ -1663,7 +1781,27 @@ export default function OfflineCareerSettings({
           searchPlaceholder="搜索马娘、因子、玩家或评价"
           searchAriaLabel="搜索已有马娘"
           onSearchChange={setSpecificLineageSearch}
-          meta={<span>找到 {filteredLineageParents.length} 个已有实例</span>}
+          meta={
+            <>
+              <span>找到 {filteredLineageParents.length} 个已有实例</span>
+              {specificLineageHasFilters ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSpecificLineageSource('all');
+                    setSpecificLineageBlueFactors([]);
+                    setSpecificLineageBlueStars(0);
+                    setSpecificLineageAptitudeFactors([]);
+                    setSpecificLineageAptitudeStars(0);
+                    setSpecificLineageSort('score');
+                    setSpecificLineageSortDirection('desc');
+                  }}
+                >
+                  清空筛选
+                </button>
+              ) : null}
+            </>
+          }
           footer={
             <>
               <span>已选马娘会作为固定的另一侧完整谱系</span>
@@ -1676,6 +1814,235 @@ export default function OfflineCareerSettings({
             </>
           }
         >
+          <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+            <div className="grid gap-3 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <strong className="text-xs text-slate-700">基础筛选</strong>
+                  <span className="text-[11px] text-slate-400">属性可多选</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-12 text-[11px] font-medium text-slate-500">
+                    来源
+                  </span>
+                  {(
+                    [
+                      ['all', '全部'],
+                      ['own', '自己的'],
+                      ['rental', '玩家借用'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={specificLineageSource === value}
+                      onClick={() => setSpecificLineageSource(value)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        specificLineageSource === value
+                          ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="my-2 border-t border-slate-100" />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-12 text-[11px] font-medium text-slate-500">
+                    属性
+                  </span>
+                  <button
+                    type="button"
+                    aria-pressed={!specificLineageBlueFactors.length}
+                    onClick={() => setSpecificLineageBlueFactors([])}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      !specificLineageBlueFactors.length
+                        ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                    }`}
+                  >
+                    任意
+                  </button>
+                  {BLUE_FACTOR_FILTERS.map((factor) => {
+                    const selected = specificLineageBlueFactors.includes(
+                      factor.factor_group_id,
+                    );
+                    return (
+                      <button
+                        key={factor.factor_group_id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setSpecificLineageBlueFactors((current) =>
+                            selected
+                              ? current.filter(
+                                  (id) => id !== factor.factor_group_id,
+                                )
+                              : [...current, factor.factor_group_id],
+                          )
+                        }
+                        className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          selected
+                            ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                        }`}
+                      >
+                        {factor.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="w-12 text-[11px] font-medium text-slate-500">
+                    星级
+                  </span>
+                  {[0, 1, 2, 3].map((stars) => (
+                    <button
+                      key={stars}
+                      type="button"
+                      aria-pressed={specificLineageBlueStars === stars}
+                      onClick={() => setSpecificLineageBlueStars(stars)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        specificLineageBlueStars === stars
+                          ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                      }`}
+                    >
+                      {stars ? `${stars}★${stars < 3 ? '+' : ''}` : '不限'}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <strong className="text-xs text-slate-700">适应性因子</strong>
+                  <button
+                    type="button"
+                    onClick={() => setSpecificLineageAptitudeFactors([])}
+                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      !specificLineageAptitudeFactors.length
+                        ? 'border-pink-300 bg-pink-50 text-pink-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-pink-200'
+                    }`}
+                  >
+                    任意类型
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {RED_FACTOR_GROUPS.map((group) => (
+                    <div
+                      key={group.label}
+                      className="flex flex-wrap items-center gap-1.5"
+                    >
+                      <span className="w-12 text-[11px] font-medium text-slate-500">
+                        {group.label}
+                      </span>
+                      {group.factors.map((factor) => {
+                        const selected =
+                          specificLineageAptitudeFactors.includes(
+                            factor.factor_group_id,
+                          );
+                        return (
+                          <button
+                            key={factor.factor_group_id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() =>
+                              setSpecificLineageAptitudeFactors((current) =>
+                                selected
+                                  ? current.filter(
+                                      (id) => id !== factor.factor_group_id,
+                                    )
+                                  : [...current, factor.factor_group_id],
+                              )
+                            }
+                            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              selected
+                                ? 'border-pink-300 bg-pink-50 text-pink-700'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-pink-200'
+                            }`}
+                          >
+                            {factor.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
+                    <span className="w-12 text-[11px] font-medium text-slate-500">
+                      星级
+                    </span>
+                    {[0, 1, 2, 3].map((stars) => (
+                      <button
+                        key={stars}
+                        type="button"
+                        aria-pressed={specificLineageAptitudeStars === stars}
+                        onClick={() => setSpecificLineageAptitudeStars(stars)}
+                        className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          specificLineageAptitudeStars === stars
+                            ? 'border-pink-300 bg-pink-50 text-pink-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-pink-200'
+                        }`}
+                      >
+                        {stars ? `${stars}★${stars < 3 ? '+' : ''}` : '不限'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <strong className="mr-1 text-xs text-slate-700">排序</strong>
+                {(
+                  [
+                    ['score', '养成评价'],
+                    ['blue', '属性星级'],
+                    ['aptitude', '适应性星级'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={specificLineageSort === value}
+                    onClick={() => setSpecificLineageSort(value)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      specificLineageSort === value
+                        ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                {(
+                  [
+                    ['desc', '倒序'],
+                    ['asc', '正序'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={specificLineageSortDirection === value}
+                    onClick={() => setSpecificLineageSortDirection(value)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                      specificLineageSortDirection === value
+                        ? 'bg-white text-fuchsia-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
           {filteredLineageParents.length ? (
             <div className="successionCapturedPickerGrid">
               {filteredLineageParents.map((parent) => (

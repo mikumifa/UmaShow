@@ -230,15 +230,15 @@
 }
 
 .successionCapturedAllFactors .aptitude {
-  border-color: #fbcfe8;
-  background: #fdf2f8;
-  color: #be185d;
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .successionCapturedAllFactors .unique {
-  border-color: #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .successionCapturedAllFactors .race {
@@ -545,19 +545,22 @@
 }
 
 .successionCapturedCompatibility {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 5px;
   margin-top: 8px;
 }
 
 .successionCapturedCompatibility > span {
-  display: grid;
+  display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
   gap: 1px;
-  padding: 6px 8px;
-  border: 1px solid #bfdbfe;
+  padding: 4px 6px;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
-  background: #eff6ff;
+  background: #f8fafc;
 }
 
 .successionCapturedCompatibility small,
@@ -573,7 +576,7 @@
 }
 
 .successionCapturedCompatibility strong {
-  color: #1d4ed8;
+  color: #475569;
   font-size: 12px;
 }
 
