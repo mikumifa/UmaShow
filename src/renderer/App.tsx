@@ -17,15 +17,16 @@ export default function App() {
       <style>
         {`
           img {
-            user-select: none;
-            -webkit-user-select: none;
             -webkit-user-drag: none;
           }
           input,
+          select,
           textarea,
           [contenteditable='true'] {
-            user-select: text;
-            -webkit-user-select: text;
+            pointer-events: auto;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            -webkit-app-region: no-drag;
           }
         `}
       </style>

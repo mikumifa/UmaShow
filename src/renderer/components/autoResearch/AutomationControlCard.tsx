@@ -1,9 +1,9 @@
 /* eslint-disable no-nested-ternary, jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction } from 'react';
 import {
-  CircleStop,
   Gem,
   ListChecks,
+  Pause,
   Play,
   Plus,
   RefreshCw,
@@ -15,6 +15,7 @@ import { CareerSetting, Runner, RunMode } from './types';
 type AutomationControlCardProps = {
   runner?: Runner;
   runnerStopping: boolean;
+  runnerPaused: boolean;
   busy: string;
   runMode: RunMode;
   setRunMode: Dispatch<SetStateAction<RunMode>>;
@@ -25,7 +26,8 @@ type AutomationControlCardProps = {
   remainingJewelDrops: number;
   repeatDaily: boolean;
   updateRunningAutomation: () => Promise<void>;
-  stopCareer: () => Promise<void>;
+  pauseCareer: () => Promise<void>;
+  resumeCareer: () => Promise<void>;
   activeSetting?: CareerSetting;
   editPreset: (settingId: string) => void;
   canAppendCareerPlan: boolean;
@@ -42,6 +44,7 @@ const modeOptions = [
 export default function AutomationControlCard({
   runner,
   runnerStopping,
+  runnerPaused,
   busy,
   runMode,
   setRunMode,
@@ -52,7 +55,8 @@ export default function AutomationControlCard({
   remainingJewelDrops,
   repeatDaily,
   updateRunningAutomation,
-  stopCareer,
+  pauseCareer,
+  resumeCareer,
   activeSetting,
   editPreset,
   canAppendCareerPlan,
@@ -99,9 +103,11 @@ export default function AutomationControlCard({
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               {runnerStopping
                 ? '正在暂停…'
-                : queue?.active
-                  ? `队列 ${Math.min(queue.current_index + 1, queue.items.length)}/${queue.items.length}`
-                  : runModeLabel(currentMode)}
+                : runnerPaused
+                  ? '已暂停'
+                  : queue?.active
+                    ? `队列 ${Math.min(queue.current_index + 1, queue.items.length)}/${queue.items.length}`
+                    : runModeLabel(currentMode)}
             </span>
             {repeatDaily ? (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
@@ -122,14 +128,16 @@ export default function AutomationControlCard({
                 }`
               : activeSetting?.mode === 'offline'
                 ? '离线技能与因子配置已由服务器接管执行。'
-                : '服务器独占游戏 API；运行中修改的预设会从下一次决策开始生效。'}
+                : runnerPaused
+                  ? '计划进度已保存，Worker 与自动重登已停止；恢复后会继续原计划。'
+                  : '服务器独占游戏 API；运行中修改的预设会从下一次决策开始生效。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <button
             type="button"
             onClick={openAppendCareerPlan}
-            disabled={!canAppendCareerPlan || runnerStopping}
+            disabled={!canAppendCareerPlan || runnerStopping || runnerPaused}
             className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
           >
             <Plus size={14} />
@@ -145,20 +153,32 @@ export default function AutomationControlCard({
               编辑预设
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={stopCareer}
-            disabled={runnerStopping || busy === 'stop'}
-            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            {runnerStopping ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <CircleStop size={14} />
-            )}
-            {runnerStopping ? '正在停止托管…' : '停止服务器托管'}
-          </button>
-          {planChanged ? (
+          {runnerPaused ? (
+            <button
+              type="button"
+              onClick={resumeCareer}
+              disabled={Boolean(busy)}
+              className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <Play size={14} />
+              {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={pauseCareer}
+              disabled={runnerStopping || busy === 'pause'}
+              className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+            >
+              {runnerStopping ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : (
+                <Pause size={14} />
+              )}
+              {runnerStopping ? '正在暂停…' : '暂停当前计划'}
+            </button>
+          )}
+          {planChanged && !runnerPaused ? (
             <button
               type="button"
               onClick={updateRunningAutomation}

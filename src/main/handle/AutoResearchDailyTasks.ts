@@ -65,7 +65,7 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
     SELECT text.text AS name
     FROM card_data AS card
     LEFT JOIN text_data AS text
-      ON text."index" = card.chara_id AND text.category = 14
+      ON text."index" = card.chara_id AND text.category = 6
     WHERE card.id = ?
     LIMIT 1
   `);
@@ -152,7 +152,7 @@ function buildOptions(data: Record<string, any>) {
         JOIN race_course_set AS course ON course.id = race_master.course_set
         LEFT JOIN card_data AS card ON card.id = daily.image_id
         LEFT JOIN text_data AS text
-          ON text."index" = card.chara_id AND text.category = 14
+          ON text."index" = card.chara_id AND text.category = 6
         ORDER BY daily.id
       `,
       )

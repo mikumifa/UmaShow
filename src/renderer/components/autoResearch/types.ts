@@ -65,10 +65,6 @@ export type Runner = {
   state_revision?: number;
   running?: boolean;
   stopping?: boolean;
-  session_waiting?: boolean;
-  session_wait_until?: number;
-  session_wait_seconds?: number;
-  session_wait_reason?: string;
   turn?: number;
   steps?: number;
   last_action?: string;
@@ -110,6 +106,7 @@ export type Runner = {
   daily_jewel_reset_time?: string;
   run_plan?: {
     active: boolean;
+    paused?: boolean;
     mode:
       | 'single'
       | 'continuous'
@@ -133,15 +130,17 @@ export type Runner = {
     end_time: string;
     status: string;
     last_error: string;
-    daily_jewel_drop_count: number;
+    daily_jewel_drop_count?: number;
     updated_at: string;
   };
   control?: {
-    desired_state: 'running' | 'stopped';
+    desired_state: 'running' | 'paused' | 'stopped';
     status:
       | 'queued'
       | 'reconnect_wait'
       | 'running'
+      | 'pausing'
+      | 'paused'
       | 'stopping'
       | 'stopped'
       | 'completed'

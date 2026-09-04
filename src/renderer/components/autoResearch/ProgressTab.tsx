@@ -4,6 +4,8 @@ import {
   CircleStop,
   Database,
   Gem,
+  Pause,
+  Play,
   RefreshCw,
   Trash2,
   Trophy,
@@ -19,7 +21,6 @@ import {
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
   turnDateLabel,
-  waitTimeLabel,
 } from './shared';
 import { Dashboard, Runner, RunnerStats, SessionAccount } from './types';
 
@@ -30,11 +31,12 @@ type ProgressTabProps = {
   currentCareerUma?: Dashboard['umas'][number];
   runner?: Runner;
   runnerStopping: boolean;
-  runnerSessionWaiting: boolean;
+  runnerPaused: boolean;
   automationActive: boolean;
   currentRunnerStats: RunnerStats;
   busy: string;
-  releaseSessionWait: () => Promise<void>;
+  pauseCareer: () => Promise<void>;
+  resumeCareer: () => Promise<void>;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   offlineMode: boolean;
   serverHostedMode: boolean;
@@ -60,6 +62,7 @@ function visibleRunnerLog(runner?: Runner) {
 
 function dailyPlanGoalLabel(
   schedule: NonNullable<Runner['daily_jewel_schedule']>,
+  dailyJewelDropCount?: number,
 ) {
   switch (schedule.mode) {
     case 'single':
@@ -72,7 +75,7 @@ function dailyPlanGoalLabel(
       return '每天执行完整队列';
     case 'jewel_drops':
     default:
-      return `今日钻石 ${schedule.daily_jewel_drop_count}/${schedule.target} 次`;
+      return `今日钻石 ${schedule.daily_jewel_drop_count ?? dailyJewelDropCount ?? 0}/${schedule.target} 次`;
   }
 }
 
@@ -83,11 +86,12 @@ export default function ProgressTab({
   currentCareerUma,
   runner,
   runnerStopping,
-  runnerSessionWaiting,
+  runnerPaused,
   automationActive,
   currentRunnerStats,
   busy,
-  releaseSessionWait,
+  pauseCareer,
+  resumeCareer,
   dailyJewelSchedule,
   offlineMode,
   serverHostedMode,
@@ -139,12 +143,12 @@ export default function ProgressTab({
                   {activeCareer?.name || currentCareerUma?.name || '当前养马'}
                 </h2>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerSessionWaiting ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                  className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerPaused ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                 >
                   {runnerStopping
                     ? '正在暂停…'
-                    : runnerSessionWaiting
-                      ? '等待重新登录'
+                    : runnerPaused
+                      ? '计划已暂停'
                       : offlineMode
                         ? idleSingleMode?.active ||
                           runner?.control?.status === 'running'
@@ -172,7 +176,7 @@ export default function ProgressTab({
                   : turnDateLabel(runner?.turn || activeCareer?.turn)}
               </p>
               <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                {runnerStopping || runnerSessionWaiting ? (
+                {runnerStopping || runnerPaused ? (
                   <RefreshCw
                     size={15}
                     className={
@@ -186,8 +190,8 @@ export default function ProgressTab({
                 )}
                 {runnerStopping
                   ? '正在终止独立育成进程'
-                  : runnerSessionWaiting
-                    ? '账号已在别处登录'
+                  : runnerPaused
+                    ? 'Worker 与自动重登已停止，其他设备现在可以登录'
                     : offlineMode
                       ? runner?.control?.status === 'reconnect_wait'
                         ? liveActivityLabel || '等待后台 Worker 重新连接账号'
@@ -216,29 +220,43 @@ export default function ProgressTab({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={abandonCareer}
-              disabled={[
-                'abandon',
-                'stop',
-                'idle-single-mode-abandon',
-              ].includes(busy)}
-              className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-            >
-              {serverHostedMode ? (
-                <CircleStop size={16} />
-              ) : (
+            {runnerPaused ? (
+              <button
+                type="button"
+                onClick={resumeCareer}
+                disabled={Boolean(busy)}
+                className="flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <Play size={16} />
+                {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
+              </button>
+            ) : serverHostedMode ? (
+              <button
+                type="button"
+                onClick={pauseCareer}
+                disabled={runnerStopping || busy === 'pause'}
+                className="flex items-center gap-2 rounded-md border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              >
+                <Pause size={16} />
+                {runnerStopping ? '正在暂停…' : '暂停当前计划'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={abandonCareer}
+                disabled={[
+                  'abandon',
+                  'stop',
+                  'idle-single-mode-abandon',
+                ].includes(busy)}
+                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
                 <Trash2 size={16} />
-              )}
-              {['abandon', 'stop', 'idle-single-mode-abandon'].includes(busy)
-                ? serverHostedMode
-                  ? '正在停止托管…'
-                  : '正在放弃…'
-                : serverHostedMode
-                  ? '停止服务器托管'
+                {['abandon', 'stop', 'idle-single-mode-abandon'].includes(busy)
+                  ? '正在放弃…'
                   : '放弃本次育成'}
-            </button>
+              </button>
+            )}
           </div>
         </div>
 
@@ -255,31 +273,14 @@ export default function ProgressTab({
 
         {runnerStopping ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            正在等待服务器 Worker 完全停止。托管结束前，本地登录和游戏 API
-            操作仍保持禁用；当前育成不会被放弃。
+            正在保存计划进度并停止服务器
+            Worker。暂停不会放弃当前育成；完成后其他设备可以登录。
           </div>
         ) : null}
 
-        {runnerSessionWaiting ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            <span>
-              账号已在别处登录，服务端将在{' '}
-              {waitTimeLabel(runner?.session_wait_seconds)} 后重新连接。
-            </span>
-            <button
-              type="button"
-              onClick={releaseSessionWait}
-              disabled={busy === 'release-session-wait'}
-              className="flex items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                size={14}
-                className={
-                  busy === 'release-session-wait' ? 'animate-spin' : ''
-                }
-              />
-              {busy === 'release-session-wait' ? '正在重新登录…' : '立即继续'}
-            </button>
+        {runnerPaused ? (
+          <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
+            原计划及已完成进度已保留。恢复时会重新登录，并从游戏中的当前育成状态继续执行。
           </div>
         ) : null}
 
@@ -316,7 +317,10 @@ export default function ProgressTab({
                 {`${formatDailyJewelScheduleWindow(
                   dailyJewelSchedule.start_time,
                   dailyJewelSchedule.end_time,
-                )} · ${dailyPlanGoalLabel(dailyJewelSchedule)}`}
+                )} · ${dailyPlanGoalLabel(
+                  dailyJewelSchedule,
+                  runner?.daily_jewel_drop_count,
+                )}`}
               </span>
             </div>
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
@@ -408,7 +412,10 @@ export default function ProgressTab({
             ? `每日 ${formatDailyJewelScheduleWindow(
                 dailyJewelSchedule.start_time,
                 dailyJewelSchedule.end_time,
-              )} 运行，${dailyPlanGoalLabel(dailyJewelSchedule)}。`
+              )} 运行，${dailyPlanGoalLabel(
+                dailyJewelSchedule,
+                runner?.daily_jewel_drop_count,
+              )}。`
             : runner?.run_plan?.active
               ? '新的育成开始后，这里会显示实时状态。'
               : '开始或继续育成后，这里会显示当前属性和流程。'}

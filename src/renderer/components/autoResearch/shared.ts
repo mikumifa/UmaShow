@@ -208,13 +208,6 @@ export function accountProgressPercent(progress: LoginProgress) {
   return 10;
 }
 
-export function waitTimeLabel(seconds?: number) {
-  const total = Math.max(0, Math.ceil(Number(seconds || 0)));
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return minutes > 0 ? `${minutes}分${rest}秒` : `${rest}秒`;
-}
-
 export function parentViewerIdFromSelection(value?: string) {
   const [source, viewerId] = String(value || '').split(':');
   return source === 'rental' ? Number(viewerId || 0) : 0;
@@ -457,6 +450,7 @@ export function dailyJewelScheduleStatusLabel(status?: string) {
     running: '运行中',
     occupied: '等待当前操作结束',
     retry_wait: '稍后重试',
+    paused: '已暂停',
     completed: '今日已完成',
     disabled: '已停止',
     invalid: '时间设置无效',
@@ -530,8 +524,6 @@ export function describeLogAction(value: string) {
     error: '需要处理',
     session_recovery: '恢复登录',
     session_recovered: '登录已恢复',
-    session_wait: '等待重新登录',
-    session_wait_released: '提前结束等待',
     relogin: '重新登录',
     relogin_ok: '登录成功',
   };

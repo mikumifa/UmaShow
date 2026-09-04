@@ -229,7 +229,7 @@ function loadMasterCatalog(
         SELECT card.id AS card_id, card.chara_id AS chara_id, text.text AS name
         FROM card_data AS card
         LEFT JOIN text_data AS text
-          ON text.category = 14 AND text."index" = card.chara_id
+          ON text.category = 6 AND text."index" = card.chara_id
       `,
     ).forEach((row) => {
       const cardId = positiveNumber(row.card_id);
@@ -684,7 +684,10 @@ function publicParent(
   const instanceId = positiveNumber(row.trained_chara_id);
   const cardId = positiveNumber(row.card_id);
   if (!instanceId || !cardId) return undefined;
-  const viewerId = source === 'rental' ? positiveNumber(row.viewer_id) : 0;
+  const viewerId =
+    source === 'rental'
+      ? positiveNumber(row.viewer_id ?? row.owner_viewer_id)
+      : 0;
   const rarity = numberValue(row.rarity);
   const factorExtends = row.factor_extend_array;
   const factors = normalizeFactors(
@@ -855,25 +858,48 @@ export function buildLocalDashboard(
   });
 
   const parents: Parent[] = [];
-  asRecords(data.trained_chara).forEach((row) => {
-    const parent = publicParent(row, 'own', '', master);
-    if (parent) parents.push(parent);
-  });
+  const parentIds = new Set<string>();
   const rentalData = asRecord(data.succession_trained_chara_data) || {};
   const rentalNames = new Map<number, string>();
   asRecords(rentalData.summary_user_info_array).forEach((summary) => {
     const viewerId = positiveNumber(summary.viewer_id);
     if (viewerId) rentalNames.set(viewerId, cleanText(summary.name));
   });
-  asRecords(rentalData.succession_trained_chara_array).forEach((row) => {
-    const viewerId = positiveNumber(row.viewer_id);
+  const root = asRecord(rawData);
+  const currentViewerId = positiveNumber(
+    asRecord(root?.data_headers)?.viewer_id ??
+      asRecord(data.data_headers)?.viewer_id,
+  );
+  const appendParent = (
+    row: UnknownRecord,
+    expectedSource: Parent['source'],
+  ) => {
+    const rowViewerId = positiveNumber(row.viewer_id ?? row.owner_viewer_id);
+    const source =
+      expectedSource === 'own' &&
+      currentViewerId &&
+      rowViewerId &&
+      rowViewerId !== currentViewerId
+        ? 'rental'
+        : expectedSource;
     const parent = publicParent(
       row,
-      'rental',
-      rentalNames.get(viewerId) || '',
+      source,
+      source === 'rental' ? rentalNames.get(rowViewerId) || '' : '',
       master,
     );
-    if (parent) parents.push(parent);
+    if (parent && !parentIds.has(parent.selection_id)) {
+      parentIds.add(parent.selection_id);
+      parents.push(parent);
+    }
+  };
+  const directOwnRows = asRecords(data.trained_chara);
+  const ownRows = directOwnRows.length
+    ? directOwnRows
+    : asRecords(data.trained_chara_array);
+  ownRows.forEach((row) => appendParent(row, 'own'));
+  asRecords(rentalData.succession_trained_chara_array).forEach((row) => {
+    appendParent(row, 'rental');
   });
 
   return {

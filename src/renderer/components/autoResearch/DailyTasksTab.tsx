@@ -270,7 +270,7 @@ export default function DailyTasksTab({
             服务器托管进行中，本地日常暂不可用
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            停止服务器托管后，日常状态和立即执行将继续由本机处理。
+            暂停当前计划后，日常状态和立即执行将继续由本机处理。
           </p>
         </div>
       </section>

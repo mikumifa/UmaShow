@@ -282,6 +282,7 @@ const SERVER_CONTROL_STATUSES = [
   'queued',
   'reconnect_wait',
   'running',
+  'pausing',
   'stopping',
 ] as const;
 
@@ -291,7 +292,7 @@ const runnerUsesServerSession = (runner?: Runner) =>
       runner?.run_plan?.active ||
       runner?.daily_jewel_schedule?.enabled ||
       ((runner?.control?.desired_state === 'running' ||
-        runner?.control?.status === 'stopping') &&
+        ['pausing', 'stopping'].includes(runner?.control?.status || '')) &&
         SERVER_CONTROL_STATUSES.includes(
           runner?.control?.status as (typeof SERVER_CONTROL_STATUSES)[number],
         )),
@@ -674,11 +675,13 @@ export default function AutoResearch() {
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
   );
-  const runnerSessionWaiting = Boolean(runner?.session_waiting);
+  const runnerPaused = Boolean(
+    runner?.run_plan?.paused || runner?.control?.status === 'paused',
+  );
   const dailyJewelSchedule = runner?.daily_jewel_schedule;
   const queuedCareerControl = Boolean(
     (runner?.control?.desired_state === 'running' ||
-      runner?.control?.status === 'stopping') &&
+      ['pausing', 'stopping'].includes(runner?.control?.status || '')) &&
       SERVER_CONTROL_STATUSES.includes(
         runner?.control?.status as (typeof SERVER_CONTROL_STATUSES)[number],
       ),
@@ -686,6 +689,7 @@ export default function AutoResearch() {
   const automationActive = Boolean(
     runner?.running ||
       runner?.run_plan?.active ||
+      runnerPaused ||
       dailyJewelSchedule?.enabled ||
       queuedCareerControl,
   );
@@ -714,7 +718,7 @@ export default function AutoResearch() {
   );
   const offlineControlActive = Boolean(
     (runner?.control?.desired_state === 'running' ||
-      runner?.control?.status === 'stopping') &&
+      ['pausing', 'stopping'].includes(runner?.control?.status || '')) &&
       runner?.control?.request?.career_mode === 'offline' &&
       SERVER_CONTROL_STATUSES.includes(
         runner?.control?.status as (typeof SERVER_CONTROL_STATUSES)[number],
@@ -736,6 +740,7 @@ export default function AutoResearch() {
     activeCareer?.active ||
       runner?.running ||
       runner?.run_plan?.active ||
+      runnerPaused ||
       queuedCareerControl,
   );
   const currentCareerUma =
@@ -2304,8 +2309,7 @@ export default function AutoResearch() {
       return undefined;
     }
     const accountId = selectedAccountId;
-    const restoreVersion =
-      overviewRequestVersions.current.get(accountId) || 0;
+    const restoreVersion = overviewRequestVersions.current.get(accountId) || 0;
     let cancelled = false;
     const isRestoreStale = () =>
       cancelled ||
@@ -3484,6 +3488,58 @@ export default function AutoResearch() {
     }
   };
 
+  const pauseCareerPlan = async () => {
+    if (!selectedAccountId || runnerPaused) return;
+    const accountId = selectedAccountId;
+    setStoppingAccountId(accountId);
+    setBusy('pause');
+    setError('');
+    try {
+      const result = await accountRequest<SessionResponse>(
+        accountId,
+        '/api/account/career/runner/pause',
+        { method: 'POST', body: '{}' },
+      );
+      invalidateOverviewResponses(accountId);
+      updateRuntime(accountId, result);
+      commitOverviewResponse(accountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
+      loadOverview(accountId).catch(() => undefined);
+    } catch (caught) {
+      setStoppingAccountId('');
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const resumeCareerPlan = async () => {
+    if (!selectedAccountId || !runnerPaused) return;
+    const accountId = selectedAccountId;
+    setBusy('resume');
+    setError('');
+    try {
+      const result = await accountRequest<SessionResponse>(
+        accountId,
+        '/api/account/career/runner/resume',
+        { method: 'POST', body: '{}' },
+      );
+      invalidateOverviewResponses(accountId);
+      updateRuntime(accountId, result);
+      commitOverviewResponse(accountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
+      loadOverview(accountId).catch(() => undefined);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
   const updateRunnerConfiguration = async (
     preset: Preset | undefined,
     mode: RunMode,
@@ -3570,45 +3626,10 @@ export default function AutoResearch() {
     await updateRunnerConfiguration(preset, runMode, target);
   };
 
-  const releaseSessionWait = async () => {
-    if (!selectedAccountId || !runnerSessionWaiting) return;
-    const accountId = selectedAccountId;
-    setBusy('release-session-wait');
-    setError('');
-    try {
-      const result = await accountRequest<SessionResponse>(
-        accountId,
-        '/api/account/career/runner/release-wait',
-        { method: 'POST', body: '{}' },
-      );
-      invalidateOverviewResponses(accountId);
-      setSession((current) =>
-        current
-          ? {
-              ...current,
-              runner: result.runner || current.runner,
-              runtime: {
-                ...current.runtime,
-                runner: result.runner ||
-                  result.runtime?.runner ||
-                  current.runtime?.runner || { running: false },
-              },
-            }
-          : current,
-      );
-      updateRuntime(accountId, result);
-      loadOverview(accountId).catch(() => undefined);
-    } catch (caught) {
-      setError((caught as Error).message);
-    } finally {
-      setBusy('');
-    }
-  };
-
   const abandonCareer = async () => {
     if (!selectedAccountId || !dashboard?.account.career?.active) return;
     if (serverHostedMode) {
-      setError('服务器托管期间不能使用本地 SID 放弃育成，请先停止服务器托管');
+      setError('服务器托管期间不能使用本地 SID 放弃育成，请先暂停当前计划');
       return;
     }
     const accountId = selectedAccountId;
@@ -6333,6 +6354,7 @@ export default function AutoResearch() {
                   <AutomationControlCard
                     runner={runner}
                     runnerStopping={runnerStopping}
+                    runnerPaused={runnerPaused}
                     busy={busy}
                     runMode={runMode}
                     setRunMode={setRunMode}
@@ -6343,7 +6365,8 @@ export default function AutoResearch() {
                     remainingJewelDrops={remainingJewelDrops}
                     repeatDaily={repeatDaily}
                     updateRunningAutomation={updateRunningAutomation}
-                    stopCareer={stopCareer}
+                    pauseCareer={pauseCareerPlan}
+                    resumeCareer={resumeCareerPlan}
                     activeSetting={activeAutomationSetting}
                     editPreset={editPresetForCareerSetting}
                     canAppendCareerPlan={
@@ -6377,11 +6400,12 @@ export default function AutoResearch() {
                       currentCareerUma={currentCareerUma}
                       runner={runner}
                       runnerStopping={runnerStopping}
-                      runnerSessionWaiting={runnerSessionWaiting}
+                      runnerPaused={runnerPaused}
                       automationActive={automationActive}
                       currentRunnerStats={currentRunnerStats}
                       busy={busy}
-                      releaseSessionWait={releaseSessionWait}
+                      pauseCareer={pauseCareerPlan}
+                      resumeCareer={resumeCareerPlan}
                       dailyJewelSchedule={dailyJewelSchedule}
                       offlineMode={offlineControlActive}
                       serverHostedMode={serverHostedMode}
