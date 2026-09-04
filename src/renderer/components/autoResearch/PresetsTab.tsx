@@ -27,7 +27,6 @@ import {
 } from './shared';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import {
-  AutoResearchTab,
   CareerSetting,
   Preset,
   RaceOption,
@@ -50,7 +49,6 @@ type PresetsTabProps = {
   deletePreset: (name: string) => void;
   importPreset: (file: File) => Promise<void>;
   setPresetEditorOpen: Dispatch<SetStateAction<boolean>>;
-  navigateToTab: (tab: AutoResearchTab, target?: string) => void;
   savePreset: () => Promise<boolean>;
   busy: string;
   presetSaved: boolean;
@@ -69,8 +67,6 @@ type PresetsTabProps = {
   skillByName: Map<string, AutoResearchSkill>;
   skillLearningConditionLabel: (entry: SkillSelectionEntry) => string;
   setSkillSelections: Dispatch<SetStateAction<SkillSelectionEntry[]>>;
-  skillThreshold: number;
-  setSkillThreshold: Dispatch<SetStateAction<number>>;
   skipDoubleCircle: boolean;
   setSkipDoubleCircle: Dispatch<SetStateAction<boolean>>;
   maximizeSkillScoreAtEnd: boolean;
@@ -121,7 +117,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     deletePreset,
     importPreset,
     setPresetEditorOpen,
-    navigateToTab,
     savePreset,
     busy,
     presetSaved,
@@ -140,8 +135,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     skillByName,
     skillLearningConditionLabel,
     setSkillSelections,
-    skillThreshold,
-    setSkillThreshold,
     skipDoubleCircle,
     setSkipDoubleCircle,
     maximizeSkillScoreAtEnd,
@@ -406,7 +399,7 @@ export default function PresetsTab(props: PresetsTabProps) {
             </button>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid max-w-xl gap-4 sm:grid-cols-2">
           <label className="text-sm">
             育成剧本
             <select
@@ -434,14 +427,6 @@ export default function PresetsTab(props: PresetsTabProps) {
               <option value={4}>追</option>
             </select>
           </label>
-          <label className="text-sm">
-            学技能最低技能点
-            <EditableNumberInput
-              value={skillThreshold}
-              onValueChange={setSkillThreshold}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            />
-          </label>
         </div>
 
         <div id="preset-skills" className="mt-4 scroll-mt-28">
@@ -462,7 +447,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                 添加技能
               </button>
             </div>
-            <div className="grid max-h-[260px] min-h-[104px] auto-rows-max content-start gap-2 overflow-y-auto bg-slate-50/60 p-3 2xl:grid-cols-2">
+            <div className="grid max-h-[260px] min-h-[104px] auto-rows-max content-start gap-2 overflow-y-auto bg-slate-50/60 p-3 xl:grid-cols-3">
               {skillSelections.map((entry, index) => {
                 const isGroup = entry.skill_names.length > 1;
                 const primaryName = entry.skill_names[0];
@@ -869,7 +854,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     ))}
                   </div>
 
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
                     {uraAiTargetAttributeStages.map((stage) => (
                       <div
                         key={stage.turn}
@@ -1000,30 +985,6 @@ export default function PresetsTab(props: PresetsTabProps) {
             selectedRaceIds={selectedRaceIds}
             setSelectedRaceIds={setSelectedRaceIds}
           />
-        </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
-          <div>
-            <h3 className="font-semibold text-indigo-950">预设配置完成后</h3>
-            <p className="mt-1 text-sm text-indigo-700">
-              前往养马详设，为账号选择育成马娘、继承马娘和支援卡。
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => scrollToSection('preset-basic')}
-              className="rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
-            >
-              返回顶部检查
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateToTab('career', 'career-task')}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              前往养马详设 →
-            </button>
-          </div>
         </div>
       </section>
     </>

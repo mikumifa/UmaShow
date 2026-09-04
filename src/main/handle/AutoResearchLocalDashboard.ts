@@ -121,6 +121,16 @@ function positiveNumber(value: unknown) {
   return number > 0 ? number : 0;
 }
 
+function positiveNumberArray(value: unknown) {
+  return [
+    ...new Set(
+      (Array.isArray(value) ? value : [])
+        .map(positiveNumber)
+        .filter((number) => number > 0),
+    ),
+  ];
+}
+
 function cardCharaId(cardId: number, master: MasterCatalog) {
   return (
     master.cardCharaIds.get(cardId) ||
@@ -667,6 +677,7 @@ function ancestors(
             raceDressId(cardId, rarity, master),
           rarity,
           name: cardName(cardId, master),
+          win_saddle_ids: positiveNumberArray(row.win_saddle_id_array),
           factors,
           factor_summary: factorSummary(factors),
         },
@@ -720,6 +731,7 @@ function publicParent(
       guts: numberValue(row.guts),
       wiz: numberValue(row.wiz),
     },
+    win_saddle_ids: positiveNumberArray(row.win_saddle_id_array),
     factors,
     factor_summary: factorSummary(factors),
     ancestors: ancestors(row.succession_chara_array, factorExtends, master),

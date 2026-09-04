@@ -325,6 +325,7 @@ export type Dashboard = {
       guts: number;
       wiz: number;
     };
+    win_saddle_ids?: number[];
     factors: FactorInfo[];
     factor_summary: FactorSummary;
     ancestors: Array<{
@@ -334,6 +335,7 @@ export type Dashboard = {
       race_cloth_id: number;
       rarity: number;
       name: string;
+      win_saddle_ids?: number[];
       factors: FactorInfo[];
       factor_summary: FactorSummary;
     }>;
@@ -583,15 +585,24 @@ export type OfflineFactorSelection = {
     tree: {
       parent: {
         chara_id: number;
-        min_factor_stars: number;
+        red_factor_group_id: number;
+        red_factor_stars: number;
+        route_id: string;
+        min_factor_stars?: number;
       };
       ancestor_1: {
         chara_id: number;
-        min_factor_stars: number;
+        red_factor_group_id: number;
+        red_factor_stars: number;
+        route_id: string;
+        min_factor_stars?: number;
       };
       ancestor_2: {
         chara_id: number;
-        min_factor_stars: number;
+        red_factor_group_id: number;
+        red_factor_stars: number;
+        route_id: string;
+        min_factor_stars?: number;
       };
     };
     chara_ids: number[];
@@ -727,7 +738,6 @@ export type Preset = {
   learn_skill_group_labels?: string[];
   learn_skill_settings?: Record<string, SkillLearningSetting>;
   learn_skill_blacklist?: string[];
-  learn_skill_threshold?: number;
   learn_skill_only_user_provided?: boolean;
   skip_double_circle_unless_high_hint?: boolean;
   maximize_skill_score_at_end?: boolean;

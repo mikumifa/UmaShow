@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { UMDB } from 'renderer/utils/umdb';
+import {
+  parentCompatibilityTitle,
+  type ParentCompatibilityPreview,
+} from './successionCompatibility';
 import { Dashboard, FactorInfo, FactorSummary, SupportInfo } from './types';
 
 export function horseIconPath(cardId: number, rarity: number, raceClothId = 0) {
@@ -132,11 +136,13 @@ export function ParentChoiceCard({
   parent,
   selected,
   disabled,
+  compatibility,
   onSelect,
 }: {
   parent: Dashboard['parents'][number];
   selected: boolean;
   disabled: boolean;
+  compatibility?: ParentCompatibilityPreview;
   onSelect: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -199,6 +205,23 @@ export function ParentChoiceCard({
             factors={parent.factors || []}
             summary={parent.factor_summary}
           />
+          {compatibility ? (
+            <span className="successionCapturedCompatibility">
+              <span title={parentCompatibilityTitle(compatibility)}>
+                <small>{compatibility.label}</small>
+                <strong>契合度 {compatibility.total}</strong>
+                <em>
+                  {compatibility.g1Details.length
+                    ? compatibility.g1Details.map((detail) => (
+                        <span key={detail.label}>
+                          {detail.label} · 共同 G1 {detail.count}
+                        </span>
+                      ))
+                    : '仅基础相性'}
+                </em>
+              </span>
+            </span>
+          ) : null}
         </span>
       </button>
 

@@ -617,26 +617,51 @@ export default function HistoryTab({
           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {accountCareerSettings.map((setting) => {
               const selected = historyCareerSettingId === setting.id;
+              const settingUma = resolveRecordUma(setting.card_id);
               return (
                 <button
                   key={setting.id}
                   type="button"
                   onClick={() => setHistoryCareerSettingId(setting.id)}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                     selected
                       ? 'border-indigo-400 bg-indigo-50 text-indigo-950'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40'
                   }`}
                 >
-                  <strong className="block truncate text-sm">
-                    {setting.name}
-                  </strong>
-                  <span
-                    className={`mt-0.5 block truncate text-xs ${
-                      selected ? 'text-indigo-600' : 'text-slate-400'
-                    }`}
-                  >
-                    {setting.preset_name || '未绑定预设'}
+                  <span className="h-12 w-12 flex-none overflow-hidden rounded-md bg-slate-100">
+                    {settingUma ? (
+                      <AssetIcon
+                        path={
+                          horseIconPath(
+                            settingUma.id,
+                            settingUma.rarity,
+                            settingUma.race_cloth_id,
+                          ) || ''
+                        }
+                        alt={settingUma.name}
+                        className="h-full w-full object-cover"
+                        loading="eager"
+                        fallback={
+                          <Trophy size={20} className="m-3.5 text-slate-300" />
+                        }
+                      />
+                    ) : (
+                      <Trophy size={20} className="m-3.5 text-slate-300" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm">
+                      {setting.name}
+                    </strong>
+                    <span
+                      className={`mt-0.5 block truncate text-xs ${
+                        selected ? 'text-indigo-600' : 'text-slate-400'
+                      }`}
+                    >
+                      {settingUma?.name || '尚未选择育成马娘'} ·{' '}
+                      {setting.preset_name || '未绑定预设'}
+                    </span>
                   </span>
                 </button>
               );

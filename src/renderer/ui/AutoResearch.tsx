@@ -141,6 +141,66 @@ const localAutoResearchSkills = (() => {
   );
 })();
 
+const localAutoResearchSkillById = new Map(
+  localAutoResearchSkills.map((skill) => [skill.id, skill]),
+);
+const localAutoResearchSkillByName = new Map(
+  localAutoResearchSkills.map((skill) => [skill.name, skill]),
+);
+
+function skillNameFromPresetToken(value: unknown) {
+  const token = String(value || '').trim();
+  if (!token) return '';
+  const skillId = Number(token);
+  if (Number.isInteger(skillId) && skillId > 0) {
+    return localAutoResearchSkillById.get(skillId)?.name || token;
+  }
+  return token;
+}
+
+function skillPresetTokenFromName(name: string) {
+  return String(localAutoResearchSkillByName.get(name)?.id || name);
+}
+
+function stableSkillPresetToken(value: unknown) {
+  const token = String(value || '').trim();
+  if (!token) return '';
+  const skillId = Number(token);
+  if (Number.isInteger(skillId) && skillId > 0) return String(skillId);
+  return skillPresetTokenFromName(token);
+}
+
+function migratePresetSkillIdentifiers(preset: Preset): Preset {
+  const migrated = {
+    ...preset,
+    learn_skill_list: (preset.learn_skill_list || []).map((row) =>
+      row.map(stableSkillPresetToken).filter(Boolean),
+    ),
+    learn_skill_settings: Object.fromEntries(
+      Object.entries(preset.learn_skill_settings || {}).map(
+        ([token, setting]) => [stableSkillPresetToken(token), setting],
+      ),
+    ),
+  };
+  delete (migrated as Preset & { learn_skill_threshold?: number })
+    .learn_skill_threshold;
+  return migrated;
+}
+
+function presetSkillRowsForEditor(rows: string[][] | undefined) {
+  return (rows || []).map((row) => row.map(skillNameFromPresetToken));
+}
+
+function presetSkillSettingsForEditor(
+  value: Record<string, Partial<SkillLearningSetting>> | undefined,
+) {
+  return Object.fromEntries(
+    Object.entries(normalizeSkillLearningSettings(value)).map(
+      ([token, setting]) => [skillNameFromPresetToken(token), setting],
+    ),
+  );
+}
+
 const emptyAccountOptions = (): AccountOptionsResponse['options'] => ({
   umas: [],
   supports: [],
@@ -317,6 +377,43 @@ const normalizeOfflineFactorSelection = (
   value?: Partial<OfflineFactorSelection>,
 ): OfflineFactorSelection => {
   const defaults = createDefaultOfflineFactorSelection();
+  const aptitudeFactorGroupIds = new Set([
+    11, 12, 21, 22, 23, 24, 31, 32, 33, 34,
+  ]);
+  const lineageRouteIds = new Set([
+    'mile-middle-dirt',
+    'short-mile-middle-dirt',
+    'none',
+  ]);
+  const normalizeTreeSlot = (
+    slot: keyof OfflineFactorSelection['lineage']['tree'],
+    legacyCharaId = 0,
+  ) => {
+    const stored = value?.lineage?.tree?.[slot];
+    const factorGroupId = Number(stored?.red_factor_group_id || 0);
+    const routeId = String(stored?.route_id || 'none');
+    return {
+      ...defaults.lineage.tree[slot],
+      ...(stored || {}),
+      chara_id: Number(stored?.chara_id || legacyCharaId || 0),
+      red_factor_group_id: aptitudeFactorGroupIds.has(factorGroupId)
+        ? factorGroupId
+        : 0,
+      red_factor_stars: Math.max(
+        0,
+        Math.min(3, Math.round(Number(stored?.red_factor_stars || 0))),
+      ),
+      route_id: lineageRouteIds.has(routeId) ? routeId : 'none',
+      min_factor_stars: Math.max(
+        0,
+        Number(
+          stored?.min_factor_stars ??
+            (slot === 'parent' ? value?.lineage?.min_parent_factor_stars : 0) ??
+            0,
+        ),
+      ),
+    };
+  };
   const legacyBlueMinimums = !value?.evaluation_mode;
   const normalizeBlueMinimum = (
     key: keyof OfflineFactorSelection['blue_factor_minimums'],
@@ -357,50 +454,20 @@ const normalizeOfflineFactorSelection = (
       ...defaults.lineage,
       ...(value?.lineage || {}),
       tree: {
-        parent: {
-          ...defaults.lineage.tree.parent,
-          ...(value?.lineage?.tree?.parent || {}),
-          chara_id: Number(
-            value?.lineage?.tree?.parent?.chara_id ||
-              (value?.lineage?.chara_ids?.length === 1
-                ? value.lineage.chara_ids[0]
-                : 0),
-          ),
-          min_factor_stars: Math.max(
-            0,
-            Number(
-              value?.lineage?.tree?.parent?.min_factor_stars ??
-                value?.lineage?.min_parent_factor_stars ??
-                0,
-            ),
-          ),
-        },
-        ancestor_1: {
-          ...defaults.lineage.tree.ancestor_1,
-          ...(value?.lineage?.tree?.ancestor_1 || {}),
-          chara_id: Number(
-            value?.lineage?.tree?.ancestor_1?.chara_id ||
-              value?.lineage?.ancestor_chara_ids?.[0] ||
-              0,
-          ),
-          min_factor_stars: Math.max(
-            0,
-            Number(value?.lineage?.tree?.ancestor_1?.min_factor_stars || 0),
-          ),
-        },
-        ancestor_2: {
-          ...defaults.lineage.tree.ancestor_2,
-          ...(value?.lineage?.tree?.ancestor_2 || {}),
-          chara_id: Number(
-            value?.lineage?.tree?.ancestor_2?.chara_id ||
-              value?.lineage?.ancestor_chara_ids?.[1] ||
-              0,
-          ),
-          min_factor_stars: Math.max(
-            0,
-            Number(value?.lineage?.tree?.ancestor_2?.min_factor_stars || 0),
-          ),
-        },
+        parent: normalizeTreeSlot(
+          'parent',
+          value?.lineage?.chara_ids?.length === 1
+            ? Number(value.lineage.chara_ids[0])
+            : 0,
+        ),
+        ancestor_1: normalizeTreeSlot(
+          'ancestor_1',
+          Number(value?.lineage?.ancestor_chara_ids?.[0] || 0),
+        ),
+        ancestor_2: normalizeTreeSlot(
+          'ancestor_2',
+          Number(value?.lineage?.ancestor_chara_ids?.[1] || 0),
+        ),
       },
       chara_ids: [],
       ancestor_chara_ids: [],
@@ -590,7 +657,6 @@ export default function AutoResearch() {
   const [skillSettingYearOffset, setSkillSettingYearOffset] = useState(0);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [draggedPrioritySkill, setDraggedPrioritySkill] = useState('');
-  const [skillThreshold, setSkillThreshold] = useState(888);
   const [skipDoubleCircle, setSkipDoubleCircle] = useState(false);
   const [maximizeSkillScoreAtEnd, setMaximizeSkillScoreAtEnd] = useState(false);
   const [skillPurchaseTurns, setSkillPurchaseTurns] = useState<number[]>([]);
@@ -661,15 +727,6 @@ export default function AutoResearch() {
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   );
-  const serverAccount =
-    dashboard?.account ||
-    session?.runtime?.account ||
-    selectedAccount?.runtime.account;
-  const historyDashboard =
-    dashboard ||
-    (serverAccount
-      ? { ...emptyAccountOptions(), account: serverAccount }
-      : undefined);
   const runner = session?.runtime?.runner || selectedAccount?.runtime.runner;
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
@@ -1678,13 +1735,23 @@ export default function AutoResearch() {
 
   const loadCareerHistory = useCallback(
     async (accountId: string) => {
-      if (!accountId || !sessionTokens.current.has(accountId)) return;
+      if (!accountId) return;
       setBusy('history');
       try {
-        const result = await accountRequest<{
+        if (!server) throw new Error('查看记录前，请先连接自动育成服务器');
+        const credential = (await window.electron.autoResearch.credential(
+          accountId,
+        )) as { uid: string; accessKey: string };
+        const result = await request<{
           success: boolean;
           reports: CareerSessionRecord[];
-        }>(accountId, '/api/account/career/history');
+        }>('/api/account/career/history/query', {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+          }),
+        });
         setCareerHistory(result.reports || []);
       } catch (caught) {
         setError((caught as Error).message);
@@ -1692,7 +1759,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [accountRequest],
+    [request, server],
   );
 
   const deleteCareerHistory = useCallback(
@@ -1701,13 +1768,20 @@ export default function AutoResearch() {
       setBusy('history-delete');
       setError('');
       try {
-        const result = await accountRequest<{
+        if (!server) throw new Error('删除记录前，请先连接自动育成服务器');
+        const credential = (await window.electron.autoResearch.credential(
+          selectedAccountId,
+        )) as { uid: string; accessKey: string };
+        const result = await request<{
           success: boolean;
           reports: CareerSessionRecord[];
-        }>(selectedAccountId, '/api/account/career/history/delete', {
+        }>('/api/account/career/history/delete-by-account', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report_ids: reportIds }),
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            report_ids: reportIds,
+          }),
         });
         setCareerHistory(result.reports || []);
         setSelectedCareerRecords(null);
@@ -1717,7 +1791,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [accountRequest, selectedAccountId],
+    [request, selectedAccountId, server],
   );
 
   const loadDailyTasks = useCallback(
@@ -2174,10 +2248,12 @@ export default function AutoResearch() {
         getSharedStorageItem(LOCAL_PRESETS_KEY) || '[]',
       );
       if (Array.isArray(storedPresets)) {
-        localPresets = storedPresets.map((preset: Preset) => ({
-          ...preset,
-          scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
-        }));
+        localPresets = storedPresets.map((preset: Preset) =>
+          migratePresetSkillIdentifiers({
+            ...preset,
+            scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
+          }),
+        );
       }
       const stored = JSON.parse(
         getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
@@ -2211,6 +2287,7 @@ export default function AutoResearch() {
         (preset) => preset.name !== DEFAULT_PRESET_NAME,
       ),
     ];
+    setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
     setPresets(nextPresets);
     setPresetName((current) =>
       nextPresets.some((preset) => preset.name === current)
@@ -2265,14 +2342,13 @@ export default function AutoResearch() {
     setRunningStyle(Number(preset.running_style ?? 0));
     setSkillSelections(
       normalizeSkillSelections(
-        preset.learn_skill_list,
+        presetSkillRowsForEditor(preset.learn_skill_list),
         preset.learn_skill_group_labels,
       ),
     );
     setSkillLearningSettings(
-      normalizeSkillLearningSettings(preset.learn_skill_settings),
+      presetSkillSettingsForEditor(preset.learn_skill_settings),
     );
-    setSkillThreshold(Number(preset.learn_skill_threshold || 888));
     setSkipDoubleCircle(Boolean(preset.skip_double_circle_unless_high_hint));
     setMaximizeSkillScoreAtEnd(Boolean(preset.maximize_skill_score_at_end));
     setSkillPurchaseTurns(normalizeTurnList(preset.skill_purchase_turns));
@@ -2512,20 +2588,11 @@ export default function AutoResearch() {
   }, [historyCareerSettingId]);
 
   useEffect(() => {
-    if (
-      activeTab !== 'history' ||
-      !selectedAccountId ||
-      !selectedAccount?.runtime.logged_in
-    ) {
+    if (activeTab !== 'history' || !selectedAccountId || !server) {
       return;
     }
     loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [
-    activeTab,
-    loadCareerHistory,
-    selectedAccount?.runtime.logged_in,
-    selectedAccountId,
-  ]);
+  }, [activeTab, loadCareerHistory, selectedAccountId, server]);
 
   useEffect(() => {
     if (
@@ -3253,15 +3320,19 @@ export default function AutoResearch() {
       name: presetName.trim(),
       scenario_id: scenarioId,
       running_style: runningStyle,
-      learn_skill_list: skillSelections.map((entry) => entry.skill_names),
+      learn_skill_list: skillSelections.map((entry) =>
+        entry.skill_names.map(skillPresetTokenFromName),
+      ),
       learn_skill_group_labels: skillSelections.map((entry) => entry.label),
       learn_skill_settings: Object.fromEntries(
         skillPriorityNames
           .filter((name) => skillLearningSettings[name])
-          .map((name) => [name, skillLearningSettings[name]]),
+          .map((name) => [
+            skillPresetTokenFromName(name),
+            skillLearningSettings[name],
+          ]),
       ),
       learn_skill_blacklist: [],
-      learn_skill_threshold: skillThreshold,
       learn_skill_only_user_provided: true,
       skip_double_circle_unless_high_hint: skipDoubleCircle,
       maximize_skill_score_at_end: maximizeSkillScoreAtEnd,
@@ -3851,12 +3922,12 @@ export default function AutoResearch() {
         name = `${baseName} (${suffix})`;
         suffix += 1;
       }
-      const importedPreset: Preset = {
+      const importedPreset = migratePresetSkillIdentifiers({
         ...createDefaultPreset(name),
         ...(raw as Partial<Preset>),
         name,
         scenario_id: normalizeOnlineScenarioId(raw.scenario_id),
-      };
+      });
       const nextPresets = [...presets, importedPreset];
       setPresets(nextPresets);
       setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
@@ -5028,7 +5099,7 @@ export default function AutoResearch() {
                           PT 足够就学
                         </strong>
                         <span className="mt-0.5 block text-xs text-slate-500">
-                          不等待购买时间，也不受技能点购买阈值限制
+                          不等待购买时间，当前 PT 足够时立即检查学习
                         </span>
                       </span>
                     </label>
@@ -6000,7 +6071,7 @@ export default function AutoResearch() {
               >
                 <p>请先选择要使用的账号。</p>
               </section>
-            ) : activeTab !== 'presets' &&
+            ) : !['presets', 'history'].includes(activeTab) &&
               disconnectingAccountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
@@ -6020,7 +6091,7 @@ export default function AutoResearch() {
                   </p>
                 </div>
               </section>
-            ) : activeTab !== 'presets' &&
+            ) : !['presets', 'history'].includes(activeTab) &&
               loginProgress?.accountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
@@ -6048,7 +6119,7 @@ export default function AutoResearch() {
                   </p>
                 </div>
               </section>
-            ) : activeTab !== 'presets' &&
+            ) : !['presets', 'history'].includes(activeTab) &&
               !automationActive &&
               (!dashboard ||
                 (!serverHostedMode && localAccountSessionState !== 'ready')) ? (
@@ -6244,7 +6315,6 @@ export default function AutoResearch() {
                     deletePreset={deletePreset}
                     importPreset={importPreset}
                     setPresetEditorOpen={setPresetEditorOpen}
-                    navigateToTab={navigateToTab}
                     savePreset={savePreset}
                     busy={busy}
                     presetSaved={presetSaved}
@@ -6263,8 +6333,6 @@ export default function AutoResearch() {
                     skillByName={skillByName}
                     skillLearningConditionLabel={skillLearningConditionLabel}
                     setSkillSelections={setSkillSelections}
-                    skillThreshold={skillThreshold}
-                    setSkillThreshold={setSkillThreshold}
                     skipDoubleCircle={skipDoubleCircle}
                     setSkipDoubleCircle={setSkipDoubleCircle}
                     maximizeSkillScoreAtEnd={maximizeSkillScoreAtEnd}
@@ -6494,7 +6562,7 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
-                {historyDashboard && activeTab === 'history' ? (
+                {activeTab === 'history' ? (
                   <HistoryTab
                     selectedCareerRecords={selectedCareerRecords}
                     setSelectedCareerRecords={setSelectedCareerRecords}

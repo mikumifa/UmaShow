@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Database,
@@ -9,12 +9,14 @@ import {
   Save,
   Search,
   Trash2,
+  X,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
+import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import OfflineCareerSettings from './OfflineCareerSettings';
 import {
   DeckChoiceCard,
@@ -23,6 +25,7 @@ import {
   SupportChoiceCard,
 } from './SelectionCards';
 import { panelClass, scrollToSection } from './shared';
+import { parentCompatibilityPreview } from './successionCompatibility';
 import { AutoResearchSkill } from './SkillSelector';
 import {
   CareerSetting,
@@ -206,10 +209,27 @@ export default function CareerTab(props: CareerTabProps) {
     offlineSkillSettings,
     setOfflineSkillSettings,
   } = props;
+  const [newCareerDialogOpen, setNewCareerDialogOpen] = useState(false);
   const [umaPickerOpen, setUmaPickerOpen] = useState(false);
   const [umaPickerSearch, setUmaPickerSearch] = useState('');
   const [parentPickerSlot, setParentPickerSlot] = useState<1 | 2 | null>(null);
   const [parentPickerSearch, setParentPickerSearch] = useState('');
+  const [successionG1SaddleIds, setSuccessionG1SaddleIds] = useState<number[]>(
+    [],
+  );
+  useEffect(() => {
+    loadUMDB()
+      .then(() => setSuccessionG1SaddleIds([...UMDB.successionG1SaddleIds]))
+      .catch(() => setSuccessionG1SaddleIds([]));
+  }, []);
+  useEffect(() => {
+    if (!newCareerDialogOpen) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNewCareerDialogOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [newCareerDialogOpen]);
   const normalizedUmaSearch = umaPickerSearch.trim().toLowerCase();
   const pickerUmas = dashboard.umas.filter(
     (uma) =>
@@ -239,6 +259,16 @@ export default function CareerTab(props: CareerTabProps) {
   const offlineDetailBlockedByActiveCareer = Boolean(
     careerSaveOpen && careerMode === 'offline' && activeCareer?.active,
   );
+  const canCreateCareerSave = Boolean(
+    newCareerSaveName.trim() &&
+      (newCareerMode === 'offline' ||
+        presets.some((preset) => preset.name === newCareerPresetName)),
+  );
+  const createCareerSaveFromDialog = () => {
+    if (!canCreateCareerSave) return;
+    createCareerSave();
+    setNewCareerDialogOpen(false);
+  };
   return activeCareer?.active && !careerSaveOpen ? (
     <section className={panelClass('p-5')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -355,179 +385,246 @@ export default function CareerTab(props: CareerTabProps) {
       </div>
     </section>
   ) : !careerSaveOpen && !automationActive ? (
-    <section className={panelClass('p-5')}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
-            <Database size={19} className="text-indigo-600" />
-            选择养马详设
-          </h2>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {accountCareerSettings.map((setting) => {
-          const uma = dashboard.umas.find(
-            (item) => item.id === setting.card_id,
-          );
-          const offline = setting.mode === 'offline';
-          const presetExists =
-            offline ||
-            presets.some((preset) => preset.name === setting.preset_name);
-          // A saved setting already has enough information to show its base
-          // portrait. Do not wait for the server-side dashboard. Once the
-          // owned-card metadata arrives, switch to the exact race cloth.
-          const iconPath = horseIconPath(
-            setting.card_id,
-            uma?.rarity || 0,
-            uma?.race_cloth_id || setting.card_id,
-          );
-          return (
-            <article
-              key={setting.id}
-              className="rounded-lg border border-gray-200 bg-gray-50/60 p-3"
-            >
-              <div className="flex items-start gap-3">
-                <span className="h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
-                  {iconPath ? (
-                    <AssetIcon
-                      path={iconPath}
-                      alt={uma?.name || setting.name}
-                      className="h-full w-full object-cover"
-                      loading="eager"
-                    />
-                  ) : (
-                    <Database size={24} className="m-5 text-gray-300" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <label className="block text-xs text-gray-500">
-                    详设名称
-                    <input
-                      key={`${setting.id}-${setting.name}`}
-                      defaultValue={setting.name}
-                      onBlur={(event) =>
-                        renameCareerSetting(setting.id, event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.currentTarget.blur();
-                        }
-                      }}
-                      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
-                    />
-                  </label>
-                  <p className="mt-1 truncate text-xs text-gray-500">
-                    {uma?.name || '尚未选择育成马娘'} ·{' '}
-                    {offline
-                      ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
-                      : setting.preset_name}
-                  </p>
-                  <span
-                    className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      presetExists
-                        ? 'bg-violet-50 text-violet-700'
-                        : 'bg-red-50 text-red-600'
-                    }`}
-                  >
-                    {offline
-                      ? '离线详设'
-                      : presetExists
-                        ? '已绑定预设'
-                        : '绑定预设不存在'}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => applyCareerSetting(setting.id)}
-                  disabled={!presetExists}
-                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  进入详设
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteCareerSetting(setting.id)}
-                  className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  aria-label={`删除详设${setting.name}`}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </article>
-          );
-        })}
-
-        <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
-          <h3 className="font-semibold text-indigo-950">新建养马详设</h3>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {(['online', 'offline'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setNewCareerMode(mode)}
-                className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                  newCareerMode === mode
-                    ? 'border-indigo-400 bg-indigo-100 text-indigo-900'
-                    : 'border-indigo-100 bg-white text-slate-600'
-                }`}
-              >
-                {mode === 'online' ? '在线自动育成' : '游戏离线育成'}
-              </button>
-            ))}
+    <>
+      <section className={panelClass('p-5')}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              <Database size={19} className="text-indigo-600" />
+              选择养马详设
+            </h2>
           </div>
-          {newCareerMode === 'online' ? (
-            <>
-              <label className="mt-3 block text-xs font-medium text-indigo-900">
-                绑定预设
-                <select
-                  value={newCareerPresetName}
-                  onChange={(event) =>
-                    setNewCareerPresetName(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-800"
-                >
-                  <option value="">请手动选择预设</option>
-                  {presets.map((preset) => (
-                    <option key={preset.name} value={preset.name}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="mt-1 text-xs leading-5 text-indigo-700">
-                进入详设后将固定绑定，不能再切换到其他预设。
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-700">
-              离线详设独立保存最后点技能与因子筛选设置，不绑定预设。
-            </p>
-          )}
-          <input
-            value={newCareerSaveName}
-            onChange={(event) => setNewCareerSaveName(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && createCareerSave()}
-            placeholder={`例如：URA 详设 ${accountCareerSettings.length + 1}`}
-            className="mt-3 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
-          />
+        </div>
+
+        <div className="mt-5 grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {accountCareerSettings.map((setting) => {
+            const uma = dashboard.umas.find(
+              (item) => item.id === setting.card_id,
+            );
+            const offline = setting.mode === 'offline';
+            const presetExists =
+              offline ||
+              presets.some((preset) => preset.name === setting.preset_name);
+            // A saved setting already has enough information to show its base
+            // portrait. Do not wait for the server-side dashboard. Once the
+            // owned-card metadata arrives, switch to the exact race cloth.
+            const iconPath = horseIconPath(
+              setting.card_id,
+              uma?.rarity || 0,
+              uma?.race_cloth_id || setting.card_id,
+            );
+            return (
+              <article
+                key={setting.id}
+                className="flex h-full flex-col rounded-lg border border-gray-200 bg-gray-50/60 p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
+                    {iconPath ? (
+                      <AssetIcon
+                        path={iconPath}
+                        alt={uma?.name || setting.name}
+                        className="h-full w-full object-cover"
+                        loading="eager"
+                      />
+                    ) : (
+                      <Database size={24} className="m-5 text-gray-300" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-xs text-gray-500">
+                      详设名称
+                      <input
+                        key={`${setting.id}-${setting.name}`}
+                        defaultValue={setting.name}
+                        onBlur={(event) =>
+                          renameCareerSetting(setting.id, event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
+                      />
+                    </label>
+                    <p className="mt-1 truncate text-xs text-gray-500">
+                      {uma?.name || '尚未选择育成马娘'} ·{' '}
+                      {offline
+                        ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
+                        : setting.preset_name}
+                    </p>
+                    <span
+                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        presetExists
+                          ? 'bg-violet-50 text-violet-700'
+                          : 'bg-red-50 text-red-600'
+                      }`}
+                    >
+                      {offline
+                        ? '离线详设'
+                        : presetExists
+                          ? '已绑定预设'
+                          : '绑定预设不存在'}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-auto flex gap-2 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => applyCareerSetting(setting.id)}
+                    disabled={!presetExists}
+                    className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    进入详设
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteCareerSetting(setting.id)}
+                    className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    aria-label={`删除详设${setting.name}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+
           <button
             type="button"
-            onClick={createCareerSave}
-            disabled={
-              !newCareerSaveName.trim() ||
-              (newCareerMode === 'online' && !newCareerPresetName)
-            }
-            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setNewCareerDialogOpen(true)}
+            className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-center text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50"
           >
-            <Plus size={15} className="mr-1 inline" />
-            新建并进入
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
+              <Plus size={22} />
+            </span>
+            <strong className="mt-3 text-sm text-indigo-950">
+              新建养马详设
+            </strong>
+            <span className="mt-1 text-xs text-indigo-600">
+              选择育成模式并绑定配置
+            </span>
           </button>
-        </article>
-      </div>
-    </section>
+        </div>
+      </section>
+
+      {newCareerDialogOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="关闭新建养马详设"
+            onClick={() => setNewCareerDialogOpen(false)}
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-career-dialog-title"
+            className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3
+                  id="new-career-dialog-title"
+                  className="font-semibold text-slate-900"
+                >
+                  新建养马详设
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  创建后会直接进入详设配置页面。
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭新建养马详设"
+                onClick={() => setNewCareerDialogOpen(false)}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="space-y-4 overflow-y-auto p-5">
+              <div className="grid grid-cols-2 gap-2">
+                {(['online', 'offline'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNewCareerMode(mode)}
+                    className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                      newCareerMode === mode
+                        ? 'border-indigo-400 bg-indigo-100 text-indigo-900'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {mode === 'online' ? '在线自动育成' : '游戏离线育成'}
+                  </button>
+                ))}
+              </div>
+
+              {newCareerMode === 'online' ? (
+                <label className="block text-sm font-medium text-slate-700">
+                  绑定预设
+                  <select
+                    value={newCareerPresetName}
+                    onChange={(event) =>
+                      setNewCareerPresetName(event.target.value)
+                    }
+                    className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                  >
+                    <option value="">请手动选择预设</option>
+                    {presets.map((preset) => (
+                      <option key={preset.name} value={preset.name}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1.5 block text-xs font-normal leading-5 text-slate-500">
+                    进入详设后将固定绑定，不能再切换到其他预设。
+                  </span>
+                </label>
+              ) : (
+                <p className="rounded-md bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-700">
+                  离线详设独立保存最后点技能与因子筛选设置，不绑定预设。
+                </p>
+              )}
+
+              <label className="block text-sm font-medium text-slate-700">
+                详设名称
+                <input
+                  value={newCareerSaveName}
+                  onChange={(event) => setNewCareerSaveName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') createCareerSaveFromDialog();
+                  }}
+                  placeholder={`例如：URA 详设 ${accountCareerSettings.length + 1}`}
+                  className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+
+            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setNewCareerDialogOpen(false)}
+                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={createCareerSaveFromDialog}
+                disabled={!canCreateCareerSave}
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                新建并进入
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </>
   ) : (
     <>
       <nav className="sticky top-[52px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
@@ -814,6 +911,16 @@ export default function CareerTab(props: CareerTabProps) {
                       const selectedParent = parent as
                         | Dashboard['parents'][number]
                         | undefined;
+                      const otherParent =
+                        slotNumber === 1 ? selectedParent2 : selectedParent1;
+                      const compatibility = selectedParent
+                        ? parentCompatibilityPreview(
+                            selectedUma.chara_id,
+                            selectedParent,
+                            otherParent,
+                            successionG1SaddleIds,
+                          )
+                        : undefined;
                       return (
                         <SuccessionPickerTrigger
                           key={slotNumber}
@@ -855,6 +962,9 @@ export default function CareerTab(props: CareerTabProps) {
                                   : '自己的马娘'}
                                 {selectedParent.rank_score
                                   ? ` · 评分 ${selectedParent.rank_score}`
+                                  : ''}
+                                {compatibility
+                                  ? ` · 契合度 ${compatibility.total}`
                                   : ''}
                               </small>
                             </>
@@ -904,6 +1014,12 @@ export default function CareerTab(props: CareerTabProps) {
                           selectedUma.chara_id,
                           otherParent?.chara_id || 0,
                         ]);
+                        const compatibility = parentCompatibilityPreview(
+                          selectedUma.chara_id,
+                          parent,
+                          otherParent,
+                          successionG1SaddleIds,
+                        );
                         return (
                           <ParentChoiceCard
                             key={parent.selection_id}
@@ -915,6 +1031,7 @@ export default function CareerTab(props: CareerTabProps) {
                               (parent.source === 'rental' &&
                                 otherParent?.source === 'rental')
                             }
+                            compatibility={compatibility}
                             onSelect={() => {
                               if (parentPickerSlot === 1) {
                                 setParent1(parent.selection_id);
@@ -1149,9 +1266,6 @@ export default function CareerTab(props: CareerTabProps) {
                     <strong className="block text-sm font-medium text-slate-800">
                       TP 恢复设置
                     </strong>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      离线赛程的基础消耗选项，不属于第 5、6、7 步。
-                    </span>
                   </div>
                 ) : null}
                 {careerMode === 'online' ? (
