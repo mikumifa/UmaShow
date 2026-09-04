@@ -189,7 +189,7 @@ export default function ProgressTab({
                   <Activity size={15} className="text-indigo-500" />
                 )}
                 {runnerStopping
-                  ? '正在终止独立育成进程'
+                  ? '正在等待服务器 Worker 确认暂停'
                   : runnerPaused
                     ? 'Worker 与自动重登已停止，其他设备现在可以登录'
                     : offlineMode
