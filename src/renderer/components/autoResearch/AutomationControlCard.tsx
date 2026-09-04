@@ -1,6 +1,7 @@
 /* eslint-disable no-nested-ternary, jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction } from 'react';
 import {
+  CircleStop,
   Gem,
   ListChecks,
   Pause,
@@ -28,6 +29,7 @@ type AutomationControlCardProps = {
   updateRunningAutomation: () => Promise<void>;
   pauseCareer: () => Promise<void>;
   resumeCareer: () => Promise<void>;
+  closeCareerPlan: () => Promise<void>;
   activeSetting?: CareerSetting;
   editPreset: (settingId: string) => void;
   canAppendCareerPlan: boolean;
@@ -57,11 +59,14 @@ export default function AutomationControlCard({
   updateRunningAutomation,
   pauseCareer,
   resumeCareer,
+  closeCareerPlan,
   activeSetting,
   editPreset,
   canAppendCareerPlan,
   openAppendCareerPlan,
 }: AutomationControlCardProps) {
+  const runnerClosing =
+    busy === 'stop' || runner?.control?.desired_state === 'stopped';
   const selectedTarget =
     runMode === 'count'
       ? runCountTarget
@@ -102,7 +107,9 @@ export default function AutomationControlCard({
             <h2 className="text-base font-bold text-slate-900">运行计划</h2>
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               {runnerStopping
-                ? '正在暂停…'
+                ? runnerClosing
+                  ? '正在关闭…'
+                  : '正在暂停…'
                 : runnerPaused
                   ? '已暂停'
                   : queue?.active
@@ -175,9 +182,18 @@ export default function AutomationControlCard({
               ) : (
                 <Pause size={14} />
               )}
-              {runnerStopping ? '正在暂停…' : '暂停当前计划'}
+              {runnerStopping && !runnerClosing ? '正在暂停…' : '暂停当前计划'}
             </button>
           )}
+          <button
+            type="button"
+            onClick={closeCareerPlan}
+            disabled={runnerStopping || Boolean(busy)}
+            className="flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            <CircleStop size={14} />
+            {runnerClosing ? '正在关闭…' : '关闭计划'}
+          </button>
           {planChanged && !runnerPaused ? (
             <button
               type="button"

@@ -284,6 +284,7 @@ const SERVER_CONTROL_STATUSES = [
   'reconnect_wait',
   'running',
   'pausing',
+  'paused',
   'stopping',
 ] as const;
 
@@ -292,8 +293,10 @@ const runnerUsesServerSession = (runner?: Runner) =>
     runner?.running ||
       runner?.run_plan?.active ||
       runner?.daily_jewel_schedule?.enabled ||
-      ((runner?.control?.desired_state === 'running' ||
-        ['pausing', 'stopping'].includes(runner?.control?.status || '')) &&
+      ((['running', 'paused'].includes(runner?.control?.desired_state || '') ||
+        ['pausing', 'paused', 'stopping'].includes(
+          runner?.control?.status || '',
+        )) &&
         SERVER_CONTROL_STATUSES.includes(
           runner?.control?.status as (typeof SERVER_CONTROL_STATUSES)[number],
         )),
@@ -690,7 +693,10 @@ export default function AutoResearch() {
       queuedCareerControl,
   );
   const serverCareerActive = Boolean(
-    runner?.running || runner?.run_plan?.active || queuedCareerControl,
+    runner?.running ||
+      runner?.run_plan?.active ||
+      runnerPaused ||
+      queuedCareerControl,
   );
   const localAccountSessionState = selectedAccountId
     ? localAccountSessionStates[selectedAccountId] || 'unknown'
@@ -700,11 +706,12 @@ export default function AutoResearch() {
       runtimeSessionOwner(selectedAccount?.runtime) === 'local' ||
       localAccountSessionState === 'ready',
   );
-  const sessionOwner = hasLocalSession
-    ? 'local'
-    : serverCareerActive || dailyJewelSchedule?.enabled
+  const sessionOwner =
+    serverCareerActive || dailyJewelSchedule?.enabled
       ? 'server'
-      : 'none';
+      : hasLocalSession
+        ? 'local'
+        : 'none';
   const serverHostedMode = sessionOwner === 'server';
   const localSessionMode = sessionOwner === 'local';
   const remainingJewelDrops = Math.max(
@@ -713,8 +720,10 @@ export default function AutoResearch() {
       (runner?.daily_jewel_drop_count || 0),
   );
   const offlineControlActive = Boolean(
-    (runner?.control?.desired_state === 'running' ||
-      ['pausing', 'stopping'].includes(runner?.control?.status || '')) &&
+    (['running', 'paused'].includes(runner?.control?.desired_state || '') ||
+      ['pausing', 'paused', 'stopping'].includes(
+        runner?.control?.status || '',
+      )) &&
       runner?.control?.request?.career_mode === 'offline' &&
       SERVER_CONTROL_STATUSES.includes(
         runner?.control?.status as (typeof SERVER_CONTROL_STATUSES)[number],
@@ -3499,6 +3508,18 @@ export default function AutoResearch() {
     }
   };
 
+  const closeCareerPlan = async () => {
+    if (!selectedAccountId) return;
+    if (
+      !window.confirm(
+        '确定关闭当前计划吗？计划配置和未执行队列将被清除，之后无法恢复；游戏中的当前育成不会被放弃。',
+      )
+    ) {
+      return;
+    }
+    await stopCareer();
+  };
+
   const resumeCareerPlan = async () => {
     if (!selectedAccountId || !runnerPaused) return;
     const accountId = selectedAccountId;
@@ -5496,11 +5517,7 @@ export default function AutoResearch() {
               <h1 className="text-xl font-semibold text-gray-800">自动育成</h1>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              {server
-                ? `${server} · 游戏版本 ${health?.app_ver} · 当前服务器允许运行上限 ${health?.max_accounts}`
-                : activeTab === 'daily'
-                  ? 'UmaShow 本地每日日常'
-                  : '本地预设编辑'}
+              {server ? `${server}` : '-'}
             </p>
             {selectedAccount ? (
               <span
@@ -6352,6 +6369,7 @@ export default function AutoResearch() {
                     updateRunningAutomation={updateRunningAutomation}
                     pauseCareer={pauseCareerPlan}
                     resumeCareer={resumeCareerPlan}
+                    closeCareerPlan={closeCareerPlan}
                     activeSetting={activeAutomationSetting}
                     editPreset={editPresetForCareerSetting}
                     canAppendCareerPlan={
@@ -6391,6 +6409,7 @@ export default function AutoResearch() {
                       busy={busy}
                       pauseCareer={pauseCareerPlan}
                       resumeCareer={resumeCareerPlan}
+                      closeCareerPlan={closeCareerPlan}
                       dailyJewelSchedule={dailyJewelSchedule}
                       offlineMode={offlineControlActive}
                       serverHostedMode={serverHostedMode}

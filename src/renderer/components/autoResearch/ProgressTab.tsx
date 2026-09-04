@@ -37,6 +37,7 @@ type ProgressTabProps = {
   busy: string;
   pauseCareer: () => Promise<void>;
   resumeCareer: () => Promise<void>;
+  closeCareerPlan: () => Promise<void>;
   dailyJewelSchedule?: Runner['daily_jewel_schedule'];
   offlineMode: boolean;
   serverHostedMode: boolean;
@@ -92,12 +93,15 @@ export default function ProgressTab({
   busy,
   pauseCareer,
   resumeCareer,
+  closeCareerPlan,
   dailyJewelSchedule,
   offlineMode,
   serverHostedMode,
   idleSingleMode,
   abandonCareer,
 }: ProgressTabProps) {
+  const runnerClosing =
+    busy === 'stop' || runner?.control?.desired_state === 'stopped';
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
   const runnerErrors = [runner?.last_error, runner?.control?.detail?.last_error]
@@ -146,7 +150,9 @@ export default function ProgressTab({
                   className={`rounded-full px-2.5 py-1 text-xs ${runnerStopping || runnerPaused ? 'bg-amber-100 text-amber-700' : automationActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                 >
                   {runnerStopping
-                    ? '正在暂停…'
+                    ? runnerClosing
+                      ? '正在关闭…'
+                      : '正在暂停…'
                     : runnerPaused
                       ? '计划已暂停'
                       : offlineMode
@@ -189,7 +195,9 @@ export default function ProgressTab({
                   <Activity size={15} className="text-indigo-500" />
                 )}
                 {runnerStopping
-                  ? '正在等待服务器 Worker 确认暂停'
+                  ? runnerClosing
+                    ? '正在等待服务器 Worker 关闭计划'
+                    : '正在等待服务器 Worker 确认暂停'
                   : runnerPaused
                     ? 'Worker 与自动重登已停止，其他设备现在可以登录'
                     : offlineMode
@@ -231,15 +239,28 @@ export default function ProgressTab({
                 {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
               </button>
             ) : serverHostedMode ? (
-              <button
-                type="button"
-                onClick={pauseCareer}
-                disabled={runnerStopping || busy === 'pause'}
-                className="flex items-center gap-2 rounded-md border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-              >
-                <Pause size={16} />
-                {runnerStopping ? '正在暂停…' : '暂停当前计划'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={pauseCareer}
+                  disabled={runnerStopping || busy === 'pause'}
+                  className="flex items-center gap-2 rounded-md border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                >
+                  <Pause size={16} />
+                  {runnerStopping && !runnerClosing
+                    ? '正在暂停…'
+                    : '暂停当前计划'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeCareerPlan}
+                  disabled={runnerStopping || Boolean(busy)}
+                  className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <CircleStop size={16} />
+                  {runnerClosing ? '正在关闭…' : '关闭计划'}
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -257,6 +278,17 @@ export default function ProgressTab({
                   : '放弃本次育成'}
               </button>
             )}
+            {runnerPaused ? (
+              <button
+                type="button"
+                onClick={closeCareerPlan}
+                disabled={runnerStopping || Boolean(busy)}
+                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                <CircleStop size={16} />
+                {runnerClosing ? '正在关闭…' : '关闭计划'}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -273,14 +305,15 @@ export default function ProgressTab({
 
         {runnerStopping ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            正在保存计划进度并停止服务器
-            Worker。暂停不会放弃当前育成；完成后其他设备可以登录。
+            {runnerClosing
+              ? '正在彻底关闭计划并释放托管会话。游戏中的当前育成不会被放弃。'
+              : '正在保存计划进度并暂停服务器 Worker。暂停不会放弃当前育成；完成后其他设备可以登录。'}
           </div>
         ) : null}
 
         {runnerPaused ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            原计划及已完成进度已保留。恢复时会重新登录，并从游戏中的当前育成状态继续执行。
+            原计划及已完成进度已保留
           </div>
         ) : null}
 
