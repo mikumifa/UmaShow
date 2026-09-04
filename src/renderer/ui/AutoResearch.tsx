@@ -5530,10 +5530,10 @@ export default function AutoResearch() {
                 }`}
               >
                 {serverHostedMode
-                  ? '服务器托管模式 · 本地游戏 API 已禁用'
+                  ? '服务器托管模式'
                   : localSessionMode || localAccountSessionState === 'ready'
-                    ? '本地模式 · 可登录、刷新和配置'
-                    : '未登录游戏 · 等待本地登录'}
+                    ? '本地登录模式'
+                    : '未登录'}
               </span>
             ) : null}
           </div>

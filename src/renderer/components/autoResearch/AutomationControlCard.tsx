@@ -135,9 +135,7 @@ export default function AutomationControlCard({
                 }`
               : activeSetting?.mode === 'offline'
                 ? '离线技能与因子配置已由服务器接管执行。'
-                : runnerPaused
-                  ? '计划进度已保存，Worker 与自动重登已停止；恢复后会继续原计划。'
-                  : '运行中修改的预设会从下一次决策开始生效。'}
+                : '修改从下一次育成开始生效。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
