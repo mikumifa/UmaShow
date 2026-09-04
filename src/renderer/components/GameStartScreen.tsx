@@ -21,7 +21,7 @@ function GameStartScreen() {
       });
   }, []);
   return (
-    <div className="flex flex-col items-center w-full min-h-screen bg-gradient-to-b from-green-50 to-green-100 overflow-y-auto font-sans relative">
+    <div className="relative flex h-screen min-h-0 w-full flex-col items-center overflow-hidden bg-gradient-to-b from-green-50 to-green-100 font-sans">
       {/* 背景装饰 */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute top-10 left-10 w-20 h-20 rounded-full bg-surface blur-xl" />
@@ -30,7 +30,7 @@ function GameStartScreen() {
       </div>
 
       {/* 顶部标题 */}
-      <div className="mt-12 z-10 text-center animate-fade-in-down">
+      <div className="z-10 mt-[clamp(1rem,4vh,3rem)] text-center animate-fade-in-down">
         <h1 className="text-3xl font-extrabold text-slate-800 tracking-wider drop-shadow-sm">
           READY?
         </h1>
@@ -40,13 +40,13 @@ function GameStartScreen() {
       </div>
 
       {/* 中间图片区 */}
-      <div className="flex flex-col flex-1 items-center justify-center z-10 relative mt-6 mb-6">
-        <div className="absolute w-52 h-52 bg-white rounded-full opacity-60 blur-2xl animate-pulse" />
+      <div className="relative z-10 my-[clamp(0.5rem,2vh,1.5rem)] flex min-h-0 flex-1 flex-col items-center justify-center">
+        <div className="absolute h-52 w-52 rounded-full bg-white opacity-60 blur-2xl animate-pulse" />
         <div className="relative transition-transform hover:scale-110 duration-300 cursor-pointer">
           <img
             src={img}
             alt="Grass Wonder"
-            className="w-52 sm:w-64 h-auto drop-shadow-2xl object-contain"
+            className="h-auto max-h-[40vh] w-52 object-contain drop-shadow-2xl sm:w-64"
           />
           <div className="absolute -top-4 -right-4 bg-white px-3 py-1 rounded-tr-xl rounded-bl-xl rounded-tl-xl border-2 border-surface shadow-lg animate-bounce">
             <span className="text-sm font-bold text-slate-700">加油哦！</span>
@@ -54,7 +54,7 @@ function GameStartScreen() {
         </div>
       </div>
 
-      <div className="mb-16 z-10 w-full px-8 flex flex-col items-center">
+      <div className="z-10 mb-[clamp(1rem,5vh,4rem)] flex w-full flex-col items-center px-8">
         <div className="w-full max-w-md bg-white/80 backdrop-blur-md border border-surface rounded-xl px-4 py-3 shadow-md flex items-center gap-3">
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -306,7 +306,7 @@ export default function AutomationControlCard({
       ) : null}
 
       {!queue?.active && !repeatDaily && runMode === 'count' ? (
-        <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
+        <label className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
           从现在起完成
           <input
             type="number"

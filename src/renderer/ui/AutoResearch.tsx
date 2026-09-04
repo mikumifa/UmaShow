@@ -5858,7 +5858,7 @@ export default function AutoResearch() {
         onAddGroup={addSkillGroup}
         onClose={() => setSkillPickerOpen(false)}
       />
-      <div className="mx-auto max-w-none space-y-4">
+      <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-none flex-col gap-4">
         <header className="flex min-h-[60px] flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4">
           <div>
             <div className="flex items-center gap-2 text-indigo-600">
@@ -6012,7 +6012,7 @@ export default function AutoResearch() {
         ) : null}
 
         <div
-          className={`grid gap-4 ${
+          className={`grid min-h-0 flex-1 gap-4 ${
             activeTab === 'accounts'
               ? 'xl:grid-cols-[390px_minmax(0,1fr)]'
               : 'grid-cols-1'
@@ -6288,10 +6288,12 @@ export default function AutoResearch() {
             </section>
           </aside>
 
-          <main className="space-y-4 min-w-0">
+          <main className="min-h-0 min-w-0 space-y-4">
             {activeTab !== 'presets' && !selectedAccount ? (
               <section
-                className={panelClass('p-12 text-center text-slate-400')}
+                className={panelClass(
+                  'flex min-h-full items-center justify-center p-12 text-center text-slate-400',
+                )}
               >
                 <p>请先选择要使用的账号。</p>
               </section>
@@ -6299,7 +6301,7 @@ export default function AutoResearch() {
               disconnectingAccountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
-                  'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
+                  'flex min-h-full items-center justify-center p-8 text-center',
                 )}
               >
                 <div>
@@ -6319,7 +6321,7 @@ export default function AutoResearch() {
               loginProgress?.accountId === selectedAccount?.id ? (
               <section
                 className={panelClass(
-                  'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
+                  'flex min-h-full items-center justify-center p-8 text-center',
                 )}
               >
                 <div>
@@ -6347,7 +6349,11 @@ export default function AutoResearch() {
               !automationActive &&
               (!dashboard ||
                 (!serverHostedMode && localAccountSessionState !== 'ready')) ? (
-              <section className={panelClass('p-12 text-center')}>
+              <section
+                className={panelClass(
+                  'flex min-h-full flex-col items-center justify-center p-12 text-center',
+                )}
+              >
                 {activeTab !== 'daily' &&
                 checkingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <RefreshCw

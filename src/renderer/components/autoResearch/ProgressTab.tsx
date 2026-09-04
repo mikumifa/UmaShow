@@ -396,7 +396,7 @@ export default function ProgressTab({
               </span>
             </div>
           </div>
-          <div className="max-h-[560px] cursor-text select-text overflow-auto">
+          <div className="cursor-text select-text">
             {runnerLog
               .slice()
               .reverse()
@@ -428,7 +428,7 @@ export default function ProgressTab({
   ) : (
     <section
       className={panelClass(
-        'flex min-h-[calc(100vh-170px)] items-center justify-center p-8 text-center',
+        'flex min-h-[320px] items-center justify-center p-8 text-center',
       )}
     >
       <div>
