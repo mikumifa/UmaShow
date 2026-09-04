@@ -90,6 +90,23 @@ export default function AutomationControlCard({
   const queue =
     runner?.run_plan?.queue || runner?.control?.detail?.run_queue || undefined;
   const queueCurrent = queue?.items?.[queue.current_index];
+  const countProgress =
+    queue?.active && queueCurrent?.goal === 'count'
+      ? {
+          completed: queueCurrent.completed_runs || 0,
+          target: queueCurrent.target,
+        }
+      : currentMode === 'count'
+        ? {
+            completed:
+              (rawCurrentMode === 'daily_count'
+                ? runner?.run_plan?.daily_completed_runs
+                : runner?.run_plan?.completed_runs) ??
+              runner?.control?.detail?.completed_runs ??
+              0,
+            target: currentTarget,
+          }
+        : null;
   const planChanged = Boolean(
     !queue?.active &&
       !repeatDaily &&
@@ -116,6 +133,11 @@ export default function AutomationControlCard({
                     ? `队列 ${Math.min(queue.current_index + 1, queue.items.length)}/${queue.items.length}`
                     : runModeLabel(currentMode)}
             </span>
+            {countProgress ? (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                {countProgress.completed}/{countProgress.target} 次
+              </span>
+            ) : null}
             {repeatDaily ? (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
                 每日任务
