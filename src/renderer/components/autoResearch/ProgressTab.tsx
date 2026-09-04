@@ -380,6 +380,9 @@ export default function ProgressTab({
       (message, index, messages) =>
         Boolean(message) && messages.indexOf(message) === index,
     );
+  const runnerG123RaceCount = Object.values(
+    runner?.g123_race_counts || {},
+  ).reduce((sum, count) => sum + Number(count || 0), 0);
   const queuedControl = Boolean(
     runner?.control?.desired_state === 'running' &&
       !runner?.running &&
@@ -564,6 +567,10 @@ export default function ProgressTab({
                   value={runner?.large_margin_count || 0}
                   resetKey={statAnimationResetKey}
                 />
+                <span className="pb-0.5 text-xs">/</span>
+                <span className="pb-px text-lg font-bold tabular-nums text-slate-700">
+                  {runnerG123RaceCount}
+                </span>
                 <span className="pb-0.5 text-xs">场</span>
               </div>
             </div>
