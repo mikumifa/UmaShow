@@ -135,6 +135,51 @@
   width: min(1240px, calc(100vw - 28px));
 }
 
+.successionCapturedPickerDialog > .successionPickerHeader {
+  padding: 16px 20px;
+  border-bottom-color: #f1f5f9;
+}
+
+.successionCapturedPickerDialog > .successionPickerHeader h3 {
+  margin-top: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.successionCapturedPickerDialog > .successionPickerHeader p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.successionCapturedPickerDialog > .successionPickerHeader .successionPickerClose {
+  width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.successionCapturedPickerDialog
+  > .successionPickerHeader
+  .successionPickerClose:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.successionCapturedPickerFilters button {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.successionCapturedPickerFilters button.successionCapturedPickerCompactControl {
+  font-size: 11px;
+}
+
 .successionMatchingCapturedDialog {
   width: min(1320px, calc(100vw - 28px));
 }

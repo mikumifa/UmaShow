@@ -505,6 +505,8 @@ export type G123RaceRecord = {
 export type CareerSessionRun = {
   run_id?: string;
   training_history_id?: string;
+  started_at?: string;
+  ended_at?: string;
   completed: boolean;
   discarded: boolean;
   card_id: number;

@@ -1905,7 +1905,9 @@ export default function AutoResearch() {
 
   const openTrainingHistory = useCallback(
     (recordId: string) => {
-      navigate('/training-history', { state: { recordId } });
+      navigate('/training-history', {
+        state: { recordId, returnTo: '/auto-research' },
+      });
     },
     [navigate],
   );

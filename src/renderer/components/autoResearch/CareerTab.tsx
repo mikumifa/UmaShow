@@ -1174,7 +1174,7 @@ export default function CareerTab(props: CareerTabProps) {
                     </>
                   }
                 >
-                  <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-3 py-2">
                     <div className="grid gap-2 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
                       <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
                         <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -1289,7 +1289,7 @@ export default function CareerTab(props: CareerTabProps) {
                           <button
                             type="button"
                             onClick={() => setParentPickerAptitudeFactors([])}
-                            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                            className={`successionCapturedPickerCompactControl rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                               !parentPickerAptitudeFactors.length
                                 ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
                                 : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200'
@@ -1411,7 +1411,7 @@ export default function CareerTab(props: CareerTabProps) {
                             type="button"
                             aria-pressed={parentPickerSortDirection === value}
                             onClick={() => setParentPickerSortDirection(value)}
-                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                            className={`successionCapturedPickerCompactControl rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                               parentPickerSortDirection === value
                                 ? 'bg-white text-indigo-700 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'

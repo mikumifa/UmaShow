@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckSquare,
@@ -833,6 +833,12 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
 
 export default function TrainingHistory() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const locationState = location.state as {
+    recordId?: string;
+    returnTo?: string;
+  } | null;
+  const returnTo = locationState?.returnTo;
   const [items, setItems] = useState<TrainingHistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] =
@@ -1003,13 +1009,11 @@ export default function TrainingHistory() {
   }, [load]);
 
   useEffect(() => {
-    const requestedId = String(
-      (location.state as { recordId?: string } | null)?.recordId || '',
-    );
+    const requestedId = String(locationState?.recordId || '');
     if (requestedId && items.some((item) => item.id === requestedId)) {
       setSelectedId(requestedId);
     }
-  }, [items, location.key, location.state]);
+  }, [items, location.key, locationState?.recordId]);
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -1029,9 +1033,7 @@ export default function TrainingHistory() {
 
     let cancelled = false;
     setSelectedLoading(true);
-    setSelectedRecord((prev) =>
-      prev?.id === selectedId ? prev : null,
-    );
+    setSelectedRecord((prev) => (prev?.id === selectedId ? prev : null));
 
     const loadSelectedRecord = async () => {
       try {
@@ -1142,6 +1144,14 @@ export default function TrainingHistory() {
     }
   };
 
+  const closeRecord = () => {
+    setSelectedId(null);
+    setSelectedRecord(null);
+    if (returnTo) {
+      navigate(returnTo);
+    }
+  };
+
   if (selectedId && (selectedLoading || !selected)) {
     const previewRecord = selectedSummary ?? selectedRecord;
     const horseName = previewRecord
@@ -1165,14 +1175,11 @@ export default function TrainingHistory() {
         actions={
           <button
             type="button"
-            onClick={() => {
-              setSelectedId(null);
-              setSelectedRecord(null);
-            }}
+            onClick={closeRecord}
             className={raceHeaderButtonClass}
           >
             <ArrowLeft size={16} />
-            返回
+            {returnTo ? '返回记录' : '返回'}
           </button>
         }
       >
@@ -1236,14 +1243,11 @@ export default function TrainingHistory() {
           <>
             <button
               type="button"
-              onClick={() => {
-                setSelectedId(null);
-                setSelectedRecord(null);
-              }}
+              onClick={closeRecord}
               className={raceHeaderButtonClass}
             >
               <ArrowLeft size={16} />
-              返回
+              {returnTo ? '返回记录' : '返回'}
             </button>
             <button
               type="button"

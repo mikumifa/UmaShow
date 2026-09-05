@@ -68,6 +68,43 @@ const formatMetric = (value?: number) => {
   return Number.isInteger(number) ? String(number) : number.toFixed(1);
 };
 
+const runIdTimestamp = (runId?: string) => {
+  const match = String(runId || '').match(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/,
+  );
+  if (!match) return '';
+  return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}+08:00`;
+};
+
+const formatRunTime = (value?: string) => {
+  if (!value) return '未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  return date.toLocaleTimeString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+};
+
+const formatRunDuration = (startedAt?: string, endedAt?: string) => {
+  if (!startedAt || !endedAt) return '';
+  const started = new Date(startedAt).getTime();
+  const ended = new Date(endedAt).getTime();
+  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended < started) {
+    return '';
+  }
+  const totalSeconds = Math.max(0, Math.round((ended - started) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours}小时${minutes}分${seconds}秒`;
+  if (minutes) return `${minutes}分${seconds}秒`;
+  return `${seconds}秒`;
+};
+
 const raceCounts = (value?: Record<string, number>) => {
   const result: Record<string, number> = {};
   Object.entries(value || {}).forEach(([rawId, rawCount]) => {
@@ -302,10 +339,30 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
       0,
     ),
     errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
-    rows: sorted.flatMap((record) => [
-      ...(record.runs || []).map((run) => ({ run, current: false })),
-      ...(record.current ? [{ run: record.current, current: true }] : []),
-    ]),
+    rows: sorted.flatMap((record) => {
+      const recordRows = [
+        ...(record.runs || []).map((run) => ({ run, current: false })),
+        ...(record.current ? [{ run: record.current, current: true }] : []),
+      ];
+      return recordRows.map((row, index) => {
+        const startedAt =
+          String(row.run.started_at || '') ||
+          runIdTimestamp(row.run.run_id) ||
+          (index === 0 ? String(record.started_at || '') : '');
+        const nextRun = recordRows[index + 1]?.run;
+        const nextStartedAt = nextRun
+          ? String(nextRun.started_at || '') || runIdTimestamp(nextRun.run_id)
+          : '';
+        const endedAt = row.current
+          ? ''
+          : String(row.run.ended_at || '') ||
+            nextStartedAt ||
+            (index === recordRows.length - 1
+              ? String(record.ended_at || '')
+              : '');
+        return { ...row, startedAt, endedAt };
+      });
+    }),
   };
 };
 
@@ -495,7 +552,7 @@ export default function HistoryTab({
         <section className={panelClass('overflow-hidden')}>
           {aggregate.rows.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[1120px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">次数</th>
@@ -509,6 +566,9 @@ export default function HistoryTab({
                       <th className="px-3 py-3 font-medium">比赛大差</th>
                     ) : null}
                     <th className="px-3 py-3 font-medium">宝石掉落</th>
+                    <th className="px-3 py-3 font-medium">开始</th>
+                    <th className="px-3 py-3 font-medium">结束</th>
+                    <th className="px-3 py-3 font-medium">持续</th>
                     {!offlineHistory ? (
                       <th className="px-3 py-3 text-right font-medium">
                         Training History
@@ -517,94 +577,108 @@ export default function HistoryTab({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {aggregate.rows.map(({ run, current }, index) => {
-                    const status = runStatus(run, current);
-                    const trainingHistoryId = String(
-                      run.training_history_id || '',
-                    );
-                    const downloaded =
-                      !!trainingHistoryId &&
-                      localTrainingHistoryIds.has(trainingHistoryId);
-                    return (
-                      <tr key={run.run_id || `current-${index}`}>
-                        <td className="px-4 py-3 font-medium text-slate-700">
-                          {current ? '-' : index + 1}
-                        </td>
-                        <td className={`px-3 py-3 ${status.className}`}>
-                          {status.label}
-                          {run.last_error ? (
-                            <span className="mt-1 block max-w-40 truncate text-xs text-red-500">
-                              {formatAccountError(run.last_error)}
-                            </span>
-                          ) : null}
-                        </td>
-                        {attributeItems.map(([key]) => (
-                          <td key={key} className="px-3 py-3 text-slate-700">
-                            {run.attributes?.[key] || 0}
+                  {aggregate.rows.map(
+                    ({ run, current, startedAt, endedAt }, index) => {
+                      const status = runStatus(run, current);
+                      const duration = formatRunDuration(startedAt, endedAt);
+                      const trainingHistoryId = String(
+                        run.training_history_id || '',
+                      );
+                      const downloaded =
+                        !!trainingHistoryId &&
+                        localTrainingHistoryIds.has(trainingHistoryId);
+                      return (
+                        <tr key={run.run_id || `current-${index}`}>
+                          <td className="px-4 py-3 font-medium text-slate-700">
+                            {current ? '-' : index + 1}
                           </td>
-                        ))}
-                        {!offlineHistory ? (
-                          <td className="px-3 py-3 text-amber-700">
-                            {run.large_margin_count || 0} /{' '}
-                            {totalRaceCount(run.g123_race_counts)} 场
-                          </td>
-                        ) : null}
-                        <td className="px-3 py-3 text-violet-700">
-                          {run.jewel_drop_count || 0} 次 /{' '}
-                          {run.jewels_earned || 0} 个
-                        </td>
-                        {!offlineHistory ? (
-                          <td className="px-3 py-3 text-right">
-                            {trainingHistoryId ? (
-                              <button
-                                type="button"
-                                disabled={
-                                  busy ===
-                                  `history-download:${trainingHistoryId}`
-                                }
-                                onClick={() => {
-                                  if (downloaded) {
-                                    openTrainingHistory(trainingHistoryId);
-                                  } else {
-                                    downloadTrainingHistory(trainingHistoryId);
-                                  }
-                                }}
-                                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${
-                                  downloaded
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                                    : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                                }`}
-                                title={
-                                  downloaded
-                                    ? '打开本机 Training History 记录'
-                                    : '下载到本机 Training History'
-                                }
-                              >
-                                {downloaded ? (
-                                  <ExternalLink size={14} />
-                                ) : (
-                                  <Download
-                                    size={14}
-                                    className={
-                                      busy ===
-                                      `history-download:${trainingHistoryId}`
-                                        ? 'animate-bounce'
-                                        : ''
-                                    }
-                                  />
-                                )}
-                                {downloaded ? '查看记录' : '下载到本地'}
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-300">
-                                无数据
+                          <td className={`px-3 py-3 ${status.className}`}>
+                            {status.label}
+                            {run.last_error ? (
+                              <span className="mt-1 block max-w-40 truncate text-xs text-red-500">
+                                {formatAccountError(run.last_error)}
                               </span>
-                            )}
+                            ) : null}
                           </td>
-                        ) : null}
-                      </tr>
-                    );
-                  })}
+                          {attributeItems.map(([key]) => (
+                            <td key={key} className="px-3 py-3 text-slate-700">
+                              {run.attributes?.[key] || 0}
+                            </td>
+                          ))}
+                          {!offlineHistory ? (
+                            <td className="px-3 py-3 text-amber-700">
+                              {run.large_margin_count || 0} /{' '}
+                              {totalRaceCount(run.g123_race_counts)} 场
+                            </td>
+                          ) : null}
+                          <td className="px-3 py-3 text-violet-700">
+                            {run.jewel_drop_count || 0} 次 /{' '}
+                            {run.jewels_earned || 0} 个
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">
+                            {formatRunTime(startedAt)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">
+                            {current ? '未结束' : formatRunTime(endedAt)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500">
+                            {duration || (current ? '暂停时记录' : '未知')}
+                          </td>
+                          {!offlineHistory ? (
+                            <td className="px-3 py-3 text-right">
+                              {trainingHistoryId ? (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    busy ===
+                                    `history-download:${trainingHistoryId}`
+                                  }
+                                  onClick={() => {
+                                    if (downloaded) {
+                                      openTrainingHistory(trainingHistoryId);
+                                    } else {
+                                      downloadTrainingHistory(
+                                        trainingHistoryId,
+                                      );
+                                    }
+                                  }}
+                                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                                    downloaded
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                      : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                  }`}
+                                  title={
+                                    downloaded
+                                      ? '打开本机 Training History 记录'
+                                      : '下载到本机 Training History'
+                                  }
+                                >
+                                  {downloaded ? (
+                                    <ExternalLink size={14} />
+                                  ) : (
+                                    <Download
+                                      size={14}
+                                      className={
+                                        busy ===
+                                        `history-download:${trainingHistoryId}`
+                                          ? 'animate-bounce'
+                                          : ''
+                                      }
+                                    />
+                                  )}
+                                  {downloaded ? '查看记录' : '下载到本地'}
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-300">
+                                  无数据
+                                </span>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    },
+                  )}
                 </tbody>
               </table>
             </div>

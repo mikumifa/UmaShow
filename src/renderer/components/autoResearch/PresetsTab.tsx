@@ -452,7 +452,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                 添加技能
               </button>
             </div>
-            <div className="grid max-h-[260px] min-h-[104px] auto-rows-max content-start gap-2 overflow-y-auto bg-slate-50/60 p-3 xl:grid-cols-3">
+            <div className="grid min-h-[104px] grid-cols-2 auto-rows-max content-start gap-2 bg-slate-50/60 p-3 xl:grid-cols-3">
               {skillSelections.map((entry, index) => {
                 const isGroup = entry.skill_names.length > 1;
                 const primaryName = entry.skill_names[0];

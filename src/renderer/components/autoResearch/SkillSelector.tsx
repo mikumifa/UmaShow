@@ -1,11 +1,4 @@
-import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { Check, Layers3, Search, X } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 
@@ -155,19 +148,48 @@ const EFFECT_FILTERS: EffectFilter[] = [
   },
 ];
 
-const RUNNING_STYLE_FILTERS = [
+type SkillTagFilter = {
+  id: number;
+  label: string;
+  groupLabel?: string;
+};
+
+const GENERAL_TAG_FILTER_ID = 0;
+
+const RUNNING_STYLE_FILTERS: SkillTagFilter[] = [
+  { id: GENERAL_TAG_FILTER_ID, label: '通用', groupLabel: '跑法通用' },
   { id: 101, label: '领跑' },
   { id: 102, label: '前列' },
   { id: 103, label: '居中' },
   { id: 104, label: '后追' },
 ];
 
-const DISTANCE_FILTERS = [
+const DISTANCE_FILTERS: SkillTagFilter[] = [
+  { id: GENERAL_TAG_FILTER_ID, label: '通用', groupLabel: '距离通用' },
   { id: 201, label: '短距离' },
   { id: 202, label: '英里' },
   { id: 203, label: '中距离' },
   { id: 204, label: '长距离' },
 ];
+
+const RUNNING_STYLE_TAG_IDS = RUNNING_STYLE_FILTERS.filter(
+  (filter) => filter.id !== GENERAL_TAG_FILTER_ID,
+).map((filter) => filter.id);
+const DISTANCE_TAG_IDS = DISTANCE_FILTERS.filter(
+  (filter) => filter.id !== GENERAL_TAG_FILTER_ID,
+).map((filter) => filter.id);
+
+export function matchesSkillTagFilters(
+  skill: AutoResearchSkill,
+  selectedFilters: number[],
+  categoryTagIds: number[],
+) {
+  if (!selectedFilters.length) return true;
+  const isGeneral = !categoryTagIds.some((tag) => skill.tags.includes(tag));
+  return selectedFilters.some((tag) =>
+    tag === GENERAL_TAG_FILTER_ID ? isGeneral : skill.tags.includes(tag),
+  );
+}
 
 export function skillRarityLabel(skill?: AutoResearchSkill) {
   if (!skill) return '未知';
@@ -230,11 +252,9 @@ export default function SkillSelector({
   const [effectFilters, setEffectFilters] = useState<string[]>([]);
   const [runningStyleFilters, setRunningStyleFilters] = useState<number[]>([]);
   const [distanceFilters, setDistanceFilters] = useState<number[]>([]);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    searchInputRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -259,15 +279,15 @@ export default function SkillSelector({
         return false;
       }
       if (
-        runningStyleFilters.length &&
-        !runningStyleFilters.some((tag) => skill.tags.includes(tag))
+        !matchesSkillTagFilters(
+          skill,
+          runningStyleFilters,
+          RUNNING_STYLE_TAG_IDS,
+        )
       ) {
         return false;
       }
-      if (
-        distanceFilters.length &&
-        !distanceFilters.some((tag) => skill.tags.includes(tag))
-      ) {
+      if (!matchesSkillTagFilters(skill, distanceFilters, DISTANCE_TAG_IDS)) {
         return false;
       }
       if (!keyword) return true;
@@ -302,12 +322,12 @@ export default function SkillSelector({
     labels.push(
       ...RUNNING_STYLE_FILTERS.filter((filter) =>
         runningStyleFilters.includes(filter.id),
-      ).map((filter) => filter.label),
+      ).map((filter) => filter.groupLabel || filter.label),
     );
     labels.push(
       ...DISTANCE_FILTERS.filter((filter) =>
         distanceFilters.includes(filter.id),
-      ).map((filter) => filter.label),
+      ).map((filter) => filter.groupLabel || filter.label),
     );
     if (search.trim()) labels.push(`“${search.trim()}”`);
     return labels.length ? labels.join(' · ') : '全部技能';
@@ -358,7 +378,6 @@ export default function SkillSelector({
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
-              ref={searchInputRef}
               aria-label="搜索技能名称或技能 ID"
               value={search}
               onChange={(event) => setSearch(event.target.value)}

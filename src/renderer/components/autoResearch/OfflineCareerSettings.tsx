@@ -987,7 +987,7 @@ export default function OfflineCareerSettings({
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
             {skillSettings.learn_skill_list.map((group, index) => (
               <div
                 key={`${index}:${group.join('|')}`}
@@ -1094,7 +1094,7 @@ export default function OfflineCareerSettings({
               <button
                 type="button"
                 onClick={() => setFinalSkillPickerOpen(true)}
-                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 md:col-span-4"
+                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 xl:col-span-3"
               >
                 <Plus size={15} className="mr-1" />
                 暂无技能，点击添加
@@ -1261,7 +1261,7 @@ export default function OfflineCareerSettings({
                     );
                   })}
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-3">
                   {factorSelection.targets.map((target, index) => {
                     const targetKey = `${target.kind}:${target.factor_group_id}`;
                     const iconPath =
@@ -1378,7 +1378,7 @@ export default function OfflineCareerSettings({
                     <button
                       type="button"
                       onClick={() => setFactorSkillPickerOpen(true)}
-                      className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 md:col-span-4"
+                      className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 xl:col-span-3"
                     >
                       <Plus size={15} className="mr-1" />
                       选择适应性或添加技能
@@ -1814,7 +1814,7 @@ export default function OfflineCareerSettings({
             </>
           }
         >
-          <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-4 py-3">
             <div className="grid gap-3 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
               <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -1921,7 +1921,7 @@ export default function OfflineCareerSettings({
                   <button
                     type="button"
                     onClick={() => setSpecificLineageAptitudeFactors([])}
-                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    className={`successionCapturedPickerCompactControl rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                       !specificLineageAptitudeFactors.length
                         ? 'border-pink-300 bg-pink-50 text-pink-700'
                         : 'border-slate-200 bg-white text-slate-500 hover:border-pink-200'
@@ -2031,7 +2031,7 @@ export default function OfflineCareerSettings({
                     type="button"
                     aria-pressed={specificLineageSortDirection === value}
                     onClick={() => setSpecificLineageSortDirection(value)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`successionCapturedPickerCompactControl rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       specificLineageSortDirection === value
                         ? 'bg-white text-fuchsia-700 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700'
