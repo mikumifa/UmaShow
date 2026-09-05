@@ -785,7 +785,7 @@ export default function CareerTab(props: CareerTabProps) {
     </>
   ) : (
     <>
-      <nav className="sticky top-[100px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+      <nav className="sticky top-[88px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
         {[
           ['career-task', '任务配置'],
           ['career-selection', '选择阵容'],

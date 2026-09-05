@@ -42,7 +42,7 @@ export interface CharaEffect {
   text: string;
 }
 
-export type ScenarioType = 'idolCup' | 'venusCup' | 'unknown';
+export type ScenarioType = 'idolCup' | 'venusCup' | 'arc' | 'unknown';
 
 // =============================
 // Training Command Types
@@ -139,6 +139,102 @@ export interface VenusData {
   liveItemId: number;
 }
 
+export interface ArcPotentialProgress {
+  conditionId: number;
+  totalCount: number;
+  currentCount: number;
+}
+
+export interface ArcPotentialInfo {
+  potentialId: number;
+  level: number;
+  progress: ArcPotentialProgress[];
+}
+
+export interface ArcRivalPotential {
+  potentialId: number;
+  level: number;
+}
+
+export interface ArcSelectionEffect {
+  effectNum: number;
+  effectGroupId: number;
+  effectValue: number;
+}
+
+export interface ArcRivalInfo {
+  charaId: number;
+  speed: number;
+  stamina: number;
+  power: number;
+  guts: number;
+  wiz: number;
+  commandId: number;
+  rivalBoost: number;
+  starLevel: number;
+  rank: number;
+  approvalPoint: number;
+  potentials: ArcRivalPotential[];
+  selectionEffects: ArcSelectionEffect[];
+}
+
+export interface ArcSelectionRivalInfo {
+  charaId: number;
+  mark: number;
+  winApprovalPoint: number;
+  loseApprovalPoint: number;
+  rivalWinApprovalPoint: number;
+  rivalLoseApprovalPoint: number;
+}
+
+export interface ArcSelectionInfo {
+  allWinApprovalPoint: number;
+  params: CommandParam[];
+  rivals: ArcSelectionRivalInfo[];
+  isSpecialMatch: boolean;
+  bonusParams: CommandParam[];
+}
+
+export interface ArcRaceHistory {
+  raceNum: number;
+  turn: number;
+  resultRank: number;
+}
+
+export interface ArcCommandInfo {
+  commandId: number;
+  commandType: number;
+  params: CommandParam[];
+  addGlobalExp: number;
+}
+
+export interface ArcEvaluationInfo {
+  targetId: number;
+  charaId: number;
+}
+
+export interface ArcRivalRaceInfo {
+  programId: number;
+  charaId: number;
+}
+
+export interface ArcData {
+  approvalRate: number;
+  globalExp: number;
+  spTagBoostType: number;
+  ssMatchWinCount: number;
+  specialSsMatchWinCount: number;
+  potentials: ArcPotentialInfo[];
+  rivals: ArcRivalInfo[];
+  rivalRaceInfo: ArcRivalRaceInfo[];
+  selectionInfo?: ArcSelectionInfo;
+  raceHistory: ArcRaceHistory[];
+  commandInfo: ArcCommandInfo[];
+  evaluationInfo: ArcEvaluationInfo[];
+  rivalBoostBlockedCharaIds: number[];
+  allRivalBoostBlocked: boolean;
+}
+
 export interface PartnerStat {
   position: number;
   supportCardId: number; // if id == 0, this is not a support card
@@ -210,6 +306,7 @@ export interface CharInfo {
   livePurchasedIds?: number[];
   eventDetails?: Record<number, StoryDetail>;
   venusData?: VenusData;
+  arcData?: ArcData;
 }
 
 export interface RaceHorseInfo {
@@ -476,6 +573,7 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
       prev.liveCommands,
     ),
     venusData: pickScenarioScopedValue(incoming.venusData, prev.venusData),
+    arcData: pickScenarioScopedValue(incoming.arcData, prev.arcData),
     songStats: pickScenarioScopedValue(incoming.songStats, prev.songStats),
     noteStat: pickScenarioScopedValue(incoming.noteStat, prev.noteStat),
     livePurchasedIds,

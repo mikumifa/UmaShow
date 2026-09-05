@@ -173,6 +173,19 @@
       "icon_id": 20023,
       "skill_category": 5
     },
+    "10541": {
+      "name": "飞驹全力出击！",
+      "rarity": 3,
+      "group_id": 1054,
+      "grade_value": 240,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "10561": {
       "name": "快点来啊快点来啊！",
       "rarity": 3,
@@ -225,6 +238,19 @@
         402
       ],
       "icon_id": 20023,
+      "skill_category": 5
+    },
+    "10631": {
+      "name": "千锤百炼",
+      "rarity": 3,
+      "group_id": 1063,
+      "grade_value": 240,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
       "skill_category": 5
     },
     "10661": {
@@ -941,6 +967,19 @@
       "icon_id": 20043,
       "skill_category": 5
     },
+    "100541": {
+      "name": "疾风猛冲飞驹冲刺！",
+      "rarity": 4,
+      "group_id": 10054,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "100551": {
       "name": "万彩☆marvelous★世界",
       "rarity": 5,
@@ -1046,6 +1085,19 @@
         402
       ],
       "icon_id": 20023,
+      "skill_category": 5
+    },
+    "100631": {
+      "name": "百炼成钢",
+      "rarity": 4,
+      "group_id": 10063,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
       "skill_category": 5
     },
     "100641": {
@@ -1260,6 +1312,19 @@
       "icon_id": 20013,
       "skill_category": 5
     },
+    "100861": {
+      "name": "与爱相融吧",
+      "rarity": 5,
+      "group_id": 10086,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "100871": {
       "name": "Silent letter",
       "rarity": 5,
@@ -1269,6 +1334,59 @@
       "disable_singlemode": 1,
       "tags": [
         401,
+        403
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "100881": {
+      "name": "Reversal Illusion",
+      "rarity": 5,
+      "group_id": 10088,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "100891": {
+      "name": "Celeste Oath",
+      "rarity": 5,
+      "group_id": 10089,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        402
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "100911": {
+      "name": "绚丽☆喷泉",
+      "rarity": 5,
+      "group_id": 10091,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "100931": {
+      "name": "幸福的蓝色光芒",
+      "rarity": 5,
+      "group_id": 10093,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
         403
       ],
       "icon_id": 20013,
@@ -1352,6 +1470,33 @@
       "disable_singlemode": 1,
       "tags": [
         401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "101071": {
+      "name": "Billions of stars",
+      "rarity": 5,
+      "group_id": 10107,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "101081": {
+      "name": "罗刹，举赤翼以摩苍穹",
+      "rarity": 5,
+      "group_id": 10108,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403
       ],
       "icon_id": 20013,
       "skill_category": 5
@@ -1676,6 +1821,19 @@
       "icon_id": 20013,
       "skill_category": 5
     },
+    "110251": {
+      "name": "诚挚的喵心款待",
+      "rarity": 5,
+      "group_id": 11025,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        403
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "110261": {
       "name": "行动·Cacao",
       "rarity": 5,
@@ -1700,6 +1858,19 @@
       "tags": [
         401,
         403
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "110291": {
+      "name": "请您多多品尝嘞！",
+      "rarity": 5,
+      "group_id": 11029,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
       ],
       "icon_id": 20013,
       "skill_category": 5
@@ -1773,6 +1944,19 @@
       "icon_id": 20013,
       "skill_category": 5
     },
+    "110361": {
+      "name": "found you…",
+      "rarity": 5,
+      "group_id": 11036,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "110371": {
       "name": "Guten Appetit♪",
       "rarity": 5,
@@ -1796,6 +1980,19 @@
       "tags": [
         401,
         403
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "110391": {
+      "name": "豪迈大力",
+      "rarity": 5,
+      "group_id": 11039,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
       ],
       "icon_id": 20013,
       "skill_category": 5
@@ -2001,6 +2198,20 @@
       "icon_id": 20013,
       "skill_category": 5
     },
+    "110641": {
+      "name": "jingle all the way",
+      "rarity": 5,
+      "group_id": 11064,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "110671": {
       "name": "拨云见日金甲箭",
       "rarity": 5,
@@ -2055,6 +2266,33 @@
       "icon_id": 20013,
       "skill_category": 5
     },
+    "110741": {
+      "name": "Illuminate you",
+      "rarity": 5,
+      "group_id": 11074,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        402,
+        403
+      ],
+      "icon_id": 20023,
+      "skill_category": 5
+    },
+    "110831": {
+      "name": "Immortal Work",
+      "rarity": 5,
+      "group_id": 11083,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "120011": {
       "name": "威风堂堂，锦绣逐梦！",
       "rarity": 5,
@@ -2064,6 +2302,20 @@
       "disable_singlemode": 1,
       "tags": [
         401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "120031": {
+      "name": "歌舞升平，妙趣横生",
+      "rarity": 5,
+      "group_id": 12003,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403
       ],
       "icon_id": 20013,
       "skill_category": 5
@@ -2087,6 +2339,45 @@
       "name": "波光粼粼为海，璀璨闪烁是你",
       "rarity": 5,
       "group_id": 12013,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "120601": {
+      "name": "软糯Q弹·晴空万里",
+      "rarity": 5,
+      "group_id": 12060,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "120671": {
+      "name": "钻石锋芒",
+      "rarity": 5,
+      "group_id": 12067,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
+    "120681": {
+      "name": "我要成为万众之爱！",
+      "rarity": 5,
+      "group_id": 12068,
       "grade_value": 340,
       "need_skill_point": 0,
       "disable_singlemode": 1,
@@ -3020,6 +3311,21 @@
         401
       ],
       "icon_id": 10014,
+      "skill_category": 0
+    },
+    "200204": {
+      "name": "冬日寒风",
+      "rarity": 2,
+      "group_id": 20020,
+      "grade_value": 461,
+      "need_skill_point": 130,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403,
+        603
+      ],
+      "icon_id": 10012,
       "skill_category": 0
     },
     "200211": {
@@ -4997,6 +5303,20 @@
       "icon_id": 20011,
       "skill_category": 4
     },
+    "200973": {
+      "name": "紫电圆刃",
+      "rarity": 2,
+      "group_id": 20097,
+      "grade_value": 508,
+      "need_skill_point": 150,
+      "disable_singlemode": 1,
+      "tags": [
+        201,
+        401
+      ],
+      "icon_id": 20012,
+      "skill_category": 4
+    },
     "200981": {
       "name": "压倒性领先",
       "rarity": 2,
@@ -6522,6 +6842,20 @@
         401
       ],
       "icon_id": 20011,
+      "skill_category": 4
+    },
+    "201463": {
+      "name": "月影圆刃",
+      "rarity": 2,
+      "group_id": 20146,
+      "grade_value": 508,
+      "need_skill_point": 150,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        401
+      ],
+      "icon_id": 20012,
       "skill_category": 4
     },
     "201471": {
@@ -9415,6 +9749,468 @@
       "icon_id": 10022,
       "skill_category": 0
     },
+    "202741": {
+      "name": "十全十美",
+      "rarity": 2,
+      "group_id": 20274,
+      "grade_value": 508,
+      "need_skill_point": 180,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        403
+      ],
+      "icon_id": 20012,
+      "skill_category": 4
+    },
+    "202742": {
+      "name": "品行方正",
+      "rarity": 1,
+      "group_id": 20274,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        202,
+        203,
+        403
+      ],
+      "icon_id": 20011,
+      "skill_category": 4
+    },
+    "202751": {
+      "name": "傲骨嶙嶙",
+      "rarity": 2,
+      "group_id": 20275,
+      "grade_value": 508,
+      "need_skill_point": 160,
+      "disable_singlemode": 1,
+      "tags": [
+        201,
+        302,
+        401
+      ],
+      "icon_id": 20012,
+      "skill_category": 2
+    },
+    "202752": {
+      "name": "一心向前",
+      "rarity": 1,
+      "group_id": 20275,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        201,
+        302,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202761": {
+      "name": "打飞它吧！",
+      "rarity": 2,
+      "group_id": 20276,
+      "grade_value": 508,
+      "need_skill_point": 180,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        302,
+        401
+      ],
+      "icon_id": 20012,
+      "skill_category": 2
+    },
+    "202762": {
+      "name": "迈向胜利",
+      "rarity": 1,
+      "group_id": 20276,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        102,
+        302,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202772": {
+      "name": "锁定目标",
+      "rarity": 1,
+      "group_id": 20277,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        102,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20041,
+      "skill_category": 3
+    },
+    "202792": {
+      "name": "中期能手",
+      "rarity": 1,
+      "group_id": 20279,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        302,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202801": {
+      "name": "抢占先机",
+      "rarity": 2,
+      "group_id": 20280,
+      "grade_value": 508,
+      "need_skill_point": 160,
+      "disable_singlemode": 1,
+      "tags": [
+        301,
+        401
+      ],
+      "icon_id": 20012,
+      "skill_category": 1
+    },
+    "202802": {
+      "name": "初期能手",
+      "rarity": 1,
+      "group_id": 20280,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        301,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 1
+    },
+    "202811": {
+      "name": "画龙点睛",
+      "rarity": 2,
+      "group_id": 20281,
+      "grade_value": 508,
+      "need_skill_point": 160,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20012,
+      "skill_category": 3
+    },
+    "202812": {
+      "name": "尾声将至",
+      "rarity": 1,
+      "group_id": 20281,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20011,
+      "skill_category": 3
+    },
+    "202821": {
+      "name": "坚定一心",
+      "rarity": 2,
+      "group_id": 20282,
+      "grade_value": 508,
+      "need_skill_point": 170,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20042,
+      "skill_category": 3
+    },
+    "202822": {
+      "name": "毫不迷茫",
+      "rarity": 1,
+      "group_id": 20282,
+      "grade_value": 217,
+      "need_skill_point": 170,
+      "disable_singlemode": 0,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20041,
+      "skill_category": 3
+    },
+    "202831": {
+      "name": "互动＆回应",
+      "rarity": 2,
+      "group_id": 20283,
+      "grade_value": 633,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        302,
+        303,
+        401,
+        403,
+        502
+      ],
+      "icon_id": 20012,
+      "skill_category": 2
+    },
+    "202832": {
+      "name": "两手准备",
+      "rarity": 1,
+      "group_id": 20283,
+      "grade_value": 263,
+      "need_skill_point": 200,
+      "disable_singlemode": 0,
+      "tags": [
+        302,
+        303,
+        401,
+        403,
+        502
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202842": {
+      "name": "拂去沙土",
+      "rarity": 1,
+      "group_id": 20284,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        302,
+        402,
+        502
+      ],
+      "icon_id": 20021,
+      "skill_category": 2
+    },
+    "202851": {
+      "name": "一网打尽",
+      "rarity": 2,
+      "group_id": 20285,
+      "grade_value": 508,
+      "need_skill_point": 160,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20012,
+      "skill_category": 3
+    },
+    "202852": {
+      "name": "连续超越",
+      "rarity": 1,
+      "group_id": 20285,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20011,
+      "skill_category": 3
+    },
+    "202861": {
+      "name": "火箭起步",
+      "rarity": 2,
+      "group_id": 20286,
+      "grade_value": 334,
+      "need_skill_point": 120,
+      "disable_singlemode": 1,
+      "tags": [
+        201,
+        301,
+        403
+      ],
+      "icon_id": 20042,
+      "skill_category": 1
+    },
+    "202862": {
+      "name": "急速起步",
+      "rarity": 1,
+      "group_id": 20286,
+      "grade_value": 217,
+      "need_skill_point": 120,
+      "disable_singlemode": 0,
+      "tags": [
+        201,
+        301,
+        403
+      ],
+      "icon_id": 20041,
+      "skill_category": 1
+    },
+    "202871": {
+      "name": "君临",
+      "rarity": 2,
+      "group_id": 20287,
+      "grade_value": 508,
+      "need_skill_point": 180,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20042,
+      "skill_category": 3
+    },
+    "202872": {
+      "name": "倾尽全力的步伐",
+      "rarity": 1,
+      "group_id": 20287,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20041,
+      "skill_category": 3
+    },
+    "202882": {
+      "name": "热血沸腾",
+      "rarity": 1,
+      "group_id": 20288,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        303,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 3
+    },
+    "202892": {
+      "name": "不动之心",
+      "rarity": 1,
+      "group_id": 20289,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        301,
+        402
+      ],
+      "icon_id": 20021,
+      "skill_category": 1
+    },
+    "202902": {
+      "name": "动力十足",
+      "rarity": 1,
+      "group_id": 20290,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        302,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202912": {
+      "name": "瓦解敌势",
+      "rarity": 1,
+      "group_id": 20291,
+      "grade_value": 217,
+      "need_skill_point": 190,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        303,
+        401,
+        406
+      ],
+      "icon_id": 20011,
+      "skill_category": 3
+    },
+    "202922": {
+      "name": "毫无保留",
+      "rarity": 1,
+      "group_id": 20292,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        302,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
+    "202932": {
+      "name": "踏影",
+      "rarity": 1,
+      "group_id": 20293,
+      "grade_value": 217,
+      "need_skill_point": 180,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 4
+    },
+    "202942": {
+      "name": "鬼气逼人",
+      "rarity": 1,
+      "group_id": 20294,
+      "grade_value": 217,
+      "need_skill_point": 160,
+      "disable_singlemode": 0,
+      "tags": [
+        104,
+        203,
+        302,
+        401,
+        406
+      ],
+      "icon_id": 20011,
+      "skill_category": 2
+    },
     "210011": {
       "name": "燃烧青春·速",
       "rarity": 2,
@@ -9872,6 +10668,56 @@
       "icon_id": 20211,
       "skill_category": 3
     },
+    "210301": {
+      "name": "爆热的闪耀！",
+      "rarity": 2,
+      "group_id": 21030,
+      "grade_value": 633,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20222,
+      "skill_category": 2
+    },
+    "210302": {
+      "name": "燃烧之魂",
+      "rarity": 1,
+      "group_id": 21030,
+      "grade_value": 263,
+      "need_skill_point": 200,
+      "disable_singlemode": 0,
+      "tags": [
+        202,
+        203,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20221,
+      "skill_category": 2
+    },
+    "210311": {
+      "name": "运动员之魂",
+      "rarity": 1,
+      "group_id": 21031,
+      "grade_value": 217,
+      "need_skill_point": 170,
+      "disable_singlemode": 0,
+      "tags": [
+        202,
+        203,
+        403,
+        807
+      ],
+      "icon_id": 20231,
+      "skill_category": 4
+    },
     "300011": {
       "name": "无尽渴求",
       "rarity": 1,
@@ -10053,6 +10899,121 @@
       ],
       "icon_id": 20013,
       "skill_category": 5
+    },
+    "407011": {
+      "name": "闪耀的较量",
+      "rarity": 6,
+      "group_id": 40701,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        301,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 1
+    },
+    "407021": {
+      "name": "燃起斗志了！！",
+      "rarity": 6,
+      "group_id": 40702,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 2
+    },
+    "407031": {
+      "name": "尽我所能！",
+      "rarity": 6,
+      "group_id": 40703,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        303,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 3
+    },
+    "407041": {
+      "name": "无与伦比的激情",
+      "rarity": 6,
+      "group_id": 40704,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 2
+    },
+    "407051": {
+      "name": "势如破竹的肌肉",
+      "rarity": 6,
+      "group_id": 40705,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        303,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 3
+    },
+    "407061": {
+      "name": "连胜韵律！",
+      "rarity": 6,
+      "group_id": 40706,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 2
+    },
+    "407071": {
+      "name": "紧密相连的高涨情绪",
+      "rarity": 6,
+      "group_id": 40707,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        401,
+        807
+      ],
+      "icon_id": 20226,
+      "skill_category": 2
     },
     "900011": {
       "name": "璀璨流星",
@@ -10755,6 +11716,19 @@
       "icon_id": 20041,
       "skill_category": 5
     },
+    "900541": {
+      "name": "疾风猛冲飞驹冲刺！",
+      "rarity": 1,
+      "group_id": 90054,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "900551": {
       "name": "万彩☆marvelous★世界",
       "rarity": 1,
@@ -10860,6 +11834,19 @@
         402
       ],
       "icon_id": 20021,
+      "skill_category": 5
+    },
+    "900631": {
+      "name": "百炼成钢",
+      "rarity": 1,
+      "group_id": 90063,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
       "skill_category": 5
     },
     "900641": {
@@ -11074,6 +12061,19 @@
       "icon_id": 20011,
       "skill_category": 5
     },
+    "900861": {
+      "name": "与爱相融吧",
+      "rarity": 1,
+      "group_id": 90086,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "900871": {
       "name": "Silent letter",
       "rarity": 1,
@@ -11083,6 +12083,59 @@
       "disable_singlemode": 1,
       "tags": [
         401,
+        403
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "900881": {
+      "name": "Reversal Illusion",
+      "rarity": 1,
+      "group_id": 90088,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "900891": {
+      "name": "Celeste Oath",
+      "rarity": 1,
+      "group_id": 90089,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        402
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "900911": {
+      "name": "绚丽☆喷泉",
+      "rarity": 1,
+      "group_id": 90091,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "900931": {
+      "name": "幸福的蓝色光芒",
+      "rarity": 1,
+      "group_id": 90093,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
         403
       ],
       "icon_id": 20011,
@@ -11165,6 +12218,33 @@
       "disable_singlemode": 1,
       "tags": [
         401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "901071": {
+      "name": "Billions of stars",
+      "rarity": 1,
+      "group_id": 90107,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "901081": {
+      "name": "罗刹，举赤翼以摩苍穹",
+      "rarity": 1,
+      "group_id": 90108,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403
       ],
       "icon_id": 20011,
       "skill_category": 5
@@ -11489,6 +12569,19 @@
       "icon_id": 20011,
       "skill_category": 5
     },
+    "910251": {
+      "name": "诚挚的喵心款待",
+      "rarity": 1,
+      "group_id": 91025,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        403
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "910261": {
       "name": "行动·Cacao",
       "rarity": 1,
@@ -11513,6 +12606,19 @@
       "tags": [
         401,
         403
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "910291": {
+      "name": "请您多多品尝嘞！",
+      "rarity": 1,
+      "group_id": 91029,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
       ],
       "icon_id": 20011,
       "skill_category": 5
@@ -11586,6 +12692,19 @@
       "icon_id": 20011,
       "skill_category": 5
     },
+    "910361": {
+      "name": "found you…",
+      "rarity": 1,
+      "group_id": 91036,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "910371": {
       "name": "Guten Appetit♪",
       "rarity": 1,
@@ -11609,6 +12728,19 @@
       "tags": [
         401,
         403
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "910391": {
+      "name": "豪迈大力",
+      "rarity": 1,
+      "group_id": 91039,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
       ],
       "icon_id": 20011,
       "skill_category": 5
@@ -11814,6 +12946,19 @@
       "icon_id": 20011,
       "skill_category": 5
     },
+    "910641": {
+      "name": "jingle all the way",
+      "rarity": 1,
+      "group_id": 91064,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "910671": {
       "name": "拨云见日金甲箭",
       "rarity": 1,
@@ -11868,6 +13013,33 @@
       "icon_id": 20011,
       "skill_category": 5
     },
+    "910741": {
+      "name": "Illuminate you",
+      "rarity": 1,
+      "group_id": 91074,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        402,
+        403
+      ],
+      "icon_id": 20021,
+      "skill_category": 5
+    },
+    "910831": {
+      "name": "Immortal Work",
+      "rarity": 1,
+      "group_id": 91083,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
     "920011": {
       "name": "威风堂堂，锦绣逐梦！",
       "rarity": 1,
@@ -11877,6 +13049,20 @@
       "disable_singlemode": 1,
       "tags": [
         401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "920031": {
+      "name": "歌舞升平，妙趣横生",
+      "rarity": 1,
+      "group_id": 92003,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        403
       ],
       "icon_id": 20011,
       "skill_category": 5
@@ -11900,6 +13086,45 @@
       "name": "波光粼粼为海，璀璨闪烁是你",
       "rarity": 1,
       "group_id": 92013,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "920601": {
+      "name": "软糯Q弹·晴空万里",
+      "rarity": 1,
+      "group_id": 92060,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "920671": {
+      "name": "钻石锋芒",
+      "rarity": 1,
+      "group_id": 92067,
+      "grade_value": 180,
+      "need_skill_point": 200,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20011,
+      "skill_category": 5
+    },
+    "920681": {
+      "name": "我要成为万众之爱！",
+      "rarity": 1,
+      "group_id": 92068,
       "grade_value": 180,
       "need_skill_point": 200,
       "disable_singlemode": 1,
@@ -11949,6 +13174,32 @@
       "skill_category": 101
     },
     "1000014": {
+      "name": "嘉年华加成",
+      "rarity": 1,
+      "group_id": 100001,
+      "grade_value": 0,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        0
+      ],
+      "icon_id": 1010011,
+      "skill_category": 101
+    },
+    "1000015": {
+      "name": "嘉年华加成",
+      "rarity": 1,
+      "group_id": 100001,
+      "grade_value": 0,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        0
+      ],
+      "icon_id": 1010011,
+      "skill_category": 101
+    },
+    "1000016": {
       "name": "嘉年华加成",
       "rarity": 1,
       "group_id": 100001,
@@ -12169,6 +13420,19 @@
       "icon_id": 1010051,
       "skill_category": 3
     },
+    "1400011": {
+      "name": "大师驱动",
+      "rarity": 5,
+      "group_id": 140001,
+      "grade_value": 340,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20013,
+      "skill_category": 5
+    },
     "100101111": {
       "name": "饥肠辘辘大将",
       "rarity": 6,
@@ -12382,6 +13646,37 @@
       "icon_id": 20026,
       "skill_category": 4
     },
+    "100303111": {
+      "name": "尽显天赋的身手",
+      "rarity": 6,
+      "group_id": 10030311,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
+    "100303211": {
+      "name": "尽享欢乐",
+      "rarity": 6,
+      "group_id": 10030321,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        302,
+        401,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
     "100401111": {
       "name": "要加速喽！",
       "rarity": 6,
@@ -12485,6 +13780,20 @@
       "icon_id": 30056,
       "skill_category": 2
     },
+    "100502121": {
+      "name": "令人着迷的过弯",
+      "rarity": 6,
+      "group_id": 10050212,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        303,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "100502211": {
       "name": "璀璨的顶级巨星",
       "rarity": 6,
@@ -12510,6 +13819,22 @@
       "tags": [
         102,
         302,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
+    "100601121": {
+      "name": "饥饿的怪物",
+      "rarity": 6,
+      "group_id": 10060112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        302,
+        401,
         402
       ],
       "icon_id": 20026,
@@ -12614,6 +13939,21 @@
       "disable_singlemode": 1,
       "tags": [
         203,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "100702221": {
+      "name": "感觉来了！！",
+      "rarity": 6,
+      "group_id": 10070222,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
         302,
         401
       ],
@@ -12914,6 +14254,21 @@
       "icon_id": 20016,
       "skill_category": 3
     },
+    "101201121": {
+      "name": "寄于单挑的执念",
+      "rarity": 6,
+      "group_id": 10120112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        303,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "101201211": {
       "name": "怒涛般的涌潮",
       "rarity": 6,
@@ -13156,6 +14511,22 @@
       "icon_id": 20026,
       "skill_category": 4
     },
+    "101502121": {
+      "name": "降临于弯道的歌剧之王",
+      "rarity": 6,
+      "group_id": 10150212,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
+        302,
+        401,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
     "101502211": {
       "name": "我定会准时到来！",
       "rarity": 6,
@@ -13372,6 +14743,22 @@
       "icon_id": 20056,
       "skill_category": 3
     },
+    "101901221": {
+      "name": "目标是最前排正中央！",
+      "rarity": 6,
+      "group_id": 10190122,
+      "grade_value": 461,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        303,
+        403,
+        501
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "101902111": {
       "name": "超特急交稿！",
       "rarity": 6,
@@ -13416,6 +14803,21 @@
         401
       ],
       "icon_id": 20016,
+      "skill_category": 2
+    },
+    "102001121": {
+      "name": "钓大鱼的心得",
+      "rarity": 6,
+      "group_id": 10200112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        402
+      ],
+      "icon_id": 20026,
       "skill_category": 2
     },
     "102001211": {
@@ -13477,6 +14879,22 @@
         103,
         302,
         401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "102101121": {
+      "name": "赶快开始吧！",
+      "rarity": 6,
+      "group_id": 10210112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        302,
+        401,
+        402
       ],
       "icon_id": 20016,
       "skill_category": 2
@@ -13728,10 +15146,43 @@
         204,
         302,
         401,
+        402,
         406
       ],
       "icon_id": 30056,
       "skill_category": 2
+    },
+    "102502111": {
+      "name": "迫近的夜幕",
+      "rarity": 6,
+      "group_id": 10250211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
+    "102502211": {
+      "name": "玄界领域",
+      "rarity": 6,
+      "group_id": 10250221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
     },
     "102601111": {
       "name": "超频",
@@ -13911,6 +15362,35 @@
       "disable_singlemode": 1,
       "tags": [
         102,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 4
+    },
+    "102902111": {
+      "name": "再加把劲嘞！",
+      "rarity": 6,
+      "group_id": 10290211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "102902211": {
+      "name": "曲线飞舞的大雪",
+      "rarity": 6,
+      "group_id": 10290221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
         403
       ],
       "icon_id": 20046,
@@ -14164,6 +15644,22 @@
       "icon_id": 20026,
       "skill_category": 2
     },
+    "103401221": {
+      "name": "潇洒帅气的达人绝技",
+      "rarity": 6,
+      "group_id": 10340122,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        401,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
     "103402111": {
       "name": "扇之舞",
       "rarity": 6,
@@ -14286,6 +15782,37 @@
       "icon_id": 20016,
       "skill_category": 4
     },
+    "103602111": {
+      "name": "Gluttony's Grip",
+      "rarity": 6,
+      "group_id": 10360211,
+      "grade_value": 508,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
+        302,
+        402,
+        406
+      ],
+      "icon_id": 30056,
+      "skill_category": 2
+    },
+    "103602211": {
+      "name": "刑苦",
+      "rarity": 6,
+      "group_id": 10360221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
+        303,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "103701111": {
       "name": "闪光的魔法",
       "rarity": 6,
@@ -14328,6 +15855,21 @@
       ],
       "icon_id": 20016,
       "skill_category": 3
+    },
+    "103702121": {
+      "name": "食材处理完美",
+      "rarity": 6,
+      "group_id": 10370212,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
     },
     "103702211": {
       "name": "黑色闪光",
@@ -14391,6 +15933,21 @@
       "icon_id": 30016,
       "skill_category": 1
     },
+    "103802121": {
+      "name": "摄人心魄的闪光",
+      "rarity": 6,
+      "group_id": 10380212,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        201,
+        301,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 1
+    },
     "103802211": {
       "name": "#美丽短途赛",
       "rarity": 6,
@@ -14436,6 +15993,37 @@
       ],
       "icon_id": 20016,
       "skill_category": 3
+    },
+    "103902111": {
+      "name": "顶级公主！",
+      "rarity": 6,
+      "group_id": 10390211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        303,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
+    "103902211": {
+      "name": "狂奔公主☆俯冲直下！！",
+      "rarity": 6,
+      "group_id": 10390221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        401,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
     },
     "104001111": {
       "name": "先见之明",
@@ -14625,6 +16213,26 @@
       "icon_id": 10016,
       "skill_category": 0
     },
+    "104301221": {
+      "name": "满身泥泞的魔王大人",
+      "rarity": 6,
+      "group_id": 10430122,
+      "grade_value": 508,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401,
+        402,
+        403,
+        404,
+        405,
+        502,
+        601,
+        610
+      ],
+      "icon_id": 10016,
+      "skill_category": 0
+    },
     "104401111": {
       "name": "放学后的魔法少女",
       "rarity": 6,
@@ -14654,6 +16262,21 @@
         406
       ],
       "icon_id": 30016,
+      "skill_category": 3
+    },
+    "104401221": {
+      "name": "Salvia☆splendens",
+      "rarity": 6,
+      "group_id": 10440122,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        303,
+        403
+      ],
+      "icon_id": 20016,
       "skill_category": 3
     },
     "104501111": {
@@ -14728,6 +16351,20 @@
       "icon_id": 20056,
       "skill_category": 1
     },
+    "104601121": {
+      "name": "不能移开视线哦☆",
+      "rarity": 6,
+      "group_id": 10460112,
+      "grade_value": 394,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        303,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "104601211": {
       "name": "优俊偶像Power飙升↑↑",
       "rarity": 6,
@@ -14785,6 +16422,22 @@
       "tags": [
         102,
         302,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
+    "104701121": {
+      "name": "谱写故事之人",
+      "rarity": 6,
+      "group_id": 10470112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        302,
+        401,
         402
       ],
       "icon_id": 20026,
@@ -14978,6 +16631,19 @@
       "icon_id": 20016,
       "skill_category": 4
     },
+    "105101121": {
+      "name": "绽放的勇气",
+      "rarity": 6,
+      "group_id": 10510112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
     "105101211": {
       "name": "盛放的决心",
       "rarity": 6,
@@ -15145,6 +16811,37 @@
         403
       ],
       "icon_id": 20046,
+      "skill_category": 3
+    },
+    "105401111": {
+      "name": "疾行！英雄登场！",
+      "rarity": 6,
+      "group_id": 10540111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "105401211": {
+      "name": "必杀·雷电飞踢！",
+      "rarity": 6,
+      "group_id": 10540121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        201,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20016,
       "skill_category": 3
     },
     "105501111": {
@@ -15315,6 +17012,22 @@
       "icon_id": 20046,
       "skill_category": 3
     },
+    "105802121": {
+      "name": "点亮内心的斗志",
+      "rarity": 6,
+      "group_id": 10580212,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
     "105802211": {
       "name": "灵魂引路人",
       "rarity": 6,
@@ -15451,6 +17164,35 @@
       "icon_id": 20046,
       "skill_category": 3
     },
+    "106003111": {
+      "name": "味道很不错吧？",
+      "rarity": 6,
+      "group_id": 10600311,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "106003211": {
+      "name": "大扫除能手",
+      "rarity": 6,
+      "group_id": 10600321,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
     "106101111": {
       "name": "电击横扫",
       "rarity": 6,
@@ -15575,6 +17317,38 @@
       "icon_id": 20046,
       "skill_category": 3
     },
+    "106301111": {
+      "name": "彻底管理计划",
+      "rarity": 6,
+      "group_id": 10630111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        103,
+        302,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 2
+    },
+    "106301211": {
+      "name": "锻铁火花",
+      "rarity": 6,
+      "group_id": 10630121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        103,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
     "106401111": {
       "name": "超不得了吧？",
       "rarity": 6,
@@ -15599,6 +17373,37 @@
         204,
         302,
         401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "106402111": {
+      "name": "北风一蹴",
+      "rarity": 6,
+      "group_id": 10640211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "106402211": {
+      "name": "圣☆诞↑派对",
+      "rarity": 6,
+      "group_id": 10640221,
+      "grade_value": 758,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        204,
+        302,
+        401,
+        402
       ],
       "icon_id": 20016,
       "skill_category": 2
@@ -15679,6 +17484,22 @@
       "icon_id": 20026,
       "skill_category": 1
     },
+    "106701121": {
+      "name": "藏不住的光芒",
+      "rarity": 6,
+      "group_id": 10670112,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        301,
+        401,
+        402
+      ],
+      "icon_id": 20026,
+      "skill_category": 1
+    },
     "106701211": {
       "name": "顺时针的回旋曲",
       "rarity": 6,
@@ -15726,6 +17547,35 @@
       ],
       "icon_id": 30056,
       "skill_category": 2
+    },
+    "106703111": {
+      "name": "苍蓝革命",
+      "rarity": 6,
+      "group_id": 10670311,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
+    "106703211": {
+      "name": "剑之舞",
+      "rarity": 6,
+      "group_id": 10670321,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
     },
     "106801111": {
       "name": "庆典开始，嘿呦！",
@@ -15785,6 +17635,38 @@
       ],
       "icon_id": 20046,
       "skill_category": 1
+    },
+    "106803111": {
+      "name": "精彩绝伦！卧龙出山",
+      "rarity": 6,
+      "group_id": 10680311,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
+    "106803211": {
+      "name": "飞越万里嘿呀！",
+      "rarity": 6,
+      "group_id": 10680321,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
     },
     "106901111": {
       "name": "赏樱大好年！",
@@ -15968,6 +17850,21 @@
       "icon_id": 20016,
       "skill_category": 3
     },
+    "107201221": {
+      "name": "渴望胜利的激情",
+      "rarity": 6,
+      "group_id": 10720122,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
     "107401111": {
       "name": "不屈的大小姐",
       "rarity": 6,
@@ -15996,6 +17893,36 @@
       ],
       "icon_id": 20026,
       "skill_category": 2
+    },
+    "107402111": {
+      "name": "圣夜的天路",
+      "rarity": 6,
+      "group_id": 10740211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "107402211": {
+      "name": "雪花的追击",
+      "rarity": 6,
+      "group_id": 10740221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        204,
+        303,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
     },
     "107601111": {
       "name": "樱花前线正在推进！",
@@ -16091,6 +18018,20 @@
       "icon_id": 20016,
       "skill_category": 2
     },
+    "107801221": {
+      "name": "天风",
+      "rarity": 6,
+      "group_id": 10780122,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
     "108301111": {
       "name": "质朴刚毅",
       "rarity": 6,
@@ -16124,6 +18065,38 @@
       ],
       "icon_id": 20016,
       "skill_category": 2
+    },
+    "108302111": {
+      "name": "Burn Down",
+      "rarity": 6,
+      "group_id": 10830211,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        302,
+        401,
+        402
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "108302211": {
+      "name": "Service：Transit",
+      "rarity": 6,
+      "group_id": 10830221,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
     },
     "108401111": {
       "name": "唤来风暴的破坏神",
@@ -16190,6 +18163,37 @@
       "icon_id": 20046,
       "skill_category": 3
     },
+    "108601111": {
+      "name": "纯爱",
+      "rarity": 6,
+      "group_id": 10860111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "108601211": {
+      "name": "高岭之花的艳笑",
+      "rarity": 6,
+      "group_id": 10860121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
     "108701111": {
       "name": "必胜的加速步频",
       "rarity": 6,
@@ -16220,6 +18224,131 @@
       ],
       "icon_id": 20016,
       "skill_category": 2
+    },
+    "108801111": {
+      "name": "魔术：阴魂不散",
+      "rarity": 6,
+      "group_id": 10880111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "108801211": {
+      "name": "魔术：空手变牌",
+      "rarity": 6,
+      "group_id": 10880121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        203,
+        303,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
+    },
+    "108901111": {
+      "name": "伟大征途",
+      "rarity": 6,
+      "group_id": 10890111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        203,
+        302,
+        401,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "108901211": {
+      "name": "全力以赴",
+      "rarity": 6,
+      "group_id": 10890121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        303,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
+    "109101111": {
+      "name": "天赐小妹",
+      "rarity": 6,
+      "group_id": 10910111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        202,
+        203,
+        401,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "109101211": {
+      "name": "名人心态！",
+      "rarity": 6,
+      "group_id": 10910121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        103,
+        401,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "109301111": {
+      "name": "K.Speed",
+      "rarity": 6,
+      "group_id": 10930111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        201,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20016,
+      "skill_category": 3
+    },
+    "109301211": {
+      "name": "生命的火花",
+      "rarity": 6,
+      "group_id": 10930121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        102,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
     },
     "109801111": {
       "name": "小林好运来！",
@@ -16400,6 +18529,66 @@
       ],
       "icon_id": 20016,
       "skill_category": 2
+    },
+    "110701111": {
+      "name": "Breakaway Star",
+      "rarity": 6,
+      "group_id": 11070111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        101,
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "110701211": {
+      "name": "Smooth Sailing！",
+      "rarity": 6,
+      "group_id": 11070121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 4
+    },
+    "110801111": {
+      "name": "磨穿铁砚",
+      "rarity": 6,
+      "group_id": 11080111,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        302,
+        401
+      ],
+      "icon_id": 20016,
+      "skill_category": 2
+    },
+    "110801211": {
+      "name": "赫赫生辉",
+      "rarity": 6,
+      "group_id": 11080121,
+      "grade_value": 633,
+      "need_skill_point": 0,
+      "disable_singlemode": 1,
+      "tags": [
+        104,
+        203,
+        303,
+        401,
+        403
+      ],
+      "icon_id": 20046,
+      "skill_category": 3
     }
   },
   "races": [

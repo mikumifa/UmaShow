@@ -29,6 +29,12 @@
   "main": "./.erb/dll/main.bundle.dev.js",
   "scripts": {
     "proto:gen": "protoc --proto_path=umdb --python_out=python/proto --pyi_out=python/proto  --es_out=target=ts:src/umdb umdb/*.proto",
+    "update:assets": "uv run python/create_assets.py",
+    "update:database": "uv run python/create_db.py",
+    "update:auto-research-catalog": "uv run python/generate_auto_research_catalog.py",
+    "update:auto-research-race-assets": "uv run python/copy_auto_research_race_assets.py",
+    "check:permanent-skills": "uv run python/check_permanent_skill_alternatives.py",
+    "update:game": "npm run update:assets && npm run update:database && npm run update:auto-research-catalog && npm run update:auto-research-race-assets && npm run check:permanent-skills",
     "build": "concurrently \"npm run build:main\" \"npm run build:renderer\"",
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.main.prod.ts",

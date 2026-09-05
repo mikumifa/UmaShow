@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity,
   BarChart3,
   Bot,
   Check,
@@ -30,12 +29,6 @@ type AppShellInfo = {
 };
 
 const navigationItems = [
-  {
-    label: '概览',
-    path: '/',
-    icon: Activity,
-    matches: ['/'],
-  },
   {
     label: '比赛记录',
     path: '/races',
@@ -143,20 +136,25 @@ export default function AppMenuBar() {
   };
 
   return (
-    <header className="app-drag-region sticky top-0 z-[100] flex h-12 items-center border-b border-slate-200 bg-white/95 px-2 shadow-sm backdrop-blur-xl">
+    <header className="app-drag-region sticky top-0 z-[100] flex h-9 items-center border-b border-slate-200 bg-white/95 px-2 shadow-sm backdrop-blur-xl">
       <button
         type="button"
         onClick={() => navigate('/')}
-        className="app-no-drag mr-2 flex h-9 flex-none items-center gap-2 rounded-lg px-2 text-left hover:bg-slate-100"
-        title="UmaShow 概览"
+        aria-current={location.pathname === '/' ? 'page' : undefined}
+        className={`app-no-drag mr-2 flex h-7 flex-none items-center gap-1.5 rounded-md px-2 text-left transition-colors ${
+          location.pathname === '/'
+            ? 'bg-indigo-50 text-indigo-700'
+            : 'text-slate-800 hover:bg-slate-100'
+        }`}
+        title="UmaShow（概览）"
       >
         <AssetIcon
           path="icon.ico"
           alt="UmaShow"
-          className="h-7 w-7 rounded-md object-contain"
+          className="h-6 w-6 rounded object-contain"
           loading="eager"
         />
-        <span className="hidden text-sm font-bold tracking-tight text-slate-800 md:inline">
+        <span className="hidden text-xs font-bold tracking-tight md:inline">
           UmaShow
         </span>
       </button>
@@ -173,7 +171,7 @@ export default function AppMenuBar() {
               type="button"
               onClick={() => navigate(item.path)}
               aria-current={active ? 'page' : undefined}
-              className={`app-no-drag flex h-9 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium transition-colors xl:text-sm ${
+              className={`app-no-drag flex h-7 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium transition-colors ${
                 active
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -192,7 +190,7 @@ export default function AppMenuBar() {
           type="button"
           onClick={() => setMenuOpen((current) => !current)}
           aria-expanded={menuOpen}
-          className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors xl:text-sm ${
+          className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors ${
             menuOpen
               ? 'bg-slate-100 text-slate-900'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -266,7 +264,7 @@ export default function AppMenuBar() {
       </div>
 
       {info?.platform === 'win32' ? (
-        <div className="app-no-drag -mr-2 ml-1 flex h-12 flex-none items-stretch border-l border-slate-200">
+        <div className="app-no-drag -mr-2 ml-1 flex h-9 flex-none items-stretch border-l border-slate-200">
           <button
             type="button"
             onClick={() => window.electron.appShell.minimize()}

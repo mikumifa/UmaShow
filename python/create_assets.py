@@ -6,11 +6,14 @@ SOURCE_DIR = "D:\\Apps\\umas\\export\\Texture2D"
 CHARA_ICON_TARGET_DIR = "./assets/chr_icon"
 TRAINED_CHR_ICON_TARGET_DIR = "./assets/trained_chr_icon"
 SUPPORT_CARD_S_TARGET_DIR = "./assets/support_card_s"
+WEB_CHARA_ICON_TARGET_DIR = "./web-assets/icons/chara"
+WEB_TRAINING_CHARA_ICON_IDS = {"9043"}
 
 for target_dir in (
     CHARA_ICON_TARGET_DIR,
     TRAINED_CHR_ICON_TARGET_DIR,
     SUPPORT_CARD_S_TARGET_DIR,
+    WEB_CHARA_ICON_TARGET_DIR,
 ):
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
@@ -30,6 +33,10 @@ for filename in os.listdir(SOURCE_DIR):
         dst_path = os.path.join(CHARA_ICON_TARGET_DIR, "{}.png".format(chara_id))
         shutil.copy2(src_path, dst_path)
         print("Copied chara icon: {} -> {}.png".format(filename, chara_id))
+        if chara_id in WEB_TRAINING_CHARA_ICON_IDS:
+            web_dst_path = os.path.join(WEB_CHARA_ICON_TARGET_DIR, filename)
+            shutil.copy2(src_path, web_dst_path)
+            print("Copied web training icon: {} -> {}".format(filename, web_dst_path))
         continue
 
     trained_chara_icon_match = trained_chara_icon_pattern.match(filename)

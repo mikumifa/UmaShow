@@ -77,12 +77,14 @@ export function TrainingEventsSection({
   warningNoteTypes,
   liveSpecialtyRateBonus,
   onTrainingHoverChange,
+  compact = false,
 }: {
   charInfo: CharInfo;
   currentNoteStat?: CharInfo['noteStat'];
   warningNoteTypes?: NoteType[];
   liveSpecialtyRateBonus?: number;
   onTrainingHoverChange?: (commandId: number | null) => void;
+  compact?: boolean;
 }) {
   const eventDetailRows = (charInfo.gameEvents ?? [])
     .map((event) => {
@@ -112,8 +114,12 @@ export function TrainingEventsSection({
 
   return (
     <>
-      <section className="mt-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+      <section className={compact ? 'mt-0' : 'mt-4'}>
+        <div
+          className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 ${
+            compact ? 'gap-2' : 'gap-4'
+          }`}
+        >
           {charInfo.commands
             .filter((cmd) => {
               return (

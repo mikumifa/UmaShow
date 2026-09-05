@@ -8,12 +8,16 @@ import GameStartScreen from 'renderer/components/GameStartScreen';
 import { loadUMDB } from 'renderer/utils/umdb';
 import IdolCupPanel from 'renderer/components/scenarios/idolCup/IdolCupPanel';
 import VenusCupPanel from 'renderer/components/scenarios/venusCup/VenusCupPanel';
+import ArcPanel from 'renderer/components/scenarios/arc/ArcPanel';
 
 const renderScenarioPanel = (charInfo: CharInfo) => {
   switch (charInfo.scenarioType) {
     case 'venusCup':
       return <VenusCupPanel charInfo={charInfo} />;
     case 'idolCup':
+      return <IdolCupPanel charInfo={charInfo} />;
+    case 'arc':
+      return <ArcPanel charInfo={charInfo} />;
     case 'unknown':
     default:
       return <IdolCupPanel charInfo={charInfo} />;

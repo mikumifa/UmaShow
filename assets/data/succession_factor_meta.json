@@ -220,7 +220,7 @@
     "groupId": 100202,
     "stars": 1,
     "factorType": 3,
-    "name": "向着水平线的彼方",
+    "name": "向着水平线的彼端",
     "skillGroupIds": [
       91002
     ],
@@ -238,7 +238,7 @@
     "groupId": 100202,
     "stars": 2,
     "factorType": 3,
-    "name": "向着水平线的彼方",
+    "name": "向着水平线的彼端",
     "skillGroupIds": [
       91002
     ],
@@ -256,7 +256,7 @@
     "groupId": 100202,
     "stars": 3,
     "factorType": 3,
-    "name": "向着水平线的彼方",
+    "name": "向着水平线的彼端",
     "skillGroupIds": [
       91002
     ],
@@ -372,6 +372,60 @@
       {
         "groupId": 91003,
         "name": "绝对是我赢",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10030301": {
+    "id": 10030301,
+    "groupId": 100303,
+    "stars": 1,
+    "factorType": 3,
+    "name": "歌舞升平，妙趣横生",
+    "skillGroupIds": [
+      92003
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92003,
+        "name": "歌舞升平，妙趣横生",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10030302": {
+    "id": 10030302,
+    "groupId": 100303,
+    "stars": 2,
+    "factorType": 3,
+    "name": "歌舞升平，妙趣横生",
+    "skillGroupIds": [
+      92003
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92003,
+        "name": "歌舞升平，妙趣横生",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10030303": {
+    "id": 10030303,
+    "groupId": 100303,
+    "stars": 3,
+    "factorType": 3,
+    "name": "歌舞升平，妙趣横生",
+    "skillGroupIds": [
+      92003
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92003,
+        "name": "歌舞升平，妙趣横生",
         "iconId": 20011,
         "level": 2
       }
@@ -1354,7 +1408,7 @@
     "groupId": 101202,
     "stars": 1,
     "factorType": 3,
-    "name": "超大份！同心一口！",
+    "name": "超大份！咬下第一口！",
     "skillGroupIds": [
       91012
     ],
@@ -1372,7 +1426,7 @@
     "groupId": 101202,
     "stars": 2,
     "factorType": 3,
-    "name": "超大份！同心一口！",
+    "name": "超大份！咬下第一口！",
     "skillGroupIds": [
       91012
     ],
@@ -1390,7 +1444,7 @@
     "groupId": 101202,
     "stars": 3,
     "factorType": 3,
-    "name": "超大份！同心一口！",
+    "name": "超大份！咬下第一口！",
     "skillGroupIds": [
       91012
     ],
@@ -2807,6 +2861,60 @@
       }
     ]
   },
+  "10250201": {
+    "id": 10250201,
+    "groupId": 102502,
+    "stars": 1,
+    "factorType": 3,
+    "name": "诚挚的喵心款待",
+    "skillGroupIds": [
+      91025
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91025,
+        "name": "诚挚的喵心款待",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10250202": {
+    "id": 10250202,
+    "groupId": 102502,
+    "stars": 2,
+    "factorType": 3,
+    "name": "诚挚的喵心款待",
+    "skillGroupIds": [
+      91025
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91025,
+        "name": "诚挚的喵心款待",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10250203": {
+    "id": 10250203,
+    "groupId": 102502,
+    "stars": 3,
+    "factorType": 3,
+    "name": "诚挚的喵心款待",
+    "skillGroupIds": [
+      91025
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91025,
+        "name": "诚挚的喵心款待",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10260101": {
     "id": 10260101,
     "groupId": 102601,
@@ -3131,6 +3239,60 @@
       }
     ]
   },
+  "10290201": {
+    "id": 10290201,
+    "groupId": 102902,
+    "stars": 1,
+    "factorType": 3,
+    "name": "请您多多品尝嘞！",
+    "skillGroupIds": [
+      91029
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91029,
+        "name": "请您多多品尝嘞！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10290202": {
+    "id": 10290202,
+    "groupId": 102902,
+    "stars": 2,
+    "factorType": 3,
+    "name": "请您多多品尝嘞！",
+    "skillGroupIds": [
+      91029
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91029,
+        "name": "请您多多品尝嘞！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10290203": {
+    "id": 10290203,
+    "groupId": 102902,
+    "stars": 3,
+    "factorType": 3,
+    "name": "请您多多品尝嘞！",
+    "skillGroupIds": [
+      91029
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91029,
+        "name": "请您多多品尝嘞！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10300101": {
     "id": 10300101,
     "groupId": 103001,
@@ -3406,7 +3568,7 @@
     "groupId": 103202,
     "stars": 1,
     "factorType": 3,
-    "name": "夏日眩光",
+    "name": "夏日光晕",
     "skillGroupIds": [
       91032
     ],
@@ -3424,7 +3586,7 @@
     "groupId": 103202,
     "stars": 2,
     "factorType": 3,
-    "name": "夏日眩光",
+    "name": "夏日光晕",
     "skillGroupIds": [
       91032
     ],
@@ -3442,7 +3604,7 @@
     "groupId": 103202,
     "stars": 3,
     "factorType": 3,
-    "name": "夏日眩光",
+    "name": "夏日光晕",
     "skillGroupIds": [
       91032
     ],
@@ -3779,6 +3941,60 @@
       }
     ]
   },
+  "10360201": {
+    "id": 10360201,
+    "groupId": 103602,
+    "stars": 1,
+    "factorType": 3,
+    "name": "found you…",
+    "skillGroupIds": [
+      91036
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91036,
+        "name": "found you…",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10360202": {
+    "id": 10360202,
+    "groupId": 103602,
+    "stars": 2,
+    "factorType": 3,
+    "name": "found you…",
+    "skillGroupIds": [
+      91036
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91036,
+        "name": "found you…",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10360203": {
+    "id": 10360203,
+    "groupId": 103602,
+    "stars": 3,
+    "factorType": 3,
+    "name": "found you…",
+    "skillGroupIds": [
+      91036
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91036,
+        "name": "found you…",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10370101": {
     "id": 10370101,
     "groupId": 103701,
@@ -4044,6 +4260,60 @@
       {
         "groupId": 90039,
         "name": "身为公主，亲手拿下胜利",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10390201": {
+    "id": 10390201,
+    "groupId": 103902,
+    "stars": 1,
+    "factorType": 3,
+    "name": "豪迈大力",
+    "skillGroupIds": [
+      91039
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91039,
+        "name": "豪迈大力",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10390202": {
+    "id": 10390202,
+    "groupId": 103902,
+    "stars": 2,
+    "factorType": 3,
+    "name": "豪迈大力",
+    "skillGroupIds": [
+      91039
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91039,
+        "name": "豪迈大力",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10390203": {
+    "id": 10390203,
+    "groupId": 103902,
+    "stars": 3,
+    "factorType": 3,
+    "name": "豪迈大力",
+    "skillGroupIds": [
+      91039
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91039,
+        "name": "豪迈大力",
         "iconId": 20011,
         "level": 2
       }
@@ -5291,6 +5561,60 @@
       }
     ]
   },
+  "10540101": {
+    "id": 10540101,
+    "groupId": 105401,
+    "stars": 1,
+    "factorType": 3,
+    "name": "疾风猛冲飞驹冲刺！",
+    "skillGroupIds": [
+      90054
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90054,
+        "name": "疾风猛冲飞驹冲刺！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10540102": {
+    "id": 10540102,
+    "groupId": 105401,
+    "stars": 2,
+    "factorType": 3,
+    "name": "疾风猛冲飞驹冲刺！",
+    "skillGroupIds": [
+      90054
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90054,
+        "name": "疾风猛冲飞驹冲刺！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10540103": {
+    "id": 10540103,
+    "groupId": 105401,
+    "stars": 3,
+    "factorType": 3,
+    "name": "疾风猛冲飞驹冲刺！",
+    "skillGroupIds": [
+      90054
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90054,
+        "name": "疾风猛冲飞驹冲刺！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10550101": {
     "id": 10550101,
     "groupId": 105501,
@@ -5831,6 +6155,60 @@
       }
     ]
   },
+  "10600301": {
+    "id": 10600301,
+    "groupId": 106003,
+    "stars": 1,
+    "factorType": 3,
+    "name": "软糯Q弹·晴空万里",
+    "skillGroupIds": [
+      92060
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92060,
+        "name": "软糯Q弹·晴空万里",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10600302": {
+    "id": 10600302,
+    "groupId": 106003,
+    "stars": 2,
+    "factorType": 3,
+    "name": "软糯Q弹·晴空万里",
+    "skillGroupIds": [
+      92060
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92060,
+        "name": "软糯Q弹·晴空万里",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10600303": {
+    "id": 10600303,
+    "groupId": 106003,
+    "stars": 3,
+    "factorType": 3,
+    "name": "软糯Q弹·晴空万里",
+    "skillGroupIds": [
+      92060
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92060,
+        "name": "软糯Q弹·晴空万里",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10610101": {
     "id": 10610101,
     "groupId": 106101,
@@ -6047,6 +6425,60 @@
       }
     ]
   },
+  "10630101": {
+    "id": 10630101,
+    "groupId": 106301,
+    "stars": 1,
+    "factorType": 3,
+    "name": "百炼成钢",
+    "skillGroupIds": [
+      90063
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90063,
+        "name": "百炼成钢",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10630102": {
+    "id": 10630102,
+    "groupId": 106301,
+    "stars": 2,
+    "factorType": 3,
+    "name": "百炼成钢",
+    "skillGroupIds": [
+      90063
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90063,
+        "name": "百炼成钢",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10630103": {
+    "id": 10630103,
+    "groupId": 106301,
+    "stars": 3,
+    "factorType": 3,
+    "name": "百炼成钢",
+    "skillGroupIds": [
+      90063
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90063,
+        "name": "百炼成钢",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10640101": {
     "id": 10640101,
     "groupId": 106401,
@@ -6097,6 +6529,60 @@
         "groupId": 90064,
         "name": "绝尘之路",
         "iconId": 20021,
+        "level": 2
+      }
+    ]
+  },
+  "10640201": {
+    "id": 10640201,
+    "groupId": 106402,
+    "stars": 1,
+    "factorType": 3,
+    "name": "jingle all the way",
+    "skillGroupIds": [
+      91064
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91064,
+        "name": "jingle all the way",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10640202": {
+    "id": 10640202,
+    "groupId": 106402,
+    "stars": 2,
+    "factorType": 3,
+    "name": "jingle all the way",
+    "skillGroupIds": [
+      91064
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91064,
+        "name": "jingle all the way",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10640203": {
+    "id": 10640203,
+    "groupId": 106402,
+    "stars": 3,
+    "factorType": 3,
+    "name": "jingle all the way",
+    "skillGroupIds": [
+      91064
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91064,
+        "name": "jingle all the way",
+        "iconId": 20011,
         "level": 2
       }
     ]
@@ -6317,6 +6803,60 @@
       }
     ]
   },
+  "10670301": {
+    "id": 10670301,
+    "groupId": 106703,
+    "stars": 1,
+    "factorType": 3,
+    "name": "钻石锋芒",
+    "skillGroupIds": [
+      92067
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92067,
+        "name": "钻石锋芒",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10670302": {
+    "id": 10670302,
+    "groupId": 106703,
+    "stars": 2,
+    "factorType": 3,
+    "name": "钻石锋芒",
+    "skillGroupIds": [
+      92067
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92067,
+        "name": "钻石锋芒",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10670303": {
+    "id": 10670303,
+    "groupId": 106703,
+    "stars": 3,
+    "factorType": 3,
+    "name": "钻石锋芒",
+    "skillGroupIds": [
+      92067
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92067,
+        "name": "钻石锋芒",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10680101": {
     "id": 10680101,
     "groupId": 106801,
@@ -6420,6 +6960,60 @@
       {
         "groupId": 91068,
         "name": "正月福运大放送！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10680301": {
+    "id": 10680301,
+    "groupId": 106803,
+    "stars": 1,
+    "factorType": 3,
+    "name": "我要成为万众之爱！",
+    "skillGroupIds": [
+      92068
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92068,
+        "name": "我要成为万众之爱！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10680302": {
+    "id": 10680302,
+    "groupId": 106803,
+    "stars": 2,
+    "factorType": 3,
+    "name": "我要成为万众之爱！",
+    "skillGroupIds": [
+      92068
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92068,
+        "name": "我要成为万众之爱！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10680303": {
+    "id": 10680303,
+    "groupId": 106803,
+    "stars": 3,
+    "factorType": 3,
+    "name": "我要成为万众之爱！",
+    "skillGroupIds": [
+      92068
+    ],
+    "skillTargets": [
+      {
+        "groupId": 92068,
+        "name": "我要成为万众之爱！",
         "iconId": 20011,
         "level": 2
       }
@@ -6803,12 +7397,66 @@
       }
     ]
   },
+  "10740201": {
+    "id": 10740201,
+    "groupId": 107402,
+    "stars": 1,
+    "factorType": 3,
+    "name": "Illuminate you",
+    "skillGroupIds": [
+      91074
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91074,
+        "name": "Illuminate you",
+        "iconId": 20021,
+        "level": 2
+      }
+    ]
+  },
+  "10740202": {
+    "id": 10740202,
+    "groupId": 107402,
+    "stars": 2,
+    "factorType": 3,
+    "name": "Illuminate you",
+    "skillGroupIds": [
+      91074
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91074,
+        "name": "Illuminate you",
+        "iconId": 20021,
+        "level": 2
+      }
+    ]
+  },
+  "10740203": {
+    "id": 10740203,
+    "groupId": 107402,
+    "stars": 3,
+    "factorType": 3,
+    "name": "Illuminate you",
+    "skillGroupIds": [
+      91074
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91074,
+        "name": "Illuminate you",
+        "iconId": 20021,
+        "level": 2
+      }
+    ]
+  },
   "10760101": {
     "id": 10760101,
     "groupId": 107601,
     "stars": 1,
     "factorType": 3,
-    "name": "花绽世界",
+    "name": "花开，世界",
     "skillGroupIds": [
       90076
     ],
@@ -6826,7 +7474,7 @@
     "groupId": 107601,
     "stars": 2,
     "factorType": 3,
-    "name": "花绽世界",
+    "name": "花开，世界",
     "skillGroupIds": [
       90076
     ],
@@ -6844,7 +7492,7 @@
     "groupId": 107601,
     "stars": 3,
     "factorType": 3,
-    "name": "花绽世界",
+    "name": "花开，世界",
     "skillGroupIds": [
       90076
     ],
@@ -7019,12 +7667,66 @@
       }
     ]
   },
+  "10830201": {
+    "id": 10830201,
+    "groupId": 108302,
+    "stars": 1,
+    "factorType": 3,
+    "name": "Immortal Work",
+    "skillGroupIds": [
+      91083
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91083,
+        "name": "Immortal Work",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10830202": {
+    "id": 10830202,
+    "groupId": 108302,
+    "stars": 2,
+    "factorType": 3,
+    "name": "Immortal Work",
+    "skillGroupIds": [
+      91083
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91083,
+        "name": "Immortal Work",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10830203": {
+    "id": 10830203,
+    "groupId": 108302,
+    "stars": 3,
+    "factorType": 3,
+    "name": "Immortal Work",
+    "skillGroupIds": [
+      91083
+    ],
+    "skillTargets": [
+      {
+        "groupId": 91083,
+        "name": "Immortal Work",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10840101": {
     "id": 10840101,
     "groupId": 108401,
     "stars": 1,
     "factorType": 3,
-    "name": "霹雳中的奥伏赫变",
+    "name": "霹雳扬弃",
     "skillGroupIds": [
       90084
     ],
@@ -7042,7 +7744,7 @@
     "groupId": 108401,
     "stars": 2,
     "factorType": 3,
-    "name": "霹雳中的奥伏赫变",
+    "name": "霹雳扬弃",
     "skillGroupIds": [
       90084
     ],
@@ -7060,7 +7762,7 @@
     "groupId": 108401,
     "stars": 3,
     "factorType": 3,
-    "name": "霹雳中的奥伏赫变",
+    "name": "霹雳扬弃",
     "skillGroupIds": [
       90084
     ],
@@ -7127,6 +7829,60 @@
       }
     ]
   },
+  "10860101": {
+    "id": 10860101,
+    "groupId": 108601,
+    "stars": 1,
+    "factorType": 3,
+    "name": "与爱相融吧",
+    "skillGroupIds": [
+      90086
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90086,
+        "name": "与爱相融吧",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10860102": {
+    "id": 10860102,
+    "groupId": 108601,
+    "stars": 2,
+    "factorType": 3,
+    "name": "与爱相融吧",
+    "skillGroupIds": [
+      90086
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90086,
+        "name": "与爱相融吧",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10860103": {
+    "id": 10860103,
+    "groupId": 108601,
+    "stars": 3,
+    "factorType": 3,
+    "name": "与爱相融吧",
+    "skillGroupIds": [
+      90086
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90086,
+        "name": "与爱相融吧",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
   "10870101": {
     "id": 10870101,
     "groupId": 108701,
@@ -7176,6 +7932,222 @@
       {
         "groupId": 90087,
         "name": "Silent letter",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10880101": {
+    "id": 10880101,
+    "groupId": 108801,
+    "stars": 1,
+    "factorType": 3,
+    "name": "Reversal Illusion",
+    "skillGroupIds": [
+      90088
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90088,
+        "name": "Reversal Illusion",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10880102": {
+    "id": 10880102,
+    "groupId": 108801,
+    "stars": 2,
+    "factorType": 3,
+    "name": "Reversal Illusion",
+    "skillGroupIds": [
+      90088
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90088,
+        "name": "Reversal Illusion",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10880103": {
+    "id": 10880103,
+    "groupId": 108801,
+    "stars": 3,
+    "factorType": 3,
+    "name": "Reversal Illusion",
+    "skillGroupIds": [
+      90088
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90088,
+        "name": "Reversal Illusion",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10890101": {
+    "id": 10890101,
+    "groupId": 108901,
+    "stars": 1,
+    "factorType": 3,
+    "name": "Celeste Oath",
+    "skillGroupIds": [
+      90089
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90089,
+        "name": "Celeste Oath",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10890102": {
+    "id": 10890102,
+    "groupId": 108901,
+    "stars": 2,
+    "factorType": 3,
+    "name": "Celeste Oath",
+    "skillGroupIds": [
+      90089
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90089,
+        "name": "Celeste Oath",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10890103": {
+    "id": 10890103,
+    "groupId": 108901,
+    "stars": 3,
+    "factorType": 3,
+    "name": "Celeste Oath",
+    "skillGroupIds": [
+      90089
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90089,
+        "name": "Celeste Oath",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10910101": {
+    "id": 10910101,
+    "groupId": 109101,
+    "stars": 1,
+    "factorType": 3,
+    "name": "绚丽☆喷泉",
+    "skillGroupIds": [
+      90091
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90091,
+        "name": "绚丽☆喷泉",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10910102": {
+    "id": 10910102,
+    "groupId": 109101,
+    "stars": 2,
+    "factorType": 3,
+    "name": "绚丽☆喷泉",
+    "skillGroupIds": [
+      90091
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90091,
+        "name": "绚丽☆喷泉",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10910103": {
+    "id": 10910103,
+    "groupId": 109101,
+    "stars": 3,
+    "factorType": 3,
+    "name": "绚丽☆喷泉",
+    "skillGroupIds": [
+      90091
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90091,
+        "name": "绚丽☆喷泉",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10930101": {
+    "id": 10930101,
+    "groupId": 109301,
+    "stars": 1,
+    "factorType": 3,
+    "name": "幸福的蓝色光芒",
+    "skillGroupIds": [
+      90093
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90093,
+        "name": "幸福的蓝色光芒",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10930102": {
+    "id": 10930102,
+    "groupId": 109301,
+    "stars": 2,
+    "factorType": 3,
+    "name": "幸福的蓝色光芒",
+    "skillGroupIds": [
+      90093
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90093,
+        "name": "幸福的蓝色光芒",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "10930103": {
+    "id": 10930103,
+    "groupId": 109301,
+    "stars": 3,
+    "factorType": 3,
+    "name": "幸福的蓝色光芒",
+    "skillGroupIds": [
+      90093
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90093,
+        "name": "幸福的蓝色光芒",
         "iconId": 20011,
         "level": 2
       }
@@ -7456,7 +8428,7 @@
     "groupId": 110601,
     "stars": 1,
     "factorType": 3,
-    "name": "Bang☆奇迹狂喜！",
+    "name": "Bang☆意外奇迹！",
     "skillGroupIds": [
       90106
     ],
@@ -7474,7 +8446,7 @@
     "groupId": 110601,
     "stars": 2,
     "factorType": 3,
-    "name": "Bang☆奇迹狂喜！",
+    "name": "Bang☆意外奇迹！",
     "skillGroupIds": [
       90106
     ],
@@ -7492,7 +8464,7 @@
     "groupId": 110601,
     "stars": 3,
     "factorType": 3,
-    "name": "Bang☆奇迹狂喜！",
+    "name": "Bang☆意外奇迹！",
     "skillGroupIds": [
       90106
     ],
@@ -7500,6 +8472,114 @@
       {
         "groupId": 90106,
         "name": "Bang☆意外奇迹！",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11070101": {
+    "id": 11070101,
+    "groupId": 110701,
+    "stars": 1,
+    "factorType": 3,
+    "name": "Billions of stars",
+    "skillGroupIds": [
+      90107
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90107,
+        "name": "Billions of stars",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11070102": {
+    "id": 11070102,
+    "groupId": 110701,
+    "stars": 2,
+    "factorType": 3,
+    "name": "Billions of stars",
+    "skillGroupIds": [
+      90107
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90107,
+        "name": "Billions of stars",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11070103": {
+    "id": 11070103,
+    "groupId": 110701,
+    "stars": 3,
+    "factorType": 3,
+    "name": "Billions of stars",
+    "skillGroupIds": [
+      90107
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90107,
+        "name": "Billions of stars",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11080101": {
+    "id": 11080101,
+    "groupId": 110801,
+    "stars": 1,
+    "factorType": 3,
+    "name": "罗刹，举赤翼以摩苍穹",
+    "skillGroupIds": [
+      90108
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90108,
+        "name": "罗刹，举赤翼以摩苍穹",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11080102": {
+    "id": 11080102,
+    "groupId": 110801,
+    "stars": 2,
+    "factorType": 3,
+    "name": "罗刹，举赤翼以摩苍穹",
+    "skillGroupIds": [
+      90108
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90108,
+        "name": "罗刹，举赤翼以摩苍穹",
+        "iconId": 20011,
+        "level": 2
+      }
+    ]
+  },
+  "11080103": {
+    "id": 11080103,
+    "groupId": 110801,
+    "stars": 3,
+    "factorType": 3,
+    "name": "罗刹，举赤翼以摩苍穹",
+    "skillGroupIds": [
+      90108
+    ],
+    "skillTargets": [
+      {
+        "groupId": 90108,
+        "name": "罗刹，举赤翼以摩苍穹",
         "iconId": 20011,
         "level": 2
       }
@@ -18958,7 +20038,7 @@
     "groupId": 20253,
     "stars": 1,
     "factorType": 4,
-    "name": "优雅的步伐",
+    "name": "优雅步伐",
     "skillGroupIds": [
       20253
     ],
@@ -18976,7 +20056,7 @@
     "groupId": 20253,
     "stars": 2,
     "factorType": 4,
-    "name": "优雅的步伐",
+    "name": "优雅步伐",
     "skillGroupIds": [
       20253
     ],
@@ -18994,7 +20074,7 @@
     "groupId": 20253,
     "stars": 3,
     "factorType": 4,
-    "name": "优雅的步伐",
+    "name": "优雅步伐",
     "skillGroupIds": [
       20253
     ],
@@ -19660,7 +20740,7 @@
     "groupId": 20268,
     "stars": 1,
     "factorType": 4,
-    "name": "愈发兴奋",
+    "name": "情绪提升",
     "skillGroupIds": [
       20268
     ],
@@ -19678,7 +20758,7 @@
     "groupId": 20268,
     "stars": 2,
     "factorType": 4,
-    "name": "愈发兴奋",
+    "name": "情绪提升",
     "skillGroupIds": [
       20268
     ],
@@ -19696,7 +20776,7 @@
     "groupId": 20268,
     "stars": 3,
     "factorType": 4,
-    "name": "愈发兴奋",
+    "name": "情绪提升",
     "skillGroupIds": [
       20268
     ],
@@ -19768,7 +20848,7 @@
     "groupId": 20270,
     "stars": 1,
     "factorType": 4,
-    "name": "求知心",
+    "name": "探求心",
     "skillGroupIds": [
       20270
     ],
@@ -19786,7 +20866,7 @@
     "groupId": 20270,
     "stars": 2,
     "factorType": 4,
-    "name": "求知心",
+    "name": "探求心",
     "skillGroupIds": [
       20270
     ],
@@ -19804,7 +20884,7 @@
     "groupId": 20270,
     "stars": 3,
     "factorType": 4,
-    "name": "求知心",
+    "name": "探求心",
     "skillGroupIds": [
       20270
     ],
@@ -19876,7 +20956,7 @@
     "groupId": 20272,
     "stars": 1,
     "factorType": 4,
-    "name": "不屈之心",
+    "name": "坚定之心",
     "skillGroupIds": [
       20272
     ],
@@ -19894,7 +20974,7 @@
     "groupId": 20272,
     "stars": 2,
     "factorType": 4,
-    "name": "不屈之心",
+    "name": "坚定之心",
     "skillGroupIds": [
       20272
     ],
@@ -19912,7 +20992,7 @@
     "groupId": 20272,
     "stars": 3,
     "factorType": 4,
-    "name": "不屈之心",
+    "name": "坚定之心",
     "skillGroupIds": [
       20272
     ],
@@ -19975,6 +21055,1086 @@
         "groupId": 20273,
         "name": "隆尚赛场○",
         "iconId": 10021,
+        "level": 1
+      }
+    ]
+  },
+  "2027401": {
+    "id": 2027401,
+    "groupId": 20274,
+    "stars": 1,
+    "factorType": 4,
+    "name": "品行方正",
+    "skillGroupIds": [
+      20274
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20274,
+        "name": "品行方正",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027402": {
+    "id": 2027402,
+    "groupId": 20274,
+    "stars": 2,
+    "factorType": 4,
+    "name": "品行方正",
+    "skillGroupIds": [
+      20274
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20274,
+        "name": "品行方正",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027403": {
+    "id": 2027403,
+    "groupId": 20274,
+    "stars": 3,
+    "factorType": 4,
+    "name": "品行方正",
+    "skillGroupIds": [
+      20274
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20274,
+        "name": "品行方正",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027501": {
+    "id": 2027501,
+    "groupId": 20275,
+    "stars": 1,
+    "factorType": 4,
+    "name": "一心向前",
+    "skillGroupIds": [
+      20275
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20275,
+        "name": "一心向前",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027502": {
+    "id": 2027502,
+    "groupId": 20275,
+    "stars": 2,
+    "factorType": 4,
+    "name": "一心向前",
+    "skillGroupIds": [
+      20275
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20275,
+        "name": "一心向前",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027503": {
+    "id": 2027503,
+    "groupId": 20275,
+    "stars": 3,
+    "factorType": 4,
+    "name": "一心向前",
+    "skillGroupIds": [
+      20275
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20275,
+        "name": "一心向前",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027601": {
+    "id": 2027601,
+    "groupId": 20276,
+    "stars": 1,
+    "factorType": 4,
+    "name": "迈向胜利",
+    "skillGroupIds": [
+      20276
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20276,
+        "name": "迈向胜利",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027602": {
+    "id": 2027602,
+    "groupId": 20276,
+    "stars": 2,
+    "factorType": 4,
+    "name": "迈向胜利",
+    "skillGroupIds": [
+      20276
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20276,
+        "name": "迈向胜利",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027603": {
+    "id": 2027603,
+    "groupId": 20276,
+    "stars": 3,
+    "factorType": 4,
+    "name": "迈向胜利",
+    "skillGroupIds": [
+      20276
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20276,
+        "name": "迈向胜利",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027701": {
+    "id": 2027701,
+    "groupId": 20277,
+    "stars": 1,
+    "factorType": 4,
+    "name": "锁定目标",
+    "skillGroupIds": [
+      20277
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20277,
+        "name": "锁定目标",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2027702": {
+    "id": 2027702,
+    "groupId": 20277,
+    "stars": 2,
+    "factorType": 4,
+    "name": "锁定目标",
+    "skillGroupIds": [
+      20277
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20277,
+        "name": "锁定目标",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2027703": {
+    "id": 2027703,
+    "groupId": 20277,
+    "stars": 3,
+    "factorType": 4,
+    "name": "锁定目标",
+    "skillGroupIds": [
+      20277
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20277,
+        "name": "锁定目标",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2027901": {
+    "id": 2027901,
+    "groupId": 20279,
+    "stars": 1,
+    "factorType": 4,
+    "name": "中期能手",
+    "skillGroupIds": [
+      20279
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20279,
+        "name": "中期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027902": {
+    "id": 2027902,
+    "groupId": 20279,
+    "stars": 2,
+    "factorType": 4,
+    "name": "中期能手",
+    "skillGroupIds": [
+      20279
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20279,
+        "name": "中期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2027903": {
+    "id": 2027903,
+    "groupId": 20279,
+    "stars": 3,
+    "factorType": 4,
+    "name": "中期能手",
+    "skillGroupIds": [
+      20279
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20279,
+        "name": "中期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028001": {
+    "id": 2028001,
+    "groupId": 20280,
+    "stars": 1,
+    "factorType": 4,
+    "name": "初期能手",
+    "skillGroupIds": [
+      20280
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20280,
+        "name": "初期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028002": {
+    "id": 2028002,
+    "groupId": 20280,
+    "stars": 2,
+    "factorType": 4,
+    "name": "初期能手",
+    "skillGroupIds": [
+      20280
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20280,
+        "name": "初期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028003": {
+    "id": 2028003,
+    "groupId": 20280,
+    "stars": 3,
+    "factorType": 4,
+    "name": "初期能手",
+    "skillGroupIds": [
+      20280
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20280,
+        "name": "初期能手",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028101": {
+    "id": 2028101,
+    "groupId": 20281,
+    "stars": 1,
+    "factorType": 4,
+    "name": "尾声将至",
+    "skillGroupIds": [
+      20281
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20281,
+        "name": "尾声将至",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028102": {
+    "id": 2028102,
+    "groupId": 20281,
+    "stars": 2,
+    "factorType": 4,
+    "name": "尾声将至",
+    "skillGroupIds": [
+      20281
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20281,
+        "name": "尾声将至",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028103": {
+    "id": 2028103,
+    "groupId": 20281,
+    "stars": 3,
+    "factorType": 4,
+    "name": "尾声将至",
+    "skillGroupIds": [
+      20281
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20281,
+        "name": "尾声将至",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028201": {
+    "id": 2028201,
+    "groupId": 20282,
+    "stars": 1,
+    "factorType": 4,
+    "name": "毫不迷茫",
+    "skillGroupIds": [
+      20282
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20282,
+        "name": "毫不迷茫",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028202": {
+    "id": 2028202,
+    "groupId": 20282,
+    "stars": 2,
+    "factorType": 4,
+    "name": "毫不迷茫",
+    "skillGroupIds": [
+      20282
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20282,
+        "name": "毫不迷茫",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028203": {
+    "id": 2028203,
+    "groupId": 20282,
+    "stars": 3,
+    "factorType": 4,
+    "name": "毫不迷茫",
+    "skillGroupIds": [
+      20282
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20282,
+        "name": "毫不迷茫",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028301": {
+    "id": 2028301,
+    "groupId": 20283,
+    "stars": 1,
+    "factorType": 4,
+    "name": "两手准备",
+    "skillGroupIds": [
+      20283
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20283,
+        "name": "两手准备",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028302": {
+    "id": 2028302,
+    "groupId": 20283,
+    "stars": 2,
+    "factorType": 4,
+    "name": "两手准备",
+    "skillGroupIds": [
+      20283
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20283,
+        "name": "两手准备",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028303": {
+    "id": 2028303,
+    "groupId": 20283,
+    "stars": 3,
+    "factorType": 4,
+    "name": "两手准备",
+    "skillGroupIds": [
+      20283
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20283,
+        "name": "两手准备",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028401": {
+    "id": 2028401,
+    "groupId": 20284,
+    "stars": 1,
+    "factorType": 4,
+    "name": "拂去沙土",
+    "skillGroupIds": [
+      20284
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20284,
+        "name": "拂去沙土",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2028402": {
+    "id": 2028402,
+    "groupId": 20284,
+    "stars": 2,
+    "factorType": 4,
+    "name": "拂去沙土",
+    "skillGroupIds": [
+      20284
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20284,
+        "name": "拂去沙土",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2028403": {
+    "id": 2028403,
+    "groupId": 20284,
+    "stars": 3,
+    "factorType": 4,
+    "name": "拂去沙土",
+    "skillGroupIds": [
+      20284
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20284,
+        "name": "拂去沙土",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2028501": {
+    "id": 2028501,
+    "groupId": 20285,
+    "stars": 1,
+    "factorType": 4,
+    "name": "连续超越",
+    "skillGroupIds": [
+      20285
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20285,
+        "name": "连续超越",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028502": {
+    "id": 2028502,
+    "groupId": 20285,
+    "stars": 2,
+    "factorType": 4,
+    "name": "连续超越",
+    "skillGroupIds": [
+      20285
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20285,
+        "name": "连续超越",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028503": {
+    "id": 2028503,
+    "groupId": 20285,
+    "stars": 3,
+    "factorType": 4,
+    "name": "连续超越",
+    "skillGroupIds": [
+      20285
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20285,
+        "name": "连续超越",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028601": {
+    "id": 2028601,
+    "groupId": 20286,
+    "stars": 1,
+    "factorType": 4,
+    "name": "急速起步",
+    "skillGroupIds": [
+      20286
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20286,
+        "name": "急速起步",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028602": {
+    "id": 2028602,
+    "groupId": 20286,
+    "stars": 2,
+    "factorType": 4,
+    "name": "急速起步",
+    "skillGroupIds": [
+      20286
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20286,
+        "name": "急速起步",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028603": {
+    "id": 2028603,
+    "groupId": 20286,
+    "stars": 3,
+    "factorType": 4,
+    "name": "急速起步",
+    "skillGroupIds": [
+      20286
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20286,
+        "name": "急速起步",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028701": {
+    "id": 2028701,
+    "groupId": 20287,
+    "stars": 1,
+    "factorType": 4,
+    "name": "倾尽全力的步伐",
+    "skillGroupIds": [
+      20287
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20287,
+        "name": "倾尽全力的步伐",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028702": {
+    "id": 2028702,
+    "groupId": 20287,
+    "stars": 2,
+    "factorType": 4,
+    "name": "倾尽全力的步伐",
+    "skillGroupIds": [
+      20287
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20287,
+        "name": "倾尽全力的步伐",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028703": {
+    "id": 2028703,
+    "groupId": 20287,
+    "stars": 3,
+    "factorType": 4,
+    "name": "倾尽全力的步伐",
+    "skillGroupIds": [
+      20287
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20287,
+        "name": "倾尽全力的步伐",
+        "iconId": 20041,
+        "level": 1
+      }
+    ]
+  },
+  "2028801": {
+    "id": 2028801,
+    "groupId": 20288,
+    "stars": 1,
+    "factorType": 4,
+    "name": "热血沸腾",
+    "skillGroupIds": [
+      20288
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20288,
+        "name": "热血沸腾",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028802": {
+    "id": 2028802,
+    "groupId": 20288,
+    "stars": 2,
+    "factorType": 4,
+    "name": "热血沸腾",
+    "skillGroupIds": [
+      20288
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20288,
+        "name": "热血沸腾",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028803": {
+    "id": 2028803,
+    "groupId": 20288,
+    "stars": 3,
+    "factorType": 4,
+    "name": "热血沸腾",
+    "skillGroupIds": [
+      20288
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20288,
+        "name": "热血沸腾",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2028901": {
+    "id": 2028901,
+    "groupId": 20289,
+    "stars": 1,
+    "factorType": 4,
+    "name": "不动之心",
+    "skillGroupIds": [
+      20289
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20289,
+        "name": "不动之心",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2028902": {
+    "id": 2028902,
+    "groupId": 20289,
+    "stars": 2,
+    "factorType": 4,
+    "name": "不动之心",
+    "skillGroupIds": [
+      20289
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20289,
+        "name": "不动之心",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2028903": {
+    "id": 2028903,
+    "groupId": 20289,
+    "stars": 3,
+    "factorType": 4,
+    "name": "不动之心",
+    "skillGroupIds": [
+      20289
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20289,
+        "name": "不动之心",
+        "iconId": 20021,
+        "level": 1
+      }
+    ]
+  },
+  "2029001": {
+    "id": 2029001,
+    "groupId": 20290,
+    "stars": 1,
+    "factorType": 4,
+    "name": "动力十足",
+    "skillGroupIds": [
+      20290
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20290,
+        "name": "动力十足",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029002": {
+    "id": 2029002,
+    "groupId": 20290,
+    "stars": 2,
+    "factorType": 4,
+    "name": "动力十足",
+    "skillGroupIds": [
+      20290
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20290,
+        "name": "动力十足",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029003": {
+    "id": 2029003,
+    "groupId": 20290,
+    "stars": 3,
+    "factorType": 4,
+    "name": "动力十足",
+    "skillGroupIds": [
+      20290
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20290,
+        "name": "动力十足",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029101": {
+    "id": 2029101,
+    "groupId": 20291,
+    "stars": 1,
+    "factorType": 4,
+    "name": "瓦解敌势",
+    "skillGroupIds": [
+      20291
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20291,
+        "name": "瓦解敌势",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029102": {
+    "id": 2029102,
+    "groupId": 20291,
+    "stars": 2,
+    "factorType": 4,
+    "name": "瓦解敌势",
+    "skillGroupIds": [
+      20291
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20291,
+        "name": "瓦解敌势",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029103": {
+    "id": 2029103,
+    "groupId": 20291,
+    "stars": 3,
+    "factorType": 4,
+    "name": "瓦解敌势",
+    "skillGroupIds": [
+      20291
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20291,
+        "name": "瓦解敌势",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029201": {
+    "id": 2029201,
+    "groupId": 20292,
+    "stars": 1,
+    "factorType": 4,
+    "name": "毫无保留",
+    "skillGroupIds": [
+      20292
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20292,
+        "name": "毫无保留",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029202": {
+    "id": 2029202,
+    "groupId": 20292,
+    "stars": 2,
+    "factorType": 4,
+    "name": "毫无保留",
+    "skillGroupIds": [
+      20292
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20292,
+        "name": "毫无保留",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029203": {
+    "id": 2029203,
+    "groupId": 20292,
+    "stars": 3,
+    "factorType": 4,
+    "name": "毫无保留",
+    "skillGroupIds": [
+      20292
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20292,
+        "name": "毫无保留",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029301": {
+    "id": 2029301,
+    "groupId": 20293,
+    "stars": 1,
+    "factorType": 4,
+    "name": "踏影",
+    "skillGroupIds": [
+      20293
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20293,
+        "name": "踏影",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029302": {
+    "id": 2029302,
+    "groupId": 20293,
+    "stars": 2,
+    "factorType": 4,
+    "name": "踏影",
+    "skillGroupIds": [
+      20293
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20293,
+        "name": "踏影",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029303": {
+    "id": 2029303,
+    "groupId": 20293,
+    "stars": 3,
+    "factorType": 4,
+    "name": "踏影",
+    "skillGroupIds": [
+      20293
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20293,
+        "name": "踏影",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029401": {
+    "id": 2029401,
+    "groupId": 20294,
+    "stars": 1,
+    "factorType": 4,
+    "name": "鬼气逼人",
+    "skillGroupIds": [
+      20294
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20294,
+        "name": "鬼气逼人",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029402": {
+    "id": 2029402,
+    "groupId": 20294,
+    "stars": 2,
+    "factorType": 4,
+    "name": "鬼气逼人",
+    "skillGroupIds": [
+      20294
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20294,
+        "name": "鬼气逼人",
+        "iconId": 20011,
+        "level": 1
+      }
+    ]
+  },
+  "2029403": {
+    "id": 2029403,
+    "groupId": 20294,
+    "stars": 3,
+    "factorType": 4,
+    "name": "鬼气逼人",
+    "skillGroupIds": [
+      20294
+    ],
+    "skillTargets": [
+      {
+        "groupId": 20294,
+        "name": "鬼气逼人",
+        "iconId": 20011,
         "level": 1
       }
     ]
@@ -21541,6 +23701,78 @@
         "groupId": 21029,
         "name": "背负信念",
         "iconId": 20211,
+        "level": 1
+      }
+    ]
+  },
+  "2103001": {
+    "id": 2103001,
+    "groupId": 21030,
+    "stars": 1,
+    "factorType": 4,
+    "name": "燃烧之魂",
+    "skillGroupIds": [
+      21030
+    ],
+    "skillTargets": [
+      {
+        "groupId": 21030,
+        "name": "燃烧之魂",
+        "iconId": 20221,
+        "level": 1
+      }
+    ]
+  },
+  "2103002": {
+    "id": 2103002,
+    "groupId": 21030,
+    "stars": 2,
+    "factorType": 4,
+    "name": "燃烧之魂",
+    "skillGroupIds": [
+      21030
+    ],
+    "skillTargets": [
+      {
+        "groupId": 21030,
+        "name": "燃烧之魂",
+        "iconId": 20221,
+        "level": 1
+      }
+    ]
+  },
+  "2103003": {
+    "id": 2103003,
+    "groupId": 21030,
+    "stars": 3,
+    "factorType": 4,
+    "name": "燃烧之魂",
+    "skillGroupIds": [
+      21030
+    ],
+    "skillTargets": [
+      {
+        "groupId": 21030,
+        "name": "燃烧之魂",
+        "iconId": 20221,
+        "level": 1
+      }
+    ]
+  },
+  "3101403": {
+    "id": 3101403,
+    "groupId": 31014,
+    "stars": 3,
+    "factorType": 4,
+    "name": "运动员之魂",
+    "skillGroupIds": [
+      21031
+    ],
+    "skillTargets": [
+      {
+        "groupId": 21031,
+        "name": "运动员之魂",
+        "iconId": 20231,
         "level": 1
       }
     ]

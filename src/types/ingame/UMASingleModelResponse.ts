@@ -17,6 +17,7 @@ export interface Data {
   free_data_set: FreeDataSet;
   live_data_set?: LiveDataSet | null;
   venus_data_set?: Record<string, unknown> | null;
+  arc_data_set?: Record<string, unknown> | null;
   single_mode_load_common?: Partial<Data> | null;
 }
 export interface CommandResult {

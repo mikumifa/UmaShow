@@ -344,7 +344,7 @@ export default function PresetsTab(props: PresetsTabProps) {
     </section>
   ) : (
     <>
-      <nav className="sticky top-[100px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+      <nav className="sticky top-[88px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
         {[
           ['preset-basic', '基础设置'],
           ['preset-skills', '技能设置'],

@@ -36,10 +36,10 @@ export default function App() {
             -webkit-app-region: no-drag;
           }
           .app-route-content .min-h-screen {
-            min-height: calc(100vh - 3rem);
+            min-height: calc(100vh - 2.25rem);
           }
           .app-route-content .h-screen {
-            height: calc(100vh - 3rem);
+            height: calc(100vh - 2.25rem);
           }
         `}
       </style>

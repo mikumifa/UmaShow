@@ -8,6 +8,7 @@ import {
 } from 'constant/live/liveSchedule';
 import { BrowserWindow } from 'electron';
 import {
+  type ArcData,
   CharStats,
   type CharaEffect,
   GameStats,
@@ -40,6 +41,13 @@ const storyDetailInFlight = new Map<number, Promise<StoryDetail | null>>();
 const resolveScenarioType = (
   data: Record<string, unknown> | null | undefined,
 ): ScenarioType => {
+  if (
+    data?.arc_data_set != null ||
+    (data?.chara_info as { scenario_id?: number } | undefined)?.scenario_id ===
+      6
+  ) {
+    return 'arc';
+  }
   if (data?.venus_data_set != null) {
     return 'venusCup';
   }
@@ -47,6 +55,118 @@ const resolveScenarioType = (
     return 'idolCup';
   }
   return 'unknown';
+};
+
+const extractArcData = (
+  arcDataSet: Record<string, any> | null | undefined,
+): ArcData | undefined => {
+  if (!arcDataSet) {
+    return undefined;
+  }
+
+  const arcInfo = arcDataSet.arc_info ?? {};
+  const selection = arcDataSet.selection_info;
+  return {
+    approvalRate: arcInfo.approval_rate ?? 0,
+    globalExp: arcInfo.global_exp ?? 0,
+    spTagBoostType: arcInfo.sp_tag_boost_type ?? 0,
+    ssMatchWinCount: arcInfo.ss_match_win_count ?? 0,
+    specialSsMatchWinCount: arcInfo.special_ss_match_win_count ?? 0,
+    potentials: (arcInfo.potential_array ?? []).map((item: any) => ({
+      potentialId: item.potential_id ?? 0,
+      level: item.level ?? 0,
+      progress: (item.progress_array ?? []).map((progress: any) => ({
+        conditionId: progress.condition_id ?? 0,
+        totalCount: progress.total_count ?? 0,
+        currentCount: progress.current_count ?? 0,
+      })),
+    })),
+    rivals: (arcDataSet.arc_rival_array ?? []).map((item: any) => ({
+      charaId: item.chara_id ?? 0,
+      speed: item.speed ?? 0,
+      stamina: item.stamina ?? 0,
+      power: item.power ?? 0,
+      guts: item.guts ?? 0,
+      wiz: item.wiz ?? 0,
+      commandId: item.command_id ?? 0,
+      rivalBoost: item.rival_boost ?? 0,
+      starLevel: item.star_lv ?? 0,
+      rank: item.rank ?? 0,
+      approvalPoint: item.approval_point ?? 0,
+      potentials: (item.potential_array ?? []).map((potential: any) => ({
+        potentialId: potential.potential_id ?? 0,
+        level: potential.level ?? 0,
+      })),
+      selectionEffects: (item.selection_peff_array ?? []).map(
+        (effect: any) => ({
+          effectNum: effect.effect_num ?? 0,
+          effectGroupId: effect.effect_group_id ?? 0,
+          effectValue: effect.effect_value ?? 0,
+        }),
+      ),
+    })),
+    rivalRaceInfo: (arcDataSet.rival_race_info_array ?? []).map(
+      (item: any) => ({
+        programId: item.program_id ?? 0,
+        charaId: item.chara_id ?? 0,
+      }),
+    ),
+    selectionInfo: selection
+      ? {
+          allWinApprovalPoint: selection.all_win_approval_point ?? 0,
+          params: (selection.params_inc_dec_info_array ?? []).map(
+            (param: any) => ({
+              targetType: param.target_type ?? 0,
+              value: param.value ?? 0,
+            }),
+          ),
+          rivals: (selection.selection_rival_info_array ?? []).map(
+            (item: any) => ({
+              charaId: item.chara_id ?? 0,
+              mark: item.mark ?? 0,
+              winApprovalPoint: item.win_approval_point ?? 0,
+              loseApprovalPoint: item.lose_approval_point ?? 0,
+              rivalWinApprovalPoint: item.rival_win_approval_point ?? 0,
+              rivalLoseApprovalPoint: item.rival_lose_approval_point ?? 0,
+            }),
+          ),
+          isSpecialMatch:
+            selection.is_special_match === 1 ||
+            selection.is_special_match === true,
+          bonusParams: (selection.bonus_params_inc_dec_info_array ?? []).map(
+            (param: any) => ({
+              targetType: param.target_type ?? 0,
+              value: param.value ?? 0,
+            }),
+          ),
+        }
+      : undefined,
+    raceHistory: (arcDataSet.race_history_array ?? []).map((item: any) => ({
+      raceNum: item.race_num ?? 0,
+      turn: item.turn ?? 0,
+      resultRank: item.result_rank ?? 0,
+    })),
+    commandInfo: (arcDataSet.command_info_array ?? []).map((item: any) => ({
+      commandId: item.command_id ?? 0,
+      commandType: item.command_type ?? 0,
+      params: (item.params_inc_dec_info_array ?? []).map((param: any) => ({
+        targetType: param.target_type ?? 0,
+        value: param.value ?? 0,
+      })),
+      addGlobalExp: item.add_global_exp ?? 0,
+    })),
+    evaluationInfo: (arcDataSet.evaluation_info_array ?? []).map(
+      (item: any) => ({
+        targetId: item.target_id ?? 0,
+        charaId: item.chara_id ?? 0,
+      }),
+    ),
+    rivalBoostBlockedCharaIds:
+      arcDataSet.not_up_arc_parameter_info?.rival_boost_chara_id_array ?? [],
+    allRivalBoostBlocked:
+      arcDataSet.not_up_arc_parameter_info?.all_rival_boost_flag === true ||
+      arcDataSet.not_up_arc_parameter_info?.all_rival_boost_flag === 1,
+  };
 };
 
 const extractVenusData = (
@@ -264,6 +384,7 @@ export async function extractCoreInfo(
   const freeData = normalizedData.free_data_set;
   const liveData = normalizedData.live_data_set;
   const venusData = extractVenusData(normalizedData.venus_data_set);
+  const arcData = extractArcData(normalizedData.arc_data_set);
   const charaEffects: CharaEffect[] = (chara.chara_effect_id_array ?? [])
     .filter((id: unknown): id is number => typeof id === 'number')
     .map((id: number) => ({
@@ -471,6 +592,7 @@ export async function extractCoreInfo(
     gameEvents,
     eventDetails,
     venusData: scenarioType === 'venusCup' ? venusData : undefined,
+    arcData: scenarioType === 'arc' ? arcData : undefined,
     noteStat: scenarioType === 'idolCup' ? noteStat : undefined,
     songStats: scenarioType === 'idolCup' ? songStats : undefined,
   });
