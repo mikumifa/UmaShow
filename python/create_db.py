@@ -390,6 +390,35 @@ def build_card_rarity_data(cursor: sqlite3.Cursor) -> dict:
     return dict(result)
 
 
+def build_arc_rival_dress_ids(cursor: sqlite3.Cursor) -> dict:
+    """Resolve the costume portrait used by Arc scenario members."""
+    cursor.execute(
+        """SELECT chara_id, race_dress_id
+           FROM single_mode_scout_chara
+           ORDER BY id;"""
+    )
+    result = {}
+    for chara_id, race_dress_id in cursor.fetchall():
+        # 101 is the common placeholder dress and has no trained portrait.
+        if race_dress_id >= 100000:
+            result.setdefault(str(chara_id), race_dress_id)
+
+    # Newer scout entries can still use the placeholder dress. Use the
+    # character's first playable costume so Arc members still get a costume
+    # portrait instead of falling back to chr_icon_training.
+    cursor.execute(
+        """SELECT c.chara_id, r.race_dress_id
+           FROM card_data AS c
+           JOIN card_rarity_data AS r ON r.card_id = c.id
+           WHERE r.rarity = 3 AND r.race_dress_id >= 100000
+           ORDER BY c.chara_id, c.id;"""
+    )
+    for chara_id, race_dress_id in cursor.fetchall():
+        result.setdefault(str(chara_id), race_dress_id)
+
+    return result
+
+
 def build_skill_data(cursor: sqlite3.Cursor) -> dict:
     cursor.execute(
         """
@@ -961,6 +990,7 @@ def main():
     skill_tip_names = build_skill_tip_names(cursor)
     card_talent_rates = build_card_talent_rates(cursor)
     card_rarity_data = build_card_rarity_data(cursor)
+    arc_rival_dress_ids = build_arc_rival_dress_ids(cursor)
     os.makedirs("assets/data", exist_ok=True)
     with open("assets/data/umdb.binarypb.gz", "wb") as f:
         f.write(gzip.compress(pb.SerializeToString(), mtime=0))
@@ -992,6 +1022,7 @@ def main():
     umdb_json["skillTipNames"] = skill_tip_names
     umdb_json["cardTalentRates"] = card_talent_rates
     umdb_json["cardRarityData"] = card_rarity_data
+    umdb_json["arcRivalDressIds"] = arc_rival_dress_ids
     with open("assets/data/umdb.json", "w", encoding="utf-8") as f:
         json.dump(umdb_json, f, ensure_ascii=False, indent=2)
     for support_card_meta_path in (

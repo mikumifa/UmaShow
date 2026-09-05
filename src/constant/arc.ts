@@ -167,18 +167,53 @@ export const ARC_TAG_BOOST_LABELS: Record<number, string> = {
 };
 
 export const ARC_SELECTION_EFFECT_LABELS: Record<number, string> = {
-  1: '擅长率 +5',
-  2: '擅长率 +5',
-  3: '友情训练效果 +5%',
-  4: '友情训练效果 +10%',
-  5: '友情训练效果 +10%',
-  6: '协助连续事件率 +1级',
-  7: '协助连续事件率 +1级',
-  8: '协助连续事件率 +1级',
-  9: '擅长率 +5',
-  10: '擅长率 +5',
-  11: '协助连续事件率 +1级',
-  12: '协助连续事件率 +1级',
+  1: '获得技能启发',
+  2: '获得属性提升{0}%',
+  3: '回复体力',
+  4: '体力最大值提升&回复',
+  5: '干劲提升&回复体力',
+  6: '群星槽提升',
+  7: '获得适应性积分',
+  8: '获得“惹人喜爱◯”',
+  9: '获得“善于练习◯”',
+  10: '获得“备受瞩目的潜力股”',
+  11: '获得属性',
+  12: '获得技能点数',
+};
+
+export const formatArcSelectionEffect = (
+  effectGroupId: number,
+  effectValue: number,
+) => {
+  const template = ARC_SELECTION_EFFECT_LABELS[effectGroupId];
+  if (!template) return `奖励组 ${effectGroupId}`;
+  return template.replace('{0}', String(effectValue));
+};
+
+const ARC_SELECTION_EFFECT_ICON_IDS: Record<number, number> = {
+  1: 1,
+  2: 2,
+  3: 3,
+  4: 4,
+  5: 5,
+  6: 6,
+  7: 7,
+  8: 8,
+  9: 8,
+  10: 8,
+  11: 9,
+  12: 9,
+};
+
+export const getArcSelectionEffectIconPath = (effectGroupId: number) => {
+  const iconId = ARC_SELECTION_EFFECT_ICON_IDS[effectGroupId];
+  if (!iconId) return null;
+  // The current export does not contain bonus_02; retain a visible fallback.
+  const availableIconId = iconId === 2 ? 1 : iconId;
+  return `./icons/arc/utx_ico_ssmatch_bonus_${String(availableIconId).padStart(
+    2,
+    '0',
+  )}.png`;
 };
 
 const ARC_TRAINING_EFFECT_RANGES = [
@@ -215,10 +250,17 @@ const ARC_TRAINING_EFFECT_RANGES = [
   [200, 999, 40],
 ] as const;
 
-export const getArcTrainingEffect = (approvalRate: number) =>
-  ARC_TRAINING_EFFECT_RANGES.find(
-    ([min, max]) => approvalRate >= min && approvalRate <= max,
-  )?.[2] ?? 0;
+export const getArcTrainingEffect = (approvalRate: number) => {
+  const displayedRateLevel = Math.floor(approvalRate / 10);
+  return (
+    ARC_TRAINING_EFFECT_RANGES.find(
+      ([min, max]) => displayedRateLevel >= min && displayedRateLevel <= max,
+    )?.[2] ?? 0
+  );
+};
+
+export const formatArcApprovalRate = (approvalRate: number) =>
+  `${(approvalRate / 10).toFixed(1)}%`;
 
 export const getArcPotentialIconPath = (potentialId: number) =>
   `./icons/arc/potential_${String(potentialId).padStart(2, '0')}.png`;

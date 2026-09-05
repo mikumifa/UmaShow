@@ -80,6 +80,7 @@ def generate_skills(connection: sqlite3.Connection) -> dict[str, dict]:
             skill.rarity,
             skill.group_id,
             skill.grade_value,
+            skill.disp_order,
             COALESCE(cost.need_skill_point, 0),
             skill.disable_singlemode,
             skill.tag_id,
@@ -101,17 +102,44 @@ def generate_skills(connection: sqlite3.Connection) -> dict[str, dict]:
             "rarity": int(row[2] or 0),
             "group_id": int(row[3] or 0),
             "grade_value": int(row[4] or 0),
-            "need_skill_point": int(row[5] or 0),
-            "disable_singlemode": int(row[6] or 0),
+            "disp_order": int(row[5] or 0),
+            "need_skill_point": int(row[6] or 0),
+            "disable_singlemode": int(row[7] or 0),
             "tags": [
                 int(value)
-                for value in str(row[7] or "").split("/")
+                for value in str(row[8] or "").split("/")
                 if value.isdigit()
             ],
-            "icon_id": int(row[8] or 0),
-            "skill_category": int(row[9] or 0),
+            "icon_id": int(row[9] or 0),
+            "skill_category": int(row[10] or 0),
         }
     return skills
+
+
+def generate_available_skills_by_card(
+    connection: sqlite3.Connection,
+) -> dict[str, list[dict]]:
+    rows = connection.execute(
+        """
+        SELECT
+            card.id,
+            available.skill_id,
+            available.need_rank
+        FROM card_data AS card
+        JOIN available_skill_set AS available
+          ON available.available_skill_set_id = card.available_skill_set_id
+        ORDER BY card.id, available.need_rank, available.id
+        """
+    )
+    available_skills: dict[str, list[dict]] = {}
+    for card_id, skill_id, need_rank in rows:
+        available_skills.setdefault(str(int(card_id)), []).append(
+            {
+                "skill_id": int(skill_id or 0),
+                "need_rank": int(need_rank or 0),
+            }
+        )
+    return available_skills
 
 
 def generate_races(connection: sqlite3.Connection) -> list[dict]:
@@ -204,6 +232,9 @@ def main() -> int:
     with sqlite3.connect(args.master) as connection:
         catalog = {
             "skills": generate_skills(connection),
+            "available_skills_by_card": generate_available_skills_by_card(
+                connection
+            ),
             "races": generate_races(connection),
         }
     args.output.parent.mkdir(parents=True, exist_ok=True)

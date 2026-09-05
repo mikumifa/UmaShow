@@ -31,6 +31,9 @@ export const UMDB = {
   get cardRarityData(): Record<number, Record<number, number>> {
     return umdbInstance?.cardRarityData ?? {};
   },
+  get arcRivalDressIds(): Record<number, number> {
+    return umdbInstance?.arcRivalDressIds ?? {};
+  },
   get cardTalentRates(): Record<
     number,
     { speed: number; stamina: number; power: number; guts: number; wiz: number }
@@ -86,6 +89,28 @@ export const UMDB = {
 
   charaName(id: number) {
     return umdbInstance?.charas[id]?.name ?? 'Unknown Chara';
+  },
+  charaIconPath(id: number) {
+    return id === 9043
+      ? './icons/chara/chr_icon_training_9043.png'
+      : (umdbInstance?.charas[id]?.iconUrl ?? '');
+  },
+  arcRivalIconPath(charaId: number) {
+    let raceDressId = umdbInstance?.arcRivalDressIds?.[charaId];
+
+    // Keep older generated databases compatible by deriving the first
+    // playable costume from card_rarity_data.
+    if (!raceDressId) {
+      const cardId = Object.keys(umdbInstance?.cardRarityData ?? {})
+        .map(Number)
+        .filter((id) => Math.floor(id / 100) === charaId)
+        .sort((left, right) => left - right)[0];
+      raceDressId = umdbInstance?.cardRarityData?.[cardId]?.[3];
+    }
+
+    return raceDressId
+      ? `trained_chr_icon/${charaId}_${raceDressId}.png`
+      : this.charaIconPath(charaId);
   },
   cardName(id: number) {
     return umdbInstance?.cards[id]?.name ?? 'Unknown Card';

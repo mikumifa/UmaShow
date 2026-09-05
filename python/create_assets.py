@@ -3,17 +3,30 @@ import shutil
 import re
 
 SOURCE_DIR = "D:\\Apps\\umas\\export\\Texture2D"
+SPRITE_SOURCE_DIR = "D:\\Apps\\umas\\export\\Sprite"
 CHARA_ICON_TARGET_DIR = "./assets/chr_icon"
 TRAINED_CHR_ICON_TARGET_DIR = "./assets/trained_chr_icon"
 SUPPORT_CARD_S_TARGET_DIR = "./assets/support_card_s"
 WEB_CHARA_ICON_TARGET_DIR = "./web-assets/icons/chara"
+ARC_ICON_TARGET_DIR = "./web-assets/icons/arc"
 WEB_TRAINING_CHARA_ICON_IDS = {"9043"}
+ARC_REWARD_ICON_FILENAMES = (
+    "utx_ico_ssmatch_bonus_01.png",
+    "utx_ico_ssmatch_bonus_03.png",
+    "utx_ico_ssmatch_bonus_04.png",
+    "utx_ico_ssmatch_bonus_05.png",
+    "utx_ico_ssmatch_bonus_06.png",
+    "utx_ico_ssmatch_bonus_07.png",
+    "utx_ico_ssmatch_bonus_08.png",
+    "utx_ico_ssmatch_bonus_09.png",
+)
 
 for target_dir in (
     CHARA_ICON_TARGET_DIR,
     TRAINED_CHR_ICON_TARGET_DIR,
     SUPPORT_CARD_S_TARGET_DIR,
     WEB_CHARA_ICON_TARGET_DIR,
+    ARC_ICON_TARGET_DIR,
 ):
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
@@ -56,5 +69,14 @@ for filename in os.listdir(SOURCE_DIR):
         dst_path = os.path.join(SUPPORT_CARD_S_TARGET_DIR, dst_filename)
         shutil.copy2(src_path, dst_path)
         print("Copied support card icon: {} -> {}".format(filename, dst_filename))
+
+for filename in ARC_REWARD_ICON_FILENAMES:
+    src_path = os.path.join(SPRITE_SOURCE_DIR, filename)
+    if not os.path.exists(src_path):
+        print("Missing Arc reward icon: {}".format(src_path))
+        continue
+    dst_path = os.path.join(ARC_ICON_TARGET_DIR, filename)
+    shutil.copy2(src_path, dst_path)
+    print("Copied Arc reward icon: {} -> {}".format(filename, dst_path))
 
 print("Done.")

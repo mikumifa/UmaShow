@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import type { IpcMain } from 'electron';
 import log from 'electron-log';
 import _ from 'lodash';
 import { APP_PATH, ASSETS_PATH } from 'main/paths';
@@ -23,6 +24,7 @@ export const UMDB = {
   charas: {} as Record<number, Chara>,
   cards: {} as Record<number, Card>,
   cardRarityData: {} as Record<number, Record<number, number>>,
+  arcRivalDressIds: {} as Record<number, number>,
   cardTalentRates: {} as Record<
     number,
     {
@@ -93,6 +95,7 @@ export function UMDBload() {
     UMDB.charaEffectTexts = {};
     UMDB.skillTipNames = {};
     UMDB.cardRarityData = {};
+    UMDB.arcRivalDressIds = {};
     UMDB.cardTalentRates = {};
     UMDB.successionFactorMeta = {};
     if (fs.existsSync(umdbJsonPath)) {
@@ -100,6 +103,7 @@ export function UMDBload() {
         charaEffectTexts?: Record<string, string>;
         skillTipNames?: Record<string, Record<string, string>>;
         cardRarityData?: Record<string, Record<string, number>>;
+        arcRivalDressIds?: Record<string, number>;
         cardTalentRates?: Record<
           string,
           {
@@ -141,6 +145,11 @@ export function UMDBload() {
               ]),
             ),
           ],
+        ),
+      );
+      UMDB.arcRivalDressIds = Object.fromEntries(
+        Object.entries(umdbJson.arcRivalDressIds ?? {}).map(
+          ([charaId, raceDressId]) => [Number(charaId), Number(raceDressId)],
         ),
       );
       UMDB.cardTalentRates = Object.fromEntries(
@@ -211,9 +220,13 @@ export function UMDBload() {
         supportCardMetaFile.supportCardEffectTypes ?? {};
     }
     // ---- chara
-    umdb.chara.forEach((c) => (UMDB.charas[c.id!] = c));
+    umdb.chara.forEach((c) => {
+      UMDB.charas[c.id!] = c;
+    });
     // ---- card
-    umdb.card.forEach((card) => (UMDB.cards[card.id!] = card));
+    umdb.card.forEach((card) => {
+      UMDB.cards[card.id!] = card;
+    });
     // ---- support card
     umdb.supportCard.forEach((card) => {
       const meta =
@@ -227,9 +240,13 @@ export function UMDBload() {
       );
     });
     // ---- race instance
-    umdb.raceInstance.forEach((race) => (UMDB.raceInstances[race.id!] = race));
+    umdb.raceInstance.forEach((race) => {
+      UMDB.raceInstances[race.id!] = race;
+    });
     // ---- skills
-    umdb.skill.forEach((skill) => (UMDB.skills[skill.id!] = skill));
+    umdb.skill.forEach((skill) => {
+      UMDB.skills[skill.id!] = skill;
+    });
     // ---- interesting races
     UMDB.interestingRaceInstances = _.sortedUniq(
       umdb.winsSaddle.flatMap((ws) => ws.raceInstanceId),
@@ -244,11 +261,11 @@ export function UMDBload() {
       const id = story.id!;
 
       if (
-        (501000000 <= id && id < 510000000) ||
-        (801000000 <= id && id < 810000000)
+        (id >= 501000000 && id < 510000000) ||
+        (id >= 801000000 && id < 810000000)
       ) {
         o.chara = UMDB.charas[Math.floor(id / 1000) % 10000];
-      } else if (810000000 <= id && id < 840000000) {
+      } else if (id >= 810000000 && id < 840000000) {
         o.supportCard = UMDB.supportCards[Math.floor(id / 1000) % 100000];
       }
       return o;
@@ -260,13 +277,13 @@ export function UMDBload() {
       }
     });
   } catch (err) {
-    console.error('[UMDB] ❌ Load error:', err);
+    log.error('[UMDB] ❌ Load error:', err);
   }
   log.info(`[UMDB] 📥 Loaded`);
 }
 
-export function handleDataLoad(ipcMain: Electron.IpcMain) {
-  ipcMain.handle('get-asset-file', (_, relativeFilePath: string) => {
+export function handleDataLoad(ipcMain: IpcMain) {
+  ipcMain.handle('get-asset-file', (_event, relativeFilePath: string) => {
     const normalizedRelativePath = relativeFilePath.replace(/^[./\\]+/, '');
     const candidates = [
       path.join(ASSETS_PATH, normalizedRelativePath),

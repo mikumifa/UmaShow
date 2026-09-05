@@ -1,11 +1,127 @@
-import { Battery } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Battery, ChevronDown, Lightbulb } from 'lucide-react';
 import TrainingCard from 'renderer/components/TrainingCard';
 import EventCard from 'renderer/components/EventCard';
 import EventDetailRow, {
   type EventDetailOption,
 } from 'renderer/components/EventDetailRow';
+import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import type { CharInfo } from 'types/gameTypes';
 import type { NoteType } from 'renderer/components/scenarios/idolCup/NoteStyles';
+import autoResearchCatalog from '../../../../assets/data/auto_research_catalog.json';
+
+const MOTIVATION_BADGES: Record<number, { label: string; iconPath: string }> = {
+  1: { label: '极差', iconPath: './icons/motivation/motivation_1.png' },
+  2: { label: '不佳', iconPath: './icons/motivation/motivation_2.png' },
+  3: { label: '普通', iconPath: './icons/motivation/motivation_3.png' },
+  4: { label: '上佳', iconPath: './icons/motivation/motivation_4.png' },
+  5: { label: '极佳', iconPath: './icons/motivation/motivation_5.png' },
+};
+
+type HintSkillCatalogEntry = {
+  id: number;
+  name: string;
+  rarity: number;
+  groupId: number;
+  gradeValue: number;
+  dispOrder: number;
+  needSkillPoint: number;
+  disableSinglemode: number;
+  iconId: number;
+};
+
+const HINT_DISCOUNT_PERCENT = [0, 10, 20, 30, 35, 40];
+
+const hintSkillKey = (groupId: number, rarity: number) =>
+  `${groupId}:${rarity}`;
+
+const { skillById, skillsByGroupAndRarity, availableSkillsByCard } = (() => {
+  const byId = new Map<number, HintSkillCatalogEntry>();
+  const byGroupAndRarity = new Map<string, HintSkillCatalogEntry[]>();
+  const catalog = autoResearchCatalog as unknown as {
+    skills: Record<
+      string,
+      {
+        name?: string;
+        rarity?: number;
+        group_id?: number;
+        grade_value?: number;
+        disp_order?: number;
+        need_skill_point?: number;
+        disable_singlemode?: number;
+        icon_id?: number;
+      }
+    >;
+    available_skills_by_card?: Record<
+      string,
+      Array<{ skill_id?: number; need_rank?: number }>
+    >;
+  };
+  const skills = catalog.skills as Record<
+    string,
+    {
+      name?: string;
+      rarity?: number;
+      group_id?: number;
+      grade_value?: number;
+      disp_order?: number;
+      need_skill_point?: number;
+      disable_singlemode?: number;
+      icon_id?: number;
+    }
+  >;
+
+  Object.entries(skills).forEach(([rawId, rawSkill]) => {
+    const candidate: HintSkillCatalogEntry = {
+      id: Number(rawId),
+      name: String(rawSkill.name ?? '').trim(),
+      rarity: Number(rawSkill.rarity ?? 0),
+      groupId: Number(rawSkill.group_id ?? 0),
+      gradeValue: Number(rawSkill.grade_value ?? 0),
+      dispOrder: Number(rawSkill.disp_order ?? Number.MAX_SAFE_INTEGER),
+      needSkillPoint: Number(rawSkill.need_skill_point ?? 0),
+      disableSinglemode: Number(rawSkill.disable_singlemode ?? 0),
+      iconId: Number(rawSkill.icon_id ?? 0),
+    };
+    if (
+      !candidate.name ||
+      candidate.groupId <= 0 ||
+      candidate.rarity <= 0 ||
+      candidate.gradeValue <= 0 ||
+      candidate.needSkillPoint <= 0 ||
+      candidate.name.endsWith('×')
+    ) {
+      return;
+    }
+
+    byId.set(candidate.id, candidate);
+    const key = hintSkillKey(candidate.groupId, candidate.rarity);
+    const group = byGroupAndRarity.get(key) ?? [];
+    group.push(candidate);
+    byGroupAndRarity.set(key, group);
+  });
+
+  byGroupAndRarity.forEach((skillsInGroup) => {
+    skillsInGroup.sort(
+      (left, right) =>
+        left.gradeValue - right.gradeValue ||
+        left.disableSinglemode - right.disableSinglemode ||
+        right.dispOrder - left.dispOrder ||
+        right.id - left.id,
+    );
+  });
+
+  return {
+    skillById: byId,
+    skillsByGroupAndRarity: byGroupAndRarity,
+    availableSkillsByCard: catalog.available_skills_by_card ?? {},
+  };
+})();
+
+function hintDiscountPercent(level: number) {
+  const normalizedLevel = Math.max(0, Math.min(5, Math.trunc(level)));
+  return HINT_DISCOUNT_PERCENT[normalizedLevel];
+}
 
 export function VitalPanel({
   charInfo,
@@ -14,6 +130,7 @@ export function VitalPanel({
   charInfo: CharInfo;
   showEffects?: boolean;
 }) {
+  const [skillHintsOpen, setSkillHintsOpen] = useState(false);
   const vitalPercent =
     charInfo.stats.vital.max > 0
       ? (charInfo.stats.vital.value / charInfo.stats.vital.max) * 100
@@ -24,6 +141,117 @@ export function VitalPanel({
   } else if (vitalPercent > 30) {
     vitalBarClass = 'bg-gradient-to-r from-yellow-500 to-yellow-400';
   }
+  const motivationBadge =
+    MOTIVATION_BADGES[Number(charInfo.gameStats.motivation ?? 0)];
+  const learnableSkills = useMemo(() => {
+    const highestLevelBySkill = new Map<string, number>();
+    (charInfo.skillTips ?? []).forEach((tip) => {
+      const key = hintSkillKey(tip.groupId, tip.rarity);
+      highestLevelBySkill.set(
+        key,
+        Math.max(highestLevelBySkill.get(key) ?? 0, tip.level),
+      );
+    });
+    const learnedSkillIds = new Set(
+      (charInfo.skills ?? []).map((skill) => skill.skillId),
+    );
+    const disabledSkillIds = new Set(charInfo.disabledSkillIds ?? []);
+    const learnableById = new Map<
+      number,
+      HintSkillCatalogEntry & {
+        hintLevel: number;
+        discountPercent: number;
+        discountedPoint: number;
+      }
+    >();
+
+    const nextSkillInGroup = (skill: HintSkillCatalogEntry) => {
+      const candidates =
+        skillsByGroupAndRarity.get(hintSkillKey(skill.groupId, skill.rarity)) ??
+        [];
+      const learnedGrades = candidates
+        .filter((candidate) => learnedSkillIds.has(candidate.id))
+        .map((candidate) => candidate.gradeValue);
+      if (learnedGrades.length === 0) return skill;
+      const highestLearnedGrade = Math.max(...learnedGrades);
+      return candidates.find(
+        (candidate) => candidate.gradeValue > highestLearnedGrade,
+      );
+    };
+
+    const addSkillEntry = (skill: HintSkillCatalogEntry | undefined) => {
+      if (
+        !skill ||
+        learnedSkillIds.has(skill.id) ||
+        disabledSkillIds.has(skill.id)
+      ) {
+        return;
+      }
+      const hintLevel =
+        highestLevelBySkill.get(hintSkillKey(skill.groupId, skill.rarity)) ?? 0;
+      const discountPercent = hintDiscountPercent(hintLevel);
+      learnableById.set(skill.id, {
+        ...skill,
+        hintLevel,
+        discountPercent,
+        discountedPoint: Math.floor(
+          (skill.needSkillPoint * (100 - discountPercent)) / 100,
+        ),
+      });
+    };
+
+    const addSkill = (skill: HintSkillCatalogEntry | undefined) => {
+      addSkillEntry(skill);
+      if (!skill || skill.rarity !== 2) return;
+
+      const lowerCandidates =
+        skillsByGroupAndRarity.get(hintSkillKey(skill.groupId, 1)) ?? [];
+      const lowerSkill = lowerCandidates[0];
+      addSkillEntry(lowerSkill ? nextSkillInGroup(lowerSkill) : undefined);
+    };
+
+    const talentLevel = Math.max(0, Number(charInfo.talentLevel ?? 0));
+    (availableSkillsByCard[String(Number(charInfo.cardId ?? 0))] ?? []).forEach(
+      (rule) => {
+        if (Number(rule.need_rank ?? 0) > talentLevel) return;
+        const skill = skillById.get(Number(rule.skill_id ?? 0));
+        addSkill(skill ? nextSkillInGroup(skill) : undefined);
+      },
+    );
+
+    highestLevelBySkill.forEach((_level, key) => {
+      const candidates = skillsByGroupAndRarity.get(key) ?? [];
+      const baseSkill = candidates[0];
+      addSkill(baseSkill ? nextSkillInGroup(baseSkill) : undefined);
+    });
+
+    learnedSkillIds.forEach((skillId) => {
+      const learnedSkill = skillById.get(skillId);
+      if (learnedSkill) addSkill(nextSkillInGroup(learnedSkill));
+    });
+
+    return Array.from(learnableById.values()).sort(
+      (left, right) =>
+        left.dispOrder - right.dispOrder ||
+        right.rarity - left.rarity ||
+        left.id - right.id,
+    );
+  }, [
+    charInfo.cardId,
+    charInfo.disabledSkillIds,
+    charInfo.skillTips,
+    charInfo.skills,
+    charInfo.talentLevel,
+  ]);
+  const skillHintCount = useMemo(
+    () =>
+      new Set(
+        (charInfo.skillTips ?? []).map((tip) =>
+          hintSkillKey(tip.groupId, tip.rarity),
+        ),
+      ).size,
+    [charInfo.skillTips],
+  );
 
   return (
     <div className="flex items-center gap-3 w-full">
@@ -49,21 +277,127 @@ export function VitalPanel({
               /{charInfo.stats.vital.max}
             </span>
           </div>
+
+          {motivationBadge ? (
+            <img
+              src={motivationBadge.iconPath}
+              alt={`干劲：${motivationBadge.label}`}
+              title={`干劲：${motivationBadge.label}`}
+              className="h-8 w-auto shrink-0 object-contain"
+            />
+          ) : null}
         </div>
 
-        {showEffects &&
-        charInfo.charaEffects &&
-        charInfo.charaEffects.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 pl-8">
-            {charInfo.charaEffects.map((effect) => (
-              <span
-                key={effect.id}
-                title={`effect_id: ${effect.id}`}
-                className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
-              >
-                {effect.text}
+        <div className="flex min-h-5 items-center gap-2 pl-8">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+            {showEffects
+              ? (charInfo.charaEffects ?? []).map((effect) => (
+                  <span
+                    key={effect.id}
+                    title={`effect_id: ${effect.id}`}
+                    className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
+                  >
+                    {effect.text}
+                  </span>
+                ))
+              : null}
+          </div>
+          <button
+            type="button"
+            title="展开可学习技能"
+            aria-expanded={skillHintsOpen}
+            onClick={() => setSkillHintsOpen((open) => !open)}
+            className={`flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[11px] font-bold transition-colors ${
+              skillHintsOpen
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            <Lightbulb size={12} strokeWidth={2.5} />
+            <span>技能 {learnableSkills.length}</span>
+            {skillHintCount > 0 ? (
+              <span className="text-[9px] text-amber-600">
+                Hint {skillHintCount}
               </span>
-            ))}
+            ) : null}
+            <ChevronDown
+              size={11}
+              className={`transition-transform ${
+                skillHintsOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+        </div>
+
+        {skillHintsOpen ? (
+          <div className="border-t border-gray-100 pt-2">
+            <div className="mb-1.5 flex items-center justify-between gap-3 px-0.5">
+              <span className="text-xs font-bold text-amber-700">
+                可学习技能 · {learnableSkills.length}
+                <span className="ml-2 font-medium text-gray-400">
+                  Hint {skillHintCount}
+                </span>
+              </span>
+              <span className="text-xs font-medium text-gray-500">
+                当前总 PT
+                <strong className="ml-1 text-base font-black text-indigo-600">
+                  {charInfo.stats.skillPoint}
+                </strong>
+              </span>
+            </div>
+
+            {learnableSkills.length > 0 ? (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(175px,1fr))] gap-1">
+                {learnableSkills.map((skill) => (
+                  <div
+                    key={`${skill.groupId}-${skill.rarity}`}
+                    className="flex min-w-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-1.5 py-1"
+                  >
+                    <span
+                      className={`h-8 w-8 flex-none overflow-hidden rounded border ${
+                        skill.rarity === 2
+                          ? 'border-amber-300 bg-amber-50'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      <AssetIcon
+                        path={`skill_icons/${skill.iconId}.png`}
+                        alt={skill.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
+
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-bold text-slate-800">
+                        {skill.name}
+                      </span>
+                      <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-700">
+                        <span>Hint Lv.{skill.hintLevel}</span>
+                        {skill.discountPercent > 0 ? (
+                          <span>−{skill.discountPercent}%</span>
+                        ) : null}
+                      </span>
+                    </span>
+
+                    <span className="flex-none text-right leading-none">
+                      {skill.discountPercent > 0 ? (
+                        <span className="block text-[8px] text-gray-400 line-through">
+                          {skill.needSkillPoint}
+                        </span>
+                      ) : null}
+                      <span className="block whitespace-nowrap text-xs font-black text-indigo-600">
+                        {skill.discountedPoint}
+                        <span className="ml-0.5 text-[8px] font-bold">PT</span>
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-1 text-center text-xs text-gray-400">
+                当前没有可学习技能
+              </div>
+            )}
           </div>
         ) : null}
       </section>
@@ -133,6 +467,7 @@ export function TrainingEventsSection({
                 key={cmd.commandId}
                 command={cmd}
                 partnerStats={charInfo.partnerStats}
+                arcData={charInfo.arcData}
                 liveCommands={charInfo.liveCommands}
                 currentStats={charInfo.stats}
                 currentNoteStat={currentNoteStat}

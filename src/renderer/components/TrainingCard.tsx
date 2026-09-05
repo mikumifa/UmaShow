@@ -7,9 +7,14 @@ import {
   PartnerStats,
   COMMAND_TARGET_TYPE_MAP,
   LiveCommands,
+  type ArcData,
   type CharStats,
 } from '../../types/gameTypes';
 import { UMDB } from '../utils/umdb';
+import {
+  formatArcSelectionEffect,
+  getArcSelectionEffectIconPath,
+} from '../../constant/arc';
 import { getSupportCardSpecialtySummary } from '../../utils/supportCardSpecialty';
 import FailureRateBadge from './FailureRateBadge';
 import createImageIcon from './Icon';
@@ -122,6 +127,51 @@ const PERFORMANCE_TYPE_MAP: Record<number, NoteType> = {
 
 const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+const ARC_STAR_GAUGE_MAX = 3;
+
+const clampArcStarGauge = (value: number) =>
+  Math.min(ARC_STAR_GAUGE_MAX, Math.max(0, value));
+
+function ArcStarGauge({
+  current,
+  preview,
+  blocked,
+}: {
+  current: number;
+  preview: number;
+  blocked: boolean;
+}) {
+  const safeCurrent = clampArcStarGauge(current);
+  const safePreview = clampArcStarGauge(preview);
+  const gain = safePreview - safeCurrent;
+  const title = blocked
+    ? `群星槽 ${safeCurrent}/${ARC_STAR_GAUGE_MAX}（本次训练无法提升）`
+    : `群星槽 ${safeCurrent} → ${safePreview}（本次训练 +${gain}）`;
+
+  return (
+    <div
+      className="flex h-10 w-3 shrink-0 flex-col-reverse gap-1"
+      title={title}
+    >
+      {Array.from({ length: ARC_STAR_GAUGE_MAX }, (_, index) => {
+        let fill = 'border-slate-300 bg-transparent';
+        if (index < safeCurrent) {
+          fill = 'border-violet-600 bg-violet-600';
+        } else if (index < safePreview) {
+          fill = blocked
+            ? 'border-slate-300 bg-transparent'
+            : 'border-cyan-400 bg-cyan-300';
+        }
+        return (
+          <span
+            key={index}
+            className={`w-full flex-1 rounded-[2px] border ${fill}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 const getFiveStatStrength = (
   params: Array<{ targetType: number; value: number }>,
@@ -129,9 +179,9 @@ const getFiveStatStrength = (
   params
     .filter(
       (param) =>
-        param.targetType >= TARGET_TYPE.SPEED
-        && param.targetType <= TARGET_TYPE.WIZ
-        && param.value > 0,
+        param.targetType >= TARGET_TYPE.SPEED &&
+        param.targetType <= TARGET_TYPE.WIZ &&
+        param.value > 0,
     )
     .reduce((sum, param) => sum + param.value, 0);
 
@@ -175,6 +225,7 @@ export default function TrainingCard({
   currentNoteStat,
   warningNoteTypes,
   liveSpecialtyRateBonus,
+  arcData,
 }: {
   command: TrainingCommand;
   partnerStats: PartnerStats;
@@ -184,10 +235,16 @@ export default function TrainingCard({
   currentNoteStat?: Record<NoteType, { value: number }>;
   warningNoteTypes?: NoteType[];
   liveSpecialtyRateBonus?: number;
+  arcData?: ArcData;
 }) {
   const isDisabled = command.isEnable === 0;
-  const name =
-    COMMAND_NAME_MAP[command.commandId] || `璁粌 ${command.commandId}`;
+  const name = COMMAND_NAME_MAP[command.commandId] || `禁用`;
+  const arcCommand = arcData?.commandInfo.find(
+    (item) => item.commandId === command.commandId,
+  );
+  const arcParamsByTarget = new Map(
+    (arcCommand?.params ?? []).map((param) => [param.targetType, param.value]),
+  );
 
   const gains = command.params.filter(
     (p) => p.value > 0 && p.targetType !== 10,
@@ -196,7 +253,9 @@ export default function TrainingCard({
   const recovery = command.params.filter(
     (p) => p.targetType === 10 && p.value > 0,
   );
-  const fiveStatStrength = getFiveStatStrength(command.params);
+  const fiveStatStrength =
+    getFiveStatStrength(command.params) +
+    getFiveStatStrength(arcCommand?.params ?? []);
   const mainConfig = getStatConfig(COMMAND_TARGET_TYPE_MAP[command.commandId]);
 
   // live command info
@@ -243,6 +302,82 @@ export default function TrainingCard({
     mainStatValue = currentStats[mainStatKey as MainStatKey].value;
   }
 
+  const arcCharaIdByTargetId = new Map(
+    (arcData?.evaluationInfo ?? []).map((item) => [
+      item.targetId,
+      item.charaId,
+    ]),
+  );
+  const arcRivalByCharaId = new Map(
+    (arcData?.rivals ?? []).map((rival) => [rival.charaId, rival]),
+  );
+  const getArcCharaId = (position: number) =>
+    arcCharaIdByTargetId.get(position) ??
+    (position >= 1000 ? position : undefined);
+  const isTagTrainingPartner = (position: number) => {
+    const partner = partnerStats.find((item) => item.position === position);
+    const supportCard = partner?.supportCardId
+      ? UMDB.supportCards[partner.supportCardId]
+      : undefined;
+    return Boolean(
+      partner &&
+        supportCard &&
+        partner.evaluation >= 80 &&
+        COMMAND_TARGET_TYPE_MAP[supportCard.commandId] ===
+          COMMAND_TARGET_TYPE_MAP[command.commandId],
+    );
+  };
+  const tagTrainingPartnerCount =
+    command.trainingPartners.filter(isTagTrainingPartner).length;
+  const getArcGaugeState = (position: number) => {
+    const arcCharaId = getArcCharaId(position);
+    const arcRival = arcCharaId ? arcRivalByCharaId.get(arcCharaId) : undefined;
+    if (!arcRival) return null;
+    const blocked = Boolean(
+      arcData?.allRivalBoostBlocked ||
+        arcData?.rivalBoostBlockedCharaIds.includes(arcRival.charaId),
+    );
+    let gain = 1;
+    if (blocked || arcRival.rivalBoost >= ARC_STAR_GAUGE_MAX) {
+      gain = 0;
+    } else if (arcData?.spTagBoostType === 1) {
+      gain = isTagTrainingPartner(position) ? 2 : 1;
+    } else if (arcData?.spTagBoostType === 2) {
+      gain = tagTrainingPartnerCount > 0 ? 2 : 1;
+    } else if (arcData?.spTagBoostType === 3) {
+      gain = tagTrainingPartnerCount > 0 ? tagTrainingPartnerCount + 1 : 1;
+    }
+    const preview = clampArcStarGauge(arcRival.rivalBoost + gain);
+    return {
+      arcCharaId,
+      arcRival,
+      blocked,
+      preview,
+      gain: preview - clampArcStarGauge(arcRival.rivalBoost),
+    };
+  };
+  const hasArcFriend9043 = Boolean(
+    arcData &&
+      command.trainingPartners.some(
+        (position) => getArcCharaId(position) === 9043,
+      ),
+  );
+  const arcChargeGain = command.trainingPartners.reduce(
+    (sum, position) => sum + (getArcGaugeState(position)?.gain ?? 0),
+    0,
+  );
+  const arcFullCount = command.trainingPartners.reduce((count, position) => {
+    const gaugeState = getArcGaugeState(position);
+    return (
+      count +
+      (gaugeState &&
+      gaugeState.gain > 0 &&
+      gaugeState.preview === ARC_STAR_GAUGE_MAX
+        ? 1
+        : 0)
+    );
+  }, 0);
+
   return (
     <button
       disabled={isDisabled}
@@ -286,6 +421,14 @@ export default function TrainingCard({
             <StatTile value={mainStatValue} />
           </div>
         ) : null}
+        {hasArcFriend9043 ? (
+          <img
+            src={UMDB.charaIconPath(9043)}
+            alt="友人 9043"
+            title="友人参与本次训练（9043）"
+            className="absolute bottom-1 left-1 z-20 h-8 w-8 object-contain drop-shadow-sm"
+          />
+        ) : null}
       </div>
 
       {/* Stats Impact List */}
@@ -309,10 +452,42 @@ export default function TrainingCard({
               </span>
             </div>
           )}
+          {arcData ? (
+            <div
+              className={`grid divide-x divide-violet-200 rounded-md border border-violet-100 bg-violet-50/70 py-1 text-sm ${
+                (arcCommand?.addGlobalExp ?? 0) > 0
+                  ? 'grid-cols-3'
+                  : 'grid-cols-2'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1 px-2 text-violet-700">
+                <span className="text-xs font-semibold">充电</span>
+                <span className="text-base font-black tabular-nums">
+                  +{arcChargeGain}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-1 px-2 text-fuchsia-700">
+                <span className="text-xs font-semibold">充满</span>
+                <span className="text-base font-black tabular-nums">
+                  +{arcFullCount}
+                </span>
+              </div>
+              {(arcCommand?.addGlobalExp ?? 0) > 0 ? (
+                <div className="flex items-center justify-between gap-1 px-2 text-amber-700">
+                  <span className="text-xs font-semibold">适性</span>
+                  <span className="text-base font-black tabular-nums">
+                    +{arcCommand?.addGlobalExp ?? 0}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {gains.map((p, idx) => {
             const conf = getStatConfig(p.targetType);
             const liveValue = liveParamsByTarget.get(p.targetType) ?? 0;
-            const finalValue = p.value + liveValue;
+            const arcValue = arcParamsByTarget.get(p.targetType) ?? 0;
+            const scenarioValue = liveValue + arcValue;
+            const finalValue = p.value + scenarioValue;
             return (
               <div
                 key={idx}
@@ -321,13 +496,13 @@ export default function TrainingCard({
                 <div className="flex items-center text-gray-600">
                   <span className="text-xs">{conf.label}</span>
                 </div>
-                {liveValue !== 0 ? (
+                {scenarioValue !== 0 ? (
                   <div className="flex items-baseline gap-.5">
                     <span className="text-xs font-semibold text-[#AA6533] tabular-nums">
                       {formatSigned(p.value)}
                     </span>
                     <span className="text-xs font-semibold text-[#9673D7] tabular-nums">
-                      {formatSigned(liveValue)}
+                      {formatSigned(scenarioValue)}
                     </span>
                     <span className="text-[10px] text-gray-400">=</span>
                     <span className="text-base font-black text-green-600 tabular-nums">
@@ -405,9 +580,12 @@ export default function TrainingCard({
       </div>
       {/* Partners Footer */}
       {command.trainingPartners.length > 0 && (
-        <div className="bg-gray-50 p-2 rounded-b-lg border-t border-gray-100 flex flex-wrap gap-1.5 justify-start min-h-[46px]">
+        <div className="min-h-[54px] flex flex-wrap justify-start gap-1.5 rounded-b-lg border-t border-gray-100 bg-gray-50 p-2">
           {command.trainingPartners.map((p) => {
             const partner = partnerStats.find((c) => c.position === p);
+            const arcCharaId = getArcCharaId(p);
+            const arcGaugeState = getArcGaugeState(p);
+            const arcRival = arcGaugeState?.arcRival;
             const supportCard = partner?.supportCardId
               ? UMDB.supportCards[partner.supportCardId]
               : undefined;
@@ -456,61 +634,118 @@ export default function TrainingCard({
                 : progress >= 60
                   ? 'bg-[#A2E61E]'
                   : 'bg-[#2AC0FF]');
+            const arcGaugeBlocked = arcGaugeState?.blocked ?? false;
+            const arcGaugePreview = arcGaugeState?.preview ?? 0;
+            const fallbackCharaPath =
+              arcCharaId != null ? UMDB.charaIconPath(arcCharaId) : '';
+            const arcRivalCharaPath = arcRival
+              ? UMDB.arcRivalIconPath(arcRival.charaId)
+              : '';
+            const charaPath =
+              arcRivalCharaPath || partner?.charaPath || fallbackCharaPath;
+            const currentArcReward = arcRival?.selectionEffects
+              .slice()
+              .sort((left, right) => left.effectNum - right.effectNum)[0];
+            const currentArcRewardIcon = currentArcReward
+              ? getArcSelectionEffectIconPath(currentArcReward.effectGroupId)
+              : null;
+            const currentArcRewardLabel = currentArcReward
+              ? formatArcSelectionEffect(
+                  currentArcReward.effectGroupId,
+                  currentArcReward.effectValue,
+                )
+              : '';
             return (
               <div
                 key={p}
-                className="relative group/partner flex flex-col items-center"
+                className={`relative group/partner ${
+                  arcData
+                    ? `box-border flex h-[54px] w-[68px] items-start gap-1 rounded-lg border border-slate-300 p-1 ${
+                        arcRival ? 'justify-start' : 'justify-center'
+                      }`
+                    : 'flex flex-col items-center'
+                }`}
               >
-                {/* Rainbow ring */}
-                {isMotivated && (
-                  <div className="absolute -top-[3px] w-[38px] h-[38px] rounded-full z-0 animate-spin-slow">
-                    <div className="w-full h-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] blur-[1px] opacity-90" />
-                  </div>
-                )}
+                {arcRival ? (
+                  <ArcStarGauge
+                    current={arcRival.rivalBoost}
+                    preview={arcGaugePreview}
+                    blocked={arcGaugeBlocked}
+                  />
+                ) : null}
+                <div className="relative flex flex-col items-center">
+                  {/* Rainbow ring */}
+                  {isMotivated && (
+                    <div className="absolute -top-[3px] left-1/2 z-0 h-[46px] w-[46px] -translate-x-1/2 rounded-full animate-spin-slow">
+                      <div className="h-full w-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] opacity-90 blur-[1px]" />
+                    </div>
+                  )}
 
-                {/* --- (Circle Container) --- */}
-                <div className="w-8 h-8 rounded-full bg-orange-100 border-[1.5px] border-white flex items-center justify-center text-[10px] overflow-hidden shadow-sm relative z-10 transition-transform hover:scale-110">
-                  {partner && partner.charaPath ? (
-                    <img
-                      src={partner.charaPath}
-                      className="w-full h-full object-cover"
-                      alt="support card"
+                  {/* --- (Circle Container) --- */}
+                  <div className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-orange-100 text-[10px] shadow-sm transition-transform hover:scale-110">
+                    {charaPath ? (
+                      <img
+                        src={charaPath}
+                        className="h-full w-full object-cover"
+                        alt="support card"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src =
+                            partner?.charaPath || fallbackCharaPath;
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-orange-300 font-bold text-orange-800">
+                        P
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress Bar (Below Circle) */}
+                  {progress !== null && (
+                    <div className="relative z-20 -mt-1 h-2 w-9 overflow-hidden rounded-[3px] border border-gray-600 bg-gray-700 box-border">
+                      <div
+                        className={`h-full ${progressColor} transition-all duration-300 ease-out`}
+                        style={{ width: `${progress}%` }}
+                      />
+
+                      <div className="pointer-events-none absolute inset-0 grid h-full w-full grid-cols-5">
+                        <div className="h-full border-r border-black/20" />
+                        <div className="h-full border-r border-black/20" />
+                        <div className="h-full border-r border-black/20" />
+                        <div className="h-full border-r border-black/20" />
+                        <div />
+                      </div>
+                    </div>
+                  )}
+                  {progress === null && arcData ? (
+                    <div
+                      className="-mt-1 h-2 w-9 shrink-0"
+                      aria-hidden="true"
                     />
-                  ) : (
-                    <div className="bg-orange-300 w-full h-full flex items-center justify-center text-orange-800 font-bold">
-                      P
+                  ) : null}
+                  {/* Exclamation Mark Alert */}
+                  {isTip && (
+                    <div className="absolute -right-0.5 -top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border-[1.5px] border-white bg-red-500 shadow-sm">
+                      <span className="text-[10px] font-black text-white">
+                        !
+                      </span>
                     </div>
                   )}
                 </div>
-
-                {/* Progress Bar (Below Circle) */}
-                {progress !== null && (
-                  <div className="w-7 h-1.5 bg-gray-700 rounded-[3px] border border-gray-600 -mt-1 relative overflow-hidden z-20 box-border">
-                    <div
-                      className={`h-full ${progressColor} transition-all duration-300 ease-out`}
-                      style={{ width: `${progress}%` }}
-                    />
-
-                    <div className="absolute inset-0 w-full h-full grid grid-cols-5 pointer-events-none">
-                      <div className="border-r border-black/20 h-full" />
-                      <div className="border-r border-black/20 h-full" />
-                      <div className="border-r border-black/20 h-full" />
-                      <div className="border-r border-black/20 h-full" />
-                      <div />
-                    </div>
-                  </div>
-                )}
                 {partnerProbabilityLabel && (
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden -translate-x-1/2 whitespace-pre rounded bg-gray-900/90 px-2 py-1 text-[10px] font-semibold leading-snug text-white shadow-lg group-hover/partner:block">
                     {partnerProbabilityLabel}
                   </div>
                 )}
-                {/* Exclamation Mark Alert (Example: Show on partner 4) */}
-                {isTip && (
-                  <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 border-[1.5px] border-white rounded-full z-20 shadow-sm flex items-center justify-center">
-                    <span className="text-white text-[10px] font-black">!</span>
-                  </div>
-                )}
+                {currentArcRewardIcon ? (
+                  <img
+                    src={currentArcRewardIcon}
+                    alt={currentArcRewardLabel}
+                    title={`当前轮转奖励：${currentArcRewardLabel}`}
+                    className="absolute -bottom-1 -right-1 z-30 h-[18px] w-[18px] object-contain drop-shadow-sm"
+                  />
+                ) : null}
               </div>
             );
           })}

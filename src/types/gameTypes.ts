@@ -219,6 +219,7 @@ export interface ArcRivalRaceInfo {
 }
 
 export interface ArcData {
+  /** Server value in tenths of a percent: 78 means 7.8%. */
   approvalRate: number;
   globalExp: number;
   spTagBoostType: number;
@@ -289,6 +290,17 @@ export interface SongStat {
 
 export interface SongStats extends Array<SongStat> {}
 
+export interface TrainingHistorySkillTip {
+  groupId: number;
+  rarity: number;
+  level: number;
+}
+
+export interface TrainingHistorySkill {
+  skillId: number;
+  level: number;
+}
+
 // =============================
 // Wrapper for Character Info
 // =============================
@@ -305,6 +317,11 @@ export interface CharInfo {
   liveCommands?: LiveCommands;
   livePurchasedIds?: number[];
   eventDetails?: Record<number, StoryDetail>;
+  cardId?: number;
+  talentLevel?: number;
+  skills?: TrainingHistorySkill[];
+  skillTips?: TrainingHistorySkillTip[];
+  disabledSkillIds?: number[];
   venusData?: VenusData;
   arcData?: ArcData;
 }
@@ -359,17 +376,6 @@ export interface TrainingHistorySummary {
   packetCount: number;
   turnCount: number;
   supportCards: TrainingHistorySupportCard[];
-}
-
-export interface TrainingHistorySkill {
-  skillId: number;
-  level: number;
-}
-
-export interface TrainingHistorySkillTip {
-  groupId: number;
-  rarity: number;
-  level: number;
 }
 
 export interface TrainingHistoryVenusSpirit {
@@ -608,6 +614,11 @@ export const COMMAND_NAME_MAP: Record<number, string> = {
   603: '力量夏训',
   604: '毅力夏训',
   605: '智力夏训',
+  1101: '速度远征',
+  1102: '耐力远征',
+  1103: '力量远征',
+  1104: '毅力远征',
+  1105: '智力远征',
   701: '休息',
   302: '外出',
   390: '友人卡外出',
@@ -623,6 +634,11 @@ export const COMMAND_TARGET_TYPE_MAP: Record<number, TARGET_TYPE> = {
   602: TARGET_TYPE.STAMINA,
   603: TARGET_TYPE.POWER,
   605: TARGET_TYPE.WIZ,
+  1101: TARGET_TYPE.SPEED,
+  1102: TARGET_TYPE.STAMINA,
+  1103: TARGET_TYPE.POWER,
+  1104: TARGET_TYPE.GUTS,
+  1105: TARGET_TYPE.WIZ,
   701: TARGET_TYPE.VITAL,
   0: TARGET_TYPE.UNKNOWN,
 };

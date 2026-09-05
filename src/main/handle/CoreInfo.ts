@@ -169,6 +169,11 @@ const extractArcData = (
   };
 };
 
+const getTrainingCharaIconPath = (charaId: number) =>
+  charaId === 9043
+    ? './icons/chara/chr_icon_training_9043.png'
+    : (UMDB.charas[charaId]?.iconUrl ?? '');
+
 const extractVenusData = (
   venusDataSet: Record<string, any> | null | undefined,
 ): VenusData | undefined => {
@@ -391,6 +396,18 @@ export async function extractCoreInfo(
       id,
       text: UMDB.charaEffectTexts[id] ?? `状态 ${id}`,
     }));
+  const skillTips = (chara.skill_tips_array ?? []).map((tip: any) => ({
+    groupId: Number(tip?.group_id ?? 0),
+    rarity: Number(tip?.rarity ?? 0),
+    level: Number(tip?.level ?? 0),
+  }));
+  const skills = (chara.skill_array ?? []).map((skill: any) => ({
+    skillId: Number(skill?.skill_id ?? 0),
+    level: Number(skill?.level ?? 0),
+  }));
+  const disabledSkillIds = (chara.disable_skill_id_array ?? [])
+    .map((skillId: unknown) => Number(skillId))
+    .filter((skillId: number) => Number.isFinite(skillId) && skillId > 0);
   const effectedLiveIds = Array.from(
     new Set(
       (liveData?.effected_live_id_array ?? [])
@@ -514,6 +531,9 @@ export async function extractCoreInfo(
   const partnerStats = evaluations.map((evalEntry) => {
     const position = evalEntry.training_partner_id;
     const matchedCard = supportCards.find((card) => card.position === position);
+    const arcCharaId = arcData?.evaluationInfo.find(
+      (item) => item.targetId === position,
+    )?.charaId;
     const result = {
       position,
       evaluation: evalEntry.evaluation ?? 0,
@@ -531,8 +551,11 @@ export async function extractCoreInfo(
       result.limitBreak = matchedCard.limit_break_count;
       result.exp = matchedCard.exp;
     }
+    if (!matchedCard && arcCharaId) {
+      result.charaPath = getTrainingCharaIconPath(arcCharaId);
+    }
     if (position >= 1000) {
-      result.charaPath = UMDB.charas[position]?.iconUrl ?? '';
+      result.charaPath = getTrainingCharaIconPath(position);
     }
     return result;
   });
@@ -560,10 +583,11 @@ export async function extractCoreInfo(
       );
     });
 
+    const storyName = UMDB.stories.find((story) => story.id === storyId)?.name;
     return [
       {
         eventId: storyId,
-        eventName: rule?.name ?? `事件 ${storyId}`,
+        eventName: rule?.name ?? storyName ?? `事件 ${storyId}`,
         options,
       },
     ];
@@ -591,6 +615,11 @@ export async function extractCoreInfo(
     partnerStats,
     gameEvents,
     eventDetails,
+    cardId: Number(chara.card_id ?? 0),
+    talentLevel: Number(chara.talent_level ?? 0),
+    skills,
+    skillTips,
+    disabledSkillIds,
     venusData: scenarioType === 'venusCup' ? venusData : undefined,
     arcData: scenarioType === 'arc' ? arcData : undefined,
     noteStat: scenarioType === 'idolCup' ? noteStat : undefined,

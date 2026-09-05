@@ -8,6 +8,7 @@ export type AutoResearchSkill = {
   rarity: number;
   group_id: number;
   grade_value: number;
+  disp_order?: number;
   need_skill_point: number;
   disable_singlemode: number;
   tags: number[];
