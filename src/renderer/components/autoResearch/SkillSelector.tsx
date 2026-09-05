@@ -1,6 +1,11 @@
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
-import { Check, Layers3, Search, X } from 'lucide-react';
+import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import { Layers3 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import {
+  PlannerButton,
+  PlannerSkillCard,
+} from 'renderer/components/succession/PlannerComponents';
+import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
 
 export type AutoResearchSkill = {
   id: number;
@@ -254,15 +259,6 @@ export default function SkillSelector({
   const [runningStyleFilters, setRunningStyleFilters] = useState<number[]>([]);
   const [distanceFilters, setDistanceFilters] = useState<number[]>([]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, open]);
-
   const selectedSet = useMemo(() => new Set(selectedNames), [selectedNames]);
   const blockedSet = useMemo(() => new Set(blockedNames), [blockedNames]);
   const filteredSkills = useMemo(() => {
@@ -348,277 +344,209 @@ export default function SkillSelector({
   if (!open) return null;
 
   return (
-    <div
-      className={`fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm ${elevated ? 'z-[1400]' : 'z-50'}`}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭技能选择"
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
-          <div className="relative">
-            <Search
-              size={17}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              aria-label="搜索技能名称或技能 ID"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索技能名称或技能 ID"
-              className="w-full cursor-text select-text rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
-          <div className="mt-3 space-y-2.5">
-            {showRarityFilter ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-10 flex-none text-xs font-medium text-slate-500">
-                  稀有度
-                </span>
-                {[
-                  ['all', '全部'],
-                  ['white', '白'],
-                  ['gold', '金'],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRarity(value as typeof rarity)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      rarity === value
-                        ? 'bg-indigo-600 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-10 flex-none text-xs font-medium text-slate-500">
-                效果
-              </span>
-              {EFFECT_FILTERS.map((filter) => {
-                const active = effectFilters.includes(filter.id);
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleFilter(filter.id, setEffectFilters)}
-                    className={`flex items-center gap-1 rounded-full py-0.5 pl-1 pr-2.5 text-xs font-medium ${
-                      active
-                        ? 'bg-slate-800 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="h-5 w-5 overflow-hidden rounded-full bg-slate-100">
-                      <AssetIcon
-                        path={`skill_icons/${filter.iconId}.png`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    </span>
-                    {filter.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-10 flex-none text-xs font-medium text-slate-500">
-                跑法
-              </span>
-              {RUNNING_STYLE_FILTERS.map((filter) => {
-                const active = runningStyleFilters.includes(filter.id);
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() =>
-                      toggleFilter(filter.id, setRunningStyleFilters)
-                    }
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      active
-                        ? 'bg-slate-800 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-10 flex-none text-xs font-medium text-slate-500">
-                距离
-              </span>
-              {DISTANCE_FILTERS.map((filter) => {
-                const active = distanceFilters.includes(filter.id);
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleFilter(filter.id, setDistanceFilters)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      active
-                        ? 'bg-slate-800 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                );
-              })}
-              {(effectFilters.length ||
-                runningStyleFilters.length ||
-                distanceFilters.length ||
-                rarity !== 'all') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRarity('all');
-                    setEffectFilters([]);
-                    setRunningStyleFilters([]);
-                    setDistanceFilters([]);
-                  }}
-                  className="ml-auto rounded-full px-3 py-1 text-xs text-slate-500 hover:bg-white hover:text-slate-800"
-                >
-                  清除筛选
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredSkills.map((skill) => {
-              const selected = selectedSet.has(skill.name);
-              const blocked = blockedSet.has(skill.name) && !selected;
-              const iconPath = skillIconPath(skill);
-              return (
-                <button
-                  key={skill.id}
-                  type="button"
-                  disabled={blocked}
-                  onClick={() => onToggle(skill)}
-                  className={`flex min-w-0 items-center gap-3 rounded-xl border p-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                    selected
-                      ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-100'
-                      : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'
-                  }`}
-                >
-                  <span
-                    className={`h-11 w-11 flex-none overflow-hidden rounded-lg border ${
-                      skill.rarity === 2
-                        ? 'border-amber-300 bg-amber-50'
-                        : 'border-slate-200 bg-slate-50'
-                    }`}
-                  >
-                    {iconPath ? (
-                      <AssetIcon
-                        path={iconPath}
-                        alt={skill.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-800">
-                      {skill.name}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-slate-500">
-                      <span
-                        className={
-                          skill.rarity === 2
-                            ? 'font-semibold text-amber-700'
-                            : ''
-                        }
-                      >
-                        {skillRarityLabel(skill)}
-                      </span>
-                      {showSkillPoints ? (
-                        <span>{skill.need_skill_point} 技能点</span>
-                      ) : null}
-                      <span>{skillEffectLabel(skill)}</span>
-                      {selectedTagLabels(skill, RUNNING_STYLE_FILTERS).map(
-                        (label) => (
-                          <span key={label}>{label}</span>
-                        ),
-                      )}
-                      {selectedTagLabels(skill, DISTANCE_FILTERS).map(
-                        (label) => (
-                          <span key={label}>{label}</span>
-                        ),
-                      )}
-                    </span>
-                  </span>
-                  {selected ? (
-                    <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-white">
-                      <Check size={15} strokeWidth={3} />
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-          {!filteredSkills.length ? (
-            <div className="py-16 text-center text-sm text-slate-400">
-              没有找到符合条件的技能
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-3 text-xs text-slate-500">
-          <span>
-            已选择 {selectedNames.length} 个 · 当前显示 {filteredSkills.length}{' '}
-            个
-          </span>
-          <div className="flex items-center gap-2">
+    <SuccessionPickerDialog
+      ariaLabel={title}
+      eyebrow="SELECT SKILL"
+      title={title}
+      description={description}
+      onClose={onClose}
+      overlayClassName={elevated ? 'plannerElevatedOverlay' : undefined}
+      dialogClassName="plannerSkillDialog"
+      searchValue={search}
+      searchPlaceholder="搜索技能名称或技能 ID"
+      searchAriaLabel="搜索技能名称或技能 ID"
+      onSearchChange={setSearch}
+      meta={
+        <span>
+          已选择 {selectedNames.length} 个 · 当前显示 {filteredSkills.length} 个
+        </span>
+      }
+      footer={
+        <>
+          <span>选择顺序会保留在当前配置中</span>
+          <div className="plannerSkillFooterActions">
             {onAddGroup ? (
-              <button
-                type="button"
+              <PlannerButton
+                variant="secondary"
                 disabled={!unselectedFilteredSkills.length}
                 onClick={() => {
                   onAddGroup(unselectedFilteredSkills, groupLabel);
                   onClose();
                 }}
-                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Layers3 size={15} />
                 作为技能组加入（{unselectedFilteredSkills.length}）
-              </button>
+              </PlannerButton>
             ) : null}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-            >
+            <PlannerButton variant="primary" onClick={onClose}>
               完成
-            </button>
+            </PlannerButton>
+          </div>
+        </>
+      }
+    >
+      <div className="plannerSkillFilters">
+        <div className="space-y-2.5">
+          {showRarityFilter ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-10 flex-none text-xs font-medium text-slate-500">
+                稀有度
+              </span>
+              {[
+                ['all', '全部'],
+                ['white', '白'],
+                ['gold', '金'],
+              ].map(([value, label]) => (
+                <PlannerButton
+                  key={value}
+                  variant="filter"
+                  size="small"
+                  active={rarity === value}
+                  onClick={() => setRarity(value as typeof rarity)}
+                >
+                  {label}
+                </PlannerButton>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 flex-none text-xs font-medium text-slate-500">
+              效果
+            </span>
+            {EFFECT_FILTERS.map((filter) => {
+              const active = effectFilters.includes(filter.id);
+              return (
+                <PlannerButton
+                  key={filter.id}
+                  variant="filter"
+                  size="small"
+                  active={active}
+                  aria-pressed={active}
+                  onClick={() => toggleFilter(filter.id, setEffectFilters)}
+                >
+                  <span className="h-5 w-5 overflow-hidden rounded-full bg-slate-100">
+                    <AssetIcon
+                      path={`skill_icons/${filter.iconId}.png`}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </span>
+                  {filter.label}
+                </PlannerButton>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 flex-none text-xs font-medium text-slate-500">
+              跑法
+            </span>
+            {RUNNING_STYLE_FILTERS.map((filter) => {
+              const active = runningStyleFilters.includes(filter.id);
+              return (
+                <PlannerButton
+                  key={filter.id}
+                  variant="filter"
+                  size="small"
+                  active={active}
+                  aria-pressed={active}
+                  onClick={() =>
+                    toggleFilter(filter.id, setRunningStyleFilters)
+                  }
+                >
+                  {filter.label}
+                </PlannerButton>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 flex-none text-xs font-medium text-slate-500">
+              距离
+            </span>
+            {DISTANCE_FILTERS.map((filter) => {
+              const active = distanceFilters.includes(filter.id);
+              return (
+                <PlannerButton
+                  key={filter.id}
+                  variant="filter"
+                  size="small"
+                  active={active}
+                  aria-pressed={active}
+                  onClick={() => toggleFilter(filter.id, setDistanceFilters)}
+                >
+                  {filter.label}
+                </PlannerButton>
+              );
+            })}
+            {(effectFilters.length ||
+              runningStyleFilters.length ||
+              distanceFilters.length ||
+              rarity !== 'all') && (
+              <PlannerButton
+                variant="ghost"
+                size="small"
+                onClick={() => {
+                  setRarity('all');
+                  setEffectFilters([]);
+                  setRunningStyleFilters([]);
+                  setDistanceFilters([]);
+                }}
+                className="ml-auto"
+              >
+                清除筛选
+              </PlannerButton>
+            )}
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="plannerSkillGridBody">
+        <div className="plannerSkillGrid">
+          {filteredSkills.map((skill) => {
+            const selected = selectedSet.has(skill.name);
+            const blocked = blockedSet.has(skill.name) && !selected;
+            const iconPath = skillIconPath(skill);
+            return (
+              <PlannerSkillCard
+                key={skill.id}
+                disabled={blocked}
+                selected={selected}
+                iconPath={iconPath}
+                name={skill.name}
+                rarity={skill.rarity}
+                meta={
+                  <>
+                    <span
+                      className={
+                        skill.rarity === 2 ? 'font-semibold text-amber-700' : ''
+                      }
+                    >
+                      {skillRarityLabel(skill)}
+                    </span>
+                    {showSkillPoints ? (
+                      <span>{skill.need_skill_point} 技能点</span>
+                    ) : null}
+                    <span>{skillEffectLabel(skill)}</span>
+                    {selectedTagLabels(skill, RUNNING_STYLE_FILTERS).map(
+                      (label) => (
+                        <span key={label}>{label}</span>
+                      ),
+                    )}
+                    {selectedTagLabels(skill, DISTANCE_FILTERS).map((label) => (
+                      <span key={label}>{label}</span>
+                    ))}
+                  </>
+                }
+                onClick={() => onToggle(skill)}
+              />
+            );
+          })}
+        </div>
+        {!filteredSkills.length ? (
+          <div className="py-16 text-center text-sm text-slate-400">
+            没有找到符合条件的技能
+          </div>
+        ) : null}
+      </div>
+    </SuccessionPickerDialog>
   );
 }

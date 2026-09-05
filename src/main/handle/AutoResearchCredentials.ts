@@ -467,9 +467,9 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
   );
   ipcMain.handle(
     'autoresearch:account-abandon-career',
-    async (_, id: string, scenarioId: number, currentTurn: number) => {
+    async (_, id: string) => {
       return withAutoResearchLocalGameClient(id, async (client) => {
-        const result = await client.abandonCareer(scenarioId, currentTurn);
+        const result = await client.abandonCareer();
         return { ...result, session: client.session };
       });
     },

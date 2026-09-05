@@ -7,7 +7,6 @@ import {
   Pencil,
   Plus,
   Save,
-  Search,
   Star,
   X,
 } from 'lucide-react';
@@ -17,12 +16,17 @@ import {
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
+import {
+  PlannerButton,
+  PlannerPortrait,
+  PlannerSelectionCard,
+} from 'renderer/components/succession/PlannerComponents';
 import { compareRaces } from './shared';
 import SkillSelector, {
   AutoResearchSkill,
   skillIconPath,
 } from './SkillSelector';
-import { horseIconPath, ParentChoiceCard } from './SelectionCards';
+import { characterIconPath, ParentChoiceCard } from './SelectionCards';
 import {
   Dashboard,
   OfflineFactorSelection,
@@ -615,7 +619,7 @@ export default function OfflineCareerSettings({
       (option) => option.chara_id === setting.chara_id,
     );
     const iconPath = uma
-      ? horseIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) || uma.icon
+      ? characterIconPath(uma.card_id) || uma.icon
       : undefined;
     const redFactor = APTITUDE_FACTORS.find(
       (factor) => factor.factor_group_id === setting.red_factor_group_id,
@@ -849,21 +853,21 @@ export default function OfflineCareerSettings({
       </section>
 
       {editingDeckNum ? (
-        <div className="fixed inset-0 z-[1450] flex items-center justify-center p-4">
+        <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
           <button
             type="button"
             aria-label="关闭赛程槽位编辑"
             onClick={() => setEditingDeckNum(0)}
             disabled={Boolean(busy)}
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm disabled:cursor-wait"
+            className="absolute inset-0 bg-transparent disabled:cursor-wait"
           />
           <section
             role="dialog"
             aria-modal="true"
             aria-label={`编辑游戏赛程槽位 ${editingDeckNum}`}
-            className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="successionPickerDialog relative max-h-[92vh] w-full max-w-6xl"
           >
-            <header className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <header className="successionPickerHeader flex-wrap items-end">
               <label className="min-w-64 flex-1 text-sm text-slate-700">
                 <strong className="block text-lg text-slate-900">
                   编辑游戏赛程槽位 {editingDeckNum}
@@ -928,7 +932,7 @@ export default function OfflineCareerSettings({
               </div>
             </div>
 
-            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+            <footer className="successionPickerFooter flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setEditingDeckNum(0)}
@@ -1435,16 +1439,13 @@ export default function OfflineCareerSettings({
                         selected={Boolean(selectedLineageParent)}
                         portrait={
                           selectedLineageParent ? (
-                            <AssetIcon
+                            <PlannerPortrait
                               path={
-                                horseIconPath(
+                                characterIconPath(
                                   selectedLineageParent.card_id,
-                                  selectedLineageParent.rarity,
-                                  selectedLineageParent.race_cloth_id,
                                 ) || ''
                               }
                               alt={selectedLineageParent.name}
-                              className="successionPortrait object-cover"
                             />
                           ) : null
                         }
@@ -1526,20 +1527,20 @@ export default function OfflineCareerSettings({
       </section>
 
       {lineageFactorPicker ? (
-        <div className="fixed inset-0 z-[1470] flex items-center justify-center p-4">
+        <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
           <button
             type="button"
             aria-label="关闭红因子设置"
             onClick={() => setLineageFactorPicker('')}
-            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-transparent"
           />
           <section
             role="dialog"
             aria-modal="true"
             aria-label={`设置${LINEAGE_TREE_SLOT_LABELS[lineageFactorPicker]}的红因子`}
-            className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="successionPickerDialog relative w-full max-w-2xl"
           >
-            <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <header className="successionPickerHeader">
               <div>
                 <span className="text-[11px] font-bold tracking-[0.18em] text-rose-500">
                   TRAINED RED FACTOR
@@ -1640,7 +1641,7 @@ export default function OfflineCareerSettings({
                 </div>
               </section>
             </div>
-            <footer className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+            <footer className="successionPickerFooter flex items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-sm text-slate-600">
                 <AssetIcon
                   path={
@@ -1688,20 +1689,20 @@ export default function OfflineCareerSettings({
       ) : null}
 
       {lineageRoutePicker ? (
-        <div className="fixed inset-0 z-[1470] flex items-center justify-center p-4">
+        <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
           <button
             type="button"
             aria-label="关闭赛程设置"
             onClick={() => setLineageRoutePicker('')}
-            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-transparent"
           />
           <section
             role="dialog"
             aria-modal="true"
             aria-label={`设置${LINEAGE_TREE_SLOT_LABELS[lineageRoutePicker]}的赛程`}
-            className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="successionPickerDialog relative w-full max-w-2xl"
           >
-            <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <header className="successionPickerHeader">
               <div>
                 <span className="text-[11px] font-bold tracking-[0.18em] text-sky-500">
                   RACE SCHEDULE
@@ -2074,140 +2075,90 @@ export default function OfflineCareerSettings({
       ) : null}
 
       {lineageTreePicker ? (
-        <div className="fixed inset-0 z-[1450] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="关闭谱系树选择"
-            onClick={() => setLineageTreePicker('')}
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
-          />
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label="选择谱系树马娘"
-            className="relative flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-          >
-            <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-              <div>
-                <span className="text-[11px] font-bold tracking-[0.18em] text-fuchsia-500">
-                  LINEAGE TREE
-                </span>
-                <h3 className="mt-1 text-lg font-bold text-slate-900">
-                  选择{LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  输入名称或角色 ID 搜索，点击头像完成选择。
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="关闭谱系树选择"
-                onClick={() => setLineageTreePicker('')}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X size={20} />
-              </button>
-            </header>
-
-            <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
-              <label className="relative block">
-                <Search
-                  size={17}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  value={lineageTreeSearch}
-                  onChange={(event) => setLineageTreeSearch(event.target.value)}
-                  placeholder="搜索马娘名称或角色 ID"
-                  className="w-full cursor-text select-text rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-100"
-                />
-              </label>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                {filteredLineageCharaOptions.map((uma) => {
-                  const selected =
-                    factorSelection.lineage.tree[lineageTreePicker].chara_id ===
-                    uma.chara_id;
-                  const occupied = (
-                    Object.keys(
-                      factorSelection.lineage.tree,
-                    ) as LineageTreeSlot[]
-                  ).some(
-                    (slot) =>
-                      slot !== lineageTreePicker &&
-                      factorSelection.lineage.tree[slot].chara_id ===
-                        uma.chara_id,
-                  );
-                  const iconPath =
-                    horseIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) ||
-                    uma.icon;
-                  return (
-                    <button
-                      key={uma.chara_id}
-                      type="button"
-                      disabled={occupied}
-                      title={occupied ? '该马娘已用于树中的其他槽位' : uma.name}
-                      onClick={() => {
-                        const current =
-                          factorSelection.lineage.tree[lineageTreePicker];
-                        updateLineageTreeSlot(lineageTreePicker, {
-                          chara_id: uma.chara_id,
-                          red_factor_group_id:
-                            current.red_factor_group_id || 11,
-                          red_factor_stars: current.red_factor_stars || 3,
-                          route_id: current.route_id || 'none',
-                          min_factor_stars: 0,
-                        });
-                        setLineageTreePicker('');
-                      }}
-                      className={`min-w-0 rounded-xl border p-2 text-center transition disabled:cursor-not-allowed disabled:opacity-30 ${
-                        selected
-                          ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
-                          : 'border-slate-200 bg-white hover:border-fuchsia-200 hover:bg-fuchsia-50/40'
-                      }`}
-                    >
-                      <span className="mx-auto block h-16 w-16 overflow-hidden rounded-lg bg-slate-100">
-                        {iconPath ? (
-                          <AssetIcon
-                            path={iconPath}
-                            alt={uma.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                      </span>
-                      <span className="mt-1.5 block truncate text-xs font-semibold text-slate-700">
-                        {uma.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {!filteredLineageCharaOptions.length ? (
-                <p className="py-16 text-center text-sm text-slate-400">
-                  没有找到符合搜索条件的马娘
-                </p>
-              ) : null}
-            </div>
-
-            <footer className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
-              <span className="text-xs text-slate-500">
-                找到 {filteredLineageCharaOptions.length} 位马娘
-              </span>
-              <button
-                type="button"
+        <SuccessionPickerDialog
+          ariaLabel="选择谱系树马娘"
+          eyebrow="LINEAGE TREE"
+          title={`选择${LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}`}
+          description="输入名称或角色 ID 搜索，点击卡片完成选择。"
+          onClose={() => setLineageTreePicker('')}
+          overlayClassName="plannerElevatedOverlay"
+          searchValue={lineageTreeSearch}
+          searchPlaceholder="搜索马娘名称或角色 ID"
+          searchAriaLabel="搜索谱系树马娘"
+          onSearchChange={setLineageTreeSearch}
+          meta={<span>找到 {filteredLineageCharaOptions.length} 位马娘</span>}
+          bodyClassName="successionPickerGrid"
+          footer={
+            <>
+              <span>当前显示 {filteredLineageCharaOptions.length} 位马娘</span>
+              <PlannerButton
+                variant="secondary"
                 onClick={() => {
                   updateLineageTreeSlot(lineageTreePicker, { chara_id: 0 });
                   setLineageTreePicker('');
                 }}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 设为不固定
-              </button>
-            </footer>
-          </section>
-        </div>
+              </PlannerButton>
+            </>
+          }
+        >
+          {filteredLineageCharaOptions.length ? (
+            filteredLineageCharaOptions.map((uma) => {
+              const selected =
+                factorSelection.lineage.tree[lineageTreePicker].chara_id ===
+                uma.chara_id;
+              const occupied = (
+                Object.keys(factorSelection.lineage.tree) as LineageTreeSlot[]
+              ).some(
+                (slot) =>
+                  slot !== lineageTreePicker &&
+                  factorSelection.lineage.tree[slot].chara_id === uma.chara_id,
+              );
+              const iconPath = characterIconPath(uma.card_id) || uma.icon;
+              return (
+                <PlannerSelectionCard
+                  key={uma.chara_id}
+                  selected={selected}
+                  occupied={occupied}
+                  portrait={
+                    <PlannerPortrait
+                      path={iconPath}
+                      alt={uma.name}
+                      size="large"
+                    />
+                  }
+                  title={uma.name}
+                  subtitle={`角色 ID ${uma.chara_id}`}
+                  onClick={() => {
+                    const current =
+                      factorSelection.lineage.tree[lineageTreePicker];
+                    updateLineageTreeSlot(lineageTreePicker, {
+                      chara_id: uma.chara_id,
+                      red_factor_group_id: current.red_factor_group_id || 11,
+                      red_factor_stars: current.red_factor_stars || 3,
+                      route_id: current.route_id || 'none',
+                      min_factor_stars: 0,
+                    });
+                    setLineageTreePicker('');
+                  }}
+                />
+              );
+            })
+          ) : (
+            <div className="successionPickerEmpty">
+              <strong>没有找到符合搜索条件的马娘</strong>
+              <p>尝试修改名称、角色 ID，或清空搜索。</p>
+              <PlannerButton
+                variant="secondary"
+                size="small"
+                onClick={() => setLineageTreeSearch('')}
+              >
+                清空搜索
+              </PlannerButton>
+            </div>
+          )}
+        </SuccessionPickerDialog>
       ) : null}
 
       <SkillSelector

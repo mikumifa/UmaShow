@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
-import { horseIconPath } from './SelectionCards';
+import { useMemo, useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
+import {
+  PlannerPortrait,
+  PlannerSelectionCard,
+} from 'renderer/components/succession/PlannerComponents';
+import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
+import { characterIconPath } from './SelectionCards';
 import { DailyTasksOptions } from './types';
 
 type Horse = DailyTasksOptions['trained_charas'][number];
@@ -93,14 +97,6 @@ export default function DailyHorsePicker({
   const [distanceMinimum, setDistanceMinimum] = useState<MinimumGrade>('auto');
   const [groundMinimum, setGroundMinimum] = useState<MinimumGrade>('auto');
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onClose]);
-
   const autoSuitabilityMinimum = useMemo(
     () =>
       automaticMinimum(
@@ -159,207 +155,172 @@ export default function DailyHorsePicker({
   ]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 className="font-bold text-slate-800">{title}</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {race.name} · {race.ground_name} · {race.distance}m ·{' '}
-              {distanceLabels[race.distance_type]}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="关闭马娘选择"
-            onClick={onClose}
-            className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X size={18} />
-          </button>
-        </header>
-
-        <div className="border-b border-slate-200 bg-slate-50/70 p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_180px]">
-            <label className="relative block" htmlFor="daily-horse-search">
-              <Search
-                size={15}
-                className="pointer-events-none absolute left-3 top-2.5 text-slate-400"
-              />
-              <input
-                id="daily-horse-search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索已育成马娘"
-                className="w-full cursor-text select-text rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400"
-              />
-            </label>
-            <label className="block" htmlFor="daily-horse-distance-filter">
-              <span className="sr-only">距离适应性</span>
-              <select
-                id="daily-horse-distance-filter"
-                value={distanceMinimum}
-                onChange={(event) =>
-                  setDistanceMinimum(event.target.value as MinimumGrade)
-                }
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <option value="auto">
-                  {distanceLabels[race.distance_type]}：自动（≥
-                  {aptitudeLabel(autoSuitabilityMinimum)}）
-                </option>
-                <option value="8">距离适应性 S</option>
-                <option value="7">距离适应性 A 以上</option>
-                <option value="6">距离适应性 B 以上</option>
-                <option value="5">距离适应性 C 以上</option>
-                <option value="4">距离适应性 D 以上</option>
-                <option value="0">距离不限</option>
-              </select>
-            </label>
-            <label className="block" htmlFor="daily-horse-ground-filter">
-              <span className="sr-only">场地适应性</span>
-              <select
-                id="daily-horse-ground-filter"
-                value={groundMinimum}
-                onChange={(event) =>
-                  setGroundMinimum(event.target.value as MinimumGrade)
-                }
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <option value="auto">
-                  {race.ground_name}：自动（≥
-                  {aptitudeLabel(autoSuitabilityMinimum)}）
-                </option>
-                <option value="8">场地适应性 S</option>
-                <option value="7">场地适应性 A 以上</option>
-                <option value="6">场地适应性 B 以上</option>
-                <option value="5">场地适应性 C 以上</option>
-                <option value="4">场地适应性 D 以上</option>
-                <option value="0">场地不限</option>
-              </select>
-            </label>
-            <label className="relative block" htmlFor="daily-horse-sort">
-              <SlidersHorizontal
-                size={15}
-                className="absolute left-3 top-2.5 text-slate-400"
-              />
-              <select
-                id="daily-horse-sort"
-                value={sortKey}
-                onChange={(event) => setSortKey(event.target.value as SortKey)}
-                className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
-              >
-                <option value="suitability">按赛事适配度</option>
-                <option value="rank_score">按评分</option>
-                <option value="speed">按速度</option>
-                <option value="stamina">按耐力</option>
-                <option value="power">按力量</option>
-                <option value="guts">按根性</option>
-                <option value="wit">按智力</option>
-              </select>
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            自动筛选优先要求 A 适应性；没有 A
-            时会放宽到当前账号能够达到的最高等级。当前显示{' '}
-            {visibleHorses.length}/{horses.length} 匹。
-          </p>
+    <SuccessionPickerDialog
+      ariaLabel={title}
+      eyebrow="SELECT UMAMUSUME"
+      title={title}
+      description={`${race.name} · ${race.ground_name} · ${race.distance}m · ${distanceLabels[race.distance_type]}`}
+      onClose={onClose}
+      dialogClassName="plannerDailyHorseDialog"
+      searchValue={search}
+      searchPlaceholder="搜索已育成马娘"
+      searchAriaLabel="搜索已育成马娘"
+      onSearchChange={setSearch}
+      meta={
+        <span>
+          当前显示 {visibleHorses.length}/{horses.length} 匹
+        </span>
+      }
+    >
+      <div className="plannerDailyHorseFilters">
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block" htmlFor="daily-horse-distance-filter">
+            <span className="sr-only">距离适应性</span>
+            <select
+              id="daily-horse-distance-filter"
+              value={distanceMinimum}
+              onChange={(event) =>
+                setDistanceMinimum(event.target.value as MinimumGrade)
+              }
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="auto">
+                {distanceLabels[race.distance_type]}：自动（≥
+                {aptitudeLabel(autoSuitabilityMinimum)}）
+              </option>
+              <option value="8">距离适应性 S</option>
+              <option value="7">距离适应性 A 以上</option>
+              <option value="6">距离适应性 B 以上</option>
+              <option value="5">距离适应性 C 以上</option>
+              <option value="4">距离适应性 D 以上</option>
+              <option value="0">距离不限</option>
+            </select>
+          </label>
+          <label className="block" htmlFor="daily-horse-ground-filter">
+            <span className="sr-only">场地适应性</span>
+            <select
+              id="daily-horse-ground-filter"
+              value={groundMinimum}
+              onChange={(event) =>
+                setGroundMinimum(event.target.value as MinimumGrade)
+              }
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="auto">
+                {race.ground_name}：自动（≥
+                {aptitudeLabel(autoSuitabilityMinimum)}）
+              </option>
+              <option value="8">场地适应性 S</option>
+              <option value="7">场地适应性 A 以上</option>
+              <option value="6">场地适应性 B 以上</option>
+              <option value="5">场地适应性 C 以上</option>
+              <option value="4">场地适应性 D 以上</option>
+              <option value="0">场地不限</option>
+            </select>
+          </label>
+          <label className="relative block" htmlFor="daily-horse-sort">
+            <SlidersHorizontal
+              size={15}
+              className="absolute left-3 top-2.5 text-slate-400"
+            />
+            <select
+              id="daily-horse-sort"
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as SortKey)}
+              className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
+            >
+              <option value="suitability">按赛事适配度</option>
+              <option value="rank_score">按评分</option>
+              <option value="speed">按速度</option>
+              <option value="stamina">按耐力</option>
+              <option value="power">按力量</option>
+              <option value="guts">按根性</option>
+              <option value="wit">按智力</option>
+            </select>
+          </label>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          自动筛选优先要求 A 适应性；没有 A
+          时会放宽到当前账号能够达到的最高等级。当前显示 {visibleHorses.length}/
+          {horses.length} 匹。
+        </p>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visibleHorses.map((horse) => {
-              const iconPath = horseIconPath(
-                horse.card_id,
-                horse.rarity,
-                horse.race_cloth_id,
-              );
-              const distanceGrade = distanceAptitude(horse, race);
-              const groundGrade = groundAptitude(horse, race);
-              const styleGrade = runningStyleAptitude(horse, runningStyle);
-              const selected = horse.trained_chara_id === selectedId;
-              return (
-                <button
-                  key={horse.trained_chara_id}
-                  type="button"
-                  onClick={() => onSelect(horse)}
-                  className={`rounded-lg border p-3 text-left transition ${
-                    selected
-                      ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100'
-                      : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-slate-100">
-                      {iconPath ? (
-                        <AssetIcon
-                          path={iconPath}
-                          alt={horse.name}
-                          className="h-full w-full object-cover"
-                        />
+      <div className="plannerDailyHorseBody">
+        <div className="plannerDailyHorseGrid">
+          {visibleHorses.map((horse) => {
+            const iconPath = characterIconPath(horse.card_id);
+            const distanceGrade = distanceAptitude(horse, race);
+            const groundGrade = groundAptitude(horse, race);
+            const styleGrade = runningStyleAptitude(horse, runningStyle);
+            const selected = horse.trained_chara_id === selectedId;
+            return (
+              <PlannerSelectionCard
+                key={horse.trained_chara_id}
+                selected={selected}
+                portrait={
+                  <PlannerPortrait
+                    path={iconPath}
+                    alt={horse.name}
+                    size="large"
+                  />
+                }
+                title={horse.name}
+                subtitle={`评分 ${horse.rank_score}`}
+                details={
+                  <>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(distanceGrade)}`}
+                      >
+                        {distanceLabels[race.distance_type]}{' '}
+                        {aptitudeLabel(distanceGrade)}
+                      </span>
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(groundGrade)}`}
+                      >
+                        {race.ground_name} {aptitudeLabel(groundGrade)}
+                      </span>
+                      {runningStyle > 0 ? (
+                        <span
+                          className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(styleGrade)}`}
+                        >
+                          跑法 {aptitudeLabel(styleGrade)}
+                        </span>
                       ) : null}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-slate-800">
-                        {horse.name}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-500">
-                        评分 {horse.rank_score}
-                      </span>
-                      <span className="mt-2 flex flex-wrap gap-1">
+                    <span className="mt-2 grid grid-cols-5 gap-1 rounded-md bg-slate-50 p-2 text-center">
+                      {[
+                        ['速', horse.speed],
+                        ['耐', horse.stamina],
+                        ['力', horse.power],
+                        ['根', horse.guts],
+                        ['智', horse.wit],
+                      ].map(([label, value]) => (
                         <span
-                          className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(distanceGrade)}`}
+                          key={label}
+                          className="text-[11px] text-slate-500"
                         >
-                          {distanceLabels[race.distance_type]}{' '}
-                          {aptitudeLabel(distanceGrade)}
-                        </span>
-                        <span
-                          className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(groundGrade)}`}
-                        >
-                          {race.ground_name} {aptitudeLabel(groundGrade)}
-                        </span>
-                        {runningStyle > 0 ? (
-                          <span
-                            className={`rounded border px-1.5 py-0.5 text-xs font-bold ${gradeClass(styleGrade)}`}
-                          >
-                            跑法 {aptitudeLabel(styleGrade)}
+                          <span className="block">{label}</span>
+                          <span className="block font-semibold text-slate-700">
+                            {value}
                           </span>
-                        ) : null}
-                      </span>
-                    </span>
-                  </div>
-                  <span className="mt-3 grid grid-cols-5 gap-1 rounded-md bg-slate-50 p-2 text-center">
-                    {[
-                      ['速', horse.speed],
-                      ['耐', horse.stamina],
-                      ['力', horse.power],
-                      ['根', horse.guts],
-                      ['智', horse.wit],
-                    ].map(([label, value]) => (
-                      <span key={label} className="text-[11px] text-slate-500">
-                        <span className="block">{label}</span>
-                        <span className="block font-semibold text-slate-700">
-                          {value}
                         </span>
-                      </span>
-                    ))}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {!visibleHorses.length ? (
-            <div className="py-16 text-center text-sm text-slate-400">
-              没有符合当前筛选条件的已育成马娘，请降低适应性要求。
-            </div>
-          ) : null}
+                      ))}
+                    </span>
+                  </>
+                }
+                onClick={() => onSelect(horse)}
+              />
+            );
+          })}
         </div>
-      </section>
-    </div>
+        {!visibleHorses.length ? (
+          <div className="py-16 text-center text-sm text-slate-400">
+            没有符合当前筛选条件的已育成马娘，请降低适应性要求。
+          </div>
+        ) : null}
+      </div>
+    </SuccessionPickerDialog>
   );
 }

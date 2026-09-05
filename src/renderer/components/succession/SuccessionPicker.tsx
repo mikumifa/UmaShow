@@ -2,6 +2,12 @@
 import { ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+import {
+  PlannerButton,
+  type PlannerFactor,
+  PlannerFactorList,
+} from './PlannerComponents';
+
 import 'renderer/ui/SuccessionPlanner.css';
 
 type SuccessionPickerDialogProps = {
@@ -122,12 +128,7 @@ export function SuccessionPickerDialog({
   );
 }
 
-export type SuccessionFactorDetailFactor = {
-  id: number | string;
-  name: string;
-  stars: number;
-  tone: 'stat' | 'aptitude' | 'unique' | 'race' | 'white';
-};
+export type SuccessionFactorDetailFactor = PlannerFactor & { stars: number };
 
 export type SuccessionFactorDetailMember = {
   key: string;
@@ -174,28 +175,23 @@ export function SuccessionFactorDetailModal({
                 {member.subtitle ? <em>{member.subtitle}</em> : null}
               </span>
             </header>
-            <div className="successionCapturedAllFactors">
-              {member.factors.map((factor, index) => (
-                <span
-                  className={factor.tone}
-                  key={`${factor.id}:${index}`}
-                  title={`因子 ID ${factor.id}`}
-                >
-                  {factor.name} <b>{factor.stars}★</b>
-                </span>
-              ))}
-            </div>
+            <PlannerFactorList
+              factors={member.factors.map((factor) => ({
+                ...factor,
+                title: `因子 ID ${factor.id}`,
+              }))}
+            />
           </article>
         ))}
       </div>
       <footer className="successionCapturedDetailActions">
-        <button type="button" onClick={onClose}>
+        <PlannerButton variant="secondary" onClick={onClose}>
           关闭
-        </button>
+        </PlannerButton>
         {onSelect ? (
-          <button type="button" className="primary" onClick={onSelect}>
+          <PlannerButton variant="primary" onClick={onSelect}>
             选择此马娘
-          </button>
+          </PlannerButton>
         ) : null}
       </footer>
     </SuccessionPickerDialog>

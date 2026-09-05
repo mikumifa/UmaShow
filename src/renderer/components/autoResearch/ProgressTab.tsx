@@ -302,17 +302,10 @@ function dailyPlanGoalLabel(
 }
 
 function currentRunPlanLabel(runner?: Runner) {
-  const queue = runner?.run_plan?.queue || runner?.control?.detail?.run_queue;
+  const queue = runner?.run_plan?.queue;
   const queueItem = queue?.items?.[queue.current_index];
-  const mode =
-    queueItem?.goal ||
-    runner?.run_plan?.mode ||
-    runner?.control?.request?.run_mode;
-  const target =
-    queueItem?.target ||
-    runner?.run_plan?.target ||
-    runner?.control?.request?.run_target ||
-    1;
+  const mode = queueItem?.goal || runner?.run_plan?.mode;
+  const target = queueItem?.target || runner?.run_plan?.target || 1;
 
   switch (mode) {
     case 'count':
@@ -327,6 +320,66 @@ function currentRunPlanLabel(runner?: Runner) {
     default:
       return runModeLabel(mode);
   }
+}
+
+function WaitingCareerStartCard({
+  currentSettingName,
+  offlineMode,
+}: {
+  currentSettingName: string;
+  offlineMode: boolean;
+}) {
+  return (
+    <section
+      className={panelClass(
+        'relative isolate overflow-hidden border-indigo-100 bg-gradient-to-br from-white via-indigo-50/70 to-violet-50/80 p-6',
+      )}
+    >
+      <div className="pointer-events-none absolute -right-16 -top-20 -z-10 h-48 w-48 rounded-full bg-indigo-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-1/3 -z-10 h-44 w-44 rounded-full bg-violet-200/35 blur-3xl" />
+
+      <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+        <div className="relative flex h-16 w-16 flex-none items-center justify-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-indigo-300/25" />
+          <span className="absolute inset-1 rounded-full border border-indigo-200 bg-white/80 shadow-sm" />
+          <RefreshCw
+            size={28}
+            className="relative animate-spin text-indigo-600"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <h3 className="text-lg font-bold text-slate-900">
+              正在等待育成开始
+            </h3>
+            <span className={statusBadgeClass('violet')}>准备中</span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            <span className="font-semibold text-indigo-700">
+              {currentSettingName}
+            </span>
+            {offlineMode
+              ? ' 已提交，服务端正在分配离线育成任务。'
+              : ' 已进入执行队列，正在准备游戏会话。'}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            育成开始后将自动切换为实时属性与当前流程，无需手动刷新。
+          </p>
+        </div>
+
+        <div className="flex flex-none items-center gap-1.5" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="h-2 w-2 animate-pulse rounded-full bg-indigo-400"
+              style={{ animationDelay: `${index * 180}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function ProgressTab({
@@ -347,16 +400,14 @@ export default function ProgressTab({
   idleSingleMode,
   abandonCareer,
 }: ProgressTabProps) {
-  const runnerClosing =
-    busy === 'stop' || runner?.control?.desired_state === 'stopped';
+  const runnerClosing = busy === 'stop';
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
   const statAnimationResetKey =
     runner?.run_id ||
     runner?.state_epoch ||
     `${activeCareer?.card_id || currentCareerUma?.id || 'career'}:${activeCareer?.scenario_id || 0}`;
-  const activeQueue =
-    runner?.run_plan?.queue || runner?.control?.detail?.run_queue;
+  const activeQueue = runner?.run_plan?.queue;
   const activeQueueItem = activeQueue?.items?.[activeQueue.current_index];
   const currentSettingName =
     activeSetting?.name ||
@@ -366,7 +417,7 @@ export default function ProgressTab({
     '当前详设';
   const liveRunnerTurn = [
     runner?.turn,
-    runner?.control?.detail?.current_turn,
+    runner?.current_turn,
     ...(runner?.action_history || []).map((row) => row.turn),
     ...(runner?.log || []).map((row) => row.turn),
   ].reduce((latest, value) => {
@@ -374,7 +425,7 @@ export default function ProgressTab({
     return Number.isFinite(turn) && turn > latest ? turn : latest;
   }, 0);
   const currentCareerTurn = liveRunnerTurn || activeCareer?.turn;
-  const runnerErrors = [runner?.last_error, runner?.control?.detail?.last_error]
+  const runnerErrors = [runner?.last_error]
     .map(formatAccountError)
     .filter(
       (message, index, messages) =>
@@ -383,10 +434,15 @@ export default function ProgressTab({
   const runnerG123RaceCount = Object.values(
     runner?.g123_race_counts || {},
   ).reduce((sum, count) => sum + Number(count || 0), 0);
-  const queuedControl = Boolean(
-    runner?.control?.desired_state === 'running' &&
+  const queuedPlan = Boolean(runner?.run_plan?.active && !runner?.running);
+  const waitingForCareerStart = Boolean(
+    currentCareerActive &&
+      automationActive &&
+      !runnerStopping &&
+      !runnerPaused &&
       !runner?.running &&
-      ['queued', 'reconnect_wait'].includes(runner?.control?.status || ''),
+      !idleSingleMode?.active &&
+      !runner?.finished,
   );
   const liveActivityLabel =
     automationActive && liveActivity?.endpoint
@@ -432,16 +488,11 @@ export default function ProgressTab({
                     : runnerPaused
                       ? '计划已暂停'
                       : offlineMode
-                        ? idleSingleMode?.active ||
-                          runner?.control?.status === 'running'
+                        ? idleSingleMode?.active
                           ? '离线育成中'
-                          : runner?.control?.status === 'reconnect_wait'
-                            ? '等待重新连接'
-                            : '等待后台 Worker 启动'
-                        : queuedControl
-                          ? runner?.control?.status === 'reconnect_wait'
-                            ? '等待重新连接'
-                            : '等待后台 Worker 启动'
+                          : '等待服务端调度'
+                        : queuedPlan
+                          ? '等待服务端调度'
                           : automationActive
                             ? '自动育成中'
                             : runner?.run_plan?.stop_reason ||
@@ -467,30 +518,30 @@ export default function ProgressTab({
                         : 'text-amber-500'
                     }
                   />
+                ) : waitingForCareerStart ? (
+                  <RefreshCw
+                    size={15}
+                    className="animate-spin text-indigo-500"
+                  />
                 ) : (
                   <Activity size={15} className="text-indigo-500" />
                 )}
                 {runnerStopping
                   ? runnerClosing
-                    ? '正在等待服务器 Worker 关闭计划'
-                    : '正在等待服务器 Worker 确认暂停'
+                    ? '正在等待服务端关闭计划'
+                    : '正在等待服务端保存暂停状态'
                   : runnerPaused
-                    ? 'Worker 与自动重登已停止，其他设备现在可以登录'
+                    ? '计划进度已保存，恢复时会重新创建育成执行器'
                     : offlineMode
-                      ? runner?.control?.status === 'reconnect_wait'
-                        ? liveActivityLabel || '等待后台 Worker 重新连接账号'
-                        : idleSingleMode?.active ||
-                            runner?.control?.status === 'running'
-                          ? '任务已交给游戏服务器，完成后会自动处理结果并开始下一局'
-                          : '启动请求已提交，正在等待后台 Worker 接手'
-                      : queuedControl
-                        ? runner?.control?.status === 'reconnect_wait'
-                          ? liveActivityLabel || '等待后台 Worker 重新连接账号'
-                          : '启动请求已提交，正在等待后台 Worker 接手'
+                      ? idleSingleMode?.active
+                        ? '任务由服务端跟踪，完成后会处理结果并推进下一次计划'
+                        : '计划已提交，正在等待服务端开始离线育成'
+                      : queuedPlan
+                        ? liveActivityLabel || '计划已提交，等待服务端推进'
                         : liveActivityLabel ||
                           describeRunnerAction(runner?.last_action)}
               </p>
-              {!offlineMode ? (
+              {!offlineMode && !waitingForCareerStart ? (
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>
                     体力 {currentRunnerStats.hp ?? activeCareer?.vital ?? 0}/
@@ -538,12 +589,12 @@ export default function ProgressTab({
         {runnerStopping ? (
           <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
             {runnerClosing
-              ? '正在彻底关闭计划并释放托管会话。游戏中的当前育成不会被放弃。'
-              : '正在保存计划进度并暂停服务器 Worker。暂停不会放弃当前育成；完成后其他设备可以登录。'}
+              ? '正在关闭计划。游戏中的当前育成不会被主动放弃。'
+              : '正在保存计划进度并暂停执行。暂停不会放弃当前育成。'}
           </div>
         ) : null}
 
-        {!offlineMode ? (
+        {!offlineMode && !waitingForCareerStart ? (
           <div className="mt-5 inline-grid max-w-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-100 sm:grid-cols-3 xl:grid-cols-9">
             {[
               ['速度', currentRunnerStats.speed],
@@ -629,7 +680,12 @@ export default function ProgressTab({
         ) : null}
       </section>
 
-      {!offlineMode ? (
+      {waitingForCareerStart ? (
+        <WaitingCareerStartCard
+          currentSettingName={currentSettingName}
+          offlineMode={offlineMode}
+        />
+      ) : !offlineMode ? (
         <section className={panelClass('overflow-hidden')}>
           <div className="border-b border-slate-100 px-5 py-4">
             <h3 className="font-bold text-slate-900">当前流程</h3>

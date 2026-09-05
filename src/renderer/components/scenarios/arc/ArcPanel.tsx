@@ -308,14 +308,20 @@ function ArcStatusBar({
   const matchParams = selection
     ? mergeParams(selection.params, selection.bonusParams)
     : [];
+  const arcCharaIdByTargetId = new Map(
+    arcData.evaluationInfo.map((item) => [item.targetId, item.charaId]),
+  );
   const evaluationByCharaId = new Map(
-    arcData.evaluationInfo.flatMap((evaluationInfo) => {
-      const partner = partnerStats.find(
-        (item) => item.position === evaluationInfo.targetId,
+    partnerStats.flatMap((partner) => {
+      const hasBondGauge = !(
+        partner.supportCardId === 0 && partner.position >= 1000
       );
-      return partner
-        ? [[evaluationInfo.charaId, partner.evaluation] as const]
-        : [];
+      if (!hasBondGauge) return [];
+
+      const charaId =
+        arcCharaIdByTargetId.get(partner.position) ??
+        (partner.position >= 1000 ? partner.position : undefined);
+      return charaId != null ? [[charaId, partner.evaluation] as const] : [];
     }),
   );
   return (

@@ -34,6 +34,7 @@ export type CareerRunQueueItem = {
 
 export type CareerRunQueueState = {
   active: boolean;
+  status?: 'idle' | 'running' | 'completed' | 'paused' | 'stopped';
   repeat_daily?: boolean;
   session_id: string;
   started_at: string;
@@ -49,6 +50,7 @@ export type CareerRunQueueState = {
         | 'running'
         | 'completed'
         | 'skipped'
+        | 'paused'
         | 'failed'
         | 'stopped';
       completed_runs: number;
@@ -65,13 +67,16 @@ export type Runner = {
   state_revision?: number;
   running?: boolean;
   stopping?: boolean;
+  started_at?: string;
+  ended_at?: string;
+  preset?: string;
+  scenario_id?: number;
+  current_turn?: number;
   turn?: number;
   steps?: number;
   last_action?: string;
   last_error?: string;
   finished?: boolean;
-  worker_process?: boolean;
-  worker_pid?: number;
   live_activity?: {
     stage: string;
     endpoint: string;
@@ -107,6 +112,8 @@ export type Runner = {
   run_plan?: {
     active: boolean;
     paused?: boolean;
+    session_id?: string;
+    started_at?: string;
     mode:
       | 'single'
       | 'continuous'
@@ -131,55 +138,9 @@ export type Runner = {
     status: string;
     last_error: string;
     daily_jewel_drop_count?: number;
+    completed_runs?: number;
+    completed_day?: string;
     updated_at: string;
-  };
-  control?: {
-    desired_state: 'running' | 'paused' | 'stopped';
-    status:
-      | 'queued'
-      | 'reconnect_wait'
-      | 'running'
-      | 'pausing'
-      | 'paused'
-      | 'stopping'
-      | 'stopped'
-      | 'completed'
-      | 'waiting'
-      | 'failed';
-    detail?: {
-      last_error?: string;
-      reason?: string;
-      current_turn?: number;
-      idle_single_mode?: {
-        detected: boolean;
-        active: boolean;
-        state: 'none' | 'playing' | 'finished' | 'log_checked' | 'unknown';
-        state_code: number;
-        card_id?: number | string;
-        name?: string;
-        scenario_id?: number;
-        started_at?: string;
-        ends_at?: string;
-        source?: string;
-        observed_at?: string;
-      };
-      run_queue?: CareerRunQueueState;
-    };
-    request?: {
-      card_id?: number;
-      career_mode?: 'online' | 'offline';
-      career_setting_id?: string;
-      preset_name?: string;
-      run_mode?:
-        | 'single'
-        | 'continuous'
-        | 'count'
-        | 'daily_count'
-        | 'jewel_drops'
-        | 'daily_jewel_drops'
-        | 'daily_jewel_schedule';
-      run_target?: number;
-    };
   };
   jewel_history?: Array<{
     turn: number;
@@ -700,6 +661,11 @@ export type SessionResponse = {
   dashboard?: Dashboard;
   runtime?: Partial<Account['runtime']>;
   runner?: Runner;
+  logged_in?: boolean;
+  session_owner?: Account['runtime']['session_owner'];
+  last_error?: string;
+  last_refreshed_at?: string;
+  account?: SessionAccount | null;
   relogged_in?: boolean;
   offline_setup?: OfflineSingleModeSetup;
 };
@@ -755,16 +721,8 @@ export type Preset = {
   maximize_skill_score_at_end?: boolean;
   skill_purchase_turns?: number[];
   extra_race_list?: number[];
-  ura_ai?: {
-    enabled?: boolean;
-    time_budget_s?: number;
-    min_rollouts?: number;
-    max_rollouts?: number;
-    workers?: number;
-    risk_factor?: number;
-    target_attributes?: number[];
-    target_attribute_stages?: TargetAttributeStage[];
-  };
+  expect_attribute?: number[];
+  target_attribute_stages?: TargetAttributeStage[];
 };
 
 export type SkillOption = Partial<Omit<AutoResearchSkill, 'id'>> & {

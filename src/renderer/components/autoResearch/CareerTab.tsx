@@ -16,11 +16,15 @@ import {
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
+import {
+  PlannerPortrait,
+  PlannerSelectionCard,
+} from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import OfflineCareerSettings from './OfflineCareerSettings';
 import {
+  characterIconPath,
   DeckChoiceCard,
-  horseIconPath,
   ParentChoiceCard,
   SupportChoiceCard,
 } from './SelectionCards';
@@ -569,11 +573,7 @@ export default function CareerTab(props: CareerTabProps) {
             // A saved setting already has enough information to show its base
             // portrait. Do not wait for the server-side dashboard. Once the
             // owned-card metadata arrives, switch to the exact race cloth.
-            const iconPath = horseIconPath(
-              setting.card_id,
-              uma?.rarity || 0,
-              uma?.race_cloth_id || setting.card_id,
-            );
+            const iconPath = characterIconPath(setting.card_id);
             return (
               <article
                 key={setting.id}
@@ -668,20 +668,20 @@ export default function CareerTab(props: CareerTabProps) {
       </section>
 
       {newCareerDialogOpen ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="successionPickerTheme successionPickerOverlay">
           <button
             type="button"
             aria-label="关闭新建养马详设"
             onClick={() => setNewCareerDialogOpen(false)}
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+            className="absolute inset-0 bg-transparent"
           />
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-career-dialog-title"
-            className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+            className="successionPickerDialog relative max-h-[90vh] w-full max-w-lg"
           >
-            <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <header className="successionPickerHeader">
               <div>
                 <h3
                   id="new-career-dialog-title"
@@ -762,7 +762,7 @@ export default function CareerTab(props: CareerTabProps) {
               </label>
             </div>
 
-            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
+            <footer className="successionPickerFooter flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setNewCareerDialogOpen(false)}
@@ -910,16 +910,9 @@ export default function CareerTab(props: CareerTabProps) {
                     required
                     portrait={
                       selectedUma ? (
-                        <AssetIcon
-                          path={
-                            horseIconPath(
-                              selectedUma.id,
-                              selectedUma.rarity,
-                              selectedUma.race_cloth_id,
-                            ) || ''
-                          }
+                        <PlannerPortrait
+                          path={characterIconPath(selectedUma.id) || ''}
                           alt={selectedUma.name}
-                          className="successionPortrait object-cover"
                         />
                       ) : null
                     }
@@ -979,13 +972,17 @@ export default function CareerTab(props: CareerTabProps) {
                     pickerUmas.map((uma) => {
                       const selected = cardId === uma.id;
                       return (
-                        <button
-                          type="button"
-                          className={`successionPickerCard ${
-                            selected ? 'selected' : ''
-                          }`}
-                          aria-label={`选择${uma.name}`}
-                          aria-pressed={selected}
+                        <PlannerSelectionCard
+                          selected={selected}
+                          portrait={
+                            <PlannerPortrait
+                              path={characterIconPath(uma.id) || ''}
+                              alt={uma.name}
+                              size="large"
+                            />
+                          }
+                          title={uma.name}
+                          subtitle={`角色 ID ${uma.chara_id} · 才能等级 ${uma.talent_level}`}
                           onClick={() => {
                             setCardId(uma.id);
                             setDeckId(0);
@@ -997,27 +994,7 @@ export default function CareerTab(props: CareerTabProps) {
                             setUmaPickerOpen(false);
                           }}
                           key={uma.id}
-                        >
-                          <AssetIcon
-                            path={
-                              horseIconPath(
-                                uma.id,
-                                uma.rarity,
-                                uma.race_cloth_id,
-                              ) || ''
-                            }
-                            alt={uma.name}
-                            className="successionPortrait large object-cover"
-                          />
-                          <div className="successionPickerCardBody">
-                            <strong>{uma.name}</strong>
-                            <small className="mt-1 block text-gray-500">
-                              角色 ID {uma.chara_id} · 才能等级{' '}
-                              {uma.talent_level}
-                            </small>
-                          </div>
-                          {selected ? <em aria-label="当前选择">✓</em> : null}
-                        </button>
+                        />
                       );
                     })
                   ) : (
@@ -1087,16 +1064,12 @@ export default function CareerTab(props: CareerTabProps) {
                           required
                           portrait={
                             selectedParent ? (
-                              <AssetIcon
+                              <PlannerPortrait
                                 path={
-                                  horseIconPath(
-                                    selectedParent.card_id,
-                                    selectedParent.rarity,
-                                    selectedParent.race_cloth_id,
-                                  ) || ''
+                                  characterIconPath(selectedParent.card_id) ||
+                                  ''
                                 }
                                 alt={selectedParent.name}
-                                className="successionPortrait object-cover"
                               />
                             ) : null
                           }

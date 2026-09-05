@@ -135,16 +135,8 @@ export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
     maximize_skill_score_at_end: false,
     skill_purchase_turns: [],
     extra_race_list: [],
-    ura_ai: {
-      enabled: true,
-      time_budget_s: 2,
-      min_rollouts: 128,
-      max_rollouts: 256,
-      workers: 4,
-      risk_factor: 0,
-      target_attributes: [...DEFAULT_EXPECT_ATTRIBUTE],
-      target_attribute_stages: [],
-    },
+    expect_attribute: [...DEFAULT_EXPECT_ATTRIBUTE],
+    target_attribute_stages: [],
   };
 }
 

@@ -80,24 +80,12 @@ type PresetsTabProps = {
   setSkillLearningSettings: Dispatch<
     SetStateAction<Record<string, SkillLearningSetting>>
   >;
-  uraAiTargetAttributes: number[];
-  setUraAiTargetAttributes: Dispatch<SetStateAction<number[]>>;
-  uraAiTargetAttributeStages: TargetAttributeStage[];
-  setUraAiTargetAttributeStages: Dispatch<
-    SetStateAction<TargetAttributeStage[]>
-  >;
+  targetAttributes: number[];
+  setTargetAttributes: Dispatch<SetStateAction<number[]>>;
+  targetAttributeStages: TargetAttributeStage[];
+  setTargetAttributeStages: Dispatch<SetStateAction<TargetAttributeStage[]>>;
   targetAttributeStageYearOffset: number;
   setTargetAttributeStageYearOffset: Dispatch<SetStateAction<number>>;
-  uraAiTimeBudget: number;
-  setUraAiTimeBudget: Dispatch<SetStateAction<number>>;
-  uraAiMinRollouts: number;
-  setUraAiMinRollouts: Dispatch<SetStateAction<number>>;
-  uraAiMaxRollouts: number;
-  setUraAiMaxRollouts: Dispatch<SetStateAction<number>>;
-  uraAiWorkers: number;
-  setUraAiWorkers: Dispatch<SetStateAction<number>>;
-  uraAiRiskFactor: number;
-  setUraAiRiskFactor: Dispatch<SetStateAction<number>>;
   races: RaceOption[];
   selectedRaceIds: number[];
   setSelectedRaceIds: Dispatch<SetStateAction<number[]>>;
@@ -146,29 +134,19 @@ export default function PresetsTab(props: PresetsTabProps) {
     setSkillPurchaseTurns,
     editingSkillSelectionId,
     setSkillLearningSettings,
-    uraAiTargetAttributes,
-    setUraAiTargetAttributes,
-    uraAiTargetAttributeStages,
-    setUraAiTargetAttributeStages,
+    targetAttributes,
+    setTargetAttributes,
+    targetAttributeStages,
+    setTargetAttributeStages,
     targetAttributeStageYearOffset,
     setTargetAttributeStageYearOffset,
-    uraAiTimeBudget,
-    setUraAiTimeBudget,
-    uraAiMinRollouts,
-    setUraAiMinRollouts,
-    uraAiMaxRollouts,
-    setUraAiMaxRollouts,
-    uraAiWorkers,
-    setUraAiWorkers,
-    uraAiRiskFactor,
-    setUraAiRiskFactor,
     races,
     selectedRaceIds,
     setSelectedRaceIds,
   } = props;
 
   const toggleTargetAttributeStage = (turn: number) => {
-    setUraAiTargetAttributeStages((current) => {
+    setTargetAttributeStages((current) => {
       if (current.some((stage) => stage.turn === turn)) {
         return current.filter((stage) => stage.turn !== turn);
       }
@@ -180,7 +158,7 @@ export default function PresetsTab(props: PresetsTabProps) {
         {
           turn,
           target_attributes: [
-            ...(nextStage?.target_attributes || uraAiTargetAttributes),
+            ...(nextStage?.target_attributes || targetAttributes),
           ],
         },
       ].sort((left, right) => left.turn - right.turn);
@@ -192,7 +170,7 @@ export default function PresetsTab(props: PresetsTabProps) {
     attributeIndex: number,
     value: number,
   ) => {
-    setUraAiTargetAttributeStages((current) =>
+    setTargetAttributeStages((current) =>
       current.map((stage) =>
         stage.turn === turn
           ? {
@@ -741,14 +719,12 @@ export default function PresetsTab(props: PresetsTabProps) {
             <div className="space-y-4">
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
                 <p className="text-sm font-semibold text-indigo-950">
-                  {scenarioId === 5
-                    ? '使用女神杯手写规则策略'
-                    : '默认使用 UmaRL 蒙特卡洛育成决策'}
+                  使用轻量手写规则策略
                 </p>
                 <p className="mt-1 text-xs leading-5 text-indigo-700">
                   {scenarioId === 5
-                    ? '不会进入 URA 的 MCTS 搜索；目标属性仍用于手写训练评分，当前不参考女神碎片。'
-                    : 'UmaRL 已随 AutoResearch 默认安装；搜索异常、超时或样本不足时会自动回退到内置策略。'}
+                    ? '目标属性用于训练评分；女神杯会处理知识发动与专属比赛，当前不对女神碎片额外加权。'
+                    : 'URA 直接按目标属性、体力、训练收益和比赛计划决策，不启动模拟搜索或计算进程。'}
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -766,9 +742,9 @@ export default function PresetsTab(props: PresetsTabProps) {
                       <EditableNumberInput
                         min={0}
                         step={10}
-                        value={uraAiTargetAttributes[index] ?? 0}
+                        value={targetAttributes[index] ?? 0}
                         onValueChange={(nextValue) =>
-                          setUraAiTargetAttributes((current) =>
+                          setTargetAttributes((current) =>
                             current.map((value, valueIndex) =>
                               valueIndex === index ? nextValue : value,
                             ),
@@ -790,10 +766,10 @@ export default function PresetsTab(props: PresetsTabProps) {
                         选中日期并填写阶段属性线；到该日期为止使用这组目标，之后自动切换到下一阶段，最后使用上方最终目标。
                       </p>
                     </div>
-                    {uraAiTargetAttributeStages.length ? (
+                    {targetAttributeStages.length ? (
                       <button
                         type="button"
-                        onClick={() => setUraAiTargetAttributeStages([])}
+                        onClick={() => setTargetAttributeStages([])}
                         className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                       >
                         清空阶段
@@ -835,7 +811,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                               month,
                               half,
                             );
-                            const selected = uraAiTargetAttributeStages.some(
+                            const selected = targetAttributeStages.some(
                               (stage) => stage.turn === turn,
                             );
                             return (
@@ -860,7 +836,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                   </div>
 
                   <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                    {uraAiTargetAttributeStages.map((stage) => (
+                    {targetAttributeStages.map((stage) => (
                       <div
                         key={stage.turn}
                         className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
@@ -905,7 +881,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                         </div>
                       </div>
                     ))}
-                    {!uraAiTargetAttributeStages.length ? (
+                    {!targetAttributeStages.length ? (
                       <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400 md:col-span-2 xl:col-span-3">
                         尚未设置阶段目标，当前会全程使用最终目标属性。
                       </p>
@@ -913,72 +889,6 @@ export default function PresetsTab(props: PresetsTabProps) {
                   </div>
                 </div>
               </div>
-
-              {scenarioId === 1 ? (
-                <details className="rounded-xl border border-slate-200 bg-white">
-                  <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
-                    高级采样设置
-                  </summary>
-                  <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 xl:grid-cols-5">
-                    {[
-                      [
-                        '每回合秒数',
-                        uraAiTimeBudget,
-                        setUraAiTimeBudget,
-                        0.5,
-                        0.5,
-                        2,
-                      ],
-                      [
-                        '最少模拟次数',
-                        uraAiMinRollouts,
-                        setUraAiMinRollouts,
-                        1,
-                        32,
-                        128,
-                      ],
-                      [
-                        '最多模拟次数',
-                        uraAiMaxRollouts,
-                        setUraAiMaxRollouts,
-                        1,
-                        32,
-                        256,
-                      ],
-                      ['CPU 并行进程', uraAiWorkers, setUraAiWorkers, 1, 1, 64],
-                      [
-                        '高分偏好',
-                        uraAiRiskFactor,
-                        setUraAiRiskFactor,
-                        0.1,
-                        -2,
-                        2,
-                      ],
-                    ].map(([label, value, setter, step, min, max]) => (
-                      <label
-                        key={String(label)}
-                        className="text-xs text-slate-600"
-                      >
-                        {String(label)}
-                        <EditableNumberInput
-                          step={Number(step)}
-                          min={Number(min)}
-                          max={Number(max)}
-                          value={Number(value)}
-                          onValueChange={(nextValue) =>
-                            (setter as (next: number) => void)(nextValue)
-                          }
-                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  <p className="px-4 pb-4 text-xs leading-5 text-slate-500">
-                    当前快速模式的有效范围为 0.5–2 秒、32–128 次最少模拟和
-                    32–256 次最多模拟。
-                  </p>
-                </details>
-              ) : null}
             </div>
           </div>
         </section>

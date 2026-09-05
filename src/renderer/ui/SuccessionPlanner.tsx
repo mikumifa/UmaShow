@@ -32,8 +32,19 @@ import {
   SuccessionPickerDialog,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
+import {
+  type PlannerFactor,
+  PlannerFactorBadge,
+  PlannerFactorList,
+  PlannerLineageCard,
+  PlannerPortrait,
+  PlannerSelectionCard,
+} from 'renderer/components/succession/PlannerComponents';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
-import { horseIconPath } from 'renderer/components/autoResearch/SelectionCards';
+import {
+  characterIconPath,
+  horseIconPath,
+} from 'renderer/components/autoResearch/SelectionCards';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 
 import './SuccessionPlanner.css';
@@ -2244,22 +2255,28 @@ function UmaPortrait({
 }) {
   if (!uma) {
     return (
-      <span className={`successionPortrait empty ${large ? 'large' : ''}`}>
-        ?
-      </span>
+      <PlannerPortrait
+        alt="未知马娘"
+        size={large ? 'large' : 'medium'}
+        className={`successionPortrait empty ${large ? 'large' : ''}`}
+        fallback="?"
+      />
     );
   }
   return uma.icon ? (
-    <img
+    <PlannerPortrait
+      path={characterIconPath(uma.id)}
+      alt={uma.name}
+      size={large ? 'large' : 'medium'}
       className={`successionPortrait ${large ? 'large' : ''}`}
-      src={assetUrl(uma.icon)}
-      alt=""
-      loading="lazy"
     />
   ) : (
-    <span className={`successionPortrait fallback ${large ? 'large' : ''}`}>
-      {uma.name.slice(0, 1)}
-    </span>
+    <PlannerPortrait
+      alt={uma.name}
+      size={large ? 'large' : 'medium'}
+      className={`successionPortrait fallback ${large ? 'large' : ''}`}
+      fallback={uma.name.slice(0, 1)}
+    />
   );
 }
 
@@ -2460,30 +2477,15 @@ function UmaSelect({
               const selected = uma.id === value;
               const occupied = !selected && exclude.includes(uma.id);
               return (
-                <button
-                  type="button"
-                  className={`successionPickerCard ${selected ? 'selected' : ''} ${occupied ? 'occupied' : ''}`}
-                  aria-label={
-                    occupied
-                      ? `${uma.name}，已在其他位置选择`
-                      : `选择${uma.name}`
-                  }
-                  disabled={occupied}
-                  onClick={() => chooseUma(uma.id)}
+                <PlannerSelectionCard
                   key={uma.id}
-                >
-                  <UmaPortrait uma={uma} large />
-                  <div className="successionPickerCardBody">
-                    <strong>{uma.name}</strong>
-                    <UmaAptitudeRows uma={uma} picker />
-                  </div>
-                  {selected && <em aria-label="当前选择">✓</em>}
-                  {occupied && (
-                    <em className="occupied" aria-label="已在其他位置选择">
-                      已选择
-                    </em>
-                  )}
-                </button>
+                  portrait={<UmaPortrait uma={uma} large />}
+                  title={uma.name}
+                  details={<UmaAptitudeRows uma={uma} picker />}
+                  selected={selected}
+                  occupied={occupied}
+                  onClick={() => chooseUma(uma.id)}
+                />
               );
             })
           ) : (
@@ -3290,45 +3292,68 @@ async function copyText(value: string) {
 }
 
 function CapturedMemberPortrait({ member }: { member: CapturedLineageMember }) {
-  const path = horseIconPath(member.cardId, member.rarity, member.raceClothId);
+  const path = characterIconPath(member.cardId);
   const uma = data.umas.find((candidate) => candidate.id === member.umaId);
-  return path ? (
-    <span className="successionCapturedPortrait">
-      <AssetIcon
-        path={path}
-        alt={member.name}
-        className="h-full w-full object-cover"
-        fallback={<UmaPortrait uma={uma} />}
-      />
-    </span>
-  ) : (
-    <UmaPortrait uma={uma} />
+  return (
+    <PlannerPortrait
+      path={path}
+      alt={member.name}
+      size="large"
+      fallback={<UmaPortrait uma={uma} large />}
+    />
   );
+}
+
+function capturedMemberSummaryFactors(
+  member: CapturedLineageMember,
+): PlannerFactor[] {
+  return [
+    ...(member.blueFactor
+      ? [
+          {
+            id: member.blueFactor.id,
+            name: member.blueFactor.name,
+            stars: member.blueFactor.stars,
+            tone: 'stat' as const,
+          },
+        ]
+      : []),
+    {
+      id: member.factor.id,
+      name: APTITUDE_LABELS[member.factor.type],
+      stars: member.factor.stars,
+      tone: 'aptitude' as const,
+    },
+    ...(member.uniqueFactorStars
+      ? [
+          {
+            id: `unique:${member.trainedCharaId}`,
+            name: '固有',
+            stars: member.uniqueFactorStars,
+            tone: 'unique' as const,
+          },
+        ]
+      : []),
+    ...(member.whiteFactorCount > 0
+      ? [
+          {
+            id: `white:${member.trainedCharaId}`,
+            name: '白因子',
+            count: member.whiteFactorCount,
+            tone: 'white' as const,
+          },
+        ]
+      : []),
+  ];
 }
 
 function CapturedMemberDetails({ member }: { member: CapturedLineageMember }) {
   return (
     <div className="successionCapturedMemberDetails">
-      <div className="successionCapturedFactorCounts">
-        {member.blueFactor ? (
-          <span className="stat">
-            {member.blueFactor.name}{' '}
-            <b>{'★'.repeat(member.blueFactor.stars)}</b>
-          </span>
-        ) : null}
-        <span className="distance">
-          {APTITUDE_LABELS[member.factor.type]}{' '}
-          <b>{'★'.repeat(member.factor.stars)}</b>
-        </span>
-        {member.uniqueFactorStars ? (
-          <span className="unique">
-            固有 <b>{'★'.repeat(member.uniqueFactorStars)}</b>
-          </span>
-        ) : null}
-        {member.whiteFactorCount > 0 ? (
-          <span className="white">白因子 ×{member.whiteFactorCount}</span>
-        ) : null}
-      </div>
+      <PlannerFactorList
+        factors={capturedMemberSummaryFactors(member)}
+        compact
+      />
     </div>
   );
 }
@@ -3380,7 +3405,7 @@ function capturedMemberDetailFactors(
       stars: member.factor.stars,
       tone: 'aptitude' as const,
     },
-    ...remainingFactors.map((factor) => {
+    ...remainingFactors.map((factor): SuccessionFactorDetailFactor => {
       const meta = factorMeta[factor.id];
       return {
         id: factor.id,
@@ -3556,101 +3581,69 @@ function CapturedUmaPickerModal({
               const dressName = UMDB.cards[candidate.cardId]?.name;
               const previews = compatibilityPreviews(candidate);
               return (
-                <article
-                  className="successionCapturedPickerCard"
+                <PlannerLineageCard
                   key={candidate.selectionId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSave(capturedSetting(candidate, routeId))}
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSave(capturedSetting(candidate, routeId));
-                    }
+                  member={{
+                    key: candidate.selectionId,
+                    name: dressName || candidate.name,
+                    subtitle: `${
+                      dressName && dressName !== candidate.name
+                        ? `${candidate.name} · `
+                        : ''
+                    }${
+                      candidate.source === 'own'
+                        ? '自己的马娘'
+                        : `借用 · ${candidate.ownerName}`
+                    }${candidate.rankScore ? ` · 评分 ${candidate.rankScore}` : ''}`,
+                    portrait: <CapturedMemberPortrait member={candidate} />,
+                    factors: capturedMemberSummaryFactors(candidate),
                   }}
-                >
-                  <div className="successionCapturedPickerSelf">
-                    <CapturedMemberPortrait member={candidate} />
-                    <div className="successionCapturedIdentity">
-                      <strong>{dressName || candidate.name}</strong>
-                      <span>
-                        {dressName && dressName !== candidate.name
-                          ? `${candidate.name} · `
-                          : ''}
-                        {candidate.source === 'own'
-                          ? '自己的马娘'
-                          : `借用 · ${candidate.ownerName}`}
-                        {candidate.rankScore
-                          ? ` · 评分 ${candidate.rankScore}`
-                          : ''}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="successionCapturedViewDetails"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDetailCandidate(candidate);
-                      }}
-                    >
-                      查看详细
-                    </button>
-                  </div>
-                  <CapturedMemberDetails member={candidate} />
-                  {previews.length ? (
-                    <div className="successionCapturedCompatibility">
-                      {previews.map((preview) => (
-                        <span
-                          key={preview.label}
-                          title={
-                            preview.g1Details?.length
-                              ? `基础相性 ${preview.base} + ${preview.g1Details
-                                  .map(
-                                    (detail) =>
-                                      `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
-                                  )
-                                  .join('\n')}\n总计 ${preview.total}`
-                              : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
-                          }
-                        >
-                          <small>{preview.label}</small>
-                          <strong>契合度 {preview.total}</strong>
-                          <em>
-                            {preview.g1Details?.length
-                              ? preview.g1Details.map((detail) => (
-                                  <span key={detail.label}>
-                                    {detail.detailed
-                                      ? detail.label
-                                      : `${detail.label}（路线估算）`}
-                                    {' · '}共同 G1 {detail.count}
-                                  </span>
-                                ))
-                              : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
-                          </em>
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="successionCapturedPickerParents">
-                    {candidate.parents.map((parent, index) => (
-                      <section
-                        key={`${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`}
-                      >
-                        <div className="successionCapturedParentHeader">
-                          <CapturedMemberPortrait member={parent} />
-                          <span>
-                            <small>父辈 {index + 1}</small>
-                            <strong>
-                              {UMDB.cards[parent.cardId]?.name || parent.name}
-                            </strong>
+                  parents={candidate.parents.map((parent, index) => ({
+                    key: `${candidate.selectionId}:${parent.trainedCharaId}:${parent.umaId}`,
+                    label: `父辈 ${index + 1}`,
+                    name: UMDB.cards[parent.cardId]?.name || parent.name,
+                    portrait: <CapturedMemberPortrait member={parent} />,
+                    factors: capturedMemberSummaryFactors(parent),
+                  }))}
+                  onSelect={() => onSave(capturedSetting(candidate, routeId))}
+                  onDetails={() => setDetailCandidate(candidate)}
+                  extra={
+                    previews.length ? (
+                      <div className="successionCapturedCompatibility">
+                        {previews.map((preview) => (
+                          <span
+                            key={preview.label}
+                            title={
+                              preview.g1Details?.length
+                                ? `基础相性 ${preview.base} + ${preview.g1Details
+                                    .map(
+                                      (detail) =>
+                                        `${detail.detailed ? detail.label : `${detail.label}（路线估算）`}：共同 G1 ${detail.count} × ${G1_COMPATIBILITY_POINTS}`,
+                                    )
+                                    .join('\n')}\n总计 ${preview.total}`
+                                : `基础相性 ${preview.base}\n${preview.detailed ? preview.label : '路线估算胜鞍'}：共同 G1 ${preview.g1Count} × ${G1_COMPATIBILITY_POINTS}`
+                            }
+                          >
+                            <small>{preview.label}</small>
+                            <strong>契合度 {preview.total}</strong>
+                            <em>
+                              {preview.g1Details?.length
+                                ? preview.g1Details.map((detail) => (
+                                    <span key={detail.label}>
+                                      {detail.detailed
+                                        ? detail.label
+                                        : `${detail.label}（路线估算）`}
+                                      {' · '}共同 G1 {detail.count}
+                                    </span>
+                                  ))
+                                : `${preview.detailed ? preview.label : '路线估算胜鞍'} · 共同 G1 ${preview.g1Count}`}
+                            </em>
                           </span>
-                        </div>
-                        <CapturedMemberDetails member={parent} />
-                      </section>
-                    ))}
-                  </div>
-                </article>
+                        ))}
+                      </div>
+                    ) : null
+                  }
+                />
               );
             })}
           </div>
@@ -3987,13 +3980,7 @@ function LineageUmaSetting({
     trainedSetting?.self.cardId;
   const displayedDressCardId = capturedCardId || fixedDressCardId;
   const displayedDressIconPath = displayedDressCardId
-    ? selectedCapturedUma?.cardId === displayedDressCardId
-      ? horseIconPath(
-          displayedDressCardId,
-          selectedCapturedUma.rarity,
-          selectedCapturedUma.raceClothId,
-        )
-      : plannedDressIconPath(displayedDressCardId)
+    ? characterIconPath(displayedDressCardId)
     : undefined;
   const hiddenParentFactors =
     trainedSetting && slot !== 'father' && slot !== 'mother'
@@ -4859,13 +4846,14 @@ function CompleteDesignFactorBadge({
       自由
     </span>
   ) : (
-    <span
-      className="successionCandidateFactor"
-      title={`${APTITUDE_LABELS[position.factor.type]} ${position.factor.stars}★`}
-    >
-      {APTITUDE_LABELS[position.factor.type]}
-      <b>{position.factor.stars}★</b>
-    </span>
+    <PlannerFactorBadge
+      factor={{
+        id: `${position.code}:${position.factor.type}`,
+        name: APTITUDE_LABELS[position.factor.type],
+        stars: position.factor.stars,
+        tone: 'aptitude',
+      }}
+    />
   );
 }
 
@@ -4951,44 +4939,53 @@ function CompleteDesignCapturedFactorSummary({
 }: {
   summary: NonNullable<CompleteDesignPosition['capturedFactorSummary']>;
 }) {
+  const factors: PlannerFactor[] = [
+    ...(summary.blueFactor
+      ? [
+          {
+            id: summary.blueFactor.id,
+            name: summary.blueFactor.name,
+            stars: summary.blueFactor.stars,
+            tone: 'stat' as const,
+          },
+        ]
+      : []),
+    {
+      id: summary.aptitudeFactor.id,
+      name: APTITUDE_LABELS[summary.aptitudeFactor.type],
+      stars: summary.aptitudeFactor.stars,
+      tone: 'aptitude',
+    },
+    {
+      id: 'captured-unique',
+      name: '固有',
+      stars: summary.uniqueFactorStars,
+      tone: 'unique',
+    },
+    ...summary.selectedSkillFactors
+      .filter((skill) => skill.count > 0)
+      .map((skill) => ({
+        id: `skill:${skill.groupId}`,
+        name: skill.name,
+        count: skill.count,
+        tone: 'skill' as const,
+      })),
+    ...(summary.whiteFactorCount > 0
+      ? [
+          {
+            id: 'captured-white',
+            name: '白因子',
+            count: summary.whiteFactorCount,
+            tone: 'white' as const,
+          },
+        ]
+      : []),
+  ];
   return (
-    <div className="successionCapturedResultFactors">
-      <span className="stat">
-        <i>属性</i>
-        {summary.blueFactor ? (
-          <b>
-            {summary.blueFactor.name} {summary.blueFactor.stars}★
-          </b>
-        ) : (
-          <b>—</b>
-        )}
-      </span>
-      <span className="aptitude">
-        <i>适性</i>
-        <b>
-          {APTITUDE_LABELS[summary.aptitudeFactor.type]}{' '}
-          {summary.aptitudeFactor.stars}★
-        </b>
-      </span>
-      <span className="unique">
-        <i>固有</i>
-        <b>{summary.uniqueFactorStars}★</b>
-      </span>
-      {summary.selectedSkillFactors
-        .filter((skill) => skill.count > 0)
-        .map((skill) => (
-          <span className="skill" key={skill.groupId}>
-            <i>{skill.name}</i>
-            <b>×{skill.count}</b>
-          </span>
-        ))}
-      {summary.whiteFactorCount > 0 ? (
-        <span className="white">
-          <i>白因子</i>
-          <b>×{summary.whiteFactorCount}</b>
-        </span>
-      ) : null}
-    </div>
+    <PlannerFactorList
+      factors={factors}
+      className="successionCapturedResultFactors"
+    />
   );
 }
 

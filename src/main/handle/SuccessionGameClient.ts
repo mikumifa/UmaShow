@@ -263,27 +263,35 @@ function errorDetail(error: unknown, fallback: string) {
   return fallback;
 }
 
-export function careerTurnFromResponse(message: unknown) {
-  if (!message || typeof message !== 'object') return 0;
+function careerResponseContainers(message: unknown) {
+  if (!message || typeof message !== 'object') return [];
   const record = message as Record<string, any>;
   const data =
     record.data && typeof record.data === 'object' ? record.data : record;
   const containers: Array<Record<string, any>> = [data];
-  if (
-    data.single_mode_start_common &&
-    typeof data.single_mode_start_common === 'object'
-  ) {
-    containers.push(data.single_mode_start_common);
-  }
-  Object.entries(data).forEach(([key, value]) => {
-    if (
-      (key.endsWith('_load_common') || key.endsWith('_data_set')) &&
-      value &&
-      typeof value === 'object'
-    ) {
+  [data.user_info, data.load_data].forEach((value) => {
+    if (value && typeof value === 'object') {
       containers.push(value as Record<string, any>);
     }
   });
+  [...containers].forEach((container) => {
+    Object.entries(container).forEach(([key, value]) => {
+      if (
+        (key === 'single_mode_start_common' ||
+          key.endsWith('_load_common') ||
+          key.endsWith('_data_set')) &&
+        value &&
+        typeof value === 'object'
+      ) {
+        containers.push(value as Record<string, any>);
+      }
+    });
+  });
+  return containers;
+}
+
+export function careerTurnFromResponse(message: unknown) {
+  const containers = careerResponseContainers(message);
   const currentTurn = containers
     .flatMap((container) =>
       ['chara_info', 'single_mode_chara', 'single_mode_chara_light'].map(
@@ -292,6 +300,18 @@ export function careerTurnFromResponse(message: unknown) {
     )
     .find((turn) => Number.isFinite(turn) && turn > 0);
   return currentTurn ? Math.trunc(currentTurn) : 0;
+}
+
+function careerScenarioIdFromResponse(message: unknown) {
+  const containers = careerResponseContainers(message);
+  const scenarioId = containers
+    .flatMap((container) =>
+      ['chara_info', 'single_mode_chara', 'single_mode_chara_light'].map(
+        (key) => Number(container[key]?.scenario_id || 0),
+      ),
+    )
+    .find((value) => Number.isFinite(value) && value > 0);
+  return scenarioId ? Math.trunc(scenarioId) : 0;
 }
 
 export class SuccessionGameClient {
@@ -446,8 +466,8 @@ export class SuccessionGameClient {
 
   /**
    * Stop accepting new game calls and wait until every call that was already
-   * queued has either completed or failed. A hosted Worker must not establish
-   * its SID until this promise resolves.
+   * queued has either completed or failed. The hosted service must not
+   * establish its own SID until this promise resolves.
    */
   async closeAndDrain() {
     this.closed = true;
@@ -648,7 +668,7 @@ export class SuccessionGameClient {
     });
   }
 
-  async abandonCareer(scenarioId: number, fallbackTurn = 1) {
+  async abandonCareer() {
     // The dashboard snapshot can be stale.  Confirm the live game state before
     // issuing a force-delete request: an idle-training summary also carries a
     // `single_mode_chara_light` object, but must never be handled by the
@@ -666,15 +686,23 @@ export class SuccessionGameClient {
       );
     }
 
-    let currentTurn = Math.max(1, Math.trunc(Number(fallbackTurn) || 1));
-    try {
-      const loaded = await this.loadCareer(scenarioId);
-      currentTurn = careerTurnFromResponse(loaded) || currentTurn;
-    } catch {
-      // Match the game worker's recovery path: a cached turn is sufficient for
-      // force-delete when the scenario load itself cannot be restored.
+    const observedScenarioId = careerScenarioIdFromResponse(before);
+    if (!SCENARIO_FAMILY[observedScenarioId]) {
+      throw new Error(
+        'load/index 未返回当前普通育成的 scenario_id，拒绝猜测剧本接口',
+      );
     }
-    await this.finishCareer(currentTurn, true, scenarioId);
+    const loaded = await this.loadCareer(observedScenarioId);
+    const resolvedScenarioId =
+      careerScenarioIdFromResponse(loaded) || observedScenarioId;
+    if (!SCENARIO_FAMILY[resolvedScenarioId]) {
+      throw new Error('育成 load 响应未返回有效的 scenario_id');
+    }
+    const currentTurn = careerTurnFromResponse(loaded);
+    if (currentTurn <= 0) {
+      throw new Error('育成 load 响应未返回有效的 current_turn');
+    }
+    await this.finishCareer(currentTurn, true, resolvedScenarioId);
     const index = await this.loadIndex();
     const data = index.data || {};
     if (findActiveIdleSingleMode(data)) {

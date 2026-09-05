@@ -173,7 +173,9 @@
   line-height: 20px;
 }
 
-.successionCapturedPickerDialog > .successionPickerHeader .successionPickerClose {
+.successionCapturedPickerDialog
+  > .successionPickerHeader
+  .successionPickerClose {
   width: 36px;
   min-height: 36px;
   border-radius: 8px;
@@ -245,7 +247,7 @@
   border-bottom: 1px dashed var(--uma-border);
 }
 
-.successionCapturedDetailMembers > article > header > span {
+.successionCapturedDetailMembers > article > header > span:last-child {
   display: grid;
   min-width: 0;
 }
@@ -477,16 +479,16 @@
   width: 58px;
   height: 58px;
   flex: 0 0 58px;
-  overflow: hidden;
-  border: 1px solid var(--uma-border);
-  border-radius: 8px;
-  background: #f3f4f6;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .successionCapturedPortrait img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .successionCapturedPortrait > .successionPortrait {
@@ -1372,7 +1374,6 @@
   line-height: 1.65;
 }
 
-
 .successionPlayerScanProgress,
 .successionPlayerScanMessage {
   display: flex;
@@ -1555,9 +1556,18 @@
   width: 36px;
   min-height: 36px;
   padding: 0;
-  border-radius: 50%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
   font-size: 24px;
   font-weight: 400;
+  cursor: pointer;
+}
+
+.successionPickerClose:hover {
+  background: #f1f5f9;
+  color: #334155;
 }
 
 .successionPickerToolbar {
@@ -1796,14 +1806,28 @@
 
 .successionPickerFooter button {
   min-width: 76px;
-  border-color: #18202b;
-  background: #18202b;
-  color: #fff;
+  border-color: var(--uma-border);
+  background: #fff;
+  color: var(--uma-muted);
 }
 
 .successionPickerFooter button:hover {
-  border-color: #334155;
-  background: #334155;
+  border-color: #a5b4fc;
+  background: #f8fafc;
+  color: #3730a3;
+}
+
+.successionPickerFooter button:last-child {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 800;
+}
+
+.successionPickerFooter button:last-child:hover {
+  border-color: #4338ca;
+  background: #4338ca;
+  color: #fff;
 }
 
 .successionPortrait {
@@ -1813,13 +1837,11 @@
   flex: 0 0 auto;
   width: 46px;
   height: 46px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #e8eef8;
-  box-shadow:
-    0 0 0 1px var(--uma-border),
-    0 2px 8px rgba(30, 41, 59, 0.12);
-  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
 }
 
 .successionPortrait.large {
@@ -3012,7 +3034,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 22px;
+  padding: 24px;
   background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(3px);
 }
@@ -3028,11 +3050,12 @@
 
 .successionInheritanceModal > header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 17px 19px 13px;
+  padding: 20px 22px 15px;
   border-bottom: 1px solid var(--uma-border);
+  background: #fff;
 }
 
 .successionInheritanceModal > header span {
@@ -3050,20 +3073,25 @@
 }
 
 .successionInheritanceModal > header h3 {
-  margin: 2px 0 0;
-  font-size: 22px;
+  margin: 3px 0 0;
+  font-size: 24px;
 }
 
 .successionInheritanceModal > header > button {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  border: 1px solid var(--uma-border);
-  border-radius: 50%;
-  background: var(--uma-surface-soft);
-  color: var(--uma-muted);
-  font-size: 22px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 24px;
   line-height: 1;
+}
+
+.successionInheritanceModal > header > button:hover {
+  background: #f1f5f9;
+  color: #334155;
 }
 
 .successionInheritanceModalSummary {
@@ -4338,8 +4366,7 @@
   gap: 8px;
 }
 
-.successionCalculationWorkspace.compact
-  .successionCapturedOwnershipWarning {
+.successionCalculationWorkspace.compact .successionCapturedOwnershipWarning {
   grid-column: 1;
   margin-top: 0;
 }
@@ -5219,8 +5246,7 @@
   min-width: 0;
 }
 
-.successionCompleteGeneration.generation2
-  .successionCandidateOptionIdentity {
+.successionCompleteGeneration.generation2 .successionCandidateOptionIdentity {
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -6376,8 +6402,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 22px;
-  background: rgba(15, 23, 42, 0.62);
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(3px);
 }
 
@@ -6388,9 +6414,9 @@
   max-height: min(860px, calc(100vh - 44px));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 24px 76px rgba(15, 23, 42, 0.38);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
 }
 
 .successionCalculationSettingsDialog > header {
@@ -6398,7 +6424,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 18px 20px 14px;
+  padding: 20px 22px 15px;
   border-bottom: 1px solid var(--uma-border);
   background: #fff;
 }
@@ -6411,9 +6437,9 @@
 }
 
 .successionCalculationSettingsDialog > header h2 {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   color: var(--uma-text);
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .successionCalculationSettingsDialog > header p {
@@ -6423,15 +6449,20 @@
 }
 
 .successionCalculationSettingsDialog > header > button {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  border: 1px solid var(--uma-border);
-  border-radius: 50%;
-  background: #fff;
-  color: var(--uma-muted);
-  font-size: 23px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 24px;
   line-height: 1;
+}
+
+.successionCalculationSettingsDialog > header > button:hover {
+  background: #f1f5f9;
+  color: #334155;
 }
 
 .successionCalculationSettingsBody {
@@ -6498,8 +6529,7 @@
   background: transparent;
 }
 
-.successionCapturedReuseControls.settings
-  .successionSettingsSwitchRow {
+.successionCapturedReuseControls.settings .successionSettingsSwitchRow {
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -6977,7 +7007,6 @@
   font-weight: 700;
 }
 
-
 @media (max-width: 1180px) {
   .successionTrainedUmaTreeRoot {
     width: min(430px, 54%);
@@ -7382,9 +7411,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-.successionCalculationActions .successionResetLineage,
-.successionCalculationActions .successionCalculationSettingsButton,
-.successionCalculationActions .successionCalculateButton {
+  .successionCalculationActions .successionResetLineage,
+  .successionCalculationActions .successionCalculationSettingsButton,
+  .successionCalculationActions .successionCalculateButton {
     padding-right: 8px;
     padding-left: 8px;
     font-size: 12px;

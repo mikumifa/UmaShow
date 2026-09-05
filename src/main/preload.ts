@@ -209,13 +209,8 @@ const electronHandler = {
         id,
         request,
       ),
-    abandonCareer: (id: string, scenarioId: number, currentTurn: number) =>
-      ipcRenderer.invoke(
-        'autoresearch:account-abandon-career',
-        id,
-        scenarioId,
-        currentTurn,
-      ),
+    abandonCareer: (id: string) =>
+      ipcRenderer.invoke('autoresearch:account-abandon-career', id),
     abandonIdleSingleMode: (id: string, currentTurn: number) =>
       ipcRenderer.invoke(
         'autoresearch:account-abandon-idle-single-mode',

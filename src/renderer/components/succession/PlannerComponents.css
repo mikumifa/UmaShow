@@ -1,0 +1,561 @@
+.plannerUiTheme {
+  --planner-accent: #4f46e5;
+  --planner-accent-soft: #eef2ff;
+  --planner-border: #dbe3ec;
+  --planner-border-strong: #cbd5e1;
+  --planner-text: #1e293b;
+  --planner-muted: #64748b;
+  --planner-surface: #fff;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+}
+
+.plannerElevatedOverlay {
+  z-index: 1450;
+}
+
+.plannerDialogHeaderBlock {
+  padding: 16px 22px;
+  border-bottom: 1px solid #dbe3ec;
+  background: #fff;
+}
+
+.plannerDialogHeaderBlock h3,
+.plannerDialogHeaderBlock p {
+  margin: 0;
+}
+
+.plannerDialogHeaderBlock h3 {
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.plannerDialogHeaderBlock p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.plannerPortrait {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  overflow: visible;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.plannerPortrait.small {
+  width: 34px;
+  height: 34px;
+}
+
+.plannerPortrait.large {
+  width: 68px;
+  height: 68px;
+}
+
+.plannerPortraitImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  mix-blend-mode: multiply;
+  object-fit: contain;
+}
+
+.plannerPortrait.fallback {
+  color: var(--planner-muted);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.plannerFactorList {
+  display: flex;
+  align-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.plannerFactorBadge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.plannerFactorBadge b {
+  color: inherit;
+  font-family: Consolas, 'Microsoft YaHei UI', monospace;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.plannerFactorBadge.compact {
+  padding: 2px 5px;
+  font-size: 10px;
+}
+
+.plannerFactorBadge.compact b {
+  font-size: 11px;
+}
+
+.plannerFactorBadge.stat {
+  background: #eef6ff;
+  color: #1d4ed8;
+}
+
+.plannerFactorBadge.aptitude {
+  background: #fff0f7;
+  color: #a8205a;
+}
+
+.plannerFactorBadge.unique {
+  background: #eefbf5;
+  color: #047857;
+}
+
+.plannerFactorBadge.race {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.plannerFactorBadge.skill {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.plannerFactorBadge.white {
+  background: #f8fafc;
+  color: #475569;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.plannerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.plannerButton.small {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+.plannerButton.primary {
+  border-color: var(--planner-accent);
+  background: var(--planner-accent);
+  color: #fff;
+}
+
+.plannerButton.primary:hover:not(:disabled) {
+  border-color: #4338ca;
+  background: #4338ca;
+}
+
+.plannerButton.secondary {
+  border-color: var(--planner-border);
+  background: #fff;
+  color: #475569;
+}
+
+.plannerButton.secondary:hover:not(:disabled) {
+  border-color: #a5b4fc;
+  background: #f8fafc;
+  color: #3730a3;
+}
+
+.plannerButton.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--planner-muted);
+}
+
+.plannerButton.ghost:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: var(--planner-text);
+}
+
+.plannerButton.danger {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.plannerButton.filter {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-color: var(--planner-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--planner-muted);
+  font-size: 11px;
+}
+
+.plannerButton.filter.active {
+  border-color: #312e81;
+  background: #334155;
+  color: #fff;
+}
+
+.plannerButton:focus-visible,
+.plannerSelectionCard:focus-visible,
+.plannerSkillCard:focus-visible,
+.plannerLineageCard:focus-visible {
+  outline: 3px solid rgb(99 102 241 / 20%);
+  outline-offset: 2px;
+}
+
+.plannerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.plannerSelectionCard,
+.plannerSkillCard {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--planner-border);
+  border-radius: 9px;
+  background: var(--planner-surface);
+  color: var(--planner-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.plannerSelectionCard:hover:not(:disabled),
+.plannerSkillCard:hover:not(:disabled) {
+  border-color: #a5b4fc;
+  background: #f8faff;
+  transform: translateY(-1px);
+}
+
+.plannerSelectionCard.selected,
+.plannerSkillCard.selected {
+  border-color: #818cf8;
+  background: var(--planner-accent-soft);
+  box-shadow: 0 0 0 2px #e0e7ff;
+}
+
+.plannerSelectionCard:disabled,
+.plannerSkillCard:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.plannerSelectionCardCopy,
+.plannerSkillCardCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.plannerSelectionCardCopy > strong,
+.plannerSkillCardCopy > strong {
+  overflow: hidden;
+  color: var(--planner-text);
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plannerSelectionCardCopy > small,
+.plannerSkillCardCopy > small {
+  color: var(--planner-muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.plannerSelectionCardCheck,
+.plannerSkillCardCheck {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--planner-accent);
+  color: #fff;
+}
+
+.plannerSelectionCardOccupied {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #64748b;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.plannerSkillCard {
+  min-height: 68px;
+  padding: 8px 10px;
+}
+
+.plannerSkillCardIcon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid var(--planner-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.plannerSkillCard.rarity2 .plannerSkillCardIcon {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.plannerSkillCardIconImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.plannerSkillCardCopy > small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.plannerSkillDialog {
+  width: min(1120px, 100%);
+}
+
+.plannerSkillFilters {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--planner-border);
+  background: #f8fafc;
+}
+
+.plannerSkillGridBody {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px;
+  background: #eef2f7;
+}
+
+.plannerSkillGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plannerSkillFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plannerDailyHorseDialog {
+  width: min(1180px, 100%);
+  max-height: min(92vh, 940px);
+}
+
+.plannerDailyHorseFilters {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--planner-border);
+  background: #f8fafc;
+}
+
+.plannerDailyHorseBody {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px;
+  background: #eef2f7;
+}
+
+.plannerDailyHorseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.plannerLineageCard {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--planner-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--planner-text);
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.plannerLineageCard[role='button'] {
+  cursor: pointer;
+}
+
+.plannerLineageCard[role='button']:hover {
+  border-color: #a5b4fc;
+  background: #f8faff;
+}
+
+.plannerLineageCard.selected {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 2px #e0e7ff;
+}
+
+.plannerLineageCard.disabled {
+  opacity: 0.4;
+}
+
+.plannerLineageSelf,
+.plannerLineageParents > section > header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.plannerLineageIdentity,
+.plannerLineageParents > section > header > span:last-child {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.plannerLineageIdentity strong,
+.plannerLineageParents strong,
+.plannerLineageIdentity em,
+.plannerLineageParents em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plannerLineageIdentity strong,
+.plannerLineageParents strong {
+  color: var(--planner-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.plannerLineageIdentity small,
+.plannerLineageParents small,
+.plannerLineageIdentity em,
+.plannerLineageParents em {
+  color: var(--planner-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.plannerLineageCard > .plannerFactorList {
+  margin-top: 8px;
+}
+
+.plannerLineageDetails {
+  flex: 0 0 auto;
+}
+
+.plannerLineageParents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.plannerLineageParents > section {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.plannerLineageParents > section > .plannerFactorList {
+  margin-top: 6px;
+}
+
+@media (max-width: 720px) {
+  .plannerDailyHorseGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plannerSkillGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plannerSkillFooterActions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .plannerLineageParents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  .plannerDailyHorseGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plannerSkillGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

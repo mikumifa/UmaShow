@@ -67,8 +67,7 @@ export default function AutomationControlCard({
   canAppendCareerPlan,
   openAppendCareerPlan,
 }: AutomationControlCardProps) {
-  const runnerClosing =
-    busy === 'stop' || runner?.control?.desired_state === 'stopped';
+  const runnerClosing = busy === 'stop';
   const selectedTarget =
     runMode === 'count'
       ? runCountTarget
@@ -79,7 +78,7 @@ export default function AutomationControlCard({
     runner?.daily_jewel_schedule?.enabled &&
     runner.daily_jewel_schedule.mode !== 'queue'
       ? runner.daily_jewel_schedule.mode
-      : runner?.run_plan?.mode || runner?.control?.request?.run_mode;
+      : runner?.run_plan?.mode;
   const currentMode =
     rawCurrentMode === 'daily_count'
       ? 'count'
@@ -87,10 +86,8 @@ export default function AutomationControlCard({
           rawCurrentMode === 'daily_jewel_schedule'
         ? 'jewel_drops'
         : rawCurrentMode;
-  const currentTarget =
-    runner?.run_plan?.target || runner?.control?.request?.run_target || 1;
-  const queue =
-    runner?.run_plan?.queue || runner?.control?.detail?.run_queue || undefined;
+  const currentTarget = runner?.run_plan?.target || 1;
+  const queue = runner?.run_plan?.queue;
   const queueCurrent = queue?.items?.[queue.current_index];
   const countProgress =
     queue?.active && queueCurrent?.goal === 'count'
@@ -103,9 +100,7 @@ export default function AutomationControlCard({
             completed:
               (rawCurrentMode === 'daily_count'
                 ? runner?.run_plan?.daily_completed_runs
-                : runner?.run_plan?.completed_runs) ??
-              runner?.control?.detail?.completed_runs ??
-              0,
+                : runner?.run_plan?.completed_runs) ?? 0,
             target: currentTarget,
           }
         : null;
