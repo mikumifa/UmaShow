@@ -699,6 +699,115 @@ function trimRecords() {
   });
 }
 
+type RemoteTrainingHistory = {
+  id: string;
+  meta?: Partial<TrainingHistoryRecord>;
+  packets?: TrainingHistoryPacket[];
+};
+
+function packetFingerprint(packet: TrainingHistoryPacket) {
+  return JSON.stringify(
+    {
+      endpoint: packet.endpoint || '',
+      request: packet.request || {},
+      payload: packet.payload,
+    },
+    jsonReplacer,
+  );
+}
+
+export function importRemoteTrainingHistory(
+  incoming: RemoteTrainingHistory,
+): TrainingHistoryRecord {
+  ensureTrainingHistoryDir();
+  const id = String(incoming?.id || '').trim();
+  if (!id || sanitizeRecordId(id) !== id) {
+    throw new Error('服务器 Training History 标识无效');
+  }
+  const incomingPackets = Array.isArray(incoming?.packets)
+    ? incoming.packets.filter(
+        (packet): packet is TrainingHistoryPacket =>
+          !!packet && typeof packet === 'object' && packet.payload != null,
+      )
+    : [];
+  if (!incomingPackets.length) {
+    throw new Error('服务器 Training History 没有可导入的数据包');
+  }
+
+  const existing = materializeRecord(id);
+  const mergedPackets: TrainingHistoryPacket[] = [];
+  const seen = new Set<string>();
+  [...(existing?.packets || []), ...incomingPackets]
+    .sort(
+      (left, right) =>
+        Number(left.receivedAt || 0) - Number(right.receivedAt || 0) ||
+        Number(left.sequence || 0) - Number(right.sequence || 0),
+    )
+    .forEach((packet) => {
+      const fingerprint = packetFingerprint(packet);
+      if (seen.has(fingerprint)) return;
+      seen.add(fingerprint);
+      mergedPackets.push({
+        ...packet,
+        sequence: mergedPackets.length,
+        receivedAt: Number(packet.receivedAt || Date.now()),
+      });
+    });
+
+  const incomingMeta = incoming.meta || {};
+  const [viewerId, singleModeCharaId] = id.split('_').map(Number);
+  const fallbackSummary: TrainingHistorySummary = {
+    viewerId: Number(viewerId || 0),
+    singleModeCharaId: Number(singleModeCharaId || 0),
+    cardId: 0,
+    rarity: 0,
+    updatedAt: Date.now(),
+    packetCount: mergedPackets.length,
+    turnCount: 0,
+    supportCards: [],
+  };
+  const createdAtValues = [existing?.createdAt, incomingMeta.createdAt]
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const updatedAt = Math.max(
+    Date.now(),
+    Number(existing?.updatedAt || 0),
+    Number(incomingMeta.updatedAt || 0),
+  );
+  const record: TrainingHistoryRecord = {
+    id,
+    filename: path.basename(recordPath(id)),
+    fullPath: recordPath(id),
+    createdAt: createdAtValues.length ? Math.min(...createdAtValues) : updatedAt,
+    updatedAt,
+    favorite: getFavoriteIdSet().has(id),
+    status: String(incomingMeta.status || existing?.status || ''),
+    summary:
+      existing?.summary ||
+      (incomingMeta.summary as TrainingHistorySummary | undefined) ||
+      fallbackSummary,
+    analysis:
+      existing?.analysis ||
+      (incomingMeta.analysis as TrainingHistoryAnalysis | undefined) || {
+        version: ANALYSIS_VERSION,
+        summary: fallbackSummary,
+        turns: [],
+      },
+    packets: mergedPackets,
+  };
+  record.analysis = buildAnalysis(record);
+  record.summary = {
+    ...record.analysis.summary,
+    updatedAt,
+  };
+  writePacketsToJsonl(recordPacketLogPath(id), mergedPackets);
+  writeRecordSummary(record);
+  deleteMaterializedRecord(id);
+  liveRecordCache.set(id, record);
+  trimRecords();
+  return toClientRecord(record);
+}
+
 export function handleTrainingHistoryInfo(
   decodedData: unknown,
   win: BrowserWindow,
@@ -801,6 +910,12 @@ export function handleTrainingHistoryList(ipcMain: IpcMain) {
     const record = materializeRecord(id);
     return record ? toClientRecord(record) : null;
   });
+
+  ipcMain.handle(
+    'training-history:import-remote',
+    async (_, incoming: RemoteTrainingHistory) =>
+      importRemoteTrainingHistory(incoming),
+  );
 
   ipcMain.handle('training-history:config-get', async () => readConfig());
 

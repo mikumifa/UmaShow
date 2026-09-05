@@ -1,6 +1,14 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
-import { Gem, History, RefreshCw, Trash2, Trophy } from 'lucide-react';
+import {
+  Download,
+  ExternalLink,
+  Gem,
+  History,
+  RefreshCw,
+  Trash2,
+  Trophy,
+} from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import { horseIconPath } from './SelectionCards';
@@ -33,6 +41,9 @@ type HistoryTabProps = {
   accountCareerSettings: CareerSetting[];
   historyCareerRecords: CareerSessionRecord[];
   deleteCareerHistory: (reportIds: string[]) => Promise<void>;
+  downloadTrainingHistory: (recordId: string) => Promise<void>;
+  localTrainingHistoryIds: Set<string>;
+  openTrainingHistory: (recordId: string) => void;
   races: RaceOption[];
 };
 
@@ -310,6 +321,9 @@ export default function HistoryTab({
   accountCareerSettings,
   historyCareerRecords,
   deleteCareerHistory,
+  downloadTrainingHistory,
+  localTrainingHistoryIds,
+  openTrainingHistory,
   races,
 }: HistoryTabProps) {
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
@@ -481,7 +495,7 @@ export default function HistoryTab({
         <section className={panelClass('overflow-hidden')}>
           {aggregate.rows.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">次数</th>
@@ -495,11 +509,22 @@ export default function HistoryTab({
                       <th className="px-3 py-3 font-medium">比赛大差</th>
                     ) : null}
                     <th className="px-3 py-3 font-medium">宝石掉落</th>
+                    {!offlineHistory ? (
+                      <th className="px-3 py-3 text-right font-medium">
+                        Training History
+                      </th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {aggregate.rows.map(({ run, current }, index) => {
                     const status = runStatus(run, current);
+                    const trainingHistoryId = String(
+                      run.training_history_id || '',
+                    );
+                    const downloaded =
+                      !!trainingHistoryId &&
+                      localTrainingHistoryIds.has(trainingHistoryId);
                     return (
                       <tr key={run.run_id || `current-${index}`}>
                         <td className="px-4 py-3 font-medium text-slate-700">
@@ -528,6 +553,55 @@ export default function HistoryTab({
                           {run.jewel_drop_count || 0} 次 /{' '}
                           {run.jewels_earned || 0} 个
                         </td>
+                        {!offlineHistory ? (
+                          <td className="px-3 py-3 text-right">
+                            {trainingHistoryId ? (
+                              <button
+                                type="button"
+                                disabled={
+                                  busy ===
+                                  `history-download:${trainingHistoryId}`
+                                }
+                                onClick={() => {
+                                  if (downloaded) {
+                                    openTrainingHistory(trainingHistoryId);
+                                  } else {
+                                    downloadTrainingHistory(trainingHistoryId);
+                                  }
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                                  downloaded
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                    : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                }`}
+                                title={
+                                  downloaded
+                                    ? '打开本机 Training History 记录'
+                                    : '下载到本机 Training History'
+                                }
+                              >
+                                {downloaded ? (
+                                  <ExternalLink size={14} />
+                                ) : (
+                                  <Download
+                                    size={14}
+                                    className={
+                                      busy ===
+                                      `history-download:${trainingHistoryId}`
+                                        ? 'animate-bounce'
+                                        : ''
+                                    }
+                                  />
+                                )}
+                                {downloaded ? '查看记录' : '下载到本地'}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300">
+                                无数据
+                              </span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}

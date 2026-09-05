@@ -424,6 +424,7 @@ export interface TrainingHistoryRecord {
   summary: TrainingHistorySummary;
   analysis: TrainingHistoryAnalysis;
   packets: TrainingHistoryPacket[];
+  status?: 'paused' | 'finished' | 'error' | string;
 }
 
 export interface TrainingHistoryConfig {

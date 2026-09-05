@@ -119,6 +119,11 @@ const electronHandler = {
   trainingHistory: {
     list: () => ipcRenderer.invoke('training-history:list'),
     get: (id: string) => ipcRenderer.invoke('training-history:get', id),
+    importRemote: (history: {
+      id: string;
+      meta?: Record<string, unknown>;
+      packets?: Array<Record<string, unknown>>;
+    }) => ipcRenderer.invoke('training-history:import-remote', history),
     getConfig: () => ipcRenderer.invoke('training-history:config-get'),
     setConfig: (payload: { maxCachedRuns: number }) =>
       ipcRenderer.invoke('training-history:config-set', payload),

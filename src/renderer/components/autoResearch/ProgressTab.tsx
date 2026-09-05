@@ -257,7 +257,7 @@ function AnimatedStatNumber({
 
 function AnimatedStatValue({ label, value, resetKey }: AnimatedStatValueProps) {
   return (
-    <div className="relative min-w-[92px] bg-white px-4 py-3">
+    <div className="relative min-w-[80px] bg-white px-3 py-3">
       <p className="text-xs text-slate-400">{label}</p>
       <div className="mt-1">
         <AnimatedStatNumber value={value} resetKey={resetKey} />
@@ -560,12 +560,13 @@ export default function ProgressTab({
                 resetKey={statAnimationResetKey}
               />
             ))}
-            <div className="min-w-[112px] bg-white px-4 py-3">
+            <div className="min-w-[80px] bg-white px-3 py-3">
               <p className="text-xs text-slate-400">大差</p>
               <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
                 <AnimatedStatNumber
                   value={runner?.large_margin_count || 0}
                   resetKey={statAnimationResetKey}
+                  className="origin-bottom text-xl font-bold tabular-nums text-amber-700"
                 />
                 <span className="pb-0.5 text-xs">/</span>
                 <span className="pb-px text-lg font-bold tabular-nums text-slate-700">
@@ -574,34 +575,30 @@ export default function ProgressTab({
                 <span className="pb-0.5 text-xs">场</span>
               </div>
             </div>
-            <div className="min-w-[132px] bg-white px-4 py-3">
+            <div className="min-w-[80px] bg-white px-3 py-3">
               <p className="text-xs text-slate-400">本局宝石</p>
               <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
                 <AnimatedStatNumber
                   value={runner?.jewel_drop_count || 0}
                   resetKey={statAnimationResetKey}
+                  className="origin-bottom text-xl font-bold tabular-nums text-violet-700"
                 />
                 <span className="pb-0.5 text-xs">次 /</span>
                 <AnimatedStatNumber
                   value={runner?.jewels_earned || 0}
                   resetKey={statAnimationResetKey}
-                  className="origin-bottom text-lg font-bold tabular-nums text-slate-700"
+                  className="origin-bottom text-lg font-bold tabular-nums text-violet-700"
                 />
                 <span className="pb-0.5 text-xs">个</span>
               </div>
             </div>
-            <div className="min-w-[112px] bg-white px-4 py-3">
+            <div className="min-w-[80px] bg-white px-3 py-3">
               <p className="text-xs text-slate-400">今日宝石</p>
               <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
                 <AnimatedStatNumber
                   value={runner?.daily_jewel_drop_count || 0}
                   resetKey={statAnimationResetKey}
-                />
-                <span className="pb-0.5 text-xs">/</span>
-                <AnimatedStatNumber
-                  value={runner?.daily_jewel_drop_limit || 20}
-                  resetKey={statAnimationResetKey}
-                  className="origin-bottom text-lg font-bold tabular-nums text-slate-700"
+                  className="origin-bottom text-xl font-bold tabular-nums text-violet-700"
                 />
                 <span className="pb-0.5 text-xs">次</span>
               </div>

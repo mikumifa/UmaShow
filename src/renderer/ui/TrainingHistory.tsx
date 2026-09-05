@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckSquare,
@@ -831,6 +832,7 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
 }
 
 export default function TrainingHistory() {
+  const location = useLocation();
   const [items, setItems] = useState<TrainingHistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] =
@@ -999,6 +1001,15 @@ export default function TrainingHistory() {
     const unsubscribe = window.electron.trainingHistory.onNew(() => load());
     return () => unsubscribe?.();
   }, [load]);
+
+  useEffect(() => {
+    const requestedId = String(
+      (location.state as { recordId?: string } | null)?.recordId || '',
+    );
+    if (requestedId && items.some((item) => item.id === requestedId)) {
+      setSelectedId(requestedId);
+    }
+  }, [items, location.key, location.state]);
 
   useEffect(() => {
     setSelectedIds((prev) => {

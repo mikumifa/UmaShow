@@ -26,6 +26,7 @@ type AutomationControlCardProps = {
   setJewelDropTarget: Dispatch<SetStateAction<number>>;
   remainingJewelDrops: number;
   repeatDaily: boolean;
+  runDailyTasksWithCareer: boolean;
   updateRunningAutomation: () => Promise<void>;
   pauseCareer: () => Promise<void>;
   resumeCareer: () => Promise<void>;
@@ -56,6 +57,7 @@ export default function AutomationControlCard({
   setJewelDropTarget,
   remainingJewelDrops,
   repeatDaily,
+  runDailyTasksWithCareer,
   updateRunningAutomation,
   pauseCareer,
   resumeCareer,
@@ -144,6 +146,9 @@ export default function AutomationControlCard({
             ) : null}
             {repeatDaily ? (
               <span className={statusBadgeClass('violet')}>每日任务</span>
+            ) : null}
+            {runDailyTasksWithCareer ? (
+              <span className={statusBadgeClass('sky')}>日常</span>
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">

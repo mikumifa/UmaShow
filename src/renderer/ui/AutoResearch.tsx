@@ -7,11 +7,13 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
   CalendarCheck,
   Check,
+  CheckCircle2,
   Database,
   Gem,
   History,
@@ -559,7 +561,42 @@ function ErrorToast({
   );
 }
 
+function SuccessToast({
+  message,
+  onClose,
+}: {
+  message: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!message) return undefined;
+    const timer = window.setTimeout(onClose, 5000);
+    return () => window.clearTimeout(timer);
+  }, [message, onClose]);
+
+  if (!message) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed right-4 top-4 z-[1600] flex w-[min(420px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-2xl"
+    >
+      <CheckCircle2 className="mt-0.5 flex-none text-emerald-500" size={18} />
+      <p className="min-w-0 flex-1 break-words leading-5">{message}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="关闭成功提示"
+        className="flex-none rounded px-1 text-lg leading-5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 export default function AutoResearch() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AutoResearchTab>('career');
   const [serverAddress, setServerAddress] = useState(
     () => localStorage.getItem('autoResearch.server') || DEFAULT_SERVER,
@@ -587,6 +624,11 @@ export default function AutoResearch() {
   const [stoppingAccountId, setStoppingAccountId] = useState('');
   const [error, setError] = useState('');
   const dismissError = useCallback(() => setError(''), []);
+  const [successMessage, setSuccessMessage] = useState('');
+  const dismissSuccess = useCallback(() => setSuccessMessage(''), []);
+  const [localTrainingHistoryIds, setLocalTrainingHistoryIds] = useState<
+    Set<string>
+  >(new Set());
   const [manualUid, setManualUid] = useState('');
   const [manualAccessKey, setManualAccessKey] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -1760,6 +1802,16 @@ export default function AutoResearch() {
           }),
         });
         setCareerHistory(result.reports || []);
+        const localRecords = (await window.electron.trainingHistory.list()) as
+          | Array<{ id?: string }>
+          | undefined;
+        setLocalTrainingHistoryIds(
+          new Set(
+            (localRecords || [])
+              .map((record) => String(record.id || ''))
+              .filter(Boolean),
+          ),
+        );
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
@@ -1799,6 +1851,63 @@ export default function AutoResearch() {
       }
     },
     [request, selectedAccountId, server],
+  );
+
+  const downloadTrainingHistory = useCallback(
+    async (recordId: string) => {
+      if (!selectedAccountId || !recordId) return;
+      setBusy(`history-download:${recordId}`);
+      setError('');
+      setSuccessMessage('');
+      try {
+        if (!server) throw new Error('下载记录前，请先连接自动育成服务器');
+        const credential = (await window.electron.autoResearch.credential(
+          selectedAccountId,
+        )) as { uid: string; accessKey: string };
+        const result = await request<{
+          success: boolean;
+          history: {
+            id: string;
+            meta?: Record<string, unknown>;
+            packets?: Array<Record<string, unknown>>;
+          };
+        }>('/api/account/career/history/download-training-history', {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            record_id: recordId,
+          }),
+        });
+        const imported = (await window.electron.trainingHistory.importRemote(
+          result.history,
+        )) as { summary?: { packetCount?: number } };
+        setLocalTrainingHistoryIds((current) => {
+          const next = new Set(current);
+          next.add(recordId);
+          return next;
+        });
+        setSuccessMessage(
+          `Training History 已下载到本地，共 ${Number(
+            imported?.summary?.packetCount ||
+              result.history.packets?.length ||
+              0,
+          )} 个数据包`,
+        );
+      } catch (caught) {
+        setError(`Training History 下载失败：${(caught as Error).message}`);
+      } finally {
+        setBusy('');
+      }
+    },
+    [request, selectedAccountId, server],
+  );
+
+  const openTrainingHistory = useCallback(
+    (recordId: string) => {
+      navigate('/training-history', { state: { recordId } });
+    },
+    [navigate],
   );
 
   const loadDailyTasks = useCallback(
@@ -2289,6 +2398,8 @@ export default function AutoResearch() {
         setServerAddress(nextServer);
         setServer(nextServer);
         setServerConnectionRevision((current) => current + 1);
+        setCareerHistory([]);
+        setSelectedCareerRecords(null);
         setHealth(body);
         return true;
       } catch (caught) {
@@ -2654,7 +2765,13 @@ export default function AutoResearch() {
       return;
     }
     loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [activeTab, loadCareerHistory, selectedAccountId, server]);
+  }, [
+    activeTab,
+    loadCareerHistory,
+    selectedAccountId,
+    server,
+    serverConnectionRevision,
+  ]);
 
   useEffect(() => {
     if (
@@ -3133,6 +3250,8 @@ export default function AutoResearch() {
     setServer('');
     setHealth(null);
     setSession(null);
+    setCareerHistory([]);
+    setSelectedCareerRecords(null);
     setActiveTab('career');
   };
 
@@ -4916,6 +5035,7 @@ export default function AutoResearch() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
       <ErrorToast message={error} onClose={dismissError} />
+      <SuccessToast message={successMessage} onClose={dismissSuccess} />
       {localLoginConfirmationAccountId ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div
@@ -6715,6 +6835,10 @@ export default function AutoResearch() {
                     setJewelDropTarget={setJewelDropTarget}
                     remainingJewelDrops={remainingJewelDrops}
                     repeatDaily={repeatDaily}
+                    runDailyTasksWithCareer={Boolean(
+                      readCareerDailyTasks(selectedAccount?.uid || '')
+                        ?.run_with_career,
+                    )}
                     updateRunningAutomation={updateRunningAutomation}
                     pauseCareer={pauseCareerPlan}
                     resumeCareer={resumeCareerPlan}
@@ -6788,20 +6912,47 @@ export default function AutoResearch() {
                 ) : null}
 
                 {activeTab === 'history' ? (
-                  <HistoryTab
-                    selectedCareerRecords={selectedCareerRecords}
-                    setSelectedCareerRecords={setSelectedCareerRecords}
-                    busy={busy}
-                    historyCareerSetting={historyCareerSetting}
-                    loadCareerHistory={loadCareerHistory}
-                    selectedAccountId={selectedAccountId}
-                    historyCareerSettingId={historyCareerSettingId}
-                    setHistoryCareerSettingId={setHistoryCareerSettingId}
-                    accountCareerSettings={accountCareerSettings}
-                    historyCareerRecords={historyCareerRecords}
-                    deleteCareerHistory={deleteCareerHistory}
-                    races={races}
-                  />
+                  server ? (
+                    <HistoryTab
+                      selectedCareerRecords={selectedCareerRecords}
+                      setSelectedCareerRecords={setSelectedCareerRecords}
+                      busy={busy}
+                      historyCareerSetting={historyCareerSetting}
+                      loadCareerHistory={loadCareerHistory}
+                      selectedAccountId={selectedAccountId}
+                      historyCareerSettingId={historyCareerSettingId}
+                      setHistoryCareerSettingId={setHistoryCareerSettingId}
+                      accountCareerSettings={accountCareerSettings}
+                      historyCareerRecords={historyCareerRecords}
+                      deleteCareerHistory={deleteCareerHistory}
+                      downloadTrainingHistory={downloadTrainingHistory}
+                      localTrainingHistoryIds={localTrainingHistoryIds}
+                      openTrainingHistory={openTrainingHistory}
+                      races={races}
+                    />
+                  ) : (
+                    <section
+                      className={panelClass(
+                        'flex min-h-[320px] flex-col items-center justify-center p-8 text-center',
+                      )}
+                    >
+                      <Database size={38} className="text-slate-300" />
+                      <h2 className="mt-4 font-bold text-slate-800">
+                        请先指定自动育成服务器
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        养马记录保存在服务器中，连接成功后才会显示。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openLoginSettings()}
+                        className="mt-5 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                      >
+                        <Users size={16} />
+                        账号与服务器
+                      </button>
+                    </section>
+                  )
                 ) : null}
               </>
             )}
