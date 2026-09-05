@@ -10,7 +10,7 @@ import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
 import { handleDataLoad, UMDBload } from './handle/Data';
-import { startExpressServer } from './handle/Server';
+import { ExpressServerController, startExpressServer } from './handle/Server';
 import { ensureRaceDir, handleRaceList } from './handle/RaceInfo';
 import {
   ensureTrainingHistory,
@@ -24,7 +24,7 @@ import handleAutoResearchIdleSingleMode from './handle/AutoResearchIdleSingleMod
 import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';
-import { getServerPort, setServerPort } from './config';
+import { getServerPort, SERVER_PORT_OPTIONS, setServerPort } from './config';
 import { ASSET_SCHEME, registerAssetProtocol } from './handle/AssetProtocol';
 
 protocol.registerSchemesAsPrivileged([
@@ -42,6 +42,8 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
+let expressServer: ExpressServerController | null = null;
+let menuBuilder: MenuBuilder | null = null;
 
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
@@ -89,11 +91,17 @@ const createWindow = async () => {
   if (process.platform === 'darwin') {
     app.dock.setIcon(getAssetPath('icon.png'));
   }
+  const windowIcon =
+    process.platform === 'win32'
+      ? getAssetPath('icon.ico')
+      : getAssetPath('icon.png');
   mainWindow = new BrowserWindow({
     show: false,
     width: 1600,
     height: 1200,
-    icon: getAssetPath('icon.png'),
+    frame: process.platform !== 'win32',
+    autoHideMenuBar: process.platform !== 'darwin',
+    icon: windowIcon,
     webPreferences: {
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
@@ -105,33 +113,33 @@ const createWindow = async () => {
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
     mainWindow.show();
-    mainWindow.webContents.send('ui:fullscreen-changed', {
-      fullScreen: mainWindow.isFullScreen(),
-    });
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-  mainWindow.on('enter-full-screen', () => {
-    mainWindow?.webContents.send('ui:fullscreen-changed', { fullScreen: true });
-  });
-  mainWindow.on('leave-full-screen', () => {
-    mainWindow?.webContents.send('ui:fullscreen-changed', {
-      fullScreen: false,
+  const sendMaximizedState = () => {
+    const window = mainWindow;
+    window?.webContents.send('app-shell:maximized-changed', {
+      maximized: window.isMaximized(),
     });
-  });
-
+  };
+  mainWindow.on('maximize', sendMaximizedState);
+  mainWindow.on('unmaximize', sendMaximizedState);
   if (!appUpdater) {
     appUpdater = new AppUpdater();
   }
-  const expressServer = await startExpressServer(mainWindow, getServerPort());
-  const menuBuilder = new MenuBuilder(
+  const activeExpressServer = await startExpressServer(
+    mainWindow,
+    getServerPort(),
+  );
+  expressServer = activeExpressServer;
+  menuBuilder = new MenuBuilder(
     mainWindow,
     () => appUpdater?.checkForUpdates(true),
-    () => expressServer.getPort(),
+    () => activeExpressServer.getPort(),
     async (port) => {
-      await expressServer.restart(port);
+      await activeExpressServer.restart(port);
       setServerPort(port);
     },
   );
@@ -156,6 +164,53 @@ handleSuccessionIndex(ipcMain);
 handleSuccessionPlayerScan(ipcMain);
 handlePracticeRaceSimulation(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
+ipcMain.handle('app-shell:get-info', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  return {
+    version: app.getVersion(),
+    platform: process.platform,
+    serverPort: expressServer?.getPort() ?? getServerPort(),
+    serverPortOptions: [...SERVER_PORT_OPTIONS],
+    development: isDebug,
+    maximized: window?.isMaximized() ?? false,
+  };
+});
+ipcMain.handle('app-shell:set-server-port', async (_event, port: number) => {
+  if (
+    !SERVER_PORT_OPTIONS.includes(port as (typeof SERVER_PORT_OPTIONS)[number])
+  ) {
+    throw new Error(`不支持的监听端口：${port}`);
+  }
+  if (!expressServer) {
+    throw new Error('监听服务尚未启动');
+  }
+  await expressServer.restart(port);
+  setServerPort(port);
+  menuBuilder?.buildMenu();
+  return expressServer.getPort();
+});
+ipcMain.handle('app-shell:toggle-full-screen', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return false;
+  window.setFullScreen(!window.isFullScreen());
+  return window.isFullScreen();
+});
+ipcMain.handle('app-shell:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+ipcMain.handle('app-shell:toggle-maximize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return false;
+  if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+  return window.isMaximized();
+});
+ipcMain.handle('app-shell:close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+ipcMain.handle('app-shell:check-for-updates', () => {
+  appUpdater?.checkForUpdates(true);
+});
 
 /**
  * App lifecycle

@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import {
   Check,
   Download,
+  GitBranch,
   GripVertical,
   Plus,
   RefreshCw,
@@ -11338,30 +11339,35 @@ export default function SuccessionPlannerPage() {
   return (
     <main className="successionPlannerPage">
       <header className="successionIndexStatus">
-        <div>
-          <h1>继承规划</h1>
-        </div>
-        <div className={effectiveSnapshot ? 'captured' : 'waiting'}>
-          <div className="successionLoadedHeading">
-            <strong>
-              {effectiveSnapshot
-                ? `已载入 ${capturedUmas.length} 匹`
-                : '等待育成准备数据'}
-            </strong>
-            <button
-              type="button"
-              className="successionAddPlayersButton"
-              onClick={() => setPlayerScanOpen(true)}
-            >
-              <Plus size={14} />
-              增加更多马娘
-            </button>
+        <div className="successionIndexTitle">
+          <div className="successionIndexTitleLine">
+            <GitBranch size={20} />
+            <h1>继承规划</h1>
           </div>
-          <span>
+          <p>
             {effectiveSnapshot
               ? `自己的 ${ownCount} · 其他玩家 ${rentalCount}/${capturedRentalRows} · 已保存扫描玩家 ${scannedPlayers.length} · ${new Date(effectiveSnapshot.receivedAt).toLocaleString()}`
               : '请保持监听开启，并在游戏中进入育成准备画面'}
+          </p>
+        </div>
+        <div className="successionIndexActions">
+          <span
+            className={`successionIndexState ${
+              effectiveSnapshot ? 'captured' : 'waiting'
+            }`}
+          >
+            {effectiveSnapshot
+              ? `已载入 ${capturedUmas.length} 匹`
+              : '等待育成准备数据'}
           </span>
+          <button
+            type="button"
+            className="successionAddPlayersButton"
+            onClick={() => setPlayerScanOpen(true)}
+          >
+            <Plus size={15} />
+            增加更多马娘
+          </button>
         </div>
       </header>
       <SuccessionPlanner

@@ -18,7 +18,7 @@
 
 .successionPlannerPage {
   min-height: 100vh;
-  padding: 18px;
+  padding: 20px 16px;
   background: var(--uma-bg);
 }
 
@@ -42,15 +42,13 @@
 
 .successionIndexStatus {
   display: flex;
-  align-items: center;
+  min-height: 60px;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--uma-border);
-  border-radius: 10px;
-  background: var(--uma-surface);
-  box-shadow: var(--uma-shadow);
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .successionIndexStatus h1,
@@ -59,65 +57,85 @@
 }
 
 .successionIndexStatus h1 {
-  font-size: 22px;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
 }
 
 .successionIndexStatus p {
-  margin-top: 3px;
-  color: var(--uma-muted);
-  font-size: 13px;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 14px;
 }
 
-.successionIndexStatus > div:last-child {
+.successionIndexTitle {
+  min-width: 0;
+}
+
+.successionIndexTitleLine {
   display: flex;
-  min-width: 290px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: right;
+  align-items: center;
+  gap: 8px;
 }
 
-.successionIndexStatus > div:last-child.captured {
+.successionIndexTitleLine > svg {
+  flex: none;
+  color: #4f46e5;
+}
+
+.successionIndexActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.successionIndexState {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.successionIndexState.captured {
   background: #ecfdf3;
   color: #087443;
 }
 
-.successionIndexStatus > div:last-child.waiting {
+.successionIndexState.waiting {
   background: #fff7ed;
   color: #9a3412;
-}
-
-.successionIndexStatus span {
-  font-size: 12px;
-}
-
-.successionLoadedHeading {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 .successionAddPlayersButton {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 5px 10px;
-  border: 1px solid #818cf8;
-  border-radius: 7px;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   background: #ffffff;
-  color: #4338ca;
-  font-size: 12px;
-  font-weight: 700;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .successionAddPlayersButton:hover {
-  border-color: #6366f1;
-  background: #eef2ff;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #1f2937;
 }
 
 .successionPlanner {
@@ -745,9 +763,16 @@
   font-weight: 700;
 }
 
+@media (min-width: 1280px) {
+  .successionPlannerPage {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}
+
 @media (max-width: 720px) {
   .successionPlannerPage {
-    padding: 10px;
+    padding: 16px;
   }
 
   .successionCapturedPickerGrid {
@@ -782,10 +807,8 @@
     flex-direction: column;
   }
 
-  .successionIndexStatus > div:last-child {
-    min-width: 0;
-    align-items: flex-start;
-    text-align: left;
+  .successionIndexActions {
+    justify-content: flex-start;
   }
 }
 

@@ -41,12 +41,12 @@ export default class MenuBuilder {
       this.setupDevelopmentEnvironment();
     }
 
-    const template =
-      process.platform === 'darwin'
-        ? this.buildDarwinTemplate()
-        : this.buildDefaultTemplate();
+    if (process.platform !== 'darwin') {
+      Menu.setApplicationMenu(null);
+      return Menu.buildFromTemplate([]);
+    }
 
-    const menu = Menu.buildFromTemplate(template);
+    const menu = Menu.buildFromTemplate(this.buildDarwinTemplate());
     Menu.setApplicationMenu(menu);
 
     return menu;
@@ -107,7 +107,7 @@ export default class MenuBuilder {
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
     const subMenuAbout: DarwinMenuItemConstructorOptions = {
-      label: 'Electron',
+      label: 'UmaShow',
       submenu: [
         {
           label: 'About UmaShow',
@@ -163,53 +163,6 @@ export default class MenuBuilder {
         },
       ],
     };
-    const subMenuNavigate: DarwinMenuItemConstructorOptions = {
-      label: 'Navigate',
-      submenu: [
-        {
-          label: 'Dashboard',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', { path: '/' });
-          },
-        },
-        {
-          label: 'Races',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', { path: '/races' });
-          },
-        },
-        {
-          label: 'LOH',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', { path: '/loh' });
-          },
-        },
-        {
-          label: 'AutoUma',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', {
-              path: '/auto-research',
-            });
-          },
-        },
-        {
-          label: '继承规划',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', {
-              path: '/succession',
-            });
-          },
-        },
-        {
-          label: 'Training History',
-          click: () => {
-            this.mainWindow.webContents.send('navigate-to', {
-              path: '/training-history',
-            });
-          },
-        },
-      ],
-    };
     const subMenuViewDev: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
@@ -218,12 +171,6 @@ export default class MenuBuilder {
           accelerator: 'Command+R',
           click: () => {
             this.mainWindow.webContents.reload();
-          },
-        },
-        {
-          label: '开/关 模拟器预留区',
-          click: () => {
-            this.mainWindow.webContents.send('ui:toggle-phone-panel');
           },
         },
         {
@@ -245,12 +192,6 @@ export default class MenuBuilder {
     const subMenuViewProd: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
-        {
-          label: '开/关 模拟器预留区',
-          click: () => {
-            this.mainWindow.webContents.send('ui:toggle-phone-panel');
-          },
-        },
         {
           label: 'Toggle Full Screen',
           accelerator: 'Ctrl+Command+F',
@@ -283,8 +224,6 @@ export default class MenuBuilder {
     return [
       subMenuAbout,
       subMenuEdit,
-      subMenuNavigate,
-      this.buildServerPortMenu(),
       subMenuView,
       subMenuWindow /* , subMenuHelp */,
     ];
@@ -350,12 +289,6 @@ export default class MenuBuilder {
                   },
                 },
                 {
-                  label: '开/关 模拟器预留区',
-                  click: () => {
-                    this.mainWindow.webContents.send('ui:toggle-phone-panel');
-                  },
-                },
-                {
                   label: 'Toggle &Full Screen',
                   accelerator: 'F11',
                   click: () => {
@@ -373,12 +306,6 @@ export default class MenuBuilder {
                 },
               ]
             : [
-                {
-                  label: '开/关 模拟器预留区',
-                  click: () => {
-                    this.mainWindow.webContents.send('ui:toggle-phone-panel');
-                  },
-                },
                 {
                   label: 'Toggle &Full Screen',
                   accelerator: 'F11',

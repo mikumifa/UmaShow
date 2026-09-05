@@ -30,23 +30,6 @@ const electronHandler = {
     getUmaDatabase: () => {
       return ipcRenderer.invoke('umdb-get');
     },
-    ui: {
-      onTogglePhonePanel: (callback: () => void) => {
-        const subscription = () => callback();
-        ipcRenderer.on('ui:toggle-phone-panel', subscription);
-        return () => {
-          ipcRenderer.removeListener('ui:toggle-phone-panel', subscription);
-        };
-      },
-      onFullscreenChanged: (callback: (fullScreen: boolean) => void) => {
-        const subscription = (_event: IpcRendererEvent, data: any) =>
-          callback(!!data?.fullScreen);
-        ipcRenderer.on('ui:fullscreen-changed', subscription);
-        return () => {
-          ipcRenderer.removeListener('ui:fullscreen-changed', subscription);
-        };
-      },
-    },
     navigation: {
       onNavigate: (callback: (data: { path: string; state: any }) => void) => {
         const subscription = (_event: IpcRendererEvent, data: any) =>
@@ -59,6 +42,24 @@ const electronHandler = {
         };
       },
     },
+  },
+  appShell: {
+    getInfo: () => ipcRenderer.invoke('app-shell:get-info'),
+    setServerPort: (port: number) =>
+      ipcRenderer.invoke('app-shell:set-server-port', port),
+    toggleFullScreen: () => ipcRenderer.invoke('app-shell:toggle-full-screen'),
+    minimize: () => ipcRenderer.invoke('app-shell:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('app-shell:toggle-maximize'),
+    close: () => ipcRenderer.invoke('app-shell:close'),
+    onMaximizedChanged: (callback: (maximized: boolean) => void) => {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(!!data?.maximized);
+      ipcRenderer.on('app-shell:maximized-changed', subscription);
+      return () => {
+        ipcRenderer.removeListener('app-shell:maximized-changed', subscription);
+      };
+    },
+    checkForUpdates: () => ipcRenderer.invoke('app-shell:check-for-updates'),
   },
   race: {
     list: (archiveId?: string) => ipcRenderer.invoke('race:list', archiveId),

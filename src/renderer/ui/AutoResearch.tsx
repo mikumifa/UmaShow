@@ -6090,7 +6090,7 @@ export default function AutoResearch() {
           )}
         </header>
 
-        <div className={`${panelClass('px-3')} sticky top-0 z-30 shadow-sm`}>
+        <div className={`${panelClass('px-3')} sticky top-12 z-30 shadow-sm`}>
           <nav
             className="-mb-px flex space-x-8 overflow-x-auto"
             aria-label="自动育成设置"
