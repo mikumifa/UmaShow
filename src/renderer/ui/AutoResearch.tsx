@@ -19,6 +19,7 @@ import {
   ListChecks,
   LogIn,
   LogOut,
+  PencilLine,
   Play,
   Plus,
   RefreshCw,
@@ -34,7 +35,9 @@ import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import DailyTasksTab from 'renderer/components/autoResearch/DailyTasksTab';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
+import AutoResearchNotice from 'renderer/components/autoResearch/AutoResearchNotice';
 import EditableNumberInput from 'renderer/components/autoResearch/EditableNumberInput';
+import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import SkillSelector, {
@@ -599,6 +602,57 @@ function SuccessToast({
   );
 }
 
+const accountDialogButtonClass =
+  'autoResearchAccountDialogButton inline-flex min-h-7 items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+const accountDialogSecondaryButtonClass = `${accountDialogButtonClass} border border-slate-200 bg-white text-slate-600 hover:bg-slate-50`;
+const accountDialogPrimaryButtonClass = `${accountDialogButtonClass} !border-indigo-600 !bg-indigo-600 !text-white hover:!border-indigo-700 hover:!bg-indigo-700`;
+const accountDialogDangerButtonClass = `${accountDialogButtonClass} !border-red-600 !bg-red-600 !text-white hover:!border-red-700 hover:!bg-red-700`;
+const accountManualInputClass =
+  'autoResearchAccountManualInput min-w-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] outline-none transition-colors focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100';
+
+function AccountManagementActions({
+  accountName,
+  onRename,
+  onDelete,
+  deleteDisabledReason = '',
+  busy = false,
+  className = '',
+}: {
+  accountName: string;
+  onRename: () => void;
+  onDelete: () => void;
+  deleteDisabledReason?: string;
+  busy?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-1 ${className}`.trim()}>
+      <button
+        type="button"
+        onClick={onRename}
+        disabled={busy}
+        aria-label={`修改${accountName}的别名`}
+        title="修改账号别名"
+        className="autoResearchAccountMiniButton inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <PencilLine size={10} />
+        别名
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={busy || Boolean(deleteDisabledReason)}
+        aria-label={`删除${accountName}`}
+        title={deleteDisabledReason || '删除账号'}
+        className="autoResearchAccountMiniButton inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Trash2 size={10} />
+        删除
+      </button>
+    </div>
+  );
+}
+
 export default function AutoResearch() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AutoResearchTab>('career');
@@ -634,6 +688,9 @@ export default function AutoResearch() {
   >(new Set());
   const [manualUid, setManualUid] = useState('');
   const [manualAccessKey, setManualAccessKey] = useState('');
+  const [editingAccountAliasId, setEditingAccountAliasId] = useState('');
+  const [accountAliasDraft, setAccountAliasDraft] = useState('');
+  const [deletingAccountId, setDeletingAccountId] = useState('');
   const [dragging, setDragging] = useState(false);
   const [loginProgress, setLoginProgress] = useState<LoginProgress | null>(
     null,
@@ -668,6 +725,8 @@ export default function AutoResearch() {
     resolve: (confirmed: boolean) => void;
   } | null>(null);
   const localLoginConfirmButtonRef = useRef<HTMLButtonElement>(null);
+  const accountAliasInputRef = useRef<HTMLInputElement>(null);
+  const deleteAccountConfirmButtonRef = useRef<HTMLButtonElement>(null);
   accountsRef.current = accounts;
   const selectedAccountIdRef = useRef(selectedAccountId);
   selectedAccountIdRef.current = selectedAccountId;
@@ -2106,6 +2165,41 @@ export default function AutoResearch() {
     };
   }, [finishLocalLoginConfirmation, localLoginConfirmationAccountId]);
 
+  useEffect(() => {
+    if (!editingAccountAliasId) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      accountAliasInputRef.current?.focus();
+      accountAliasInputRef.current?.select();
+    });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setEditingAccountAliasId('');
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [editingAccountAliasId]);
+
+  useEffect(() => {
+    if (!deletingAccountId) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      deleteAccountConfirmButtonRef.current?.focus();
+    });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setDeletingAccountId('');
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [deletingAccountId]);
+
   useEffect(
     () => () => {
       const pending = localLoginConfirmationRef.current;
@@ -3401,8 +3495,93 @@ export default function AutoResearch() {
     loginAndReadLatest(selectedAccountId).catch(() => undefined);
   };
 
+  const openAccountAliasEditor = (account: Account) => {
+    if (
+      busy ||
+      activeLoginOperation.current ||
+      disconnectingAccountIdRef.current ||
+      loginProgress
+    ) {
+      setError('账号连接或其他操作正在进行，请等待完成');
+      return;
+    }
+    setDeletingAccountId('');
+    setEditingAccountAliasId(account.id);
+    setAccountAliasDraft(account.label || '');
+    setError('');
+  };
+
+  const saveAccountAlias = async (label = accountAliasDraft) => {
+    const account = accountsRef.current.find(
+      (item) => item.id === editingAccountAliasId,
+    );
+    if (!account) {
+      setEditingAccountAliasId('');
+      setError('本地账号不存在');
+      return;
+    }
+    const nextLabel = label.trim();
+    if (nextLabel.length > 40) {
+      setError('账号别名不能超过 40 个字符');
+      return;
+    }
+    setBusy(`rename-${account.id}`);
+    setError('');
+    try {
+      await window.electron.autoResearch.renameAccount(account.id, nextLabel);
+      await loadAccounts();
+      setEditingAccountAliasId('');
+      setAccountAliasDraft('');
+      setSuccessMessage(
+        nextLabel ? `账号别名已修改为“${nextLabel}”` : '账号别名已清除',
+      );
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const accountDeleteBlockedReason = (account: Account) => {
+    if (runnerHasHostedTask(account.runtime.runner)) {
+      return '账号正在养马或仍有待执行计划，请先停止任务';
+    }
+    if (activeLoginOperation.current || loginProgress) {
+      return '账号连接操作正在进行，请等待完成';
+    }
+    if (disconnectingAccountIdRef.current || disconnectingAccountId) {
+      return '账号正在退出，请等待完成';
+    }
+    if (busy) return '请等待当前操作完成';
+    return '';
+  };
+
+  const openDeleteAccountDialog = (account: Account) => {
+    const blockedReason = accountDeleteBlockedReason(account);
+    if (blockedReason) {
+      setError(blockedReason);
+      return;
+    }
+    setEditingAccountAliasId('');
+    setDeletingAccountId(account.id);
+    setError('');
+  };
+
   const deleteAccount = async (accountId: string) => {
+    const account = accountsRef.current.find((item) => item.id === accountId);
+    if (!account) {
+      setDeletingAccountId('');
+      setError('本地账号不存在');
+      return;
+    }
+    const blockedReason = accountDeleteBlockedReason(account);
+    if (blockedReason) {
+      setDeletingAccountId('');
+      setError(blockedReason);
+      return;
+    }
     setBusy(`delete-${accountId}`);
+    setError('');
     try {
       if (sessionTokens.current.has(accountId)) {
         await accountRequest(accountId, '/api/auth/logout', {
@@ -3412,8 +3591,19 @@ export default function AutoResearch() {
         sessionTokens.current.delete(accountId);
       }
       accountOptionsCache.current.delete(accountId);
+      accountOptionsRequests.current.delete(accountId);
+      existingRuntimeAttachAttempts.current.delete(accountId);
+      existingRuntimeAttachRequests.current.delete(accountId);
+      idleHostedContextReleaseRequests.current.delete(accountId);
+      overviewRequestVersions.current.delete(accountId);
+      overviewResponseOrders.current.delete(accountId);
       await window.electron.autoResearch.deleteAccount(accountId);
-      if (selectedAccountId === accountId) {
+      setLocalAccountSessionStates((current) => {
+        const next = { ...current };
+        delete next[accountId];
+        return next;
+      });
+      if (selectedAccountIdRef.current === accountId) {
         setSelectedAccountId('');
         setSession(null);
       }
@@ -3421,6 +3611,10 @@ export default function AutoResearch() {
         localStorage.removeItem(LAST_ACCOUNT_KEY);
       }
       await loadAccounts();
+      setDeletingAccountId('');
+      setSuccessMessage(
+        `已删除“${account.label || `UID ${account.uid}`}”的本地账号信息`,
+      );
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
@@ -5143,6 +5337,12 @@ export default function AutoResearch() {
   const localLoginConfirmationAccount = accounts.find(
     (account) => account.id === localLoginConfirmationAccountId,
   );
+  const editingAccountAlias = accounts.find(
+    (account) => account.id === editingAccountAliasId,
+  );
+  const deletingAccount = accounts.find(
+    (account) => account.id === deletingAccountId,
+  );
 
   return (
     <div className="h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6">
@@ -5178,12 +5378,165 @@ export default function AutoResearch() {
           .autoResearchTabScroll::-webkit-scrollbar-button {
             display: none;
           }
+          .successionPickerTheme .autoResearchAccountDialogButton {
+            font-size: 11px;
+            line-height: 1.25;
+          }
+          .successionPickerTheme .autoResearchAccountMiniButton {
+            font-size: 10px;
+            line-height: 1.2;
+          }
+          .successionPickerTheme .autoResearchAccountManualInput {
+            height: 30px;
+            font-size: 11px;
+            line-height: 1.25;
+          }
         `}
       </style>
       <ErrorToast message={error} onClose={dismissError} />
       <SuccessToast message={successMessage} onClose={dismissSuccess} />
+      {editingAccountAlias ? (
+        <div
+          className="successionPickerTheme successionPickerOverlay"
+          style={{ zIndex: 1800 }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auto-research-account-alias-title"
+            className="successionPickerDialog w-full max-w-md"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveAccountAlias().catch(() => undefined);
+            }}
+          >
+            <div className="p-5">
+              <label
+                className="block text-sm font-semibold text-slate-700"
+                htmlFor="auto-research-account-alias"
+              >
+                账号别名
+              </label>
+              <input
+                ref={accountAliasInputRef}
+                id="auto-research-account-alias"
+                value={accountAliasDraft}
+                onChange={(event) => setAccountAliasDraft(event.target.value)}
+                maxLength={40}
+                placeholder={`UID ${editingAccountAlias.uid}`}
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-400">
+                <span className="truncate">UID {editingAccountAlias.uid}</span>
+                <span>{accountAliasDraft.length}/40</span>
+              </div>
+            </div>
+            <footer className="successionPickerFooter flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => saveAccountAlias('').catch(() => undefined)}
+                disabled={busy === `rename-${editingAccountAlias.id}`}
+                className={`${accountDialogButtonClass} text-red-600 hover:bg-red-50`}
+              >
+                清除别名
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingAccountAliasId('')}
+                  disabled={busy === `rename-${editingAccountAlias.id}`}
+                  className={accountDialogSecondaryButtonClass}
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy === `rename-${editingAccountAlias.id}`}
+                  className={accountDialogPrimaryButtonClass}
+                >
+                  {busy === `rename-${editingAccountAlias.id}` ? (
+                    <RefreshCw className="animate-spin" size={13} />
+                  ) : (
+                    <PencilLine size={13} />
+                  )}
+                  保存别名
+                </button>
+              </div>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+      {deletingAccount ? (
+        <div
+          className="successionPickerTheme successionPickerOverlay"
+          style={{ zIndex: 1800 }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="auto-research-delete-account-title"
+            aria-describedby="auto-research-delete-account-description"
+            className="successionPickerDialog w-full max-w-md"
+          >
+            <header className="successionPickerHeader">
+              <div>
+                <h3 id="auto-research-delete-account-title">删除游戏账号</h3>
+                <p>此操作只删除 UmaShow 中保存的本地账号信息</p>
+              </div>
+            </header>
+            <div className="p-5">
+              <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50/70 p-4">
+                <div className="rounded-full bg-red-100 p-2 text-red-600">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900">
+                    {deletingAccount.label || `UID ${deletingAccount.uid}`}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    UID {deletingAccount.uid}
+                  </p>
+                  <p
+                    id="auto-research-delete-account-description"
+                    className="mt-3 text-sm leading-6 text-slate-600"
+                  >
+                    删除后，本地保存的登录凭据、别名和会话缓存都会被移除；如需再次使用，必须重新导入或登录捕获。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <footer className="successionPickerFooter flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingAccountId('')}
+                disabled={busy === `delete-${deletingAccount.id}`}
+                className={accountDialogSecondaryButtonClass}
+              >
+                取消
+              </button>
+              <button
+                ref={deleteAccountConfirmButtonRef}
+                type="button"
+                onClick={() => deleteAccount(deletingAccount.id)}
+                disabled={busy === `delete-${deletingAccount.id}`}
+                className={accountDialogDangerButtonClass}
+              >
+                {busy === `delete-${deletingAccount.id}` ? (
+                  <RefreshCw className="animate-spin" size={13} />
+                ) : (
+                  <Trash2 size={13} />
+                )}
+                确认删除
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
       {localLoginConfirmationAccountId ? (
-        <div className="successionPickerTheme successionPickerOverlay z-[80]">
+        <div
+          className="successionPickerTheme successionPickerOverlay"
+          style={{ zIndex: 1600 }}
+        >
           <div
             role="alertdialog"
             aria-modal="true"
@@ -5220,7 +5573,7 @@ export default function AutoResearch() {
               <button
                 type="button"
                 onClick={() => finishLocalLoginConfirmation(false)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className={accountDialogSecondaryButtonClass}
               >
                 取消
               </button>
@@ -5228,9 +5581,9 @@ export default function AutoResearch() {
                 ref={localLoginConfirmButtonRef}
                 type="button"
                 onClick={() => finishLocalLoginConfirmation(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                className={accountDialogPrimaryButtonClass}
               >
-                <LogIn size={16} />
+                <LogIn size={14} />
                 确认登录
               </button>
             </div>
@@ -5238,23 +5591,21 @@ export default function AutoResearch() {
         </div>
       ) : null}
       {loginSettingsOpen ? (
-        <div className="successionPickerTheme successionPickerOverlay z-[70]">
+        <div
+          className="successionPickerTheme successionPickerOverlay"
+          style={{ zIndex: 1200 }}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="自动育成登录设置"
-            className="successionPickerDialog w-full max-w-3xl"
+            className="successionPickerDialog !max-h-[94vh] w-full max-w-3xl"
+            style={{ height: 'min(92vh, 880px)', maxHeight: '92vh' }}
           >
-            <div className="space-y-5 p-5">
-              <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <div className="flex items-center gap-2">
-                  <Plus size={17} className="text-indigo-600" />
-                  <h3 className="text-sm font-bold text-slate-800">
-                    导入游戏账号
-                  </h3>
-                </div>
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <div>
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
+              <section>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex min-h-0 flex-col">
                     <p className="text-sm font-semibold text-slate-700">
                       导入 users.db
                     </p>
@@ -5265,22 +5616,19 @@ export default function AutoResearch() {
                       }}
                       onDragLeave={() => setDragging(false)}
                       onDrop={onDrop}
-                      className={`mt-2 rounded-lg border-2 border-dashed p-3 text-center text-sm ${
+                      className={`mt-2 flex flex-1 flex-col items-center justify-center rounded-md border-2 border-dashed p-2 text-center text-xs ${
                         dragging
                           ? 'border-indigo-500 bg-indigo-50'
                           : 'border-slate-200 bg-white'
                       }`}
                     >
-                      <Database
-                        className="mx-auto mb-1 text-slate-400"
-                        size={22}
-                      />
+                      <Database className="mx-auto text-slate-400" size={16} />
                       <p>拖入手机导出的 users.db</p>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">
                         /data/user/0/com.bilibili.umamusu/databases/
                       </p>
-                      <label className="mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                        <Upload className="mr-1" size={14} />
+                      <label className="mt-1 inline-flex min-h-6 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50">
+                        <Upload className="mr-1" size={10} />
                         选择文件
                         <input
                           type="file"
@@ -5299,12 +5647,12 @@ export default function AutoResearch() {
                     <p className="text-sm font-semibold text-slate-700">
                       手动填写
                     </p>
-                    <div className="mt-2 grid gap-2">
+                    <div className="mt-2 grid gap-1.5">
                       <input
                         value={manualUid}
                         onChange={(event) => setManualUid(event.target.value)}
                         placeholder="uid"
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                        className={accountManualInputClass}
                       />
                       <input
                         value={manualAccessKey}
@@ -5313,51 +5661,64 @@ export default function AutoResearch() {
                         }
                         placeholder="access_key"
                         type="password"
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                        className={accountManualInputClass}
                       />
                       <button
                         type="button"
                         onClick={() => addManual().catch(() => undefined)}
                         disabled={Boolean(busy)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                        className={accountDialogSecondaryButtonClass}
                       >
                         添加账号
                       </button>
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-slate-500">
-                  也可在游戏重新登录后由 Localify 自动捕获账号
-                </p>
                 {captured.length ? (
-                  <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
                     UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
                   </p>
                 ) : null}
               </section>
-              <section>
+              <section className="flex min-h-40 flex-1 flex-col">
                 <label className="text-sm font-semibold text-slate-800">
                   游戏账号
                 </label>
-                <div className="mt-2 grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
+                <div className="mt-2 grid min-h-32 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(150px,1fr))] content-start gap-2 overflow-y-auto">
                   {accounts.map((account) => (
-                    <button
+                    <div
                       key={account.id}
-                      type="button"
-                      onClick={() => selectLoginSettingsAccount(account.id)}
-                      className={`rounded-lg border p-3 text-left transition-colors ${
+                      className={`rounded-lg border px-2.5 py-2 transition-colors ${
                         selectedAccountId === account.id
                           ? 'border-indigo-400 bg-indigo-50'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {account.label || `UID ${account.uid}`}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-slate-400">
-                        {account.uid} · {account.accessKeyPreview}
-                      </p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => selectLoginSettingsAccount(account.id)}
+                        className="w-full text-left"
+                      >
+                        <p className="truncate text-xs font-semibold text-slate-800">
+                          {account.label || `UID ${account.uid}`}
+                        </p>
+                        <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                          {account.uid} · {account.accessKeyPreview}
+                        </p>
+                      </button>
+                      <AccountManagementActions
+                        accountName={account.label || `UID ${account.uid}`}
+                        onRename={() => openAccountAliasEditor(account)}
+                        onDelete={() => openDeleteAccountDialog(account)}
+                        deleteDisabledReason={accountDeleteBlockedReason(
+                          account,
+                        )}
+                        busy={Boolean(
+                          busy || loginProgress || disconnectingAccountId,
+                        )}
+                        className="mt-1 justify-end"
+                      />
+                    </div>
                   ))}
                   {!accounts.length ? (
                     <p className="col-span-full rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500">
@@ -5390,7 +5751,7 @@ export default function AutoResearch() {
               <button
                 type="button"
                 onClick={closeLoginSettings}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className={accountDialogSecondaryButtonClass}
               >
                 取消
               </button>
@@ -5402,9 +5763,9 @@ export default function AutoResearch() {
                 disabled={
                   Boolean(busy) || !accounts.length || !selectedAccountId
                 }
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className={accountDialogPrimaryButtonClass}
               >
-                <LogIn size={16} />
+                <LogIn size={14} />
                 {busy === 'connect'
                   ? '连接中…'
                   : pendingLocalLogin
@@ -5423,30 +5784,21 @@ export default function AutoResearch() {
             aria-label={`${editingSkillSelection.label || editingSkillSelection.skill_names[0]}的学习设置`}
             className="successionPickerDialog w-full max-w-2xl"
           >
-            <div className="successionPickerHeader flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="truncate text-lg font-bold text-slate-900">
-                  {editingSkillSelection.label ||
-                    editingSkillSelection.skill_names[0]}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {editingSkillSelection.skill_names.length > 1
-                    ? `这组设置会应用到其中 ${editingSkillSelection.skill_names.length} 个技能。`
-                    : '单独设置这个技能的学习条件。'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingSkillSelectionId('')}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                完成
-              </button>
-            </div>
             {(() => {
               const { setting } = skillSelectionSetting(editingSkillSelection);
               return (
                 <div className="max-h-[75vh] overflow-y-auto p-4">
+                  <div className="mb-4 rounded-lg bg-slate-100/80 px-3 py-2.5">
+                    <strong className="block truncate text-sm text-slate-800">
+                      {editingSkillSelection.label ||
+                        editingSkillSelection.skill_names[0]}
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {editingSkillSelection.skill_names.length > 1
+                        ? `这组设置会应用到其中 ${editingSkillSelection.skill_names.length} 个技能。`
+                        : '单独设置这个技能的学习条件。'}
+                    </span>
+                  </div>
                   <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                     <label className="flex items-center justify-between gap-4 px-3 py-3 text-sm text-slate-700">
                       <span>
@@ -5627,6 +5979,14 @@ export default function AutoResearch() {
                 </div>
               );
             })()}
+            <div className="successionPickerFooter flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditingSkillSelectionId('')}
+              >
+                完成
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -6015,66 +6375,35 @@ export default function AutoResearch() {
               )}
 
               {runMode === 'count' ? (
-                <label className="mt-4 block rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                  {repeatDaily ? '每天完成' : '从现在起完成'}
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={runCountTarget}
-                      onChange={(event) =>
-                        setRunCountTarget(
-                          Math.max(
-                            1,
-                            Math.min(100, Number(event.target.value)),
-                          ),
-                        )
-                      }
-                      className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold"
-                    />
-                    <span className="text-slate-500">次育成</span>
-                  </div>
-                  {repeatDaily && !appendingCareerPlan ? (
-                    <span className="mt-2 block text-xs text-slate-500">
-                      每个每日周期都会使用当前详设完成这些次数；达到后等待下一个周期。
-                    </span>
-                  ) : null}
-                </label>
+                <RunTargetInput
+                  className="mt-4"
+                  prefix={repeatDaily ? '每天完成' : '从现在起完成'}
+                  value={runCountTarget}
+                  max={100}
+                  suffix="次育成"
+                  hint={
+                    repeatDaily && !appendingCareerPlan
+                      ? '每个每日周期都会使用当前详设完成这些次数；达到后等待下一个周期。'
+                      : undefined
+                  }
+                  onValueChange={setRunCountTarget}
+                />
               ) : null}
 
               {runMode === 'jewel_drops' ? (
-                <label className="mt-4 block rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-sm">
-                  {repeatDaily ? '每天累计达到' : '从现在起获得'}
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
-                      value={jewelDropTarget}
-                      onChange={(event) =>
-                        setJewelDropTarget(
-                          Math.max(
-                            1,
-                            Math.min(
-                              repeatDaily
-                                ? 20
-                                : Math.max(1, remainingJewelDrops),
-                              Number(event.target.value),
-                            ),
-                          ),
-                        )
-                      }
-                      className="w-28 rounded-lg border border-violet-200 bg-white px-3 py-2 font-semibold"
-                    />
-                    <span className="text-violet-700">次宝石掉落</span>
-                  </div>
-                  <span className="mt-2 block text-xs text-violet-600">
-                    {repeatDaily
+                <RunTargetInput
+                  className="mt-4"
+                  prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
+                  value={jewelDropTarget}
+                  max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
+                  suffix="次宝石掉落"
+                  hint={
+                    repeatDaily
                       ? '今天已经获得的钻石会计入目标；若启动时已经达到，会直接完成今天的计划。'
-                      : '达到目标后会在当前比赛结束处停止，未完成的育成之后可以继续。'}
-                  </span>
-                </label>
+                      : `本周期剩余 ${remainingJewelDrops} 次。达到目标后会在当前比赛结束处停止。`
+                  }
+                  onValueChange={setJewelDropTarget}
+                />
               ) : null}
             </div>
             <div className="successionPickerFooter flex items-center justify-end gap-2">
@@ -6301,7 +6630,7 @@ export default function AutoResearch() {
                 添加账号
               </h2>
               {captured.length ? (
-                <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
+                <div className="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-600">
                   UmaShow 已捕获并持久化 {captured.length} 个登录凭据。
                 </div>
               ) : null}
@@ -6317,7 +6646,7 @@ export default function AutoResearch() {
                   }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={onDrop}
-                  className={`mt-2 rounded-xl border-2 border-dashed p-4 text-center text-sm ${
+                  className={`mt-2 rounded-xl border-2 border-dashed p-4 text-center text-xs ${
                     dragging
                       ? 'border-indigo-500 bg-indigo-50'
                       : 'border-slate-200'
@@ -6328,8 +6657,8 @@ export default function AutoResearch() {
                   <p className="mt-1 text-xs text-slate-400">
                     /data/user/0/com.bilibili.umamusu/databases/
                   </p>
-                  <label className="mt-3 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50">
-                    <Upload className="mr-1" size={14} />
+                  <label className="mt-3 inline-flex min-h-7 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+                    <Upload className="mr-1" size={12} />
                     选择文件
                     <input
                       type="file"
@@ -6352,24 +6681,24 @@ export default function AutoResearch() {
                 <p className="mt-0.5 text-xs text-slate-400">
                   直接填写账号的 UID 和 access_key。
                 </p>
-                <div className="mt-2 grid gap-2">
+                <div className="mt-2 grid gap-1.5">
                   <input
                     value={manualUid}
                     onChange={(event) => setManualUid(event.target.value)}
                     placeholder="uid"
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    className={accountManualInputClass}
                   />
                   <input
                     value={manualAccessKey}
                     onChange={(event) => setManualAccessKey(event.target.value)}
                     placeholder="access_key"
                     type="password"
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    className={accountManualInputClass}
                   />
                   <button
                     type="button"
                     onClick={addManual}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                    className="min-h-7 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
                   >
                     手动添加
                   </button>
@@ -6401,7 +6730,7 @@ export default function AutoResearch() {
                       className="flex w-full items-start justify-between gap-2 text-left disabled:cursor-wait"
                     >
                       <div className="min-w-0">
-                        <p className="truncate font-semibold">
+                        <p className="truncate text-sm font-semibold">
                           {account.label || `UID ${account.uid}`}
                         </p>
                         <p className="text-xs text-slate-400">
@@ -6417,7 +6746,7 @@ export default function AutoResearch() {
                         ) : null}
                       </div>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${disconnectingAccountId === account.id ? 'bg-amber-100 text-amber-700' : runtimeSessionOwner(account.runtime) === 'server' ? 'bg-violet-100 text-violet-700' : runtimeSessionOwner(account.runtime) === 'local' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                        className={`rounded-full px-2 py-0.5 text-[11px] ${disconnectingAccountId === account.id ? 'bg-amber-100 text-amber-700' : runtimeSessionOwner(account.runtime) === 'server' ? 'bg-violet-100 text-violet-700' : runtimeSessionOwner(account.runtime) === 'local' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                       >
                         {disconnectingAccountId === account.id
                           ? '退出中'
@@ -6432,7 +6761,7 @@ export default function AutoResearch() {
                                 : '未登录'}
                       </span>
                     </button>
-                    <div className="mt-3 flex gap-1">
+                    <div className="mt-3 flex flex-wrap gap-1">
                       {account.runtime.logged_in ? (
                         <>
                           <button
@@ -6456,7 +6785,7 @@ export default function AutoResearch() {
                               Boolean(disconnectingAccountId) ||
                               busy === `refresh-${account.id}`
                             }
-                            className="rounded-lg bg-white px-2 py-1 text-xs disabled:opacity-50"
+                            className="rounded-md bg-white px-2 py-1 text-[11px] disabled:opacity-50"
                           >
                             <RefreshCw
                               className={`mr-1 inline ${busy === `refresh-${account.id}` ? 'animate-spin' : ''}`}
@@ -6479,7 +6808,7 @@ export default function AutoResearch() {
                               disabled={Boolean(
                                 busy || loginProgress || disconnectingAccountId,
                               )}
-                              className="rounded-lg bg-white px-2 py-1 text-xs text-amber-700 disabled:opacity-50"
+                              className="rounded-md bg-white px-2 py-1 text-[11px] text-amber-700 disabled:opacity-50"
                             >
                               {busy === `reset-${account.id}` ? (
                                 <RefreshCw
@@ -6513,7 +6842,7 @@ export default function AutoResearch() {
                             disabled={Boolean(
                               busy || loginProgress || disconnectingAccountId,
                             )}
-                            className="rounded-lg bg-white px-2 py-1 text-xs disabled:opacity-50"
+                            className="rounded-md bg-white px-2 py-1 text-[11px] disabled:opacity-50"
                           >
                             <LogOut className="mr-1 inline" size={12} />
                             {disconnectingAccountId === account.id
@@ -6532,7 +6861,7 @@ export default function AutoResearch() {
                           disabled={Boolean(
                             loginProgress || disconnectingAccountId,
                           )}
-                          className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+                          className="rounded-md bg-indigo-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
                         >
                           <LogIn className="mr-1 inline" size={12} />
                           {loginProgress?.accountId === account.id
@@ -6542,16 +6871,18 @@ export default function AutoResearch() {
                               : '登录并读取'}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => deleteAccount(account.id)}
-                        disabled={Boolean(
-                          loginProgress || disconnectingAccountId,
+                      <AccountManagementActions
+                        accountName={account.label || `UID ${account.uid}`}
+                        onRename={() => openAccountAliasEditor(account)}
+                        onDelete={() => openDeleteAccountDialog(account)}
+                        deleteDisabledReason={accountDeleteBlockedReason(
+                          account,
                         )}
-                        className="ml-auto rounded-lg bg-white px-2 py-1 text-xs text-red-600 disabled:opacity-50"
-                      >
-                        <Trash2 className="inline" size={12} />
-                      </button>
+                        busy={Boolean(
+                          busy || loginProgress || disconnectingAccountId,
+                        )}
+                        className="ml-auto"
+                      />
                     </div>
                   </div>
                 ))}
@@ -6752,9 +7083,36 @@ export default function AutoResearch() {
                 {activeTab === 'career' &&
                 currentIdleSingleMode?.active &&
                 !offlinePlanActive ? (
-                  <section className="rounded-lg border border-sky-300 bg-sky-50 p-5 text-sky-900">
-                    <h2 className="font-bold">检测到离线自动育成</h2>
-                    <p className="mt-1 text-sm">
+                  <AutoResearchNotice
+                    title="检测到离线自动育成"
+                    actions={
+                      <>
+                        <button
+                          type="button"
+                          onClick={refreshIdleSingleMode}
+                          disabled={busy === 'idle-single-mode-refresh'}
+                          className="flex items-center gap-2 rounded-md bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-50"
+                        >
+                          <RefreshCw size={14} />
+                          {busy === 'idle-single-mode-refresh'
+                            ? '正在刷新…'
+                            : '刷新状态'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={abandonIdleSingleMode}
+                          disabled={busy === 'idle-single-mode-abandon'}
+                          className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={14} />
+                          {busy === 'idle-single-mode-abandon'
+                            ? '正在放弃…'
+                            : '放弃离线育成'}
+                        </button>
+                      </>
+                    }
+                  >
+                    <p>
                       当前离线育成角色为「
                       {currentIdleSingleMode.name || '未知马娘'}
                       」。
@@ -6765,35 +7123,11 @@ export default function AutoResearch() {
                           : '结果已查看，等待游戏完成离线任务清理。'}
                     </p>
                     {currentIdleSingleMode.ends_at ? (
-                      <p className="mt-2 text-xs text-sky-700">
+                      <p className="mt-1 text-xs text-slate-500">
                         预计结束：{currentIdleSingleMode.ends_at}
                       </p>
                     ) : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={refreshIdleSingleMode}
-                        disabled={busy === 'idle-single-mode-refresh'}
-                        className="flex items-center gap-2 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
-                      >
-                        <RefreshCw size={16} />
-                        {busy === 'idle-single-mode-refresh'
-                          ? '正在刷新…'
-                          : '刷新状态'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={abandonIdleSingleMode}
-                        disabled={busy === 'idle-single-mode-abandon'}
-                        className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        <Trash2 size={16} />
-                        {busy === 'idle-single-mode-abandon'
-                          ? '正在放弃…'
-                          : '放弃离线育成'}
-                      </button>
-                    </div>
-                  </section>
+                  </AutoResearchNotice>
                 ) : null}
 
                 {activeTab === 'presets' ? (

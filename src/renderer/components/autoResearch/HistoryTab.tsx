@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import {
+  ArrowLeft,
   Download,
   ExternalLink,
   Gem,
@@ -11,6 +12,7 @@ import {
 import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import AppSideNotch from 'renderer/components/AppSideNotch';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import { horseIconPath } from './SelectionCards';
 import {
@@ -440,15 +442,17 @@ export default function HistoryTab({
       <div className="space-y-4">
         <section className={panelClass('p-5')}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <button
-              type="button"
+            <PlannerButton
+              variant="secondary"
+              size="small"
               onClick={() => setSelectedCareerRecords(null)}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
-              ← 返回记录
-            </button>
-            <button
-              type="button"
+              <ArrowLeft size={14} />
+              返回记录
+            </PlannerButton>
+            <PlannerButton
+              variant="danger"
+              size="small"
               disabled={busy === 'history-delete'}
               onClick={() => {
                 if (
@@ -461,11 +465,10 @@ export default function HistoryTab({
                   );
                 }
               }}
-              className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
             >
               <Trash2 size={14} />
               删除当天记录
-            </button>
+            </PlannerButton>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">

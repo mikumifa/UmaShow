@@ -131,12 +131,17 @@ export default function EventChoiceSelector({
   );
 
   return (
-    <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-      <div>
-        <p className="text-sm font-semibold text-slate-800">事件固定选项</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          在线育成遇到已配置事件时固定选择指定项；未配置事件继续使用自动策略。
-        </p>
+    <section className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+      <div className="flex items-start gap-2">
+        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+          3
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">事件固定选项</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            在线育成遇到已配置事件时固定选择指定项；未配置事件继续使用自动策略。
+          </p>
+        </div>
       </div>
 
       <div className="relative mt-3">

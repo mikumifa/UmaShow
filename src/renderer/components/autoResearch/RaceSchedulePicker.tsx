@@ -16,6 +16,7 @@ import { RaceOption } from './types';
 type Props = {
   id?: string;
   title: string;
+  step?: number;
   races: RaceOption[];
   selectedRaceIds: number[];
   setSelectedRaceIds: Dispatch<SetStateAction<number[]>>;
@@ -24,6 +25,7 @@ type Props = {
 export default function RaceSchedulePicker({
   id,
   title,
+  step,
   races,
   selectedRaceIds,
   setSelectedRaceIds,
@@ -45,7 +47,12 @@ export default function RaceSchedulePicker({
   return (
     <section id={id} className="scroll-mt-28">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
+          {step ? (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              {step}
+            </span>
+          ) : null}
           <h3 className="font-semibold text-slate-900">{title}</h3>
         </div>
         <div className="text-right">
@@ -64,7 +71,7 @@ export default function RaceSchedulePicker({
               </h4>
               <span className="h-px flex-1 bg-slate-200" />
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
               {MONTH_OPTIONS.map((month) => (
                 <div
                   key={month}

@@ -40,9 +40,7 @@ import RaceSchedulePicker from './RaceSchedulePicker';
 type Props = {
   factorOnly?: boolean;
   setup: OfflineSingleModeSetup | null;
-  scenarios: Dashboard['offline_scenarios'];
   selectedScenarioId: number;
-  onScenarioChange: (scenarioId: number) => void;
   races: RaceOption[];
   selectedDeckNum: number;
   setSelectedDeckNum: Dispatch<SetStateAction<number>>;
@@ -186,9 +184,7 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
 export default function OfflineCareerSettings({
   factorOnly = false,
   setup,
-  scenarios,
   selectedScenarioId,
-  onScenarioChange,
   races,
   selectedDeckNum,
   setSelectedDeckNum,
@@ -803,12 +799,12 @@ export default function OfflineCareerSettings({
     <>
       <section
         id="career-factor-options"
-        className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+        className="order-2 mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              5
+              {factorOnly ? 3 : 5}
             </span>
             <h3 className="font-semibold text-gray-800">免费因子重抽与筛选</h3>
           </div>
@@ -1165,11 +1161,6 @@ export default function OfflineCareerSettings({
 
                 {factorSelection.lineage.mode === 'rules' ? (
                   <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
-                    <div className="mb-4">
-                      <strong className="text-sm text-slate-800">
-                        另一侧完整谱系树
-                      </strong>
-                    </div>
                     <div className="mx-auto max-w-4xl">
                       <div className="mx-auto max-w-md">
                         {lineageTreeNode('parent', '另一侧父辈', 'parent')}
@@ -1192,12 +1183,12 @@ export default function OfflineCareerSettings({
 
       <section
         id="offline-career-setup"
-        className={`${factorOnly ? 'hidden' : 'mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+        className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              6
+              4
             </span>
             <div>
               <h3 className="font-semibold text-gray-800">赛程设置</h3>
@@ -1208,40 +1199,9 @@ export default function OfflineCareerSettings({
           </div>
         </div>
 
-        <div className="mt-4 grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
-          <div className="max-w-sm">
-            <label className="block text-sm text-slate-700">
-              育成剧本
-              <select
-                value={selectedScenarioId}
-                disabled={Boolean(busy)}
-                onChange={(event) =>
-                  onScenarioChange(Number(event.target.value))
-                }
-                className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
-              >
-                <option value={0}>自动选择最新可用剧本</option>
-                {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {setup ? (
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 px-0.5 text-xs">
-                <span className="text-slate-500">当前主剧本</span>
-                <strong className="text-slate-800">
-                  {setup.scenario_name || `剧本 ${setup.scenario_id}`}
-                </strong>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="max-w-5xl">
-            <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+        <div className="mt-4 max-w-5xl">
+          <div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {deckOptions.map((deck) => {
                 const selected = selectedDeckNum === deck.deck_num;
                 return (
@@ -1409,12 +1369,12 @@ export default function OfflineCareerSettings({
 
       <section
         id="career-options"
-        className={`${factorOnly ? 'hidden' : ''} mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+        className={`${factorOnly ? 'hidden' : 'order-3'} mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">
             <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              7
+              6
             </span>
             <div>
               <h3 className="font-semibold text-gray-800">优先技能</h3>
@@ -1531,12 +1491,12 @@ export default function OfflineCareerSettings({
       </section>
 
       <section
-        className={`${factorOnly ? 'hidden' : ''} mt-5 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+        className={`${factorOnly ? 'hidden' : 'order-4'} mt-5 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">
             <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              8
+              6
             </span>
             <div>
               <h3 className="font-semibold text-gray-800">结束自动点技能</h3>
@@ -1556,7 +1516,7 @@ export default function OfflineCareerSettings({
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-4">
             {skillSettings.learn_skill_list.map((group, index) => (
               <div
                 key={`${index}:${group.join('|')}`}
@@ -1663,7 +1623,7 @@ export default function OfflineCareerSettings({
               <button
                 type="button"
                 onClick={() => setFinalSkillPickerOpen(true)}
-                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 xl:col-span-3"
+                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 lg:col-span-3 xl:col-span-4"
               >
                 <Plus size={15} className="mr-1" />
                 暂无技能，点击添加

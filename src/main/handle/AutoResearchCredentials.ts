@@ -139,7 +139,7 @@ function readAccounts(): StoredAutoResearchAccount[] {
         id: account.id,
         uid: account.uid,
         accessKey,
-        label: account.label,
+        label: typeof account.label === 'string' ? account.label : '',
         source: account.source,
         updatedAt: account.updatedAt,
         viewerId:
@@ -215,6 +215,19 @@ export function saveAutoResearchAccountCredential(
   credential: CapturedAutoResearchCredential,
 ) {
   return upsertAccounts([credential]);
+}
+
+export function renameAutoResearchAccount(id: string, label: string) {
+  const accounts = readAccounts();
+  const account = accounts.find((item) => item.id === id);
+  if (!account) throw new Error('本地账号不存在');
+  const nextLabel = String(label ?? '').trim();
+  if (nextLabel.length > 40) {
+    throw new Error('账号别名不能超过 40 个字符');
+  }
+  account.label = nextLabel;
+  writeAccounts(accounts);
+  return publicAccount(account);
 }
 
 function savedUidForViewer(viewerId: string) {
@@ -370,6 +383,10 @@ export function handleAutoResearchCredentials(ipcMain: IpcMain) {
     'autoresearch:accounts-save',
     (_, credentials: CapturedAutoResearchCredential[]) =>
       upsertAccounts(credentials),
+  );
+  ipcMain.handle(
+    'autoresearch:account-rename',
+    (_, id: string, label: string) => renameAutoResearchAccount(id, label),
   );
   ipcMain.handle('autoresearch:account-delete', (_, id: string) => {
     const previous = readAccounts();

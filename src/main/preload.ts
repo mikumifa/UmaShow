@@ -182,6 +182,8 @@ const electronHandler = {
         label?: string;
       }>,
     ) => ipcRenderer.invoke('autoresearch:accounts-save', credentials),
+    renameAccount: (id: string, label: string) =>
+      ipcRenderer.invoke('autoresearch:account-rename', id, label),
     deleteAccount: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-delete', id),
     credential: (id: string) =>

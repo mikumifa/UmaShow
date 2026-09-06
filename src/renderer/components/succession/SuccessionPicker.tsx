@@ -15,6 +15,7 @@ type SuccessionPickerDialogProps = {
   title: string;
   description?: string;
   onClose: () => void;
+  hideHeader?: boolean;
   eyebrow?: string;
   overlayClassName?: string;
   dialogClassName?: string;
@@ -35,6 +36,7 @@ export function SuccessionPickerDialog({
   title,
   description,
   onClose,
+  hideHeader = false,
   eyebrow,
   overlayClassName = '',
   dialogClassName = '',
@@ -78,21 +80,23 @@ export function SuccessionPickerDialog({
         aria-label={ariaLabel}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="successionPickerHeader">
-          <div>
-            {eyebrow ? <span>{eyebrow}</span> : null}
-            <h3>{title}</h3>
-            {description ? <p>{description}</p> : null}
-          </div>
-          <button
-            type="button"
-            className="successionPickerClose"
-            aria-label="关闭选择界面"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
+        {!hideHeader ? (
+          <header className="successionPickerHeader">
+            <div>
+              {eyebrow ? <span>{eyebrow}</span> : null}
+              <h3>{title}</h3>
+              {description ? <p>{description}</p> : null}
+            </div>
+            <button
+              type="button"
+              className="successionPickerClose"
+              aria-label="关闭选择界面"
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </header>
+        ) : null}
 
         {hasToolbar ? (
           <div className="successionPickerToolbar">

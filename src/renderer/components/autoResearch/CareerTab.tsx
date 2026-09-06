@@ -440,9 +440,7 @@ export default function CareerTab(props: CareerTabProps) {
     <OfflineCareerSettings
       factorOnly={careerMode === 'online'}
       setup={offlineSetup}
-      scenarios={offlineScenarios}
       selectedScenarioId={offlineScenarioId}
-      onScenarioChange={changeOfflineScenario}
       races={races}
       selectedDeckNum={offlineRaceDeckNum}
       setSelectedDeckNum={setOfflineRaceDeckNum}
@@ -777,21 +775,23 @@ export default function CareerTab(props: CareerTabProps) {
       <AppMenuPortal targetId="app-page-secondary-tabs">
         <AppSideNotch side="left">
           <nav className="flex h-10 items-center gap-1 px-2">
-            {[
-              ['career-task', '任务配置'],
-              ['career-selection', '选择阵容'],
-              ...(careerMode === 'offline'
-                ? [
-                    ['career-factor-options', '因子筛选'],
-                    ['offline-career-setup', '赛程槽位'],
-                    ['career-options', '技能设置'],
-                    ['career-other-options', '其他设置'],
-                  ]
-                : [
-                    ['career-factor-options', '因子筛选'],
-                    ['career-options', '其他设置'],
-                  ]),
-            ].map(([target, label]) => (
+            {(careerMode === 'offline'
+              ? [
+                  ['career-scenario', '剧本'],
+                  ['career-uma', '马娘'],
+                  ['career-support', '支援卡'],
+                  ['offline-career-setup', '赛程'],
+                  ['career-factor-options', '因子'],
+                  ['career-options', '技能'],
+                  ['career-other-options', '其他'],
+                ]
+              : [
+                  ['career-uma', '马娘'],
+                  ['career-support', '支援卡'],
+                  ['career-factor-options', '因子'],
+                  ['career-other-options', '其他'],
+                ]
+            ).map(([target, label]) => (
               <button
                 key={target}
                 type="button"
@@ -874,12 +874,61 @@ export default function CareerTab(props: CareerTabProps) {
       <section id="career-task" className="scroll-mt-28">
         {!dashboard.account.career?.active ? (
           <div id="career-selection" className="scroll-mt-28 space-y-5">
-            <div className="grid gap-5 xl:grid-cols-3">
+            {careerMode === 'offline' ? (
+              <section
+                id="career-scenario"
+                className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                    1
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-gray-800">
+                      选择育成剧本
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      先确定离线育成使用的剧本，再配置马娘、继承与赛程。
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 max-w-sm">
+                  <select
+                    value={offlineScenarioId}
+                    disabled={Boolean(busy)}
+                    onChange={(event) =>
+                      changeOfflineScenario(Number(event.target.value))
+                    }
+                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900"
+                  >
+                    <option value={0}>自动选择最新可用剧本</option>
+                    {offlineScenarios.map((scenario) => (
+                      <option key={scenario.id} value={scenario.id}>
+                        {scenario.name}
+                      </option>
+                    ))}
+                  </select>
+                  {offlineSetup ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      当前主剧本：
+                      <strong className="ml-1 text-slate-800">
+                        {offlineSetup.scenario_name ||
+                          `剧本 ${offlineSetup.scenario_id}`}
+                      </strong>
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+            <div
+              id="career-uma"
+              className="scroll-mt-28 grid gap-5 xl:grid-cols-3"
+            >
               <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                      1
+                      {careerMode === 'offline' ? 2 : 1}
                     </span>
                     <div>
                       <h3 className="font-semibold text-gray-800">
@@ -995,7 +1044,7 @@ export default function CareerTab(props: CareerTabProps) {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                      2
+                      {careerMode === 'offline' ? 2 : 1}
                     </span>
                     <div>
                       <h3 className="font-semibold text-gray-800">
@@ -1411,10 +1460,13 @@ export default function CareerTab(props: CareerTabProps) {
               ) : null}
             </div>
 
-            <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+            <section
+              id="career-support"
+              className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+            >
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                  3
+                  {careerMode === 'offline' ? 3 : 2}
                 </span>
                 <div>
                   <h3 className="font-semibold text-gray-800">选择支援卡组</h3>
@@ -1455,7 +1507,7 @@ export default function CareerTab(props: CareerTabProps) {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                    4
+                    {careerMode === 'offline' ? 3 : 2}
                   </span>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -1525,19 +1577,15 @@ export default function CareerTab(props: CareerTabProps) {
               </div>
             ) : null}
 
-            {careerModeSettings}
+            <div className="flex flex-col">{careerModeSettings}</div>
 
             <section
-              id={
-                careerMode === 'online'
-                  ? 'career-options'
-                  : 'career-other-options'
-              }
+              id="career-other-options"
               className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
             >
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                  {careerMode === 'online' ? 6 : 9}
+                  {careerMode === 'online' ? 4 : 7}
                 </span>
                 <div>
                   <h3 className="font-semibold text-gray-800">编辑其他设置</h3>

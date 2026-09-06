@@ -23,6 +23,7 @@ import {
   DailyTasksOptions,
   DailyTasksResponse,
 } from './types';
+import AutoResearchNotice from './AutoResearchNotice';
 
 type Props = {
   overview: DailyTasksResponse | null;
@@ -189,13 +190,10 @@ function AvailabilityNotice({
   const ready = available && canRunNow;
   const message = ready ? readyDetail : reason;
   if (!message) return null;
-  let color = 'border-red-200 bg-red-50 text-red-700';
-  if (available) color = 'border-amber-200 bg-amber-50 text-amber-800';
-  if (ready) color = 'border-emerald-200 bg-emerald-50 text-emerald-700';
   return (
-    <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${color}`}>
+    <AutoResearchNotice compact className="mt-3">
       {message}
-    </div>
+    </AutoResearchNotice>
   );
 }
 
@@ -378,175 +376,177 @@ export default function DailyTasksTab({
         </div>
       </section>
 
-      <section className={panelClass('p-5')}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Swords className="text-amber-500" size={19} />
-            <div>
-              <h3 className="font-semibold text-slate-800">每日竞赛</h3>
-              <p className="text-xs text-slate-500">
-                使用所选马娘，一次打完全部现有入场券。
-              </p>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className={panelClass('p-5')}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Swords className="text-slate-400" size={19} />
+              <div>
+                <h3 className="font-semibold text-slate-800">每日竞赛</h3>
+                <p className="text-xs text-slate-500">
+                  使用所选马娘，一次打完全部现有入场券。
+                </p>
+              </div>
             </div>
+            <Toggle
+              checked={draft.daily_race.enabled}
+              label="启用每日竞赛"
+              disabled={
+                dailyRaceAvailability?.available === false &&
+                !draft.daily_race.enabled
+              }
+              onChange={(enabled) => setRace('daily_race', { enabled })}
+            />
           </div>
-          <Toggle
-            checked={draft.daily_race.enabled}
-            label="启用每日竞赛"
-            disabled={
-              dailyRaceAvailability?.available === false &&
-              !draft.daily_race.enabled
-            }
-            onChange={(enabled) => setRace('daily_race', { enabled })}
+          <AvailabilityNotice
+            available={dailyRaceAvailability?.available}
+            canRunNow={dailyRaceAvailability?.can_run_now}
+            reason={dailyRaceAvailability?.reason}
+            readyDetail={`当前有 ${dailyRaceAvailability?.ticket_count || 0} 张每日竞赛入场券`}
           />
-        </div>
-        <AvailabilityNotice
-          available={dailyRaceAvailability?.available}
-          canRunNow={dailyRaceAvailability?.can_run_now}
-          reason={dailyRaceAvailability?.reason}
-          readyDetail={`当前有 ${dailyRaceAvailability?.ticket_count || 0} 张每日竞赛入场券`}
-        />
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <select
-            className={fieldClass}
-            value={draft.daily_race.daily_race_id}
-            disabled={
-              !draft.daily_race.enabled ||
-              dailyRaceAvailability?.available === false
-            }
-            onChange={(event) =>
-              setRace('daily_race', {
-                daily_race_id: Number(event.target.value),
-                trained_chara_id: 0,
-              })
-            }
-          >
-            <option value={0}>选择每日竞赛</option>
-            {dailyRaces.map((race) => (
-              <option key={race.id} value={race.id}>
-                {race.name} · 难度 {race.difficulty} · {race.ground_name}{' '}
-                {race.distance}m
-              </option>
-            ))}
-          </select>
-          <HorseSelectButton
-            horse={selectedDailyHorse}
-            race={selectedDailyRace}
-            disabled={
-              !draft.daily_race.enabled ||
-              !selectedDailyRace ||
-              dailyRaceAvailability?.available === false
-            }
-            onClick={() => setHorsePicker('daily_race')}
-          />
-          <select
-            className={fieldClass}
-            value={draft.daily_race.running_style}
-            disabled={
-              !draft.daily_race.enabled ||
-              dailyRaceAvailability?.available === false
-            }
-            onChange={(event) =>
-              setRace('daily_race', {
-                running_style: Number(event.target.value),
-              })
-            }
-          >
-            <option value={0}>使用马娘默认跑法</option>
-            <option value={1}>逃</option>
-            <option value={2}>先行</option>
-            <option value={3}>差</option>
-            <option value={4}>追</option>
-          </select>
-        </div>
-      </section>
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <select
+              className={fieldClass}
+              value={draft.daily_race.daily_race_id}
+              disabled={
+                !draft.daily_race.enabled ||
+                dailyRaceAvailability?.available === false
+              }
+              onChange={(event) =>
+                setRace('daily_race', {
+                  daily_race_id: Number(event.target.value),
+                  trained_chara_id: 0,
+                })
+              }
+            >
+              <option value={0}>选择每日竞赛</option>
+              {dailyRaces.map((race) => (
+                <option key={race.id} value={race.id}>
+                  {race.name} · 难度 {race.difficulty} · {race.ground_name}{' '}
+                  {race.distance}m
+                </option>
+              ))}
+            </select>
+            <HorseSelectButton
+              horse={selectedDailyHorse}
+              race={selectedDailyRace}
+              disabled={
+                !draft.daily_race.enabled ||
+                !selectedDailyRace ||
+                dailyRaceAvailability?.available === false
+              }
+              onClick={() => setHorsePicker('daily_race')}
+            />
+            <select
+              className={fieldClass}
+              value={draft.daily_race.running_style}
+              disabled={
+                !draft.daily_race.enabled ||
+                dailyRaceAvailability?.available === false
+              }
+              onChange={(event) =>
+                setRace('daily_race', {
+                  running_style: Number(event.target.value),
+                })
+              }
+            >
+              <option value={0}>使用马娘默认跑法</option>
+              <option value={1}>逃</option>
+              <option value={2}>先行</option>
+              <option value={3}>差</option>
+              <option value={4}>追</option>
+            </select>
+          </div>
+        </section>
 
-      <section className={panelClass('p-5')}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="text-emerald-500" size={19} />
-            <div>
-              <h3 className="font-semibold text-slate-800">每日传奇赛事</h3>
-              <p className="text-xs text-slate-500">
-                选择赛事与马娘，每个游戏日参加一次。
-              </p>
+        <section className={panelClass('p-5')}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="text-slate-400" size={19} />
+              <div>
+                <h3 className="font-semibold text-slate-800">每日传奇赛事</h3>
+                <p className="text-xs text-slate-500">
+                  选择赛事与马娘，每个游戏日参加一次。
+                </p>
+              </div>
             </div>
+            <Toggle
+              checked={draft.daily_legend_race.enabled}
+              label="启用每日传奇赛事"
+              disabled={
+                legendRaceAvailability?.available === false &&
+                !draft.daily_legend_race.enabled
+              }
+              onChange={(enabled) => setRace('daily_legend_race', { enabled })}
+            />
           </div>
-          <Toggle
-            checked={draft.daily_legend_race.enabled}
-            label="启用每日传奇赛事"
-            disabled={
-              legendRaceAvailability?.available === false &&
-              !draft.daily_legend_race.enabled
-            }
-            onChange={(enabled) => setRace('daily_legend_race', { enabled })}
+          <AvailabilityNotice
+            available={legendRaceAvailability?.available}
+            canRunNow={legendRaceAvailability?.can_run_now}
+            reason={legendRaceAvailability?.reason}
+            readyDetail={`当前有 ${legendRaceAvailability?.ticket_count || 0} 张传奇赛事入场券`}
           />
-        </div>
-        <AvailabilityNotice
-          available={legendRaceAvailability?.available}
-          canRunNow={legendRaceAvailability?.can_run_now}
-          reason={legendRaceAvailability?.reason}
-          readyDetail={`当前有 ${legendRaceAvailability?.ticket_count || 0} 张传奇赛事入场券`}
-        />
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <select
-            className={fieldClass}
-            value={draft.daily_legend_race.daily_legend_race_id}
-            disabled={
-              !draft.daily_legend_race.enabled ||
-              legendRaceAvailability?.available === false
-            }
-            onChange={(event) =>
-              setRace('daily_legend_race', {
-                daily_legend_race_id: Number(event.target.value),
-                trained_chara_id: 0,
-              })
-            }
-          >
-            <option value={0}>选择传奇赛事</option>
-            {legendRaces.map((race) => (
-              <option key={race.id} value={race.id}>
-                {race.name} · 碎片 {race.owned_piece_count} · 难度{' '}
-                {race.difficulty} · {race.ground_name} {race.distance}m
-              </option>
-            ))}
-          </select>
-          <HorseSelectButton
-            horse={selectedLegendHorse}
-            race={selectedLegendRace}
-            disabled={
-              !draft.daily_legend_race.enabled ||
-              !selectedLegendRace ||
-              legendRaceAvailability?.available === false
-            }
-            onClick={() => setHorsePicker('daily_legend_race')}
-          />
-          <select
-            className={fieldClass}
-            value={draft.daily_legend_race.running_style}
-            disabled={
-              !draft.daily_legend_race.enabled ||
-              legendRaceAvailability?.available === false
-            }
-            onChange={(event) =>
-              setRace('daily_legend_race', {
-                running_style: Number(event.target.value),
-              })
-            }
-          >
-            <option value={0}>使用马娘默认跑法</option>
-            <option value={1}>逃</option>
-            <option value={2}>先行</option>
-            <option value={3}>差</option>
-            <option value={4}>追</option>
-          </select>
-        </div>
-      </section>
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <select
+              className={fieldClass}
+              value={draft.daily_legend_race.daily_legend_race_id}
+              disabled={
+                !draft.daily_legend_race.enabled ||
+                legendRaceAvailability?.available === false
+              }
+              onChange={(event) =>
+                setRace('daily_legend_race', {
+                  daily_legend_race_id: Number(event.target.value),
+                  trained_chara_id: 0,
+                })
+              }
+            >
+              <option value={0}>选择传奇赛事</option>
+              {legendRaces.map((race) => (
+                <option key={race.id} value={race.id}>
+                  {race.name} · 碎片 {race.owned_piece_count} · 难度{' '}
+                  {race.difficulty} · {race.ground_name} {race.distance}m
+                </option>
+              ))}
+            </select>
+            <HorseSelectButton
+              horse={selectedLegendHorse}
+              race={selectedLegendRace}
+              disabled={
+                !draft.daily_legend_race.enabled ||
+                !selectedLegendRace ||
+                legendRaceAvailability?.available === false
+              }
+              onClick={() => setHorsePicker('daily_legend_race')}
+            />
+            <select
+              className={fieldClass}
+              value={draft.daily_legend_race.running_style}
+              disabled={
+                !draft.daily_legend_race.enabled ||
+                legendRaceAvailability?.available === false
+              }
+              onChange={(event) =>
+                setRace('daily_legend_race', {
+                  running_style: Number(event.target.value),
+                })
+              }
+            >
+              <option value={0}>使用马娘默认跑法</option>
+              <option value={1}>逃</option>
+              <option value={2}>先行</option>
+              <option value={3}>差</option>
+              <option value={4}>追</option>
+            </select>
+          </div>
+        </section>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className={panelClass('p-5')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Swords className="text-rose-500" size={19} />
+              <Swords className="text-slate-400" size={19} />
               <div>
                 <h3 className="font-semibold text-slate-800">竞技场</h3>
                 <p className="text-xs text-slate-500">
@@ -580,7 +580,7 @@ export default function DailyTasksTab({
         <section className={panelClass('p-5')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <ShoppingBag className="text-violet-500" size={19} />
+              <ShoppingBag className="text-slate-400" size={19} />
               <div>
                 <h3 className="font-semibold text-slate-800">限时商店</h3>
                 <p className="text-xs text-slate-500">
@@ -603,9 +603,9 @@ export default function DailyTasksTab({
               }
             />
           </div>
-          <div className="mt-4 rounded-lg bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-800">
+          <AutoResearchNotice className="mt-4">
             服务端会先计算全部未购买商品的总价。全部足够时才一次性全买。
-          </div>
+          </AutoResearchNotice>
         </section>
       </div>
 

@@ -1,7 +1,9 @@
 import {
   AutoResearchSkill,
+  isInheritedUniqueSkill,
   matchesSkillIconFamily,
   matchesSkillTagFilters,
+  skillEffectFilterId,
 } from './SkillSelector';
 
 function skill(iconId: number): AutoResearchSkill {
@@ -28,6 +30,40 @@ describe('skill effect icon filters', () => {
   it('does not mix unique or negative variants into the normal filter', () => {
     expect(matchesSkillIconFamily(skill(20013), 20011)).toBe(false);
     expect(matchesSkillIconFamily(skill(20014), 20011)).toBe(false);
+  });
+
+  it('maps negative speed, stamina, acceleration and temptation families correctly', () => {
+    expect(skillEffectFilterId(skill(30011))).toBe('hindrance_speed');
+    expect(skillEffectFilterId(skill(30012))).toBe('hindrance_speed');
+    expect(skillEffectFilterId(skill(30051))).toBe('hindrance_stamina');
+    expect(skillEffectFilterId(skill(30052))).toBe('hindrance_stamina');
+    expect(skillEffectFilterId(skill(30021))).toBe('hindrance_acceleration');
+    expect(skillEffectFilterId(skill(30022))).toBe('hindrance_acceleration');
+    expect(skillEffectFilterId(skill(30041))).toBe('hindrance_temptation');
+  });
+});
+
+describe('skill kind filters', () => {
+  it('recognizes learnable inherited unique skills by category and rarity', () => {
+    expect(
+      isInheritedUniqueSkill({
+        ...skill(20011),
+        id: 900011,
+        rarity: 1,
+        skill_category: 5,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not mix normal or base unique skills into inherited unique skills', () => {
+    expect(isInheritedUniqueSkill(skill(20011))).toBe(false);
+    expect(
+      isInheritedUniqueSkill({
+        ...skill(20011),
+        rarity: 3,
+        skill_category: 5,
+      }),
+    ).toBe(false);
   });
 });
 

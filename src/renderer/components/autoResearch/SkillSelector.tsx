@@ -38,6 +38,10 @@ export function matchesSkillIconFamily(
   );
 }
 
+export function isInheritedUniqueSkill(skill: AutoResearchSkill) {
+  return skill.skill_category === 5 && skill.rarity === 1;
+}
+
 const EFFECT_FILTERS: EffectFilter[] = [
   {
     id: 'passive_speed',
@@ -120,20 +124,20 @@ const EFFECT_FILTERS: EffectFilter[] = [
   {
     id: 'hindrance_stamina',
     label: '妨碍·耐力',
-    iconId: 30021,
-    matches: (skill) => matchesSkillIconFamily(skill, 30021),
+    iconId: 30051,
+    matches: (skill) => matchesSkillIconFamily(skill, 30051),
   },
   {
     id: 'hindrance_acceleration',
     label: '妨碍·加速度',
-    iconId: 30041,
-    matches: (skill) => matchesSkillIconFamily(skill, 30041),
+    iconId: 30021,
+    matches: (skill) => matchesSkillIconFamily(skill, 30021),
   },
   {
-    id: 'hindrance_position',
-    label: '妨碍·位置',
-    iconId: 30051,
-    matches: (skill) => matchesSkillIconFamily(skill, 30051),
+    id: 'hindrance_temptation',
+    label: '妨碍·失控',
+    iconId: 30041,
+    matches: (skill) => matchesSkillIconFamily(skill, 30041),
   },
   {
     id: 'hindrance_vision',
@@ -211,6 +215,10 @@ function normalizeSearch(value: string) {
   return value.trim().toLocaleLowerCase('zh-CN');
 }
 
+export function skillEffectFilterId(skill: AutoResearchSkill) {
+  return EFFECT_FILTERS.find((filter) => filter.matches(skill))?.id || 'other';
+}
+
 function skillEffectLabel(skill: AutoResearchSkill) {
   return (
     EFFECT_FILTERS.find((filter) => filter.matches(skill))?.label || '其他'
@@ -254,6 +262,9 @@ export default function SkillSelector({
   onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [skillKind, setSkillKind] = useState<'all' | 'unique' | 'normal'>(
+    'all',
+  );
   const [rarity, setRarity] = useState<'all' | 'white' | 'gold'>('all');
   const [effectFilters, setEffectFilters] = useState<string[]>([]);
   const [runningStyleFilters, setRunningStyleFilters] = useState<number[]>([]);
@@ -264,6 +275,9 @@ export default function SkillSelector({
   const filteredSkills = useMemo(() => {
     const keyword = normalizeSearch(search);
     return skills.filter((skill) => {
+      const inheritedUnique = isInheritedUniqueSkill(skill);
+      if (skillKind === 'unique' && !inheritedUnique) return false;
+      if (skillKind === 'normal' && inheritedUnique) return false;
       if (rarity === 'white' && skill.rarity !== 1) return false;
       if (rarity === 'gold' && skill.rarity !== 2) return false;
       if (
@@ -299,6 +313,7 @@ export default function SkillSelector({
     rarity,
     runningStyleFilters,
     search,
+    skillKind,
     skills,
   ]);
 
@@ -309,6 +324,8 @@ export default function SkillSelector({
 
   const groupLabel = useMemo(() => {
     const labels: string[] = [];
+    if (skillKind === 'unique') labels.push('固有');
+    if (skillKind === 'normal') labels.push('普通');
     if (rarity === 'white') labels.push('白');
     if (rarity === 'gold') labels.push('金');
     labels.push(
@@ -328,7 +345,14 @@ export default function SkillSelector({
     );
     if (search.trim()) labels.push(`“${search.trim()}”`);
     return labels.length ? labels.join(' · ') : '全部技能';
-  }, [distanceFilters, effectFilters, rarity, runningStyleFilters, search]);
+  }, [
+    distanceFilters,
+    effectFilters,
+    rarity,
+    runningStyleFilters,
+    search,
+    skillKind,
+  ]);
 
   const toggleFilter = <T extends string | number>(
     value: T,
@@ -346,21 +370,16 @@ export default function SkillSelector({
   return (
     <SuccessionPickerDialog
       ariaLabel={title}
-      eyebrow="SELECT SKILL"
       title={title}
       description={description}
       onClose={onClose}
+      hideHeader
       overlayClassName={elevated ? 'plannerElevatedOverlay' : undefined}
       dialogClassName="plannerSkillDialog"
       searchValue={search}
       searchPlaceholder="搜索技能名称或技能 ID"
       searchAriaLabel="搜索技能名称或技能 ID"
       onSearchChange={setSearch}
-      meta={
-        <span>
-          已选择 {selectedNames.length} 个 · 当前显示 {filteredSkills.length} 个
-        </span>
-      }
       footer={
         <>
           <span>选择顺序会保留在当前配置中</span>
@@ -387,6 +406,26 @@ export default function SkillSelector({
     >
       <div className="plannerSkillFilters">
         <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 flex-none text-xs font-medium text-slate-500">
+              类型
+            </span>
+            {[
+              ['all', '全部'],
+              ['unique', '固有'],
+              ['normal', '普通'],
+            ].map(([value, label]) => (
+              <PlannerButton
+                key={value}
+                variant="filter"
+                size="small"
+                active={skillKind === value}
+                onClick={() => setSkillKind(value as typeof skillKind)}
+              >
+                {label}
+              </PlannerButton>
+            ))}
+          </div>
           {showRarityFilter ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-10 flex-none text-xs font-medium text-slate-500">
@@ -480,11 +519,13 @@ export default function SkillSelector({
             {(effectFilters.length ||
               runningStyleFilters.length ||
               distanceFilters.length ||
+              skillKind !== 'all' ||
               rarity !== 'all') && (
               <PlannerButton
                 variant="ghost"
                 size="small"
                 onClick={() => {
+                  setSkillKind('all');
                   setRarity('all');
                   setEffectFilters([]);
                   setRunningStyleFilters([]);
@@ -522,6 +563,11 @@ export default function SkillSelector({
                     >
                       {skillRarityLabel(skill)}
                     </span>
+                    {isInheritedUniqueSkill(skill) ? (
+                      <span className="font-semibold text-violet-700">
+                        继承固有
+                      </span>
+                    ) : null}
                     {showSkillPoints ? (
                       <span>{skill.need_skill_point} 技能点</span>
                     ) : null}

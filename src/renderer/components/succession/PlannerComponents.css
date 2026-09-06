@@ -449,8 +449,10 @@
   gap: 2px 8px;
 }
 
-.plannerSkillDialog {
-  width: min(1120px, 100%);
+.successionPickerDialog.plannerSkillDialog {
+  width: min(1680px, 100%);
+  height: min(94vh, 1040px);
+  max-height: min(94vh, 1040px);
 }
 
 .plannerSkillFilters {
@@ -469,7 +471,7 @@
 
 .plannerSkillGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
   gap: 8px;
 }
 

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { runModeLabel, statusBadgeClass } from './shared';
 import { CareerSetting, Runner, RunMode } from './types';
+import RunTargetInput from './RunTargetInput';
 
 type AutomationControlCardProps = {
   runner?: Runner;
@@ -305,50 +306,28 @@ export default function AutomationControlCard({
       ) : null}
 
       {!queue?.active && !repeatDaily && runMode === 'count' ? (
-        <label className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-          从现在起完成
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={runCountTarget}
-            onChange={(event) =>
-              setRunCountTarget(
-                Math.max(1, Math.min(100, Number(event.target.value))),
-              )
-            }
-            className="w-16 rounded border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-800"
-          />
-          次育成
-        </label>
+        <RunTargetInput
+          compact
+          className="mt-2 w-fit"
+          prefix="从现在起完成"
+          value={runCountTarget}
+          max={100}
+          suffix="次育成"
+          onValueChange={setRunCountTarget}
+        />
       ) : null}
 
       {!queue?.active && !repeatDaily && runMode === 'jewel_drops' ? (
-        <label className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50/60 px-2.5 py-1.5 text-xs text-violet-700">
-          {repeatDaily ? '每天累计达到' : '从现在起获得'}
-          <input
-            type="number"
-            min={1}
-            max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
-            value={jewelDropTarget}
-            onChange={(event) =>
-              setJewelDropTarget(
-                Math.max(
-                  1,
-                  Math.min(
-                    repeatDaily ? 20 : Math.max(1, remainingJewelDrops),
-                    Number(event.target.value),
-                  ),
-                ),
-              )
-            }
-            className="w-16 rounded border border-violet-200 bg-white px-2 py-1 font-semibold text-slate-800"
-          />
-          次宝石掉落
-          {repeatDaily
-            ? '（今天已有数量会计入）'
-            : `（本周期剩余 ${remainingJewelDrops} 次）`}
-        </label>
+        <RunTargetInput
+          compact
+          className="mt-2 w-fit"
+          prefix="从现在起获得"
+          value={jewelDropTarget}
+          max={Math.max(1, remainingJewelDrops)}
+          suffix="次宝石掉落"
+          hint={`本周期剩余 ${remainingJewelDrops} 次`}
+          onValueChange={setJewelDropTarget}
+        />
       ) : null}
     </section>
   );

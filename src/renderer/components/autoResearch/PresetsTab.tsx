@@ -332,10 +332,10 @@ export default function PresetsTab(props: PresetsTabProps) {
         <AppSideNotch side="left">
           <nav className="flex h-10 items-center gap-1 px-2">
             {[
-              ['preset-basic', '基础设置'],
-              ['preset-skills', '技能设置'],
-              ['preset-training', '养成决策'],
-              ['preset-races', '额外赛事'],
+              ['preset-basic', '基础'],
+              ['preset-skills', '技能'],
+              ['preset-training', '养成'],
+              ['preset-races', '赛事'],
             ].map(([target, label]) => (
               <button
                 key={target}
@@ -376,44 +376,59 @@ export default function PresetsTab(props: PresetsTabProps) {
         </AppSideNotch>
       </AppMenuPortal>
       <section id="preset-basic" className="scroll-mt-28">
-        <div className="grid max-w-xl gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            育成剧本
-            <select
-              value={scenarioId}
-              onChange={(event) =>
-                setScenarioId(normalizeOnlineScenarioId(event.target.value))
-              }
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            >
-              <option value={1}>URA</option>
-              <option value={5}>荣耀女神杯</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            跑法
-            <select
-              value={runningStyle}
-              onChange={(event) => setRunningStyle(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            >
-              <option value={0}>默认（使用游戏当前跑法）</option>
-              <option value={1}>逃</option>
-              <option value={2}>先行</option>
-              <option value={3}>差</option>
-              <option value={4}>追</option>
-            </select>
-          </label>
+        <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              1
+            </span>
+            <h3 className="font-semibold text-gray-800">基础设置</h3>
+          </div>
+          <div className="mt-3 grid max-w-xl gap-4 sm:grid-cols-2">
+            <label className="text-sm">
+              育成剧本
+              <select
+                value={scenarioId}
+                onChange={(event) =>
+                  setScenarioId(normalizeOnlineScenarioId(event.target.value))
+                }
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2"
+              >
+                <option value={1}>URA</option>
+                <option value={5}>荣耀女神杯</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              跑法
+              <select
+                value={runningStyle}
+                onChange={(event) =>
+                  setRunningStyle(Number(event.target.value))
+                }
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2"
+              >
+                <option value={0}>默认（使用游戏当前跑法）</option>
+                <option value={1}>逃</option>
+                <option value={2}>先行</option>
+                <option value={3}>差</option>
+                <option value={4}>追</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div id="preset-skills" className="mt-4 scroll-mt-28">
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+          <section className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 text-sm">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-              <div>
-                <p className="font-semibold text-slate-800">育成中技能选择</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  越靠上优先级越高，可拖动调整顺序。
-                </p>
+              <div className="flex items-start gap-2">
+                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                  2
+                </span>
+                <div>
+                  <p className="font-semibold text-slate-800">育成中技能选择</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    越靠上优先级越高，可拖动调整顺序。
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -424,7 +439,13 @@ export default function PresetsTab(props: PresetsTabProps) {
                 添加技能
               </button>
             </div>
-            <div className="grid min-h-[104px] grid-cols-[repeat(auto-fit,minmax(290px,1fr))] auto-rows-max content-start gap-2 bg-slate-50/60 p-3">
+            <div
+              className="grid min-h-[104px] auto-rows-max content-start gap-2 p-3"
+              style={{
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 435px), 1fr))',
+              }}
+            >
               {skillSelections.map((entry, index) => {
                 const isGroup = entry.skill_names.length > 1;
                 const primaryName = entry.skill_names[0];
@@ -565,7 +586,7 @@ export default function PresetsTab(props: PresetsTabProps) {
         </div>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,2fr)]">
-          <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+          <div className="divide-y divide-slate-200 rounded-lg border border-gray-200 bg-gray-50/60">
             <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -602,7 +623,7 @@ export default function PresetsTab(props: PresetsTabProps) {
             </label>
           </div>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-3">
+          <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-800">
@@ -717,24 +738,21 @@ export default function PresetsTab(props: PresetsTabProps) {
         <section id="preset-training" className="mt-4 scroll-mt-28">
           <div className="contents">
             <div className="space-y-4">
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-                <p className="text-sm font-semibold text-indigo-950">
-                  使用轻量手写规则策略
-                </p>
-                <p className="mt-1 text-xs leading-5 text-indigo-700">
-                  {scenarioId === 5
-                    ? '目标属性用于训练评分；女神杯会处理知识发动与专属比赛，当前不对女神碎片额外加权。'
-                    : 'URA 直接按目标属性、体力、训练收益和比赛计划决策，不启动模拟搜索或计算进程。'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">
-                  最终目标属性
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  所有阶段结束后使用这组属性线。达到单项属性线后不再选择对应训练；填写
-                  0 可关闭单项约束。
-                </p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+                <div className="flex items-start gap-2">
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                    4
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      最终目标属性
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      所有阶段结束后使用这组属性线。达到单项属性线后不再选择对应训练；填写
+                      0 可关闭单项约束。
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {STAT_LABELS.map((label, index) => (
                     <label key={label} className="text-xs text-slate-600">
@@ -839,7 +857,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                     {targetAttributeStages.map((stage) => (
                       <div
                         key={stage.turn}
-                        className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+                        className="rounded-lg border border-slate-200 bg-white/80 p-3"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-slate-700">
@@ -892,10 +910,11 @@ export default function PresetsTab(props: PresetsTabProps) {
             </div>
           </div>
         </section>
-        <div className="mt-5">
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
           <RaceSchedulePicker
             id="preset-races"
             title="预设比赛"
+            step={5}
             races={races}
             selectedRaceIds={selectedRaceIds}
             setSelectedRaceIds={setSelectedRaceIds}
