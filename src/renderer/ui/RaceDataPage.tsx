@@ -528,9 +528,6 @@ class RaceDataPageClass extends React.Component<
     const archiveId = initialValues?.archiveId ?? 'default';
     const isDetailPage = showLegacyPage;
     const pageTitle = isDetailPage ? '比赛详情' : '比赛回放';
-    const pageDescription = isDetailPage
-      ? '查看出赛表、曲线和事件分析'
-      : '查看比赛过程回放';
     const backToRaces = () => navigate('/races', { state: { archiveId } });
     const isPracticeRace = this.getPracticeRaceName()?.startsWith('练习');
 
@@ -538,8 +535,6 @@ class RaceDataPageClass extends React.Component<
       return (
         <RacePageLayout
           title={pageTitle}
-          description={pageDescription}
-          icon={<FileText size={20} />}
           actions={
             <button
               type="button"
@@ -562,8 +557,6 @@ class RaceDataPageClass extends React.Component<
       return (
         <RacePageLayout
           title={pageTitle}
-          description={pageDescription}
-          icon={<FileText size={20} />}
           actions={
             <>
               <button
@@ -624,8 +617,6 @@ class RaceDataPageClass extends React.Component<
     return (
       <RacePageLayout
         title={pageTitle}
-        description={pageDescription}
-        icon={<FileText size={20} />}
         actions={
           <button
             type="button"

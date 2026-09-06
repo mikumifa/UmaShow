@@ -13,12 +13,13 @@ import {
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { AutoResearchSkill, skillIconPath } from './SkillSelector';
 import EditableNumberInput from './EditableNumberInput';
+import AppMenuPortal from '../AppMenuPortal';
+import AppSideNotch from '../AppSideNotch';
 import {
   DEFAULT_PRESET_NAME,
   MONTH_OPTIONS,
   normalizeOnlineScenarioId,
   onlineScenarioLabel,
-  panelClass,
   scrollToSection,
   skillPurchaseTurn,
   skillPurchaseTurnLabel,
@@ -39,7 +40,6 @@ import {
 type PresetsTabProps = {
   presetEditorOpen: boolean;
   presets: Preset[];
-  presetName: string;
   newPresetName: string;
   setNewPresetName: Dispatch<SetStateAction<string>>;
   createPresetSlot: () => void;
@@ -53,7 +53,6 @@ type PresetsTabProps = {
   savePreset: () => Promise<boolean>;
   busy: string;
   presetSaved: boolean;
-  savePresetAndContinue: () => Promise<void>;
   scenarioId: number;
   setScenarioId: Dispatch<SetStateAction<number>>;
   runningStyle: number;
@@ -95,7 +94,6 @@ export default function PresetsTab(props: PresetsTabProps) {
   const {
     presetEditorOpen,
     presets,
-    presetName,
     newPresetName,
     setNewPresetName,
     createPresetSlot,
@@ -109,7 +107,6 @@ export default function PresetsTab(props: PresetsTabProps) {
     savePreset,
     busy,
     presetSaved,
-    savePresetAndContinue,
     scenarioId,
     setScenarioId,
     runningStyle,
@@ -185,173 +182,172 @@ export default function PresetsTab(props: PresetsTabProps) {
     );
   };
   return !presetEditorOpen ? (
-    <section className={panelClass('p-5')}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
-            <Settings2 size={19} className="text-indigo-600" />
-            选择预设槽位
-          </h2>
-        </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <Upload size={15} />
-          导入预设
-          <input
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) importPreset(file);
-              event.target.value = '';
-            }}
-          />
-        </label>
-      </div>
-
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {presets.map((preset) => {
-          const isDefault = preset.name === DEFAULT_PRESET_NAME;
-          const referencedCount = careerSettings.filter(
-            (setting) => setting.preset_name === preset.name,
-          ).length;
-          const skillCount = (preset.learn_skill_list || []).flat().length;
-          return (
-            <article
-              key={preset.name}
-              className="relative rounded-lg border border-gray-200 bg-gray-50/60 p-3"
-            >
-              {isDefault ? (
-                <span
-                  className={`absolute right-3 top-3 ${statusBadgeClass('violet')}`}
-                >
-                  默认预设
-                </span>
-              ) : null}
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <Settings2 size={22} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  {isDefault ? (
-                    <div className="pr-24">
-                      <p className="truncate pt-1 font-semibold text-gray-800">
-                        {preset.name}
-                      </p>
-                    </div>
-                  ) : (
-                    <label className="block text-xs text-gray-500">
-                      <input
-                        key={preset.name}
-                        defaultValue={preset.name}
-                        onBlur={(event) => {
-                          if (!renamePreset(preset.name, event.target.value)) {
-                            event.currentTarget.value = preset.name;
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.currentTarget.blur();
-                          }
-                        }}
-                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
-                      />
-                    </label>
-                  )}
-                  <p className="mt-2 text-xs text-gray-500">
-                    {`${onlineScenarioLabel(preset.scenario_id)} · ${skillCount} 个优先技能 · ${(preset.extra_race_list || []).length} 场额外赛事`}
-                  </p>
-                  {referencedCount ? (
-                    <p className="mt-1 text-xs text-slate-400">
-                      被 {referencedCount} 个养马详设使用
+    <>
+      <AppMenuPortal targetId="app-page-context-actions">
+        <AppSideNotch side="right">
+          <div className="flex h-10 items-center px-2">
+            <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-gray-700 hover:bg-slate-100">
+              <Upload size={15} />
+              导入预设
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) importPreset(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+        </AppSideNotch>
+      </AppMenuPortal>
+      <section className="flex-1">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {presets.map((preset) => {
+            const isDefault = preset.name === DEFAULT_PRESET_NAME;
+            const referencedCount = careerSettings.filter(
+              (setting) => setting.preset_name === preset.name,
+            ).length;
+            const skillCount = (preset.learn_skill_list || []).flat().length;
+            return (
+              <article
+                key={preset.name}
+                className="relative rounded-lg border border-gray-200 bg-gray-50/60 p-3"
+              >
+                {isDefault ? (
+                  <span
+                    className={`absolute right-3 top-3 ${statusBadgeClass('violet')}`}
+                  >
+                    默认预设
+                  </span>
+                ) : null}
+                <div className="flex items-start gap-3">
+                  <span className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <Settings2 size={22} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {isDefault ? (
+                      <div className="pr-24">
+                        <p className="truncate pt-1 font-semibold text-gray-800">
+                          {preset.name}
+                        </p>
+                      </div>
+                    ) : (
+                      <label className="block text-xs text-gray-500">
+                        <input
+                          key={preset.name}
+                          defaultValue={preset.name}
+                          onBlur={(event) => {
+                            if (
+                              !renamePreset(preset.name, event.target.value)
+                            ) {
+                              event.currentTarget.value = preset.name;
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.currentTarget.blur();
+                            }
+                          }}
+                          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
+                        />
+                      </label>
+                    )}
+                    <p className="mt-2 text-xs text-gray-500">
+                      {`${onlineScenarioLabel(preset.scenario_id)} · ${skillCount} 个优先技能 · ${(preset.extra_race_list || []).length} 场额外赛事`}
                     </p>
-                  ) : null}
+                    {referencedCount ? (
+                      <p className="mt-1 text-xs text-slate-400">
+                        被 {referencedCount} 个养马详设使用
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => openPresetEditor(preset.name)}
-                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                  进入预设
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportPreset(preset)}
-                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-600 hover:bg-gray-50"
-                  aria-label={`导出预设${preset.name}`}
-                  title="导出预设"
-                >
-                  <Download size={15} />
-                </button>
-                {!isDefault ? (
+                <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => deletePreset(preset.name)}
-                    className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    aria-label={`删除预设${preset.name}`}
+                    onClick={() => openPresetEditor(preset.name)}
+                    className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                   >
-                    <Trash2 size={15} />
+                    进入预设
                   </button>
-                ) : null}
-              </div>
-            </article>
-          );
-        })}
+                  <button
+                    type="button"
+                    onClick={() => exportPreset(preset)}
+                    className="rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-600 hover:bg-gray-50"
+                    aria-label={`导出预设${preset.name}`}
+                    title="导出预设"
+                  >
+                    <Download size={15} />
+                  </button>
+                  {!isDefault ? (
+                    <button
+                      type="button"
+                      onClick={() => deletePreset(preset.name)}
+                      className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                      aria-label={`删除预设${preset.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
 
-        <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
-          <h3 className="font-semibold text-indigo-950">新建预设槽位</h3>
-          <input
-            value={newPresetName}
-            onChange={(event) => setNewPresetName(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && createPresetSlot()}
-            placeholder={`例如：URA 预设 ${presets.length}`}
-            className="mt-4 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            onClick={createPresetSlot}
-            className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-          >
-            <Plus size={15} className="mr-1 inline" />
-            新建并进入
-          </button>
-        </article>
-      </div>
-    </section>
+          <article className="rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4">
+            <h3 className="font-semibold text-indigo-950">新建预设槽位</h3>
+            <input
+              value={newPresetName}
+              onChange={(event) => setNewPresetName(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && createPresetSlot()}
+              placeholder={`例如：URA 预设 ${presets.length}`}
+              className="mt-4 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={createPresetSlot}
+              className="mt-2 w-full rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+            >
+              <Plus size={15} className="mr-1 inline" />
+              新建并进入
+            </button>
+          </article>
+        </div>
+      </section>
+    </>
   ) : (
     <>
-      <nav className="sticky top-[88px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-        {[
-          ['preset-basic', '基础设置'],
-          ['preset-skills', '技能设置'],
-          ['preset-training', '养成决策'],
-          ['preset-races', '额外赛事'],
-        ].map(([target, label]) => (
-          <button
-            key={target}
-            type="button"
-            onClick={() => scrollToSection(target)}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-      <section
-        id="preset-basic"
-        className={`${panelClass('p-5')} scroll-mt-28`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">预设编辑 · {presetName}</h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <AppMenuPortal targetId="app-page-secondary-tabs">
+        <AppSideNotch side="left">
+          <nav className="flex h-10 items-center gap-1 px-2">
+            {[
+              ['preset-basic', '基础设置'],
+              ['preset-skills', '技能设置'],
+              ['preset-training', '养成决策'],
+              ['preset-races', '额外赛事'],
+            ].map(([target, label]) => (
+              <button
+                key={target}
+                type="button"
+                onClick={() => scrollToSection(target)}
+                className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </AppSideNotch>
+      </AppMenuPortal>
+      <AppMenuPortal targetId="app-page-context-actions">
+        <AppSideNotch side="right">
+          <div className="flex h-10 items-center gap-1.5 px-2">
             <button
               type="button"
               onClick={() => setPresetEditorOpen(false)}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="h-7 rounded-md px-2.5 text-[13px] font-medium text-gray-600 hover:bg-slate-100"
             >
               返回
             </button>
@@ -359,30 +355,20 @@ export default function PresetsTab(props: PresetsTabProps) {
               type="button"
               onClick={savePreset}
               disabled={busy === 'preset'}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+              className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-semibold text-white disabled:opacity-50 ${
                 presetSaved
                   ? 'bg-emerald-600 hover:bg-emerald-600'
                   : 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
-              {presetSaved ? <Check size={15} /> : <Save size={15} />}
-              {busy === 'preset'
-                ? '保存中…'
-                : presetSaved
-                  ? '已保存'
-                  : '保存预设'}
-            </button>
-            <button
-              type="button"
-              onClick={savePresetAndContinue}
-              disabled={busy === 'preset'}
-              className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-            >
-              保存并前往养马详设 →
+              {presetSaved ? <Check size={14} /> : <Save size={14} />}
+              {busy === 'preset' ? '保存中…' : presetSaved ? '已保存' : '保存'}
             </button>
           </div>
-        </div>
-        <div className="mt-4 grid max-w-xl gap-4 sm:grid-cols-2">
+        </AppSideNotch>
+      </AppMenuPortal>
+      <section id="preset-basic" className="scroll-mt-28">
+        <div className="grid max-w-xl gap-4 sm:grid-cols-2">
           <label className="text-sm">
             育成剧本
             <select
@@ -430,7 +416,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                 添加技能
               </button>
             </div>
-            <div className="grid min-h-[104px] grid-cols-2 auto-rows-max content-start gap-2 bg-slate-50/60 p-3 xl:grid-cols-3">
+            <div className="grid min-h-[104px] grid-cols-[repeat(auto-fit,minmax(290px,1fr))] auto-rows-max content-start gap-2 bg-slate-50/60 p-3">
               {skillSelections.map((entry, index) => {
                 const isGroup = entry.skill_names.length > 1;
                 const primaryName = entry.skill_names[0];
@@ -560,7 +546,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                 <button
                   type="button"
                   onClick={() => setSkillPickerOpen(true)}
-                  className="flex min-h-[80px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-400 hover:border-indigo-300 hover:bg-indigo-50/40 hover:text-indigo-600 2xl:col-span-2"
+                  className="col-span-full flex min-h-[80px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-400 hover:border-indigo-300 hover:bg-indigo-50/40 hover:text-indigo-600"
                 >
                   <Plus size={16} className="mr-1" />
                   添加育成中学习的技能

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowUpDown, BarChart3, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, RefreshCw, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useActivate } from 'react-activation';
 import { RaceArchive, RaceHorseInfo, RaceRecord } from 'types/gameTypes';
@@ -2290,8 +2290,6 @@ export default function RaceStats() {
   return (
     <RacePageLayout
       title="比赛统计"
-      description="按单马、双马组合、三马组合查看胜率"
-      icon={<BarChart3 size={20} />}
       actions={
         <>
           <button

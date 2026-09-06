@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronUp,
   BadgeCheck,
-  BarChart3,
   Copy,
   RefreshCw,
 } from 'lucide-react';
@@ -1118,12 +1117,6 @@ export default function LeaderboardAnalysis() {
   return (
     <RacePageLayout
       title="LOH"
-      description={
-        snapshot
-          ? `阵容分析 · 最新快照 ${new Date(snapshot.updatedAt).toLocaleString()} · 已合并 ${entries.length} 条榜单记录`
-          : '等待抓取 LOH 排行榜包后显示阵容表现'
-      }
-      icon={<BarChart3 className="h-5 w-5 text-indigo-600" />}
       actions={
         <button
           type="button"
@@ -1145,7 +1138,7 @@ export default function LeaderboardAnalysis() {
           个包，页面会自动读取最新榜单。
         </div>
       ) : (
-        <div className="grid h-[calc(100vh-150px)] min-h-[520px] gap-4 overflow-hidden xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid min-h-[520px] flex-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,1fr)_420px]">
           <section className="min-h-0 min-w-0">
             <div className="flex h-full flex-col overflow-hidden rounded border border-gray-200 bg-white">
               <div className="flex items-center justify-between gap-3 border-b border-gray-200 pr-3">

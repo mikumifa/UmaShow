@@ -475,6 +475,13 @@ export default function OfflineCareerSettings({
   const filteredLineageParents = parents
     .filter((parent) => {
       if (
+        parent.source === 'rental' &&
+        parent.friend_state !== undefined &&
+        ![1, 3].includes(parent.friend_state)
+      ) {
+        return false;
+      }
+      if (
         specificLineageSource !== 'all' &&
         parent.source !== specificLineageSource
       ) {
@@ -659,7 +666,7 @@ export default function OfflineCareerSettings({
             setLineageTreeSearch('');
             setLineageTreePicker(slot);
           }}
-          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-white/80 bg-white p-2 text-left hover:border-fuchsia-200"
+          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-white/80 bg-white p-2 text-left hover:border-indigo-200"
         >
           <span className="flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-2xl text-slate-300">
             {iconPath && uma ? (
@@ -771,83 +778,89 @@ export default function OfflineCareerSettings({
           </div>
         </div>
 
-        <label className="mt-4 block text-sm text-slate-700">
-          育成剧本
-          <select
-            value={selectedScenarioId}
-            disabled={Boolean(busy)}
-            onChange={(event) => onScenarioChange(Number(event.target.value))}
-            className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
-          >
-            <option value={0}>自动选择最新可用剧本</option>
-            {scenarios.map((scenario) => (
-              <option key={scenario.id} value={scenario.id}>
-                {scenario.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="mt-4 grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
+          <div className="max-w-sm">
+            <label className="block text-sm text-slate-700">
+              育成剧本
+              <select
+                value={selectedScenarioId}
+                disabled={Boolean(busy)}
+                onChange={(event) =>
+                  onScenarioChange(Number(event.target.value))
+                }
+                className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+              >
+                <option value={0}>自动选择最新可用剧本</option>
+                {scenarios.map((scenario) => (
+                  <option key={scenario.id} value={scenario.id}>
+                    {scenario.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        {setup ? (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3 text-sm">
-            <span className="text-slate-500">当前主剧本</span>
-            <strong className="ml-2 text-slate-900">
-              {setup.scenario_name || `剧本 ${setup.scenario_id}`}
-            </strong>
+            {setup ? (
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 px-0.5 text-xs">
+                <span className="text-slate-500">当前主剧本</span>
+                <strong className="text-slate-800">
+                  {setup.scenario_name || `剧本 ${setup.scenario_id}`}
+                </strong>
+              </div>
+            ) : null}
           </div>
-        ) : null}
 
-        <div className="mt-4">
-          <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {deckOptions.map((deck) => {
-              const selected = selectedDeckNum === deck.deck_num;
-              return (
-                <article
-                  key={deck.deck_num}
-                  className={`flex min-w-0 items-center gap-2 rounded-lg border bg-white p-2 text-sm transition ${
-                    selected
-                      ? 'border-indigo-400 ring-2 ring-indigo-100'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setSelectedDeckNum(deck.deck_num)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
+          <div className="max-w-5xl">
+            <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+              {deckOptions.map((deck) => {
+                const selected = selectedDeckNum === deck.deck_num;
+                return (
+                  <article
+                    key={deck.deck_num}
+                    className={`flex min-h-16 min-w-0 items-center gap-2 rounded-lg border bg-white p-2.5 text-sm transition ${
+                      selected
+                        ? 'border-indigo-400 ring-2 ring-indigo-100'
+                        : 'border-slate-200'
+                    }`}
                   >
-                    <span
-                      className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
-                        selected
-                          ? 'border-indigo-600 bg-indigo-600 text-white'
-                          : 'border-slate-300 text-transparent'
-                      }`}
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSelectedDeckNum(deck.deck_num)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
                     >
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate">
-                        槽位 {deck.deck_num} · {deck.deck_name || '空槽位'}
-                      </strong>
-                      <span className="text-xs text-slate-500">
-                        {setup
-                          ? `${deck.race_array.length} 场比赛`
-                          : '暂无数据'}
+                      <span
+                        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
+                          selected
+                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                            : 'border-slate-300 text-transparent'
+                        }`}
+                      >
+                        <Check size={12} strokeWidth={3} />
                       </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => editDeck(deck.deck_num)}
-                    disabled={Boolean(busy)}
-                    className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
-                  >
-                    <Pencil size={12} /> 编辑
-                  </button>
-                </article>
-              );
-            })}
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate">
+                          槽位 {deck.deck_num} · {deck.deck_name || '空槽位'}
+                        </strong>
+                        <span className="text-xs text-slate-500">
+                          {setup
+                            ? `${deck.race_array.length} 场比赛`
+                            : '暂无数据'}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => editDeck(deck.deck_num)}
+                      disabled={Boolean(busy)}
+                      className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      <Pencil size={12} /> 编辑
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -1112,66 +1125,301 @@ export default function OfflineCareerSettings({
         id="career-factor-options"
         className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
       >
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-            7
-          </span>
-          <h3 className="font-semibold text-gray-800">免费因子重抽与筛选</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              7
+            </span>
+            <h3 className="font-semibold text-gray-800">免费因子重抽与筛选</h3>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={factorSelection.enabled}
+              onChange={(event) =>
+                updateFactorSelection({ enabled: event.target.checked })
+              }
+            />
+            筛选最优因子
+          </label>
         </div>
 
-        <div className="mt-4 rounded-lg border border-fuchsia-200 bg-white p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h4 className="font-semibold text-slate-900">
-                免费因子重抽与筛选
-              </h4>
+        {!factorSelection.enabled ? (
+          <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            已关闭筛选：仍会抽完所有免费次数，然后从候选中随机选择。
+          </p>
+        ) : (
+          <div className="mt-4 grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(340px,0.9fr)_minmax(460px,1.1fr)]">
+            <div className="max-w-2xl">
+              <strong className="text-sm text-slate-800">使用场景</strong>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    [
+                      'parent',
+                      '父辈模式',
+                      '把本次结果作为直接父辈，并综合另一侧完整谱系比较。',
+                    ],
+                    [
+                      'ancestor',
+                      '祖辈模式',
+                      '把本次结果作为祖辈，只按自身因子与设置权重比较。',
+                    ],
+                  ] as const
+                ).map(([mode, label, description]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={factorSelection.evaluation_mode === mode}
+                    onClick={() =>
+                      updateFactorSelection({ evaluation_mode: mode })
+                    }
+                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                      factorSelection.evaluation_mode === mode
+                        ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100'
+                        : 'border-slate-200 bg-white hover:border-indigo-200'
+                    }`}
+                  >
+                    <strong className="block text-sm text-slate-800">
+                      {label}
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {description}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={factorSelection.enabled}
-                onChange={(event) =>
-                  updateFactorSelection({ enabled: event.target.checked })
-                }
-              />
-              筛选最优因子
-            </label>
-          </div>
 
-          {!factorSelection.enabled ? (
-            <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              已关闭筛选：仍会抽完所有免费次数，然后从候选中随机选择。
-            </p>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div>
-                <strong className="text-sm text-slate-800">使用场景</strong>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="max-w-3xl">
+              <strong className="text-sm text-slate-800">
+                属性因子最低星数
+              </strong>
+              <p className="mt-0.5 text-xs text-slate-500">
+                每种属性可设最低星级或标记为不要；候选只检查自己实际抽到的属性类型。
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {BLUE_FACTORS.map(([key, label]) => (
+                  <label key={key} className="text-xs text-slate-600">
+                    {label}
+                    <select
+                      value={factorSelection.blue_factor_minimums[key]}
+                      onChange={(event) =>
+                        updateFactorSelection({
+                          blue_factor_minimums: {
+                            ...factorSelection.blue_factor_minimums,
+                            [key]: Number(event.target.value),
+                          },
+                        })
+                      }
+                      className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                    >
+                      {[0, 1, 2, 3].map((stars) => (
+                        <option key={stars} value={stars}>
+                          {stars ? `至少 ${stars} 星` : '不要'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <strong className="text-sm text-slate-800">
+                    {factorSelection.evaluation_mode === 'ancestor'
+                      ? '适应性与技能因子权重'
+                      : '适应性与技能优先级'}
+                  </strong>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {factorSelection.evaluation_mode === 'ancestor'
+                      ? '每个因子的两次继承判定分别计入期望跳数，再乘对应权重累加。'
+                      : '先比较所选适应性与技能至少继承一次的综合概率，最后以全部白因子的逐次继承概率兜底。'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFactorSkillPickerOpen(true)}
+                  className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                >
+                  <Plus size={14} /> 添加技能
+                </button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {APTITUDE_FACTORS.map((target) => {
+                  const selected = factorSelection.targets.some(
+                    (item) => item.factor_group_id === target.factor_group_id,
+                  );
+                  return (
+                    <button
+                      key={target.factor_group_id}
+                      type="button"
+                      onClick={() => toggleTarget(target)}
+                      className={`rounded-full border px-2.5 py-1 text-xs ${
+                        selected
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {target.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {factorSelection.targets.map((target, index) => {
+                  const targetKey = `${target.kind}:${target.factor_group_id}`;
+                  const iconPath =
+                    target.kind === 'aptitude'
+                      ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
+                      : skillIconPath(skillByName.get(target.name));
+                  const draggable =
+                    factorSelection.evaluation_mode === 'parent';
+                  return (
+                    <div
+                      key={targetKey}
+                      draggable={draggable}
+                      onDragStart={(event) => {
+                        if (!draggable) return;
+                        setDraggedFactorTarget(targetKey);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData(
+                          'text/plain',
+                          `factor-target:${targetKey}`,
+                        );
+                      }}
+                      onDragOver={(event) => {
+                        if (!draggable) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(event) => {
+                        if (!draggable) return;
+                        event.preventDefault();
+                        const transferredKey = event.dataTransfer
+                          .getData('text/plain')
+                          .replace('factor-target:', '');
+                        reorderTarget(
+                          transferredKey || draggedFactorTarget,
+                          targetKey,
+                        );
+                        setDraggedFactorTarget('');
+                      }}
+                      onDragEnd={() => setDraggedFactorTarget('')}
+                      className={`flex min-w-0 items-center gap-2 rounded-lg border bg-white p-2 shadow-sm ${
+                        draggable ? 'cursor-grab active:cursor-grabbing' : ''
+                      } ${
+                        draggedFactorTarget === targetKey
+                          ? 'border-indigo-300 opacity-45'
+                          : 'border-slate-200'
+                      }`}
+                    >
+                      <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
+                        {index + 1}
+                      </b>
+                      <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm">
+                        {iconPath ? (
+                          <AssetIcon
+                            path={iconPath}
+                            alt={target.name}
+                            className={`h-full w-full ${
+                              target.kind === 'aptitude'
+                                ? 'object-contain p-0.5'
+                                : 'object-cover'
+                            }`}
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">
+                            ?
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-800">
+                          {target.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+                          {target.kind === 'aptitude'
+                            ? '适应性因子'
+                            : '技能因子'}
+                        </span>
+                      </span>
+                      {factorSelection.evaluation_mode === 'ancestor' ? (
+                        <label className="flex flex-none flex-col text-[10px] text-slate-500">
+                          权重
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.1}
+                            value={target.weight}
+                            onChange={(event) =>
+                              updateTargetWeight(
+                                target.factor_group_id,
+                                Number(event.target.value),
+                              )
+                            }
+                            className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-xs text-slate-700"
+                          />
+                        </label>
+                      ) : (
+                        <GripVertical
+                          size={17}
+                          className="flex-none text-slate-300"
+                          aria-label="拖动调整顺序"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => toggleTarget(target)}
+                        title="移除"
+                        className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {!factorSelection.targets.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setFactorSkillPickerOpen(true)}
+                    className="flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 sm:col-span-2 lg:col-span-3 2xl:col-span-4"
+                  >
+                    <Plus size={15} className="mr-1" />
+                    选择适应性或添加技能
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {factorSelection.evaluation_mode === 'parent' ? (
+              <div className="max-w-5xl lg:col-span-2">
+                <strong className="text-sm text-slate-800">
+                  兄弟辈 / 另一侧谱系
+                </strong>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   {(
                     [
-                      [
-                        'parent',
-                        '父辈模式',
-                        '把本次结果作为直接父辈，并综合另一侧完整谱系比较。',
-                      ],
-                      [
-                        'ancestor',
-                        '祖辈模式',
-                        '把本次结果作为祖辈，只按自身因子与设置权重比较。',
-                      ],
+                      ['none', '不设置', '不限制另一侧谱系'],
+                      ['specific', '指定已有马娘', '直接选择一组完整谱系'],
+                      ['rules', '按谱系条件', '设置任意马娘、红因子与赛程'],
                     ] as const
                   ).map(([mode, label, description]) => (
                     <button
                       key={mode}
                       type="button"
-                      aria-pressed={factorSelection.evaluation_mode === mode}
+                      aria-pressed={factorSelection.lineage.mode === mode}
                       onClick={() =>
-                        updateFactorSelection({ evaluation_mode: mode })
+                        updateFactorSelection({
+                          lineage: { ...factorSelection.lineage, mode },
+                        })
                       }
                       className={`rounded-lg border px-3 py-2 text-left transition ${
-                        factorSelection.evaluation_mode === mode
-                          ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
-                          : 'border-slate-200 bg-white hover:border-fuchsia-200'
+                        factorSelection.lineage.mode === mode
+                          ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100'
+                          : 'border-slate-200 bg-white hover:border-indigo-200'
                       }`}
                     >
                       <strong className="block text-sm text-slate-800">
@@ -1183,347 +1431,86 @@ export default function OfflineCareerSettings({
                     </button>
                   ))}
                 </div>
-              </div>
 
-              <div>
-                <strong className="text-sm text-slate-800">
-                  属性因子最低星数
-                </strong>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  每种属性可设最低星级或标记为不要；候选只检查自己实际抽到的属性类型。
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {BLUE_FACTORS.map(([key, label]) => (
-                    <label key={key} className="text-xs text-slate-600">
-                      {label}
-                      <select
-                        value={factorSelection.blue_factor_minimums[key]}
-                        onChange={(event) =>
-                          updateFactorSelection({
-                            blue_factor_minimums: {
-                              ...factorSelection.blue_factor_minimums,
-                              [key]: Number(event.target.value),
-                            },
-                          })
-                        }
-                        className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                      >
-                        {[0, 1, 2, 3].map((stars) => (
-                          <option key={stars} value={stars}>
-                            {stars ? `至少 ${stars} 星` : '不要'}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <strong className="text-sm text-slate-800">
-                      {factorSelection.evaluation_mode === 'ancestor'
-                        ? '适应性与技能因子权重'
-                        : '适应性与技能优先级'}
-                    </strong>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {factorSelection.evaluation_mode === 'ancestor'
-                        ? '只统计本次结果自身的因子；每个因子的两次继承判定分别计入期望跳数，再乘对应权重累加。'
-                        : '把本次结果与选定的另一侧谱系合并，先比较所选适应性与技能至少继承一次的综合概率；相同时按下方顺序逐项比较，最后以全部白因子的逐次继承概率兜底；可直接拖动卡片调整优先级。'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFactorSkillPickerOpen(true)}
-                    className="flex flex-none items-center gap-1 rounded-lg bg-fuchsia-600 px-3 py-2 text-xs font-semibold text-white hover:bg-fuchsia-700"
-                  >
-                    <Plus size={14} /> 添加技能
-                  </button>
-                </div>
-                <p className="mt-2 rounded-md bg-fuchsia-50 px-3 py-2 text-xs leading-5 text-fuchsia-900">
-                  所选技能自动设置到技能优先级列表里。
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {APTITUDE_FACTORS.map((target) => {
-                    const selected = factorSelection.targets.some(
-                      (item) => item.factor_group_id === target.factor_group_id,
-                    );
-                    return (
-                      <button
-                        key={target.factor_group_id}
-                        type="button"
-                        onClick={() => toggleTarget(target)}
-                        className={`rounded-full border px-2.5 py-1 text-xs ${
-                          selected
-                            ? 'border-fuchsia-400 bg-fuchsia-100 text-fuchsia-900'
-                            : 'border-slate-200 text-slate-600'
-                        }`}
-                      >
-                        {target.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-3">
-                  {factorSelection.targets.map((target, index) => {
-                    const targetKey = `${target.kind}:${target.factor_group_id}`;
-                    const iconPath =
-                      target.kind === 'aptitude'
-                        ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
-                        : skillIconPath(skillByName.get(target.name));
-                    const draggable =
-                      factorSelection.evaluation_mode === 'parent';
-                    return (
-                      <div
-                        key={targetKey}
-                        draggable={draggable}
-                        onDragStart={(event) => {
-                          if (!draggable) return;
-                          setDraggedFactorTarget(targetKey);
-                          event.dataTransfer.effectAllowed = 'move';
-                          event.dataTransfer.setData(
-                            'text/plain',
-                            `factor-target:${targetKey}`,
-                          );
-                        }}
-                        onDragOver={(event) => {
-                          if (!draggable) return;
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = 'move';
-                        }}
-                        onDrop={(event) => {
-                          if (!draggable) return;
-                          event.preventDefault();
-                          const transferredKey = event.dataTransfer
-                            .getData('text/plain')
-                            .replace('factor-target:', '');
-                          reorderTarget(
-                            transferredKey || draggedFactorTarget,
-                            targetKey,
-                          );
-                          setDraggedFactorTarget('');
-                        }}
-                        onDragEnd={() => setDraggedFactorTarget('')}
-                        className={`flex min-w-0 items-center gap-2 rounded-lg border bg-white p-2 shadow-sm ${
-                          draggable ? 'cursor-grab active:cursor-grabbing' : ''
-                        } ${
-                          draggedFactorTarget === targetKey
-                            ? 'border-fuchsia-300 opacity-45'
-                            : 'border-slate-200'
-                        }`}
-                      >
-                        <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-fuchsia-50 text-xs text-fuchsia-700">
-                          {index + 1}
-                        </b>
-                        <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm">
-                          {iconPath ? (
-                            <AssetIcon
-                              path={iconPath}
-                              alt={target.name}
-                              className={`h-full w-full ${
-                                target.kind === 'aptitude'
-                                  ? 'object-contain p-0.5'
-                                  : 'object-cover'
-                              }`}
-                            />
-                          ) : (
-                            <span className="text-xs font-bold text-slate-400">
-                              ?
-                            </span>
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-slate-800">
-                            {target.name}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-slate-500">
-                            {target.kind === 'aptitude'
-                              ? '适应性因子'
-                              : '技能因子'}
-                          </span>
-                        </span>
-                        {factorSelection.evaluation_mode === 'ancestor' ? (
-                          <label className="flex flex-none flex-col text-[10px] text-slate-500">
-                            权重
-                            <input
-                              type="number"
-                              min={0}
-                              step={0.1}
-                              value={target.weight}
-                              onChange={(event) =>
-                                updateTargetWeight(
-                                  target.factor_group_id,
-                                  Number(event.target.value),
-                                )
-                              }
-                              className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-xs text-slate-700"
-                            />
-                          </label>
-                        ) : (
-                          <GripVertical
-                            size={17}
-                            className="flex-none text-slate-300"
-                            aria-label="拖动调整顺序"
+                {factorSelection.lineage.mode === 'specific' ? (
+                  <div className="mt-3 max-w-xl">
+                    <SuccessionPickerTrigger
+                      label="指定已有马娘"
+                      selected={Boolean(selectedLineageParent)}
+                      portrait={
+                        selectedLineageParent ? (
+                          <PlannerPortrait
+                            path={
+                              characterIconPath(
+                                selectedLineageParent.card_id,
+                              ) || ''
+                            }
+                            alt={selectedLineageParent.name}
                           />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => toggleTarget(target)}
-                          title="移除"
-                          className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {!factorSelection.targets.length ? (
-                    <button
-                      type="button"
-                      onClick={() => setFactorSkillPickerOpen(true)}
-                      className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 xl:col-span-3"
+                        ) : null
+                      }
+                      placeholder="点击选择已有马娘"
+                      onOpen={() => setSpecificLineagePickerOpen(true)}
+                      onClear={
+                        selectedLineageParent
+                          ? () =>
+                              updateFactorSelection({
+                                lineage: {
+                                  ...factorSelection.lineage,
+                                  selection_id: '',
+                                },
+                              })
+                          : undefined
+                      }
                     >
-                      <Plus size={15} className="mr-1" />
-                      选择适应性或添加技能
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              {factorSelection.evaluation_mode === 'parent' ? (
-                <div>
-                  <strong className="text-sm text-slate-800">
-                    兄弟辈 / 另一侧谱系
-                  </strong>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    可指定任意马娘类型；执行时从自己与好友的已育成记录中寻找符合条件的完整谱系。
-                  </p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                    {(
-                      [
-                        ['none', '不设置', '不限制另一侧谱系'],
-                        ['specific', '指定已有马娘', '直接选择一组完整谱系'],
-                        ['rules', '按谱系条件', '设置任意马娘、红因子与赛程'],
-                      ] as const
-                    ).map(([mode, label, description]) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-pressed={factorSelection.lineage.mode === mode}
-                        onClick={() =>
-                          updateFactorSelection({
-                            lineage: { ...factorSelection.lineage, mode },
-                          })
-                        }
-                        className={`rounded-lg border px-3 py-2 text-left transition ${
-                          factorSelection.lineage.mode === mode
-                            ? 'border-fuchsia-400 bg-fuchsia-50 ring-2 ring-fuchsia-100'
-                            : 'border-slate-200 bg-white hover:border-fuchsia-200'
-                        }`}
-                      >
-                        <strong className="block text-sm text-slate-800">
-                          {label}
-                        </strong>
-                        <span className="mt-0.5 block text-xs text-slate-500">
-                          {description}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {factorSelection.lineage.mode === 'specific' ? (
-                    <div className="mt-3 max-w-xl">
-                      <SuccessionPickerTrigger
-                        label="指定已有马娘"
-                        selected={Boolean(selectedLineageParent)}
-                        portrait={
-                          selectedLineageParent ? (
-                            <PlannerPortrait
-                              path={
-                                characterIconPath(
-                                  selectedLineageParent.card_id,
-                                ) || ''
-                              }
-                              alt={selectedLineageParent.name}
-                            />
-                          ) : null
-                        }
-                        placeholder="点击选择已有马娘"
-                        onOpen={() => setSpecificLineagePickerOpen(true)}
-                        onClear={
-                          selectedLineageParent
-                            ? () =>
-                                updateFactorSelection({
-                                  lineage: {
-                                    ...factorSelection.lineage,
-                                    selection_id: '',
-                                  },
-                                })
-                            : undefined
-                        }
-                      >
-                        {selectedLineageParent ? (
-                          <>
-                            <strong>{selectedLineageParent.name}</strong>
-                            <small className="mt-1 block text-gray-500">
-                              {selectedLineageParent.source === 'rental'
-                                ? `借用 · ${selectedLineageParent.owner_name || '未知玩家'}`
-                                : '自己的马娘'}
-                              {selectedLineageParent.rank_score
-                                ? ` · 评分 ${selectedLineageParent.rank_score}`
-                                : ''}
-                            </small>
-                          </>
-                        ) : null}
-                      </SuccessionPickerTrigger>
-                      {!selectedLineageParent &&
-                      factorSelection.lineage.selection_id ? (
-                        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                          已保存的马娘当前不在自己或好友列表中，请重新选择。
-                        </p>
+                      {selectedLineageParent ? (
+                        <>
+                          <strong>{selectedLineageParent.name}</strong>
+                          <small className="mt-1 block text-gray-500">
+                            {selectedLineageParent.source === 'rental'
+                              ? `借用 · ${selectedLineageParent.owner_name || '未知玩家'}`
+                              : '自己的马娘'}
+                            {selectedLineageParent.rank_score
+                              ? ` · 评分 ${selectedLineageParent.rank_score}`
+                              : ''}
+                          </small>
+                        </>
                       ) : null}
-                    </div>
-                  ) : null}
+                    </SuccessionPickerTrigger>
+                    {!selectedLineageParent &&
+                    factorSelection.lineage.selection_id ? (
+                      <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        已保存的马娘当前不在自己或好友列表中，请重新选择。
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
-                  {factorSelection.lineage.mode === 'rules' ? (
-                    <div className="mt-3 rounded-xl border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/40 p-4">
-                      <div className="mb-4">
-                        <strong className="text-sm text-slate-800">
-                          另一侧完整谱系树
-                        </strong>
+                {factorSelection.lineage.mode === 'rules' ? (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-4">
+                      <strong className="text-sm text-slate-800">
+                        另一侧完整谱系树
+                      </strong>
+                    </div>
+                    <div className="mx-auto max-w-4xl">
+                      <div className="mx-auto max-w-md">
+                        {lineageTreeNode('parent', '另一侧父辈', 'parent')}
                       </div>
-                      <div className="mx-auto max-w-4xl">
-                        <div className="mx-auto max-w-md">
-                          {lineageTreeNode('parent', '另一侧父辈', 'parent')}
-                        </div>
-                        <div className="relative pt-7">
-                          <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-7 border-l-2 border-r-2 border-t-2 border-fuchsia-200" />
-                          <div className="grid grid-cols-2 gap-3">
-                            {lineageTreeNode(
-                              'ancestor_1',
-                              '祖辈 1',
-                              'ancestor',
-                            )}
-                            {lineageTreeNode(
-                              'ancestor_2',
-                              '祖辈 2',
-                              'ancestor',
-                            )}
-                          </div>
+                      <div className="relative pt-7">
+                        <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-7 border-l-2 border-r-2 border-t-2 border-slate-200" />
+                        <div className="grid grid-cols-2 gap-3">
+                          {lineageTreeNode('ancestor_1', '祖辈 1', 'ancestor')}
+                          {lineageTreeNode('ancestor_2', '祖辈 2', 'ancestor')}
                         </div>
                       </div>
                     </div>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-                  祖辈模式不会读取或比较另一侧谱系；本次候选的非属性因子只看自身。
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )}
       </section>
 
       {lineageFactorPicker ? (
@@ -1774,8 +1761,8 @@ export default function OfflineCareerSettings({
       {specificLineagePickerOpen ? (
         <SuccessionPickerDialog
           ariaLabel="指定已有马娘"
-          title="选择已有马娘"
-          description="选择一组完整谱系作为另一侧父辈；可查看本体、两位父辈与全部因子。"
+          title="正在选择已有马娘"
+          description="选择一组完整谱系作为另一侧父辈；可继续切换，并查看本体、两位父辈与全部因子。"
           onClose={() => setSpecificLineagePickerOpen(false)}
           dialogClassName="successionCapturedPickerDialog"
           searchValue={specificLineageSearch}
@@ -1801,17 +1788,6 @@ export default function OfflineCareerSettings({
                   清空筛选
                 </button>
               ) : null}
-            </>
-          }
-          footer={
-            <>
-              <span>已选马娘会作为固定的另一侧完整谱系</span>
-              <button
-                type="button"
-                onClick={() => setSpecificLineagePickerOpen(false)}
-              >
-                完成
-              </button>
             </>
           }
         >
@@ -1840,8 +1816,8 @@ export default function OfflineCareerSettings({
                       onClick={() => setSpecificLineageSource(value)}
                       className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                         specificLineageSource === value
-                          ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
                       }`}
                     >
                       {label}
@@ -1859,8 +1835,8 @@ export default function OfflineCareerSettings({
                     onClick={() => setSpecificLineageBlueFactors([])}
                     className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                       !specificLineageBlueFactors.length
-                        ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                        ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
                     }`}
                   >
                     任意
@@ -1885,8 +1861,8 @@ export default function OfflineCareerSettings({
                         }
                         className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                           selected
-                            ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
                         }`}
                       >
                         {factor.name}
@@ -1906,8 +1882,8 @@ export default function OfflineCareerSettings({
                       onClick={() => setSpecificLineageBlueStars(stars)}
                       className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                         specificLineageBlueStars === stars
-                          ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
                       }`}
                     >
                       {stars ? `${stars}★${stars < 3 ? '+' : ''}` : '不限'}
@@ -2012,8 +1988,8 @@ export default function OfflineCareerSettings({
                     onClick={() => setSpecificLineageSort(value)}
                     className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                       specificLineageSort === value
-                        ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-fuchsia-200'
+                        ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
                     }`}
                   >
                     {label}
@@ -2034,7 +2010,7 @@ export default function OfflineCareerSettings({
                     onClick={() => setSpecificLineageSortDirection(value)}
                     className={`successionCapturedPickerCompactControl rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       specificLineageSortDirection === value
-                        ? 'bg-white text-fuchsia-700 shadow-sm'
+                        ? 'bg-white text-indigo-700 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
@@ -2061,7 +2037,6 @@ export default function OfflineCareerSettings({
                         selection_id: parent.selection_id,
                       },
                     });
-                    setSpecificLineagePickerOpen(false);
                   }}
                 />
               ))}
@@ -2078,30 +2053,28 @@ export default function OfflineCareerSettings({
         <SuccessionPickerDialog
           ariaLabel="选择谱系树马娘"
           eyebrow="LINEAGE TREE"
-          title={`选择${LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}`}
-          description="输入名称或角色 ID 搜索，点击卡片完成选择。"
+          title={`正在选择${LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}`}
+          description="点击卡片选择，可继续切换；使用右上角按钮关闭。"
           onClose={() => setLineageTreePicker('')}
           overlayClassName="plannerElevatedOverlay"
           searchValue={lineageTreeSearch}
           searchPlaceholder="搜索马娘名称或角色 ID"
           searchAriaLabel="搜索谱系树马娘"
           onSearchChange={setLineageTreeSearch}
-          meta={<span>找到 {filteredLineageCharaOptions.length} 位马娘</span>}
-          bodyClassName="successionPickerGrid"
-          footer={
+          meta={
             <>
-              <span>当前显示 {filteredLineageCharaOptions.length} 位马娘</span>
-              <PlannerButton
-                variant="secondary"
-                onClick={() => {
-                  updateLineageTreeSlot(lineageTreePicker, { chara_id: 0 });
-                  setLineageTreePicker('');
-                }}
+              <span>找到 {filteredLineageCharaOptions.length} 位马娘</span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateLineageTreeSlot(lineageTreePicker, { chara_id: 0 })
+                }
               >
                 设为不固定
-              </PlannerButton>
+              </button>
             </>
           }
+          bodyClassName="successionPickerGrid"
         >
           {filteredLineageCharaOptions.length ? (
             filteredLineageCharaOptions.map((uma) => {
@@ -2140,7 +2113,6 @@ export default function OfflineCareerSettings({
                       route_id: current.route_id || 'none',
                       min_factor_stars: 0,
                     });
-                    setLineageTreePicker('');
                   }}
                 />
               );

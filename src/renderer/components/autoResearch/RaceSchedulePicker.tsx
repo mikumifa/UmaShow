@@ -106,7 +106,6 @@ export default function RaceSchedulePicker({
                             />
                           ) : (
                             <span className="flex h-full w-full items-center justify-center opacity-50">
-                              {half === 1 ? '上半' : '下半'} ·{' '}
                               {turnRaces.length ? '未选择' : '无赛事'}
                             </span>
                           )}

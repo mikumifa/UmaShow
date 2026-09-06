@@ -267,6 +267,7 @@ export type Dashboard = {
   parents: Array<{
     selection_id: string;
     source: 'own' | 'rental';
+    friend_state?: number;
     viewer_id: number;
     owner_name: string;
     instance_id: number;
@@ -304,6 +305,7 @@ export type Dashboard = {
   }>;
   friends: Array<{
     viewer_id: number;
+    friend_state?: number;
     name: string;
     support_card_id: number;
     support_name: string;

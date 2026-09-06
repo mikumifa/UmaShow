@@ -14,9 +14,16 @@ import AppMenuBar from 'renderer/components/AppMenuBar';
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-50 font-sans">
       <style>
         {`
+          html,
+          body,
+          #root {
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+          }
           img {
             -webkit-user-drag: none;
           }
@@ -35,6 +42,11 @@ export default function App() {
           .app-no-drag {
             -webkit-app-region: no-drag;
           }
+          .app-route-content > .ka-wrapper,
+          .app-route-content > .ka-wrapper > .ka-content {
+            height: 100%;
+            min-height: 0;
+          }
           .app-route-content .min-h-screen {
             min-height: calc(100vh - 2.25rem);
           }
@@ -47,7 +59,7 @@ export default function App() {
         <AliveScope>
           <HiddenNavigator />
           <AppMenuBar />
-          <div className="app-route-content">
+          <div className="app-route-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             <Routes>
               <Route
                 path="/"

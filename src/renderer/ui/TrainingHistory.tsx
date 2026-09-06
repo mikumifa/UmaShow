@@ -845,7 +845,7 @@ export default function TrainingHistory() {
     useState<TrainingHistoryRecord | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [config, setConfig] = useState<TrainingHistoryConfig>({
+  const [, setConfig] = useState<TrainingHistoryConfig>({
     maxCachedRuns: 50,
     favoriteIds: [],
   });
@@ -1163,15 +1163,9 @@ export default function TrainingHistory() {
           previewRecord.summary.rarity,
         )
       : undefined;
-    const description = selectedLoading
-      ? '正在展开完整记录...'
-      : '未找到这局养成记录';
-
     return (
       <RacePageLayout
         title={horseName}
-        description={description}
-        icon={<Database size={20} />}
         actions={
           <button
             type="button"
@@ -1237,8 +1231,6 @@ export default function TrainingHistory() {
     return (
       <RacePageLayout
         title={horseName}
-        description={`${selected.summary.packetCount} 个包，${selected.summary.turnCount} 个 turn`}
-        icon={<Database size={20} />}
         actions={
           <>
             <button
@@ -1494,8 +1486,6 @@ export default function TrainingHistory() {
   return (
     <RacePageLayout
       title="养成记录"
-      description={`记录你养成的每一局，最多缓存 ${config.maxCachedRuns} 局`}
-      icon={<Database size={20} />}
       actions={
         <div className="flex items-center gap-2">
           <button
@@ -1547,7 +1537,7 @@ export default function TrainingHistory() {
         </div>
       }
     >
-      <div className="space-y-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {isLoading && (
           <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -1568,7 +1558,7 @@ export default function TrainingHistory() {
         )}
 
         {ready && items.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-20">
+          <div className="flex flex-1 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-20">
             <Database size={44} className="mb-3 text-gray-300" />
             <div className="text-sm font-medium text-gray-400">
               暂无养成记录

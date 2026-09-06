@@ -30,7 +30,7 @@ type AppShellInfo = {
 
 const navigationItems = [
   {
-    label: '比赛记录',
+    label: '比赛',
     path: '/races',
     icon: BarChart3,
     matches: ['/races', '/race', '/race-stats'],
@@ -42,19 +42,19 @@ const navigationItems = [
     matches: ['/loh', '/leaderboard-analysis'],
   },
   {
-    label: '自动育成',
+    label: '育成',
     path: '/auto-research',
     icon: Bot,
     matches: ['/auto-research'],
   },
   {
-    label: '继承规划',
+    label: '继承',
     path: '/succession',
     icon: GitBranch,
     matches: ['/succession'],
   },
   {
-    label: '养成记录',
+    label: '记录',
     path: '/training-history',
     icon: History,
     matches: ['/training-history'],
@@ -136,7 +136,7 @@ export default function AppMenuBar() {
   };
 
   return (
-    <header className="app-drag-region sticky top-0 z-[100] flex h-9 items-center border-b border-slate-200 bg-white/95 px-2 shadow-sm backdrop-blur-xl">
+    <header className="app-drag-region sticky top-0 z-[100] flex h-9 flex-none items-center border-b border-slate-200 bg-white/95 px-2 shadow-sm backdrop-blur-xl">
       <button
         type="button"
         onClick={() => navigate('/')}
@@ -184,6 +184,26 @@ export default function AppMenuBar() {
           );
         })}
       </nav>
+
+      <div
+        id="app-page-actions"
+        className="app-no-drag ml-2 flex max-w-[55vw] flex-none items-center gap-1.5 overflow-hidden"
+      />
+
+      <div
+        id="app-page-secondary-tabs"
+        className="app-no-drag pointer-events-none absolute left-0 top-[calc(100%-1px)] z-20"
+      />
+
+      <div
+        id="app-page-tabs"
+        className="app-no-drag pointer-events-none absolute left-1/2 top-[calc(100%-1px)] z-20 -translate-x-1/2"
+      />
+
+      <div
+        id="app-page-context-actions"
+        className="app-no-drag pointer-events-none absolute right-0 top-[calc(100%-1px)] z-20"
+      />
 
       <div ref={menuRef} className="app-no-drag relative ml-2 flex-none">
         <button

@@ -9,7 +9,6 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Activity,
   AlertTriangle,
   CalendarCheck,
   Check,
@@ -37,6 +36,7 @@ import DailyTasksTab from 'renderer/components/autoResearch/DailyTasksTab';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import EditableNumberInput from 'renderer/components/autoResearch/EditableNumberInput';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
@@ -767,6 +767,9 @@ export default function AutoResearch() {
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId,
   );
+  const selectedAccountName = selectedAccount
+    ? selectedAccount.label.trim() || `UID ${selectedAccount.uid}`
+    : '';
   const runner = session?.runtime?.runner || selectedAccount?.runtime.runner;
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
@@ -778,9 +781,7 @@ export default function AutoResearch() {
   const queuedCareerPlan = Boolean(
     runner?.run_plan?.active && !runner?.running,
   );
-  const automationActive = Boolean(
-    runnerHasHostedTask(runner),
-  );
+  const automationActive = Boolean(runnerHasHostedTask(runner));
   const serverCareerActive = Boolean(
     runner?.running || runner?.run_plan?.active || runnerPaused,
   );
@@ -1048,7 +1049,6 @@ export default function AutoResearch() {
   );
   const filteredSupports = useMemo(() => {
     const keyword = supportSearch.trim().toLowerCase();
-    const rarityOrder: Record<string, number> = { SSR: 0, SR: 1, R: 2 };
     return (dashboard?.supports || [])
       .filter(
         (support) =>
@@ -1057,11 +1057,7 @@ export default function AutoResearch() {
             .toLowerCase()
             .includes(keyword),
       )
-      .sort(
-        (left, right) =>
-          (rarityOrder[left.rarity] ?? 9) - (rarityOrder[right.rarity] ?? 9) ||
-          right.id - left.id,
-      );
+      .sort((left, right) => left.id - right.id);
   }, [dashboard?.supports, supportSearch]);
   const availableFriendSupportIds = useMemo(() => {
     const supports = new Map(
@@ -1070,6 +1066,12 @@ export default function AutoResearch() {
     return new Set(
       (dashboard?.friends || [])
         .filter((friend) => {
+          if (
+            friend.friend_state !== undefined &&
+            ![1, 3].includes(friend.friend_state)
+          ) {
+            return false;
+          }
           const support = supports.get(friend.support_card_id);
           return (
             friend.limit_break_count >= 4 &&
@@ -1481,8 +1483,8 @@ export default function AutoResearch() {
   );
 
   const releaseIdleHostedContext = useCallback(
-    (accountId: string, runner?: Runner): Promise<boolean> => {
-      if (runnerHasHostedTask(runner)) return Promise.resolve(false);
+    (accountId: string, candidateRunner?: Runner): Promise<boolean> => {
+      if (runnerHasHostedTask(candidateRunner)) return Promise.resolve(false);
       const token = sessionTokens.current.get(accountId);
       if (!token) return Promise.resolve(false);
 
@@ -1850,17 +1852,15 @@ export default function AutoResearch() {
       setBusy('history');
       try {
         if (!server) throw new Error('查看记录前，请先连接自动育成服务器');
-        const credential = (await window.electron.autoResearch.credential(
-          accountId,
-        )) as { uid: string; accessKey: string };
+        const account = accounts.find((item) => item.id === accountId);
+        if (!account) throw new Error('本地账号不存在');
         const result = await request<{
           success: boolean;
           reports: CareerSessionRecord[];
         }>('/api/account/career/history/query', {
           method: 'POST',
           body: JSON.stringify({
-            uid: credential.uid,
-            access_key: credential.accessKey,
+            uid: account.uid,
           }),
         });
         setCareerHistory(result.reports || []);
@@ -1880,7 +1880,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [request, server],
+    [accounts, request, server],
   );
 
   const deleteCareerHistory = useCallback(
@@ -2902,12 +2902,7 @@ export default function AutoResearch() {
           });
           return;
         }
-        commitRunnerStream(
-          accountId,
-          event.runner,
-          event.account,
-          'server',
-        );
+        commitRunnerStream(accountId, event.runner, event.account, 'server');
       } catch {
         // Ignore an incomplete or malformed stream record and keep reading.
       }
@@ -4105,8 +4100,7 @@ export default function AutoResearch() {
       setPresets(nextPresets);
       setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
       const runnerPresetName =
-        activeAutomationSetting?.preset_name ||
-        String(runner?.preset || '');
+        activeAutomationSetting?.preset_name || String(runner?.preset || '');
       if (automationActive && runnerPresetName === preset.name) {
         const target =
           runMode === 'count'
@@ -4212,12 +4206,6 @@ export default function AutoResearch() {
     setActiveTab(tab);
     if (target) {
       window.setTimeout(() => scrollToSection(target), 0);
-    }
-  };
-
-  const savePresetAndContinue = async () => {
-    if (await savePreset()) {
-      navigateToTab('career', 'career-task');
     }
   };
 
@@ -5107,7 +5095,41 @@ export default function AutoResearch() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-5 text-gray-800 xl:px-6">
+    <div className="h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6">
+      <style>
+        {`
+          .autoResearchTabScroll {
+            scrollbar-gutter: stable;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar {
+            width: 12px;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin-block: 10px;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar-thumb {
+            min-height: 48px;
+            border: 4px solid transparent;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.55);
+            background-clip: padding-box;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar-thumb:hover {
+            border-width: 3px;
+            background: linear-gradient(180deg, #818cf8, #8b5cf6);
+            background-clip: padding-box;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar-thumb:active {
+            border-width: 3px;
+            background: #6366f1;
+            background-clip: padding-box;
+          }
+          .autoResearchTabScroll::-webkit-scrollbar-button {
+            display: none;
+          }
+        `}
+      </style>
       <ErrorToast message={error} onClose={dismissError} />
       <SuccessToast message={successMessage} onClose={dismissSuccess} />
       {localLoginConfirmationAccountId ? (
@@ -6052,19 +6074,18 @@ export default function AutoResearch() {
         onAddGroup={addSkillGroup}
         onClose={() => setSkillPickerOpen(false)}
       />
-      <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-none flex-col gap-4">
-        <header className="flex min-h-[60px] flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-600">
-              <Activity size={24} />
-              <h1 className="text-xl font-semibold text-gray-800">自动育成</h1>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              {server ? `${server}` : '-'}
-            </p>
+      <div className="mx-auto flex h-full min-h-0 max-w-none flex-col">
+        <AppMenuPortal>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="max-w-44 truncate text-[11px] text-slate-400"
+              title={server || '未连接服务器'}
+            >
+              {server || '未选择服务器'}
+            </span>
             {selectedAccount ? (
               <span
-                className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                   serverHostedMode
                     ? 'bg-violet-100 text-violet-700'
                     : localSessionMode || localAccountSessionState === 'ready'
@@ -6079,139 +6100,150 @@ export default function AutoResearch() {
                     : '未登录'}
               </span>
             ) : null}
-          </div>
-          {selectedAccount ? (
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => openLoginSettings()}
-                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50"
-              >
-                <Users className="mr-1 inline" size={15} />
-                账号与服务器
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!serverHostedMode && selectedAccountId) {
-                    loginAndReadLatest(selectedAccountId).catch(
-                      () => undefined,
-                    );
-                    return;
-                  }
-                  refreshCurrentAccount();
-                }}
-                disabled={
-                  !selectedAccountId ||
-                  Boolean(disconnectingAccountId) ||
-                  Boolean(checkingExistingRuntimeAccountId) ||
-                  busy === `refresh-${selectedAccountId}` ||
-                  busy === `login-${selectedAccountId}`
-                }
-                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`mr-1 inline ${busy === `refresh-${selectedAccountId}` ? 'animate-spin' : ''}`}
-                  size={15}
-                />
-                {busy === `refresh-${selectedAccountId}`
-                  ? serverHostedMode
-                    ? '正在读取服务器…'
-                    : '重新登录中…'
-                  : busy === `login-${selectedAccountId}`
-                    ? '登录中…'
-                    : serverHostedMode
-                      ? '刷新服务器状态'
-                      : localAccountSessionState === 'ready'
-                        ? '重新登录'
-                        : '登录本地模式'}
-              </button>
-              {serverHostedMode ||
-              localSessionMode ||
-              localAccountSessionState === 'ready' ? (
+            {selectedAccount ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openLoginSettings()}
+                  className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100"
+                  title={`账号：${selectedAccountName}`}
+                >
+                  <Users className="mr-1 inline" size={15} />
+                  <span className="max-w-32 truncate">
+                    {selectedAccountName}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
-                    if (serverHostedMode) {
-                      exitAutoResearchLogin().catch(() => undefined);
-                      return;
-                    }
-                    if (selectedAccountId) {
-                      logoutLocalAccount(selectedAccountId).catch(
+                    if (!serverHostedMode && selectedAccountId) {
+                      loginAndReadLatest(selectedAccountId).catch(
                         () => undefined,
                       );
+                      return;
                     }
+                    refreshCurrentAccount();
                   }}
-                  disabled={Boolean(loginProgress || disconnectingAccountId)}
-                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-gray-50 disabled:opacity-50"
+                  disabled={
+                    !selectedAccountId ||
+                    Boolean(disconnectingAccountId) ||
+                    Boolean(checkingExistingRuntimeAccountId) ||
+                    busy === `refresh-${selectedAccountId}` ||
+                    busy === `login-${selectedAccountId}`
+                  }
+                  className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <LogOut className="mr-1 inline" size={15} />
-                  退出登录
+                  <RefreshCw
+                    className={`mr-1 inline ${busy === `refresh-${selectedAccountId}` ? 'animate-spin' : ''}`}
+                    size={15}
+                  />
+                  {busy === `refresh-${selectedAccountId}`
+                    ? serverHostedMode
+                      ? '正在读取服务器…'
+                      : '重新登录中…'
+                    : busy === `login-${selectedAccountId}`
+                      ? '登录中…'
+                      : serverHostedMode
+                        ? '刷新服务器状态'
+                        : localAccountSessionState === 'ready'
+                          ? '重新登录'
+                          : '登录本地模式'}
                 </button>
-              ) : null}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => openLoginSettings()}
-              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            >
-              <Users size={16} />
-              账号与服务器
-            </button>
-          )}
-        </header>
+                {serverHostedMode ||
+                localSessionMode ||
+                localAccountSessionState === 'ready' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (serverHostedMode) {
+                        exitAutoResearchLogin().catch(() => undefined);
+                        return;
+                      }
+                      if (selectedAccountId) {
+                        logoutLocalAccount(selectedAccountId).catch(
+                          () => undefined,
+                        );
+                      }
+                    }}
+                    disabled={Boolean(loginProgress || disconnectingAccountId)}
+                    className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    <LogOut className="mr-1 inline" size={15} />
+                    退出登录
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openLoginSettings()}
+                className="flex h-7 items-center gap-1 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                title="选择账号与服务器"
+              >
+                <Users size={15} />
+                未选择账号
+              </button>
+            )}
+          </div>
+        </AppMenuPortal>
 
-        <div className={`${panelClass('px-3')} sticky top-9 z-30 shadow-sm`}>
+        <AppMenuPortal targetId="app-page-tabs">
           <nav
-            className="-mb-px flex space-x-8 overflow-x-auto"
+            className="pointer-events-none px-3 pb-2.5 pt-1.5"
             aria-label="自动育成设置"
           >
-            {[
-              { id: 'daily' as const, label: '日常', icon: CalendarCheck },
-              { id: 'presets' as const, label: '预设', icon: Settings2 },
-              { id: 'career' as const, label: '详设', icon: ListChecks },
-              { id: 'history' as const, label: '记录', icon: History },
-            ].map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => navigateToTab(tab.id)}
-                  className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors duration-150 ${
-                    activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  <IconComponent size={16} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {disconnectingAccountId ? (
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            <div className="flex items-center gap-2 font-semibold">
-              <RefreshCw className="animate-spin" size={15} />
-              正在退出账号
+            <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-sm backdrop-blur-xl">
+              {[
+                { id: 'daily' as const, label: '日常', icon: CalendarCheck },
+                { id: 'presets' as const, label: '预设', icon: Settings2 },
+                { id: 'career' as const, label: '详设', icon: ListChecks },
+                { id: 'history' as const, label: '记录', icon: History },
+              ].map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => navigateToTab(tab.id)}
+                    aria-current={activeTab === tab.id ? 'page' : undefined}
+                    className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 ${
+                      activeTab === tab.id
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                    }`}
+                  >
+                    <IconComponent size={15} />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              正在断开当前前端会话，账号在后端的登录与养马状态会继续保留。
-            </p>
-          </div>
-        ) : null}
+          </nav>
+        </AppMenuPortal>
 
         <div
-          className={`grid min-h-0 flex-1 gap-4 ${
+          className={`mt-14 grid min-h-0 flex-1 gap-4 bg-transparent pb-5 ${
+            activeTab === 'presets' || activeTab === 'career'
+              ? 'overflow-hidden'
+              : 'overflow-y-auto overscroll-contain'
+          } ${
             activeTab === 'accounts'
               ? 'xl:grid-cols-[390px_minmax(0,1fr)]'
               : 'grid-cols-1'
           }`}
         >
+          {disconnectingAccountId ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 xl:col-span-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <RefreshCw className="animate-spin" size={15} />
+                正在退出账号
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                正在断开当前前端会话，账号在后端的登录与养马状态会继续保留。
+              </p>
+            </div>
+          ) : null}
+
           <aside className={activeTab === 'accounts' ? 'space-y-4' : 'hidden'}>
             <section className={panelClass('p-4')}>
               <h2 className="flex items-center gap-2 font-bold">
@@ -6482,22 +6514,20 @@ export default function AutoResearch() {
             </section>
           </aside>
 
-          <main className="min-h-0 min-w-0 space-y-4">
+          <main
+            className={`flex min-h-0 min-w-0 flex-col gap-4 ${
+              activeTab === 'presets' || activeTab === 'career'
+                ? 'autoResearchTabScroll -mr-4 overflow-y-auto overscroll-contain pr-4 xl:-mr-6 xl:pr-6'
+                : ''
+            }`}
+          >
             {activeTab !== 'presets' && !selectedAccount ? (
-              <section
-                className={panelClass(
-                  'flex min-h-full items-center justify-center p-12 text-center text-slate-400',
-                )}
-              >
+              <section className="flex min-h-full items-center justify-center p-12 text-center text-slate-400">
                 <p>请先选择要使用的账号。</p>
               </section>
             ) : !['presets', 'history'].includes(activeTab) &&
               disconnectingAccountId === selectedAccount?.id ? (
-              <section
-                className={panelClass(
-                  'flex min-h-full items-center justify-center p-8 text-center',
-                )}
-              >
+              <section className="flex min-h-full items-center justify-center p-8 text-center">
                 <div>
                   <RefreshCw
                     className="mx-auto animate-spin text-slate-400"
@@ -6513,11 +6543,7 @@ export default function AutoResearch() {
               </section>
             ) : !['presets', 'history'].includes(activeTab) &&
               loginProgress?.accountId === selectedAccount?.id ? (
-              <section
-                className={panelClass(
-                  'flex min-h-full items-center justify-center p-8 text-center',
-                )}
-              >
+              <section className="flex min-h-full items-center justify-center p-8 text-center">
                 <div>
                   {loginProgressComplete ? (
                     <Check className="mx-auto text-emerald-500" size={42} />
@@ -6543,11 +6569,7 @@ export default function AutoResearch() {
               !automationActive &&
               (!dashboard ||
                 (!serverHostedMode && localAccountSessionState !== 'ready')) ? (
-              <section
-                className={panelClass(
-                  'flex min-h-full flex-col items-center justify-center p-12 text-center',
-                )}
-              >
+              <section className="flex min-h-full flex-col items-center justify-center p-12 text-center">
                 {activeTab !== 'daily' &&
                 checkingExistingRuntimeAccountId === selectedAccount?.id ? (
                   <RefreshCw
@@ -6728,7 +6750,6 @@ export default function AutoResearch() {
                   <PresetsTab
                     presetEditorOpen={presetEditorOpen}
                     presets={presets}
-                    presetName={presetName}
                     newPresetName={newPresetName}
                     setNewPresetName={setNewPresetName}
                     createPresetSlot={createPresetSlot}
@@ -6742,7 +6763,6 @@ export default function AutoResearch() {
                     savePreset={savePreset}
                     busy={busy}
                     presetSaved={presetSaved}
-                    savePresetAndContinue={savePresetAndContinue}
                     scenarioId={scenarioId}
                     setScenarioId={setScenarioId}
                     runningStyle={runningStyle}
@@ -6798,7 +6818,6 @@ export default function AutoResearch() {
                     newCareerSaveName={newCareerSaveName}
                     setNewCareerSaveName={setNewCareerSaveName}
                     createCareerSave={createCareerSave}
-                    careerSettingName={careerSettingName}
                     automationActive={automationActive}
                     busy={busy}
                     activeCareer={activeCareer}
@@ -6837,8 +6856,6 @@ export default function AutoResearch() {
                     selectedFriendSupport={selectedFriendSupport}
                     visibleFriendSupports={visibleFriendSupports}
                     availableFriendSupportIds={availableFriendSupportIds}
-                    maxSteps={maxSteps}
-                    setMaxSteps={setMaxSteps}
                     burnClocks={burnClocks}
                     setBurnClocks={setBurnClocks}
                     recoverTpWithItem={recoverTpWithItem}
@@ -6993,11 +7010,7 @@ export default function AutoResearch() {
                       races={races}
                     />
                   ) : (
-                    <section
-                      className={panelClass(
-                        'flex min-h-[320px] flex-col items-center justify-center p-8 text-center',
-                      )}
-                    >
+                    <section className="flex min-h-full flex-1 flex-col items-center justify-center p-8 text-center">
                       <Database size={38} className="text-slate-300" />
                       <h2 className="mt-4 font-bold text-slate-800">
                         请先指定自动育成服务器

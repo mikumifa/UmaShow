@@ -501,8 +501,6 @@ export default function RaceList() {
   return (
     <RacePageLayout
       title="比赛记录"
-      description="练习，自定义比赛，保存的比赛，星座杯比赛"
-      icon={<Trophy size={20} />}
       actions={
         <>
           <button
@@ -661,9 +659,9 @@ export default function RaceList() {
       )}
 
       {/* 列表 */}
-      <div className="space-y-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {items.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 py-20">
             <Trophy size={48} className="text-gray-300 mb-4" />
             <div className="text-gray-400 font-medium">暂无比赛记录</div>
           </div>

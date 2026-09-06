@@ -9,7 +9,6 @@ import {
   Save,
   Search,
   Trash2,
-  X,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -22,17 +21,15 @@ import {
 } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import OfflineCareerSettings from './OfflineCareerSettings';
+import AppMenuPortal from '../AppMenuPortal';
+import AppSideNotch from '../AppSideNotch';
 import {
   characterIconPath,
   DeckChoiceCard,
   ParentChoiceCard,
   SupportChoiceCard,
 } from './SelectionCards';
-import {
-  careerSettingModeBadgeClass,
-  panelClass,
-  scrollToSection,
-} from './shared';
+import { careerSettingModeBadgeClass, scrollToSection } from './shared';
 import { parentCompatibilityPreview } from './successionCompatibility';
 import { AutoResearchSkill } from './SkillSelector';
 import {
@@ -59,7 +56,6 @@ type CareerTabProps = {
   newCareerSaveName: string;
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
   createCareerSave: () => void;
-  careerSettingName: string;
   automationActive: boolean;
   busy: string;
   activeCareer?: SessionAccount['career'];
@@ -98,8 +94,6 @@ type CareerTabProps = {
   selectedFriendSupport?: SupportInfo;
   visibleFriendSupports: SupportInfo[];
   availableFriendSupportIds: Set<number>;
-  maxSteps: number;
-  setMaxSteps: Dispatch<SetStateAction<number>>;
   burnClocks: boolean;
   setBurnClocks: Dispatch<SetStateAction<boolean>>;
   recoverTpWithItem: boolean;
@@ -220,7 +214,6 @@ export default function CareerTab(props: CareerTabProps) {
     newCareerSaveName,
     setNewCareerSaveName,
     createCareerSave,
-    careerSettingName,
     automationActive,
     busy,
     activeCareer,
@@ -259,8 +252,6 @@ export default function CareerTab(props: CareerTabProps) {
     selectedFriendSupport,
     visibleFriendSupports,
     availableFriendSupportIds,
-    maxSteps,
-    setMaxSteps,
     burnClocks,
     setBurnClocks,
     recoverTpWithItem,
@@ -349,6 +340,13 @@ export default function CareerTab(props: CareerTabProps) {
   const pickerParents = dashboard.parents
     .filter((parent) => {
       if (
+        parent.source === 'rental' &&
+        parent.friend_state !== undefined &&
+        ![1, 3].includes(parent.friend_state)
+      ) {
+        return false;
+      }
+      if (
         parentPickerSource !== 'all' &&
         parent.source !== parentPickerSource
       ) {
@@ -435,7 +433,7 @@ export default function CareerTab(props: CareerTabProps) {
     setNewCareerDialogOpen(false);
   };
   return activeCareer?.active && !careerSaveOpen ? (
-    <section className={panelClass('p-5')}>
+    <section>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
@@ -518,7 +516,7 @@ export default function CareerTab(props: CareerTabProps) {
       </div>
     </section>
   ) : offlineDetailBlockedByActiveCareer ? (
-    <section className={panelClass('p-5')}>
+    <section>
       <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
         <AlertTriangle size={20} className="mt-0.5 flex-none text-amber-600" />
         <div>
@@ -551,17 +549,8 @@ export default function CareerTab(props: CareerTabProps) {
     </section>
   ) : !careerSaveOpen && !automationActive ? (
     <>
-      <section className={panelClass('p-5')}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold">
-              <Database size={19} className="text-indigo-600" />
-              选择养马详设
-            </h2>
-          </div>
-        </div>
-
-        <div className="mt-5 grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <section className="flex-1">
+        <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
           {accountCareerSettings.map((setting) => {
             const uma = dashboard.umas.find(
               (item) => item.id === setting.card_id,
@@ -660,9 +649,6 @@ export default function CareerTab(props: CareerTabProps) {
             <strong className="mt-3 text-sm text-indigo-950">
               新建养马详设
             </strong>
-            <span className="mt-1 text-xs text-indigo-600">
-              选择育成模式并绑定配置
-            </span>
           </button>
         </div>
       </section>
@@ -681,28 +667,6 @@ export default function CareerTab(props: CareerTabProps) {
             aria-labelledby="new-career-dialog-title"
             className="successionPickerDialog relative max-h-[90vh] w-full max-w-lg"
           >
-            <header className="successionPickerHeader">
-              <div>
-                <h3
-                  id="new-career-dialog-title"
-                  className="font-semibold text-slate-900"
-                >
-                  新建养马详设
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  创建后会直接进入详设配置页面。
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="关闭新建养马详设"
-                onClick={() => setNewCareerDialogOpen(false)}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X size={18} />
-              </button>
-            </header>
-
             <div className="space-y-4 overflow-y-auto p-5">
               <div className="grid grid-cols-2 gap-2">
                 {(['online', 'offline'] as const).map((mode) => (
@@ -738,13 +702,10 @@ export default function CareerTab(props: CareerTabProps) {
                       </option>
                     ))}
                   </select>
-                  <span className="mt-1.5 block text-xs font-normal leading-5 text-slate-500">
-                    进入详设后将固定绑定，不能再切换到其他预设。
-                  </span>
                 </label>
               ) : (
                 <p className="rounded-md bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-700">
-                  离线详设独立保存最后点技能与因子筛选设置，不绑定预设。
+                  离线详设不绑定预设。
                 </p>
               )}
 
@@ -785,66 +746,56 @@ export default function CareerTab(props: CareerTabProps) {
     </>
   ) : (
     <>
-      <nav className="sticky top-[88px] z-20 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-        {[
-          ['career-task', '任务配置'],
-          ['career-selection', '选择阵容'],
-          ...(careerMode === 'offline'
-            ? [
-                ['offline-career-setup', '赛程槽位'],
-                ['career-options', '结束点技能'],
-                ['career-factor-options', '因子筛选'],
-              ]
-            : [['career-options', '其他设置']]),
-        ].map(([target, label]) => (
-          <button
-            key={target}
-            type="button"
-            onClick={() => scrollToSection(target)}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <AppMenuPortal targetId="app-page-secondary-tabs">
+        <AppSideNotch side="left">
+          <nav className="flex h-10 items-center gap-1 px-2">
+            {[
+              ['career-task', '任务配置'],
+              ['career-selection', '选择阵容'],
+              ...(careerMode === 'offline'
+                ? [
+                    ['offline-career-setup', '赛程槽位'],
+                    ['career-options', '结束点技能'],
+                    ['career-factor-options', '因子筛选'],
+                  ]
+                : [['career-options', '其他设置']]),
+            ].map(([target, label]) => (
+              <button
+                key={target}
+                type="button"
+                onClick={() => scrollToSection(target)}
+                className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </AppSideNotch>
+      </AppMenuPortal>
 
-      <section id="career-task" className={`${panelClass('p-5')} scroll-mt-28`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">
-              育成任务配置 · {careerSettingName}
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <AppMenuPortal targetId="app-page-context-actions">
+        <AppSideNotch side="right">
+          <div className="flex h-10 items-center gap-1.5 px-2">
             <button
               type="button"
               onClick={closeCareerEditor}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="h-7 whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-slate-100"
             >
-              返回详设选择界面
+              返回
             </button>
-            {careerMode === 'online' ? (
-              <button
-                type="button"
-                onClick={editCareerPreset}
-                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-              >
-                编辑预设
-              </button>
-            ) : null}
             {automationActive && careerMode === 'online' ? (
               <button
                 type="button"
                 onClick={saveAndApplyCareerSetting}
                 disabled={Boolean(busy)}
-                className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-medium text-white disabled:opacity-50"
               >
                 {busy === 'update-runner' ? (
-                  <RefreshCw size={17} className="animate-spin" />
+                  <RefreshCw size={14} className="animate-spin" />
                 ) : (
-                  <Save size={17} />
+                  <Save size={14} />
                 )}
-                {busy === 'update-runner' ? '正在应用…' : '保存并立即应用'}
+                {busy === 'update-runner' ? '正在应用…' : '保存并应用'}
               </button>
             ) : (
               <>
@@ -852,10 +803,10 @@ export default function CareerTab(props: CareerTabProps) {
                   type="button"
                   onClick={saveCareerSetting}
                   disabled={busy === 'run'}
-                  className="flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                  className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
                 >
-                  <Save size={16} />
-                  保存设置
+                  <Save size={14} />
+                  保存
                 </button>
                 <button
                   type="button"
@@ -865,30 +816,32 @@ export default function CareerTab(props: CareerTabProps) {
                     (continuingCurrentCareer && !canContinueCurrentCareer) ||
                     (careerMode === 'offline' && !offlineRaceDeckNum)
                   }
-                  className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  <Play size={17} />
+                  <Play size={14} />
                   {busy === 'run' || busy === 'idle-start'
                     ? dashboard.account.career?.active
-                      ? '正在保存并继续…'
+                      ? '保存并继续中…'
                       : careerMode === 'offline'
-                        ? '正在启动离线育成…'
-                        : '正在保存并开始…'
+                        ? '启动中…'
+                        : '保存并开始中…'
                     : careerMode === 'offline' && !offlineRaceDeckNum
                       ? '请选择赛程槽位'
                       : continuingCurrentCareer
                         ? canContinueCurrentCareer
                           ? '保存并继续'
-                          : '当前详设不匹配'
+                          : '详设不匹配'
                         : '保存并开始'}
                 </button>
               </>
             )}
           </div>
-        </div>
+        </AppSideNotch>
+      </AppMenuPortal>
 
+      <section id="career-task" className="scroll-mt-28">
         {!dashboard.account.career?.active ? (
-          <div id="career-selection" className="mt-5 scroll-mt-28 space-y-5">
+          <div id="career-selection" className="scroll-mt-28 space-y-5">
             <div className="grid gap-5 xl:grid-cols-3">
               <section className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
                 <div className="flex items-center gap-2">
@@ -935,8 +888,8 @@ export default function CareerTab(props: CareerTabProps) {
                 <SuccessionPickerDialog
                   ariaLabel="选择育成马娘"
                   eyebrow="SELECT UMAMUSUME"
-                  title="选择育成马娘"
-                  description="输入名称或 ID 搜索，点击头像完成选择。"
+                  title="正在选择育成马娘"
+                  description="点击卡片选择，可继续切换；使用右上角按钮关闭。"
                   onClose={() => setUmaPickerOpen(false)}
                   searchValue={umaPickerSearch}
                   searchPlaceholder="输入马娘名称或 ID"
@@ -956,17 +909,6 @@ export default function CareerTab(props: CareerTabProps) {
                     </>
                   }
                   bodyClassName="successionPickerGrid"
-                  footer={
-                    <>
-                      <span>当前显示 {pickerUmas.length} 位马娘</span>
-                      <button
-                        type="button"
-                        onClick={() => setUmaPickerOpen(false)}
-                      >
-                        完成
-                      </button>
-                    </>
-                  }
                 >
                   {pickerUmas.length ? (
                     pickerUmas.map((uma) => {
@@ -991,7 +933,6 @@ export default function CareerTab(props: CareerTabProps) {
                             setParent1('');
                             setParent2('');
                             resetOfflineCareer();
-                            setUmaPickerOpen(false);
                           }}
                           key={uma.id}
                         />
@@ -1110,7 +1051,8 @@ export default function CareerTab(props: CareerTabProps) {
               {selectedUma && parentPickerSlot ? (
                 <SuccessionPickerDialog
                   ariaLabel={`选择继承马娘 ${parentPickerSlot}`}
-                  title="选择已有马娘"
+                  title={`正在选择继承位 ${parentPickerSlot}`}
+                  description="点击卡片为当前继承位选择，可继续切换；使用右上角按钮关闭。"
                   onClose={() => setParentPickerSlot(null)}
                   dialogClassName="successionCapturedPickerDialog"
                   searchValue={parentPickerSearch}
@@ -1134,17 +1076,6 @@ export default function CareerTab(props: CareerTabProps) {
                         清空筛选
                       </button>
                     ) : null
-                  }
-                  footer={
-                    <>
-                      <span>正在选择继承位 {parentPickerSlot}</span>
-                      <button
-                        type="button"
-                        onClick={() => setParentPickerSlot(null)}
-                      >
-                        完成
-                      </button>
-                    </>
                   }
                 >
                   <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-3 py-2">
@@ -1431,10 +1362,8 @@ export default function CareerTab(props: CareerTabProps) {
                             onSelect={() => {
                               if (parentPickerSlot === 1) {
                                 setParent1(parent.selection_id);
-                                setParentPickerSlot(2);
                               } else {
                                 setParent2(parent.selection_id);
-                                setParentPickerSlot(null);
                               }
                             }}
                           />
@@ -1585,103 +1514,78 @@ export default function CareerTab(props: CareerTabProps) {
                 </div>
               ) : null}
 
-              <div
-                className={
-                  careerMode === 'online'
-                    ? 'mt-4 grid gap-4 md:grid-cols-2'
-                    : 'contents'
-                }
-              >
-                {careerMode === 'online' ? (
-                  <>
-                    <div className="text-sm">
-                      绑定预设
-                      <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
-                        <strong className="block text-sm text-violet-950">
-                          {careerPresetName}
-                        </strong>
-                        <span className="mt-0.5 block text-xs text-violet-700">
-                          该详设已与此预设绑定，不能切换
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={editCareerPreset}
-                        className="mt-2 block text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                      >
-                        编辑“{careerPresetName}”的预设配置 →
-                      </button>
-                    </div>
-                    <label className="text-sm">
-                      单次养马防卡死上限
-                      <span className="mt-0.5 block text-xs text-slate-400">
-                        最多处理多少次训练、事件和比赛；不是养马次数，通常不用修改
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={3000}
-                        value={maxSteps}
-                        onChange={(event) =>
-                          setMaxSteps(Number(event.target.value))
-                        }
-                        className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2"
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <div className="contents">
-                    <OfflineCareerSettings
-                      setup={offlineSetup}
-                      scenarios={offlineScenarios}
-                      selectedScenarioId={offlineScenarioId}
-                      onScenarioChange={changeOfflineScenario}
-                      races={races}
-                      selectedDeckNum={offlineRaceDeckNum}
-                      setSelectedDeckNum={setOfflineRaceDeckNum}
-                      busy={busy}
-                      prepare={prepareOfflineCareer}
-                      saveDeck={saveOfflineRaceDeck}
-                      factorSelection={offlineFactorSelection}
-                      setFactorSelection={setOfflineFactorSelection}
-                      parents={dashboard.parents}
-                      umas={dashboard.umas}
-                      skills={skills}
-                      skillSettings={offlineSkillSettings}
-                      setSkillSettings={setOfflineSkillSettings}
-                    />
-                  </div>
-                )}
-              </div>
+              {careerMode === 'offline' ? (
+                <OfflineCareerSettings
+                  setup={offlineSetup}
+                  scenarios={offlineScenarios}
+                  selectedScenarioId={offlineScenarioId}
+                  onScenarioChange={changeOfflineScenario}
+                  races={races}
+                  selectedDeckNum={offlineRaceDeckNum}
+                  setSelectedDeckNum={setOfflineRaceDeckNum}
+                  busy={busy}
+                  prepare={prepareOfflineCareer}
+                  saveDeck={saveOfflineRaceDeck}
+                  factorSelection={offlineFactorSelection}
+                  setFactorSelection={setOfflineFactorSelection}
+                  parents={dashboard.parents}
+                  umas={dashboard.umas}
+                  skills={skills}
+                  skillSettings={offlineSkillSettings}
+                  setSkillSettings={setOfflineSkillSettings}
+                />
+              ) : null}
 
-              <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+              <div
+                className={`mt-4 grid max-w-4xl gap-2 sm:grid-cols-2 ${
+                  careerMode === 'online' ? 'auto-rows-fr' : ''
+                }`}
+              >
                 {careerMode === 'offline' ? (
-                  <div className="px-3 py-3">
+                  <div className="px-1 py-1 sm:col-span-2">
                     <strong className="block text-sm font-medium text-slate-800">
                       TP 恢复设置
                     </strong>
                   </div>
                 ) : null}
                 {careerMode === 'online' ? (
-                  <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={burnClocks}
-                      onChange={(event) => setBurnClocks(event.target.checked)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <strong className="block font-medium text-slate-800">
-                        比赛失败时使用闹钟
-                      </strong>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        失败后有可用闹钟时自动继续；当前有{' '}
-                        {dashboard.account.clocks || 0} 个
+                  <>
+                    <button
+                      type="button"
+                      onClick={editCareerPreset}
+                      className="flex min-h-20 items-start rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
+                    >
+                      <span>
+                        <strong className="block font-medium text-slate-800">
+                          {careerPresetName}
+                        </strong>
+                        <span className="mt-0.5 block text-xs font-medium text-indigo-600">
+                          编辑“{careerPresetName}”的预设配置 →
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </button>
+                    <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={burnClocks}
+                        onChange={(event) =>
+                          setBurnClocks(event.target.checked)
+                        }
+                        className="mt-1"
+                      />
+                      <span>
+                        <strong className="block font-medium text-slate-800">
+                          比赛失败时使用闹钟
+                        </strong>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          失败后有可用闹钟时自动继续；当前有{' '}
+                          {dashboard.account.clocks || 0} 个
+                        </span>
+                      </span>
+                    </label>
+                  </>
                 ) : null}
-                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
+                <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
                   <input
                     type="checkbox"
                     checked={recoverTpWithItem}
@@ -1700,7 +1604,7 @@ export default function CareerTab(props: CareerTabProps) {
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-3 px-3 py-3 text-sm text-slate-700">
+                <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
                   <input
                     type="checkbox"
                     checked={recoverTpWithJewels}

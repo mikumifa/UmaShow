@@ -12,7 +12,6 @@ import { createPortal } from 'react-dom';
 import {
   Check,
   Download,
-  GitBranch,
   GripVertical,
   Plus,
   RefreshCw,
@@ -41,6 +40,7 @@ import {
   PlannerSelectionCard,
 } from 'renderer/components/succession/PlannerComponents';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import {
   characterIconPath,
   horseIconPath,
@@ -1110,6 +1110,9 @@ function capturedMember(
   };
 }
 
+const FOLLOWED_FRIEND_STATES = new Set([1, 3]);
+const MANUAL_SUCCESSION_PLAYER_FLAG = '__uma_show_manual_succession_player';
+
 export function normalizeSuccessionIndex(
   snapshot: SuccessionIndexSnapshot | null,
 ) {
@@ -1121,14 +1124,32 @@ export function normalizeSuccessionIndex(
       ? index.trained_chara_array
       : [];
   const rentalData = index.succession_trained_chara_data || {};
-  const rentalRows = Array.isArray(rentalData.succession_trained_chara_array)
+  const rentalSummaries = Array.isArray(rentalData.summary_user_info_array)
+    ? rentalData.summary_user_info_array
+    : [];
+  const eligibleRentalSummaries = rentalSummaries.filter(
+    (row: any) =>
+      FOLLOWED_FRIEND_STATES.has(Number(row?.friend_state)) ||
+      row?.[MANUAL_SUCCESSION_PLAYER_FLAG] === true,
+  );
+  const eligibleRentalViewerIds = new Set<number>(
+    eligibleRentalSummaries.map((row: any) => Number(row?.viewer_id || 0)),
+  );
+  const rawRentalRows = Array.isArray(rentalData.succession_trained_chara_array)
     ? rentalData.succession_trained_chara_array
     : [];
+  const rentalRows = rawRentalRows.filter((row: any) => {
+    const viewerId = Number(row?.viewer_id || row?.owner_viewer_id || 0);
+    return (
+      eligibleRentalViewerIds.has(viewerId) ||
+      row?.[MANUAL_SUCCESSION_PLAYER_FLAG] === true
+    );
+  });
   const ownerNames = new Map<number, string>(
-    (Array.isArray(rentalData.summary_user_info_array)
-      ? rentalData.summary_user_info_array
-      : []
-    ).map((row: any) => [Number(row?.viewer_id || 0), String(row?.name || '')]),
+    eligibleRentalSummaries.map((row: any) => [
+      Number(row?.viewer_id || 0),
+      String(row?.name || ''),
+    ]),
   );
   const rowsById = new Map<number, any>();
   [...ownRows, ...rentalRows].forEach((row) => {
@@ -1149,6 +1170,13 @@ export function normalizeSuccessionIndex(
       rowViewerId !== currentViewerId
         ? 'rental'
         : expectedSource;
+    if (
+      source === 'rental' &&
+      !eligibleRentalViewerIds.has(rowViewerId) &&
+      row?.[MANUAL_SUCCESSION_PLAYER_FLAG] !== true
+    ) {
+      return null;
+    }
     const factorExtendRows = row?.factor_extend_array;
     const self = capturedMember(row, factorExtendRows, 1);
     if (!self) return null;
@@ -1250,6 +1278,7 @@ export function mergeScannedSuccessionPlayers(
     const row = {
       ...player.practicePartner,
       viewer_id: Number(player.viewerId),
+      [MANUAL_SUCCESSION_PLAYER_FLAG]: true,
     };
     rowMap.set(rowKey(row), row);
   });
@@ -1264,6 +1293,7 @@ export function mergeScannedSuccessionPlayers(
       ...player.userInfo,
       viewer_id: Number(player.viewerId),
       name: player.name,
+      [MANUAL_SUCCESSION_PLAYER_FLAG]: true,
     });
   });
 
@@ -2390,7 +2420,6 @@ function UmaSelect({
 
   const chooseUma = (umaId: number) => {
     onChange(umaId);
-    setOpen(false);
   };
   const clearSearch = () => setQuery('');
 
@@ -2440,8 +2469,8 @@ function UmaSelect({
         <SuccessionPickerDialog
           ariaLabel={`选择${label}`}
           eyebrow="SELECT UMAMUSUME"
-          title={`选择${label}`}
-          description="输入名称或 ID 搜索，点击头像完成选择。"
+          title={`正在选择${label}`}
+          description="点击卡片选择，可继续切换；使用右上角按钮关闭。"
           onClose={() => setOpen(false)}
           searchValue={query}
           searchPlaceholder="输入马娘名称或 ID"
@@ -2463,14 +2492,6 @@ function UmaSelect({
             </>
           }
           bodyClassName="successionPickerGrid"
-          footer={
-            <>
-              <span>当前显示 {options.length} 位马娘</span>
-              <button type="button" onClick={() => setOpen(false)}>
-                完成
-              </button>
-            </>
-          }
         >
           {options.length ? (
             options.map((uma) => {
@@ -11170,16 +11191,6 @@ export default function SuccessionPlannerPage() {
     () => normalizeSuccessionIndex(effectiveSnapshot),
     [effectiveSnapshot],
   );
-  const capturedRentalRows = Array.isArray(
-    effectiveSnapshot?.data?.succession_trained_chara_data
-      ?.succession_trained_chara_array,
-  )
-    ? effectiveSnapshot.data.succession_trained_chara_data
-        .succession_trained_chara_array.length
-    : 0;
-  const ownCount = capturedUmas.filter((uma) => uma.source === 'own').length;
-  const rentalCount = capturedUmas.length - ownCount;
-
   const loadScanAccounts = async () => {
     const accounts =
       (await window.electron.autoResearch.accounts()) as SuccessionScanAccount[];
@@ -11335,38 +11346,29 @@ export default function SuccessionPlannerPage() {
 
   return (
     <main className="successionPlannerPage">
-      <header className="successionIndexStatus">
-        <div className="successionIndexTitle">
-          <div className="successionIndexTitleLine">
-            <GitBranch size={20} />
-            <h1>继承规划</h1>
-          </div>
-          <p>
-            {effectiveSnapshot
-              ? `自己的 ${ownCount} · 其他玩家 ${rentalCount}/${capturedRentalRows} · 已保存扫描玩家 ${scannedPlayers.length} · ${new Date(effectiveSnapshot.receivedAt).toLocaleString()}`
-              : '请保持监听开启，并在游戏中进入育成准备画面'}
-          </p>
-        </div>
-        <div className="successionIndexActions">
+      <AppMenuPortal>
+        <div className="flex items-center gap-1.5">
           <span
-            className={`successionIndexState ${
-              effectiveSnapshot ? 'captured' : 'waiting'
+            className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              effectiveSnapshot
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-amber-100 text-amber-700'
             }`}
           >
             {effectiveSnapshot
               ? `已载入 ${capturedUmas.length} 匹`
-              : '等待育成准备数据'}
+              : '等待数据'}
           </span>
           <button
             type="button"
-            className="successionAddPlayersButton"
+            className="flex h-7 items-center gap-1 whitespace-nowrap rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
             onClick={() => setPlayerScanOpen(true)}
           >
             <Plus size={15} />
-            增加更多马娘
+            增加马娘
           </button>
         </div>
-      </header>
+      </AppMenuPortal>
       <SuccessionPlanner
         capturedUmas={capturedUmas}
         successionG1SaddleIds={successionG1SaddleIds}

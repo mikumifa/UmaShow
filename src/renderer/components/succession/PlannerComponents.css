@@ -273,17 +273,68 @@
   transform: translateY(-1px);
 }
 
-.plannerSelectionCard.selected,
+.plannerSelectionCard.selected {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  box-shadow:
+    inset 4px 0 0 #6366f1,
+    0 0 0 2px #c7d2fe;
+}
+
+.plannerSelectionCard.occupied {
+  cursor: not-allowed;
+  border-color: #f59e0b;
+  border-style: dashed;
+  background: #fffbeb;
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+
+.plannerSelectionCard.disabled {
+  cursor: not-allowed;
+  border-color: #cbd5e1;
+  border-style: dashed;
+  background: #f8fafc;
+  box-shadow: inset 4px 0 0 #cbd5e1;
+  color: #94a3b8;
+}
+
 .plannerSkillCard.selected {
   border-color: #818cf8;
   background: var(--planner-accent-soft);
   box-shadow: 0 0 0 2px #e0e7ff;
 }
 
-.plannerSelectionCard:disabled,
+.plannerSelectionCard:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.plannerSelectionCard.occupied .plannerPortrait {
+  filter: grayscale(0.45);
+  opacity: 0.68;
+}
+
+.plannerSelectionCard.disabled .plannerPortrait {
+  filter: grayscale(1);
+  opacity: 0.42;
+}
+
+.plannerSelectionCard.occupied .plannerSelectionCardCopy > strong {
+  color: #92400e;
+}
+
+.plannerSelectionCard.disabled .plannerSelectionCardCopy > strong,
+.plannerSelectionCard.disabled .plannerSelectionCardCopy > small {
+  color: #94a3b8;
+}
+
 .plannerSkillCard:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+.plannerSelectionCard.hasState {
+  padding-right: 102px;
 }
 
 .plannerSelectionCardCopy,
@@ -312,7 +363,6 @@
   font-style: normal;
 }
 
-.plannerSelectionCardCheck,
 .plannerSkillCardCheck {
   display: grid;
   width: 24px;
@@ -324,17 +374,45 @@
   color: #fff;
 }
 
-.plannerSelectionCardOccupied {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.plannerSelectionState {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 3px 7px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: #64748b;
-  color: #fff;
   font-size: 10px;
   font-style: normal;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.plannerSelectionCard > .plannerSelectionState {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.plannerSelectionState.selected {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 2px 6px rgb(79 70 229 / 22%);
+}
+
+.plannerSelectionState.occupied {
+  border-color: #fbbf24;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.plannerSelectionState.disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #64748b;
 }
 
 .plannerSkillCard {
@@ -452,12 +530,30 @@
 }
 
 .plannerLineageCard.selected {
-  border-color: #818cf8;
-  box-shadow: 0 0 0 2px #e0e7ff;
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  box-shadow:
+    inset 4px 0 0 #6366f1,
+    0 0 0 2px #c7d2fe;
 }
 
 .plannerLineageCard.disabled {
-  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #cbd5e1;
+  border-style: dashed;
+  background: #f8fafc;
+  box-shadow: inset 4px 0 0 #cbd5e1;
+}
+
+.plannerLineageCard.disabled .plannerPortrait {
+  filter: grayscale(1);
+  opacity: 0.42;
+}
+
+.plannerLineageCard.disabled .plannerLineageIdentity strong,
+.plannerLineageCard.disabled .plannerLineageIdentity small,
+.plannerLineageCard.disabled .plannerLineageIdentity em {
+  color: #94a3b8;
 }
 
 .plannerLineageSelf,
@@ -507,6 +603,13 @@
 
 .plannerLineageDetails {
   flex: 0 0 auto;
+}
+
+.plannerLineageActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
 }
 
 .plannerLineageParents {

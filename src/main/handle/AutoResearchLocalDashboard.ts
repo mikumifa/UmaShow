@@ -74,6 +74,9 @@ const SUPPORT_RARITIES: Record<number, string> = {
   3: 'SSR',
 };
 
+const FOLLOW_FRIEND_STATE = 1;
+const MUTUAL_FRIEND_STATE = 3;
+
 const SUPPORT_COMMAND_TYPES: Record<number, string> = {
   101: 'Speed',
   102: 'Power',
@@ -108,6 +111,13 @@ function asRecords(value: unknown): UnknownRecord[] {
 function numberValue(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
+}
+
+function followedFriendState(row: UnknownRecord) {
+  const state = numberValue(row.friend_state);
+  return state === FOLLOW_FRIEND_STATE || state === MUTUAL_FRIEND_STATE
+    ? state
+    : 0;
 }
 
 function cleanText(value: unknown) {
@@ -764,6 +774,8 @@ function normalizeFriends(
   const seen = new Set<string>();
   const bestBySupport = new Map<number, Friend>();
   summaries.forEach((summary) => {
+    const friendState = followedFriendState(summary);
+    if (!friendState) return;
     const viewerId = positiveNumber(summary.viewer_id);
     const supportId = positiveNumber(summary.support_card_id);
     const key = `${viewerId}:${supportId}`;
@@ -788,6 +800,7 @@ function normalizeFriends(
         0,
         numberValue(supportCard.limit_break_count),
       ),
+      friend_state: friendState,
     };
     const current = bestBySupport.get(supportId);
     if (
@@ -800,7 +813,11 @@ function normalizeFriends(
     }
   });
   return {
-    friends: [...bestBySupport.values()],
+    friends: [...bestBySupport.values()].sort(
+      (left, right) =>
+        left.support_card_id - right.support_card_id ||
+        left.viewer_id - right.viewer_id,
+    ),
     friendExcludeIds: [...excluded],
   };
 }
@@ -873,9 +890,15 @@ export function buildLocalDashboard(
   const parentIds = new Set<string>();
   const rentalData = asRecord(data.succession_trained_chara_data) || {};
   const rentalNames = new Map<number, string>();
+  const rentalFriendStates = new Map<number, number>();
   asRecords(rentalData.summary_user_info_array).forEach((summary) => {
+    const friendState = followedFriendState(summary);
+    if (!friendState) return;
     const viewerId = positiveNumber(summary.viewer_id);
-    if (viewerId) rentalNames.set(viewerId, cleanText(summary.name));
+    if (viewerId) {
+      rentalNames.set(viewerId, cleanText(summary.name));
+      rentalFriendStates.set(viewerId, friendState);
+    }
   });
   const root = asRecord(rawData);
   const currentViewerId = positiveNumber(
@@ -894,6 +917,7 @@ export function buildLocalDashboard(
       rowViewerId !== currentViewerId
         ? 'rental'
         : expectedSource;
+    if (source === 'rental' && !rentalNames.has(rowViewerId)) return;
     const parent = publicParent(
       row,
       source,
@@ -902,7 +926,11 @@ export function buildLocalDashboard(
     );
     if (parent && !parentIds.has(parent.selection_id)) {
       parentIds.add(parent.selection_id);
-      parents.push(parent);
+      parents.push(
+        source === 'rental'
+          ? { ...parent, friend_state: rentalFriendStates.get(rowViewerId) }
+          : parent,
+      );
     }
   };
   const directOwnRows = asRecords(data.trained_chara);

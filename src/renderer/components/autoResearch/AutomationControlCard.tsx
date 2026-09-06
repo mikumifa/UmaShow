@@ -118,7 +118,6 @@ export default function AutomationControlCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-bold text-slate-900">运行计划</h2>
             <span
               className={statusBadgeClass(
                 runnerStopping || runnerPaused ? 'amber' : 'emerald',

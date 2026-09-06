@@ -693,9 +693,17 @@ describe('normalizeSuccessionIndex', () => {
             viewer_id: 222,
             factor_info_array: [{ factor_id: 202 }, { factor_id: 1202 }],
           },
+          {
+            ...trainedUma(3, 100401, 1202, parents),
+            viewer_id: 333,
+            factor_info_array: [{ factor_id: 202 }, { factor_id: 1202 }],
+          },
         ],
         succession_trained_chara_data: {
-          summary_user_info_array: [{ viewer_id: 222, name: '好友' }],
+          summary_user_info_array: [
+            { viewer_id: 222, name: '关注玩家', friend_state: 1 },
+            { viewer_id: 333, name: '系统推荐', friend_state: 0 },
+          ],
         },
       },
     });
@@ -706,7 +714,7 @@ describe('normalizeSuccessionIndex', () => {
       { viewerId: 111, source: 'own' },
       { viewerId: 222, source: 'rental' },
     ]);
-    expect(normalized[1].ownerName).toBe('好友');
+    expect(normalized[1].ownerName).toBe('关注玩家');
   });
 
   test('applies factor research upgrades to each lineage position', () => {
@@ -882,7 +890,9 @@ describe('normalizeSuccessionIndex', () => {
           },
         ],
         succession_trained_chara_data: {
-          summary_user_info_array: [{ viewer_id: 9, name: '好友' }],
+          summary_user_info_array: [
+            { viewer_id: 9, name: '好友', friend_state: 3 },
+          ],
           succession_trained_chara_array: [
             {
               ...trainedUma(2, 100401, 1203, rentalParents),

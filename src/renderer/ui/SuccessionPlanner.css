@@ -17,8 +17,10 @@
 }
 
 .successionPlannerPage {
-  min-height: 100vh;
-  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 12px 16px 20px;
   background: var(--uma-bg);
 }
 
@@ -145,8 +147,13 @@
   --succession-maternal-soft: #fff0f5;
   --succession-gold: #d68b12;
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: 10px;
+}
+
+.successionLineagePanel {
+  flex: 1 0 auto;
 }
 
 .successionCapturedPickerDialog {
@@ -946,6 +953,14 @@
 .successionTargetPanel,
 .successionPanel {
   padding: 16px;
+}
+
+.successionPanel.successionLineagePanel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .successionTargetPanel {

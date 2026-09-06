@@ -4,7 +4,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Check } from 'lucide-react';
+import { Ban, Check } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 
 import './PlannerComponents.css';
@@ -152,6 +152,47 @@ export function PlannerButton({
   );
 }
 
+type PlannerSelectionState = 'selected' | 'occupied' | 'disabled';
+
+const PLANNER_SELECTION_STATE_LABELS: Record<PlannerSelectionState, string> = {
+  selected: '已选择',
+  occupied: '其他位已选',
+  disabled: '禁止选择',
+};
+
+function resolvePlannerSelectionState({
+  selected,
+  occupied = false,
+  disabled,
+}: {
+  selected: boolean;
+  occupied?: boolean;
+  disabled: boolean;
+}): PlannerSelectionState | null {
+  if (selected) return 'selected';
+  if (occupied) return 'occupied';
+  if (disabled) return 'disabled';
+  return null;
+}
+
+function PlannerSelectionStateBadge({
+  state,
+}: {
+  state: PlannerSelectionState;
+}) {
+  const label = PLANNER_SELECTION_STATE_LABELS[state];
+  return (
+    <span className={`plannerSelectionState ${state}`} aria-label={label}>
+      {state === 'disabled' ? (
+        <Ban size={13} strokeWidth={2.5} />
+      ) : (
+        <Check size={13} strokeWidth={3} />
+      )}
+      <span>{label}</span>
+    </span>
+  );
+}
+
 export function PlannerSelectionCard({
   portrait,
   title,
@@ -171,12 +212,17 @@ export function PlannerSelectionCard({
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const state = resolvePlannerSelectionState({
+    selected,
+    occupied,
+    disabled,
+  });
   return (
     <button
       type="button"
-      className={`plannerUiTheme plannerSelectionCard ${
-        selected ? 'selected' : ''
-      } ${occupied ? 'occupied' : ''}`.trim()}
+      className={`plannerUiTheme plannerSelectionCard ${state || ''} ${
+        state ? 'hasState' : ''
+      }`.trim()}
       aria-pressed={selected}
       disabled={disabled || occupied}
       onClick={onClick}
@@ -187,14 +233,7 @@ export function PlannerSelectionCard({
         {subtitle ? <small>{subtitle}</small> : null}
         {details}
       </span>
-      {selected ? (
-        <span className="plannerSelectionCardCheck" aria-label="当前选择">
-          <Check size={14} strokeWidth={3} />
-        </span>
-      ) : null}
-      {occupied ? (
-        <em className="plannerSelectionCardOccupied">已选择</em>
-      ) : null}
+      {state ? <PlannerSelectionStateBadge state={state} /> : null}
     </button>
   );
 }
@@ -277,6 +316,7 @@ export function PlannerLineageCard({
   onDetails?: () => void;
 }) {
   const interactive = Boolean(onSelect) && !disabled && !viewOnly;
+  const state = resolvePlannerSelectionState({ selected, disabled });
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!interactive || event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -302,18 +342,23 @@ export function PlannerLineageCard({
           <strong>{member.name}</strong>
           {member.subtitle ? <em>{member.subtitle}</em> : null}
         </span>
-        {onDetails ? (
-          <PlannerButton
-            size="small"
-            variant="secondary"
-            className="plannerLineageDetails"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDetails();
-            }}
-          >
-            查看详细
-          </PlannerButton>
+        {state || onDetails ? (
+          <span className="plannerLineageActions">
+            {state ? <PlannerSelectionStateBadge state={state} /> : null}
+            {onDetails ? (
+              <PlannerButton
+                size="small"
+                variant="secondary"
+                className="plannerLineageDetails"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDetails();
+                }}
+              >
+                查看详细
+              </PlannerButton>
+            ) : null}
+          </span>
         ) : null}
       </header>
       <PlannerFactorList factors={member.factors} compact />

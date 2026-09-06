@@ -364,15 +364,9 @@ export default function DailyTasksTab({
     <div className="space-y-4">
       <section className={panelClass('p-5')}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <CalendarCheck className="text-indigo-600" size={20} />
-              <h2 className="font-bold text-slate-800">每日日常配置</h2>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              启动后，养马过程中会完成任务。
-            </p>
-          </div>
+          <p className="text-sm text-slate-500">
+            启动后，养马过程中会完成任务。
+          </p>
           <div className="flex items-center gap-3">
             <Toggle
               checked={draft.run_with_career}
