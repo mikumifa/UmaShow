@@ -776,8 +776,6 @@ export default function HistoryTab({
         </AppSideNotch>
       </AppMenuPortal>
       <section>
-        <p className="text-sm text-slate-500">仅保留最近 3 个养马日</p>
-
         <div className="mt-5">
           <p className="text-sm font-medium text-slate-700">选择详设</p>
           {accountCareerSettings.length ? (

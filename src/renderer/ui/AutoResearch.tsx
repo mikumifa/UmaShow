@@ -6144,9 +6144,9 @@ export default function AutoResearch() {
                 }`}
               >
                 {serverHostedMode
-                  ? '服务器托管模式'
+                  ? '服务器托管'
                   : localSessionMode || localAccountSessionState === 'ready'
-                    ? '本地登录模式'
+                    ? '本地'
                     : '未登录'}
               </span>
             ) : null}
@@ -6194,10 +6194,10 @@ export default function AutoResearch() {
                     : busy === `login-${selectedAccountId}`
                       ? '登录中…'
                       : serverHostedMode
-                        ? '刷新服务器状态'
+                        ? '刷新'
                         : localAccountSessionState === 'ready'
                           ? '重新登录'
-                          : '登录本地模式'}
+                          : '登录'}
                 </button>
                 {serverHostedMode ||
                 localSessionMode ||

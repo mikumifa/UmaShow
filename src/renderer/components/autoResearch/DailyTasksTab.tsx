@@ -259,11 +259,7 @@ export default function DailyTasksTab({
 
   if (locked) {
     return (
-      <section
-        className={panelClass(
-          'flex min-h-48 items-center justify-center p-10 text-center text-sm text-slate-500',
-        )}
-      >
+      <section className="flex min-h-48 items-center justify-center p-10 text-center text-sm text-slate-500">
         <div>
           <CalendarCheck className="mx-auto text-violet-300" size={30} />
           <p className="mt-3 font-medium text-slate-700">

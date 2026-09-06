@@ -498,7 +498,7 @@ export default function ProgressTab({
       : '';
   return currentCareerActive ? (
     <div className="space-y-4">
-      <section className={panelClass('p-5')}>
+      <section>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
@@ -746,36 +746,31 @@ export default function ProgressTab({
           offlineMode={offlineMode}
         />
       ) : !offlineMode ? (
-        <section className={panelClass('overflow-hidden')}>
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h3 className="font-bold text-slate-900">当前流程</h3>
-          </div>
-          <div className="cursor-text select-text">
-            {runnerLog
-              .slice()
-              .reverse()
-              .map((row) => (
-                <div
-                  key={`${runner?.run_id || 'legacy'}:${row.id}`}
-                  className="grid gap-1 border-b border-slate-50 px-5 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
-                >
-                  <span className="whitespace-nowrap font-medium text-indigo-600">
-                    {turnDateLabel(row.turn)}
-                  </span>
-                  <span className="font-semibold text-slate-700">
-                    {describeLogAction(row.action)}
-                  </span>
-                  <span className="text-slate-500">
-                    {describeLogDetail(row.detail)}
-                  </span>
-                </div>
-              ))}
-            {!runnerLog.length ? (
-              <p className="p-10 text-center text-sm text-slate-400">
-                暂无流程记录
-              </p>
-            ) : null}
-          </div>
+        <section className="cursor-text select-text">
+          {runnerLog
+            .slice()
+            .reverse()
+            .map((row) => (
+              <div
+                key={`${runner?.run_id || 'legacy'}:${row.id}`}
+                className="grid gap-1 border-b border-slate-100 px-1 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
+              >
+                <span className="whitespace-nowrap font-medium text-indigo-600">
+                  {turnDateLabel(row.turn)}
+                </span>
+                <span className="font-semibold text-slate-700">
+                  {describeLogAction(row.action)}
+                </span>
+                <span className="text-slate-500">
+                  {describeLogDetail(row.detail)}
+                </span>
+              </div>
+            ))}
+          {!runnerLog.length ? (
+            <p className="p-10 text-center text-sm text-slate-400">
+              暂无流程记录
+            </p>
+          ) : null}
         </section>
       ) : null}
     </div>

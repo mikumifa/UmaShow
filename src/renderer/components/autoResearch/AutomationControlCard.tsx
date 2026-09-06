@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Settings2,
 } from 'lucide-react';
-import { panelClass, runModeLabel, statusBadgeClass } from './shared';
+import { runModeLabel, statusBadgeClass } from './shared';
 import { CareerSetting, Runner, RunMode } from './types';
 
 type AutomationControlCardProps = {
@@ -114,7 +114,7 @@ export default function AutomationControlCard({
   );
 
   return (
-    <section className={panelClass('border-indigo-200 p-4')}>
+    <section className="rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -166,16 +166,16 @@ export default function AutomationControlCard({
             type="button"
             onClick={openAppendCareerPlan}
             disabled={!canAppendCareerPlan || runnerStopping || runnerPaused}
-            className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
           >
             <Plus size={14} />
-            添加后续计划
+            添加后续
           </button>
           {activeSetting && activeSetting.mode !== 'offline' ? (
             <button
               type="button"
               onClick={() => editPreset(activeSetting.id)}
-              className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
             >
               <Settings2 size={14} />
               编辑预设
@@ -186,7 +186,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={resumeCareer}
               disabled={Boolean(busy)}
-              className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
             >
               <Play size={14} />
               {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
@@ -196,24 +196,24 @@ export default function AutomationControlCard({
               type="button"
               onClick={pauseCareer}
               disabled={runnerStopping || busy === 'pause'}
-              className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
             >
               {runnerStopping ? (
                 <RefreshCw size={14} className="animate-spin" />
               ) : (
                 <Pause size={14} />
               )}
-              {runnerStopping && !runnerClosing ? '正在暂停…' : '暂停当前计划'}
+              {runnerStopping && !runnerClosing ? '正在暂停…' : '暂停'}
             </button>
           )}
           <button
             type="button"
             onClick={closeCareerPlan}
             disabled={runnerStopping || Boolean(busy)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
           >
             <CircleStop size={14} />
-            {runnerClosing ? '正在关闭…' : '关闭计划'}
+            {runnerClosing ? '正在关闭…' : '关闭'}
           </button>
           {planChanged && !runnerPaused ? (
             <button
@@ -225,7 +225,7 @@ export default function AutomationControlCard({
                   !repeatDaily &&
                   remainingJewelDrops <= 0)
               }
-              className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
             >
               <Play size={14} />
               {busy === 'update-runner' ? '正在应用…' : '应用计划'}
@@ -235,7 +235,7 @@ export default function AutomationControlCard({
       </div>
 
       {!queue?.active && !repeatDaily ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
           {modeOptions.map((option) => {
             const Icon = option.icon;
             const disabled =
@@ -258,10 +258,10 @@ export default function AutomationControlCard({
                     );
                   }
                 }}
-                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-left text-xs font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
                   runMode === option.id
-                    ? 'border-indigo-400 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-100'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
                 }`}
               >
                 <Icon size={14} className="flex-none" />
