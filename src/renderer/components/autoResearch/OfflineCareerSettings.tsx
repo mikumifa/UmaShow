@@ -38,6 +38,7 @@ import {
 import RaceSchedulePicker from './RaceSchedulePicker';
 
 type Props = {
+  factorOnly?: boolean;
   setup: OfflineSingleModeSetup | null;
   scenarios: Dashboard['offline_scenarios'];
   selectedScenarioId: number;
@@ -57,6 +58,8 @@ type Props = {
   parents: Dashboard['parents'];
   umas: Dashboard['umas'];
   skills: AutoResearchSkill[];
+  prioritySkillIds: number[];
+  setPrioritySkillIds: Dispatch<SetStateAction<number[]>>;
   skillSettings: OfflineSkillSettings;
   setSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
@@ -181,6 +184,7 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
 };
 
 export default function OfflineCareerSettings({
+  factorOnly = false,
   setup,
   scenarios,
   selectedScenarioId,
@@ -196,13 +200,19 @@ export default function OfflineCareerSettings({
   parents,
   umas,
   skills,
+  prioritySkillIds,
+  setPrioritySkillIds,
   skillSettings,
   setSkillSettings,
 }: Props) {
   const [factorSkillPickerOpen, setFactorSkillPickerOpen] = useState(false);
+  const [prioritySkillPickerOpen, setPrioritySkillPickerOpen] = useState(false);
   const [finalSkillPickerOpen, setFinalSkillPickerOpen] = useState(false);
   const [draggedFactorTarget, setDraggedFactorTarget] = useState('');
   const [draggedFinalSkillIndex, setDraggedFinalSkillIndex] = useState<
+    number | null
+  >(null);
+  const [draggedPrioritySkillIndex, setDraggedPrioritySkillIndex] = useState<
     number | null
   >(null);
   const [editingDeckNum, setEditingDeckNum] = useState(0);
@@ -377,6 +387,37 @@ export default function OfflineCareerSettings({
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
   );
+  const skillById = useMemo(
+    () => new Map(skills.map((skill) => [skill.id, skill])),
+    [skills],
+  );
+  const selectedPrioritySkillNames = prioritySkillIds
+    .map((skillId) => skillById.get(skillId)?.name)
+    .filter((name): name is string => Boolean(name));
+  const togglePrioritySkill = (skill: AutoResearchSkill) =>
+    setPrioritySkillIds((current) => {
+      if (current.includes(skill.id)) {
+        return current.filter((skillId) => skillId !== skill.id);
+      }
+      return [...current, skill.id];
+    });
+  const reorderPrioritySkill = (sourceIndex: number, targetIndex: number) => {
+    if (sourceIndex === targetIndex) return;
+    setPrioritySkillIds((current) => {
+      if (
+        sourceIndex < 0 ||
+        targetIndex < 0 ||
+        sourceIndex >= current.length ||
+        targetIndex >= current.length
+      ) {
+        return current;
+      }
+      const next = [...current];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
   const toggleFinalSkill = (skill: AutoResearchSkill) => {
     setSkillSettings((current) => {
       const exists = current.learn_skill_list.some((group) =>
@@ -761,374 +802,13 @@ export default function OfflineCareerSettings({
   return (
     <>
       <section
-        id="offline-career-setup"
-        className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-      >
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              5
-            </span>
-            <div>
-              <h3 className="font-semibold text-gray-800">赛程设置</h3>
-              <p className="text-xs text-gray-500">
-                详设只保存游戏赛程槽位 ID，启动时直接使用服务器上的槽位内容。
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
-          <div className="max-w-sm">
-            <label className="block text-sm text-slate-700">
-              育成剧本
-              <select
-                value={selectedScenarioId}
-                disabled={Boolean(busy)}
-                onChange={(event) =>
-                  onScenarioChange(Number(event.target.value))
-                }
-                className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
-              >
-                <option value={0}>自动选择最新可用剧本</option>
-                {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {setup ? (
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 px-0.5 text-xs">
-                <span className="text-slate-500">当前主剧本</span>
-                <strong className="text-slate-800">
-                  {setup.scenario_name || `剧本 ${setup.scenario_id}`}
-                </strong>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="max-w-5xl">
-            <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
-              {deckOptions.map((deck) => {
-                const selected = selectedDeckNum === deck.deck_num;
-                return (
-                  <article
-                    key={deck.deck_num}
-                    className={`flex min-h-16 min-w-0 items-center gap-2 rounded-lg border bg-white p-2.5 text-sm transition ${
-                      selected
-                        ? 'border-indigo-400 ring-2 ring-indigo-100'
-                        : 'border-slate-200'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setSelectedDeckNum(deck.deck_num)}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
-                    >
-                      <span
-                        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
-                          selected
-                            ? 'border-indigo-600 bg-indigo-600 text-white'
-                            : 'border-slate-300 text-transparent'
-                        }`}
-                      >
-                        <Check size={12} strokeWidth={3} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <strong className="block truncate">
-                          槽位 {deck.deck_num} · {deck.deck_name || '空槽位'}
-                        </strong>
-                        <span className="text-xs text-slate-500">
-                          {setup
-                            ? `${deck.race_array.length} 场比赛`
-                            : '暂无数据'}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editDeck(deck.deck_num)}
-                      disabled={Boolean(busy)}
-                      className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
-                    >
-                      <Pencil size={12} /> 编辑
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {editingDeckNum ? (
-        <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
-          <button
-            type="button"
-            aria-label="关闭赛程槽位编辑"
-            onClick={() => setEditingDeckNum(0)}
-            disabled={Boolean(busy)}
-            className="absolute inset-0 bg-transparent disabled:cursor-wait"
-          />
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={`编辑游戏赛程槽位 ${editingDeckNum}`}
-            className="successionPickerDialog relative max-h-[92vh] w-full max-w-6xl"
-          >
-            <header className="successionPickerHeader flex-wrap items-end">
-              <label className="min-w-64 flex-1 text-sm text-slate-700">
-                <strong className="block text-lg text-slate-900">
-                  编辑游戏赛程槽位 {editingDeckNum}
-                </strong>
-                <span className="mt-1 block text-xs text-slate-500">
-                  保存后会覆盖游戏服务器上对应槽位的名称与赛程。
-                </span>
-                <input
-                  value={editingDeckName}
-                  maxLength={20}
-                  disabled={Boolean(busy)}
-                  onChange={(event) => setEditingDeckName(event.target.value)}
-                  placeholder={`我的参赛计划${editingDeckNum}`}
-                  className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 disabled:bg-slate-50"
-                />
-              </label>
-              <button
-                type="button"
-                aria-label="关闭赛程槽位编辑"
-                onClick={() => setEditingDeckNum(0)}
-                disabled={Boolean(busy)}
-                className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
-              >
-                <X size={20} />
-              </button>
-            </header>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              <RaceSchedulePicker
-                id={`offline-races-${editingDeckNum}`}
-                title="赛程详细"
-                description="选择这个游戏槽位中要保存的比赛。"
-                notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
-                races={races}
-                selectedRaceIds={editingRaceIds}
-                setSelectedRaceIds={setEditingRaceIds}
-              />
-
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-                <p className="text-sm font-medium text-amber-950">
-                  必跑比赛（自动加入）
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {requiredRaces.length ? (
-                    requiredRaces.map((item) => (
-                      <span
-                        key={item.id}
-                        className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-amber-800"
-                      >
-                        <Check size={12} />{' '}
-                        {item.race
-                          ? `${item.race.date} · ${item.race.name}`
-                          : `第 ${item.year} 年 · 比赛 ${item.program_id}`}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-amber-700/60">
-                      暂无固定比赛
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <footer className="successionPickerFooter flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingDeckNum(0)}
-                disabled={Boolean(busy)}
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const saved = await saveDeck(
-                    editingDeckNum,
-                    editingDeckName,
-                    editingRaceIds,
-                  );
-                  if (saved) setEditingDeckNum(0);
-                }}
-                disabled={Boolean(busy)}
-                className="flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                <Save size={15} />
-                {busy === 'idle-race-deck'
-                  ? '正在保存…'
-                  : `保存槽位 ${editingDeckNum}`}
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
-
-      <section
-        id="career-options"
-        className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
-            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              6
-            </span>
-            <div>
-              <h3 className="font-semibold text-gray-800">结束自动点技能</h3>
-              <p className="mt-1 text-xs text-slate-500">
-                越靠前优先级越高，可直接拖动调整顺序。
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFinalSkillPickerOpen(true)}
-            className="flex flex-none items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700"
-          >
-            <Plus size={14} />
-            添加技能
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
-            {skillSettings.learn_skill_list.map((group, index) => (
-              <div
-                key={`${index}:${group.join('|')}`}
-                draggable
-                onDragStart={(event) => {
-                  setDraggedFinalSkillIndex(index);
-                  event.dataTransfer.effectAllowed = 'move';
-                  event.dataTransfer.setData(
-                    'text/plain',
-                    `final-skill:${index}`,
-                  );
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const transferredValue =
-                    event.dataTransfer.getData('text/plain');
-                  const transferredIndex = transferredValue.startsWith(
-                    'final-skill:',
-                  )
-                    ? Number(transferredValue.replace('final-skill:', ''))
-                    : Number.NaN;
-                  const sourceIndex = Number.isInteger(transferredIndex)
-                    ? transferredIndex
-                    : draggedFinalSkillIndex;
-                  if (sourceIndex !== null) {
-                    reorderFinalSkillGroup(sourceIndex, index);
-                  }
-                  setDraggedFinalSkillIndex(null);
-                }}
-                onDragEnd={() => setDraggedFinalSkillIndex(null)}
-                className={`flex min-w-0 cursor-grab items-center gap-2 rounded-lg border bg-white p-2 shadow-sm active:cursor-grabbing ${
-                  draggedFinalSkillIndex === index
-                    ? 'border-violet-300 opacity-45'
-                    : 'border-slate-200'
-                }`}
-              >
-                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-violet-50 text-xs text-violet-700">
-                  {index + 1}
-                </b>
-                <span className="relative h-9 w-12 flex-none">
-                  {group.slice(0, 3).map((name, iconIndex) => {
-                    const skill = skillByName.get(name);
-                    const iconPath = skillIconPath(skill);
-                    return (
-                      <span
-                        key={name}
-                        className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
-                        style={{
-                          left: `${iconIndex * 7}px`,
-                          zIndex: 3 - iconIndex,
-                        }}
-                      >
-                        {iconPath ? (
-                          <AssetIcon
-                            path={iconPath}
-                            alt={name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
-                            ?
-                          </span>
-                        )}
-                      </span>
-                    );
-                  })}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-slate-800">
-                    {skillSettings.learn_skill_group_labels[index] ||
-                      group.join(' / ')}
-                  </span>
-                  <span
-                    className="mt-0.5 block truncate text-[11px] text-slate-500"
-                    title={group.join('、')}
-                  >
-                    {group.length > 1
-                      ? `包含 ${group.length} 个技能`
-                      : group[0]}
-                  </span>
-                </span>
-                <span className="flex flex-none items-center gap-0.5">
-                  <GripVertical
-                    size={17}
-                    className="text-slate-300"
-                    aria-label="拖动调整顺序"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeFinalSkillGroup(index)}
-                    title="移除"
-                    className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X size={14} />
-                  </button>
-                </span>
-              </div>
-            ))}
-            {!skillSettings.learn_skill_list.length ? (
-              <button
-                type="button"
-                onClick={() => setFinalSkillPickerOpen(true)}
-                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 xl:col-span-3"
-              >
-                <Plus size={15} className="mr-1" />
-                暂无技能，点击添加
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section
         id="career-factor-options"
         className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-              7
+              5
             </span>
             <h3 className="font-semibold text-gray-800">免费因子重抽与筛选</h3>
           </div>
@@ -1158,12 +838,12 @@ export default function OfflineCareerSettings({
                     [
                       'parent',
                       '父辈模式',
-                      '把本次结果作为直接父辈，并综合另一侧完整谱系比较。',
+                      '可以设置另一侧完整父辈，根据最终继承概率比较。',
                     ],
                     [
                       'ancestor',
                       '祖辈模式',
-                      '把本次结果作为祖辈，只按自身因子与设置权重比较。',
+                      '只按自身因子继承概率进行加权计算。',
                     ],
                   ] as const
                 ).map(([mode, label, description]) => (
@@ -1195,9 +875,6 @@ export default function OfflineCareerSettings({
               <strong className="text-sm text-slate-800">
                 属性因子最低星数
               </strong>
-              <p className="mt-0.5 text-xs text-slate-500">
-                每种属性可设最低星级或标记为不要；候选只检查自己实际抽到的属性类型。
-              </p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {BLUE_FACTORS.map(([key, label]) => (
                   <label key={key} className="text-xs text-slate-600">
@@ -1511,6 +1188,489 @@ export default function OfflineCareerSettings({
             ) : null}
           </div>
         )}
+      </section>
+
+      <section
+        id="offline-career-setup"
+        className={`${factorOnly ? 'hidden' : 'mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              6
+            </span>
+            <div>
+              <h3 className="font-semibold text-gray-800">赛程设置</h3>
+              <p className="text-xs text-gray-500">
+                详设只保存游戏赛程槽位 ID，启动时直接使用服务器上的槽位内容。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
+          <div className="max-w-sm">
+            <label className="block text-sm text-slate-700">
+              育成剧本
+              <select
+                value={selectedScenarioId}
+                disabled={Boolean(busy)}
+                onChange={(event) =>
+                  onScenarioChange(Number(event.target.value))
+                }
+                className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+              >
+                <option value={0}>自动选择最新可用剧本</option>
+                {scenarios.map((scenario) => (
+                  <option key={scenario.id} value={scenario.id}>
+                    {scenario.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {setup ? (
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 px-0.5 text-xs">
+                <span className="text-slate-500">当前主剧本</span>
+                <strong className="text-slate-800">
+                  {setup.scenario_name || `剧本 ${setup.scenario_id}`}
+                </strong>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="max-w-5xl">
+            <p className="text-sm font-medium text-slate-700">游戏赛程槽位</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+              {deckOptions.map((deck) => {
+                const selected = selectedDeckNum === deck.deck_num;
+                return (
+                  <article
+                    key={deck.deck_num}
+                    className={`flex min-h-16 min-w-0 items-center gap-2 rounded-lg border bg-white p-2.5 text-sm transition ${
+                      selected
+                        ? 'border-indigo-400 ring-2 ring-indigo-100'
+                        : 'border-slate-200'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSelectedDeckNum(deck.deck_num)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
+                    >
+                      <span
+                        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
+                          selected
+                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                            : 'border-slate-300 text-transparent'
+                        }`}
+                      >
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate">
+                          槽位 {deck.deck_num} · {deck.deck_name || '空槽位'}
+                        </strong>
+                        <span className="text-xs text-slate-500">
+                          {setup
+                            ? `${deck.race_array.length} 场比赛`
+                            : '暂无数据'}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => editDeck(deck.deck_num)}
+                      disabled={Boolean(busy)}
+                      className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      <Pencil size={12} /> 编辑
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {!factorOnly && editingDeckNum ? (
+        <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
+          <button
+            type="button"
+            aria-label="关闭赛程槽位编辑"
+            onClick={() => setEditingDeckNum(0)}
+            disabled={Boolean(busy)}
+            className="absolute inset-0 bg-transparent disabled:cursor-wait"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`编辑游戏赛程槽位 ${editingDeckNum}`}
+            className="successionPickerDialog relative max-h-[92vh] w-full max-w-6xl"
+          >
+            <header className="successionPickerHeader flex-wrap items-end">
+              <label className="min-w-64 flex-1 text-sm text-slate-700">
+                <strong className="block text-lg text-slate-900">
+                  编辑游戏赛程槽位 {editingDeckNum}
+                </strong>
+                <span className="mt-1 block text-xs text-slate-500">
+                  保存后会覆盖游戏服务器上对应槽位的名称与赛程。
+                </span>
+                <input
+                  value={editingDeckName}
+                  maxLength={20}
+                  disabled={Boolean(busy)}
+                  onChange={(event) => setEditingDeckName(event.target.value)}
+                  placeholder={`我的参赛计划${editingDeckNum}`}
+                  className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 disabled:bg-slate-50"
+                />
+              </label>
+              <button
+                type="button"
+                aria-label="关闭赛程槽位编辑"
+                onClick={() => setEditingDeckNum(0)}
+                disabled={Boolean(busy)}
+                className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+              >
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              <RaceSchedulePicker
+                id={`offline-races-${editingDeckNum}`}
+                title="赛程详细"
+                description="选择这个游戏槽位中要保存的比赛。"
+                notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
+                races={races}
+                selectedRaceIds={editingRaceIds}
+                setSelectedRaceIds={setEditingRaceIds}
+              />
+
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <p className="text-sm font-medium text-amber-950">
+                  必跑比赛（自动加入）
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {requiredRaces.length ? (
+                    requiredRaces.map((item) => (
+                      <span
+                        key={item.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-amber-800"
+                      >
+                        <Check size={12} />{' '}
+                        {item.race
+                          ? `${item.race.date} · ${item.race.name}`
+                          : `第 ${item.year} 年 · 比赛 ${item.program_id}`}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-amber-700/60">
+                      暂无固定比赛
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <footer className="successionPickerFooter flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingDeckNum(0)}
+                disabled={Boolean(busy)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const saved = await saveDeck(
+                    editingDeckNum,
+                    editingDeckName,
+                    editingRaceIds,
+                  );
+                  if (saved) setEditingDeckNum(0);
+                }}
+                disabled={Boolean(busy)}
+                className="flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <Save size={15} />
+                {busy === 'idle-race-deck'
+                  ? '正在保存…'
+                  : `保存槽位 ${editingDeckNum}`}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      <section
+        id="career-options"
+        className={`${factorOnly ? 'hidden' : ''} mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              7
+            </span>
+            <div>
+              <h3 className="font-semibold text-gray-800">优先技能</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                育成事件会优先选择能够获得这些技能启发的选项，越靠前优先级越高。
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPrioritySkillPickerOpen(true)}
+            className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+          >
+            <Plus size={14} />
+            追加优先技能
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
+          {prioritySkillIds.map((skillId, index) => {
+            const skill = skillById.get(skillId);
+            const name = skill?.name || `技能 ${skillId}`;
+            const iconPath = skillIconPath(skill);
+            return (
+              <div
+                key={skillId}
+                draggable
+                onDragStart={(event) => {
+                  setDraggedPrioritySkillIndex(index);
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData(
+                    'text/plain',
+                    `priority-skill:${index}`,
+                  );
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const transferredValue =
+                    event.dataTransfer.getData('text/plain');
+                  const transferredIndex = transferredValue.startsWith(
+                    'priority-skill:',
+                  )
+                    ? Number(transferredValue.replace('priority-skill:', ''))
+                    : Number.NaN;
+                  const sourceIndex = Number.isInteger(transferredIndex)
+                    ? transferredIndex
+                    : draggedPrioritySkillIndex;
+                  if (sourceIndex !== null) {
+                    reorderPrioritySkill(sourceIndex, index);
+                  }
+                  setDraggedPrioritySkillIndex(null);
+                }}
+                onDragEnd={() => setDraggedPrioritySkillIndex(null)}
+                className={`flex min-w-0 cursor-grab items-center gap-2 rounded-lg border bg-white p-2 shadow-sm active:cursor-grabbing ${
+                  draggedPrioritySkillIndex === index
+                    ? 'border-indigo-300 opacity-45'
+                    : 'border-slate-200'
+                }`}
+              >
+                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-indigo-50 text-xs text-indigo-700">
+                  {index + 1}
+                </b>
+                <span className="h-9 w-9 flex-none overflow-hidden rounded-md border border-slate-200 bg-slate-100">
+                  {iconPath ? (
+                    <AssetIcon
+                      path={iconPath}
+                      alt={name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
+                      ?
+                    </span>
+                  )}
+                </span>
+                <strong className="min-w-0 flex-1 truncate text-sm text-slate-800">
+                  {name}
+                </strong>
+                <GripVertical
+                  size={17}
+                  className="flex-none text-slate-300"
+                  aria-label="拖动调整顺序"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPrioritySkillIds((current) =>
+                      current.filter((value) => value !== skillId),
+                    )
+                  }
+                  title="移除"
+                  className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
+          {!prioritySkillIds.length ? (
+            <button
+              type="button"
+              onClick={() => setPrioritySkillPickerOpen(true)}
+              className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 xl:col-span-3"
+            >
+              <Plus size={15} className="mr-1" />
+              暂无优先技能，点击追加
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section
+        className={`${factorOnly ? 'hidden' : ''} mt-5 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              8
+            </span>
+            <div>
+              <h3 className="font-semibold text-gray-800">结束自动点技能</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                越靠前优先级越高，可直接拖动调整顺序。
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFinalSkillPickerOpen(true)}
+            className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+          >
+            <Plus size={14} />
+            添加技能
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
+            {skillSettings.learn_skill_list.map((group, index) => (
+              <div
+                key={`${index}:${group.join('|')}`}
+                draggable
+                onDragStart={(event) => {
+                  setDraggedFinalSkillIndex(index);
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData(
+                    'text/plain',
+                    `final-skill:${index}`,
+                  );
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const transferredValue =
+                    event.dataTransfer.getData('text/plain');
+                  const transferredIndex = transferredValue.startsWith(
+                    'final-skill:',
+                  )
+                    ? Number(transferredValue.replace('final-skill:', ''))
+                    : Number.NaN;
+                  const sourceIndex = Number.isInteger(transferredIndex)
+                    ? transferredIndex
+                    : draggedFinalSkillIndex;
+                  if (sourceIndex !== null) {
+                    reorderFinalSkillGroup(sourceIndex, index);
+                  }
+                  setDraggedFinalSkillIndex(null);
+                }}
+                onDragEnd={() => setDraggedFinalSkillIndex(null)}
+                className={`flex min-w-0 cursor-grab items-center gap-2 rounded-lg border bg-white p-2 shadow-sm active:cursor-grabbing ${
+                  draggedFinalSkillIndex === index
+                    ? 'border-violet-300 opacity-45'
+                    : 'border-slate-200'
+                }`}
+              >
+                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-violet-50 text-xs text-violet-700">
+                  {index + 1}
+                </b>
+                <span className="relative h-9 w-12 flex-none">
+                  {group.slice(0, 3).map((name, iconIndex) => {
+                    const skill = skillByName.get(name);
+                    const iconPath = skillIconPath(skill);
+                    return (
+                      <span
+                        key={name}
+                        className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
+                        style={{
+                          left: `${iconIndex * 7}px`,
+                          zIndex: 3 - iconIndex,
+                        }}
+                      >
+                        {iconPath ? (
+                          <AssetIcon
+                            path={iconPath}
+                            alt={name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
+                            ?
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-800">
+                    {skillSettings.learn_skill_group_labels[index] ||
+                      group.join(' / ')}
+                  </span>
+                  <span
+                    className="mt-0.5 block truncate text-[11px] text-slate-500"
+                    title={group.join('、')}
+                  >
+                    {group.length > 1
+                      ? `包含 ${group.length} 个技能`
+                      : group[0]}
+                  </span>
+                </span>
+                <span className="flex flex-none items-center gap-0.5">
+                  <GripVertical
+                    size={17}
+                    className="text-slate-300"
+                    aria-label="拖动调整顺序"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeFinalSkillGroup(index)}
+                    title="移除"
+                    className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              </div>
+            ))}
+            {!skillSettings.learn_skill_list.length ? (
+              <button
+                type="button"
+                onClick={() => setFinalSkillPickerOpen(true)}
+                className="col-span-2 flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 xl:col-span-3"
+              >
+                <Plus size={15} className="mr-1" />
+                暂无技能，点击添加
+              </button>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       {lineageFactorPicker ? (
@@ -2134,7 +2294,17 @@ export default function OfflineCareerSettings({
       ) : null}
 
       <SkillSelector
-        open={finalSkillPickerOpen}
+        open={prioritySkillPickerOpen}
+        title="追加离线育成优先技能"
+        description="选择技能后会按列表顺序发送给游戏；可返回列表拖动调整优先级。"
+        skills={skills}
+        selectedNames={selectedPrioritySkillNames}
+        elevated
+        onToggle={togglePrioritySkill}
+        onClose={() => setPrioritySkillPickerOpen(false)}
+      />
+      <SkillSelector
+        open={!factorOnly && finalSkillPickerOpen}
         title="设置离线结束技能优先级"
         description="界面和预设技能选择一致。可单独添加技能，也可把当前筛选结果添加为同优先级组。"
         skills={skills}

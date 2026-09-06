@@ -11,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import type { Story } from 'umdb/UMDatabaseUtils';
 import { AutoResearchSkill, skillIconPath } from './SkillSelector';
 import EditableNumberInput from './EditableNumberInput';
 import AppMenuPortal from '../AppMenuPortal';
@@ -28,6 +29,7 @@ import {
   statusBadgeClass,
 } from './shared';
 import RaceSchedulePicker from './RaceSchedulePicker';
+import EventChoiceSelector from './EventChoiceSelector';
 import {
   CareerSetting,
   Preset,
@@ -75,6 +77,9 @@ type PresetsTabProps = {
   setSkillPurchaseYearOffset: Dispatch<SetStateAction<number>>;
   skillPurchaseTurns: number[];
   setSkillPurchaseTurns: Dispatch<SetStateAction<number[]>>;
+  fixedEventChoices: Record<string, number>;
+  setFixedEventChoices: Dispatch<SetStateAction<Record<string, number>>>;
+  stories: Story[];
   editingSkillSelectionId: string;
   setSkillLearningSettings: Dispatch<
     SetStateAction<Record<string, SkillLearningSetting>>
@@ -129,6 +134,9 @@ export default function PresetsTab(props: PresetsTabProps) {
     setSkillPurchaseYearOffset,
     skillPurchaseTurns,
     setSkillPurchaseTurns,
+    fixedEventChoices,
+    setFixedEventChoices,
+    stories,
     editingSkillSelectionId,
     setSkillLearningSettings,
     targetAttributes,
@@ -256,7 +264,7 @@ export default function PresetsTab(props: PresetsTabProps) {
                       </label>
                     )}
                     <p className="mt-2 text-xs text-gray-500">
-                      {`${onlineScenarioLabel(preset.scenario_id)} · ${skillCount} 个优先技能 · ${(preset.extra_race_list || []).length} 场额外赛事`}
+                      {`${onlineScenarioLabel(preset.scenario_id)} · ${skillCount} 个优先技能 · ${Object.keys(preset.fixed_event_choices || {}).length} 个固定事件 · ${(preset.extra_race_list || []).length} 场额外赛事`}
                     </p>
                     {referencedCount ? (
                       <p className="mt-1 text-xs text-slate-400">
@@ -699,6 +707,12 @@ export default function PresetsTab(props: PresetsTabProps) {
             </div>
           </section>
         </div>
+
+        <EventChoiceSelector
+          stories={stories}
+          fixedEventChoices={fixedEventChoices}
+          setFixedEventChoices={setFixedEventChoices}
+        />
 
         <section id="preset-training" className="mt-4 scroll-mt-28">
           <div className="contents">

@@ -46,6 +46,7 @@ import {
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
   AutoResearchRequestError,
+  buildOfflinePrioritySkillArray,
   CAREER_SETTINGS_KEY,
   careerSettingModeBadgeClass,
   careerSettingMatchesCurrent,
@@ -64,6 +65,8 @@ import {
   LOCAL_PRESETS_KEY,
   MONTH_OPTIONS,
   needsRelogin,
+  normalizeFixedEventChoices,
+  normalizeOfflinePrioritySkillIds,
   normalizeOnlineScenarioId,
   normalizeRaceSelection,
   normalizeServer,
@@ -472,6 +475,13 @@ const normalizeOfflineFactorSelection = (
   };
 };
 
+const factorSelectionFromSetting = (
+  setting: Pick<CareerSetting, 'factor_selection' | 'offline_factor_selection'>,
+) =>
+  normalizeOfflineFactorSelection(
+    setting.factor_selection || setting.offline_factor_selection,
+  );
+
 const normalizeOfflineSkillSettings = (
   value?: Partial<OfflineSkillSettings>,
 ): OfflineSkillSettings => {
@@ -706,6 +716,9 @@ export default function AutoResearch() {
   const [skipDoubleCircle, setSkipDoubleCircle] = useState(false);
   const [maximizeSkillScoreAtEnd, setMaximizeSkillScoreAtEnd] = useState(false);
   const [skillPurchaseTurns, setSkillPurchaseTurns] = useState<number[]>([]);
+  const [fixedEventChoices, setFixedEventChoices] = useState<
+    Record<string, number>
+  >({});
   const [skillPurchaseYearOffset, setSkillPurchaseYearOffset] = useState(0);
   const [targetAttributes, setTargetAttributes] = useState(
     DEFAULT_EXPECT_ATTRIBUTE,
@@ -737,6 +750,9 @@ export default function AutoResearch() {
     useState<OfflineFactorSelection>(() =>
       createDefaultOfflineFactorSelection(),
     );
+  const [offlinePrioritySkillIds, setOfflinePrioritySkillIds] = useState<
+    number[]
+  >([]);
   const [offlineSkillSettings, setOfflineSkillSettings] =
     useState<OfflineSkillSettings>(() => createDefaultOfflineSkillSettings());
   const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
@@ -2510,6 +2526,9 @@ export default function AutoResearch() {
           migratePresetSkillIdentifiers({
             ...preset,
             scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
+            fixed_event_choices: normalizeFixedEventChoices(
+              preset.fixed_event_choices,
+            ),
           }),
         );
       }
@@ -2610,6 +2629,9 @@ export default function AutoResearch() {
     setSkipDoubleCircle(Boolean(preset.skip_double_circle_unless_high_hint));
     setMaximizeSkillScoreAtEnd(Boolean(preset.maximize_skill_score_at_end));
     setSkillPurchaseTurns(normalizeTurnList(preset.skill_purchase_turns));
+    setFixedEventChoices(
+      normalizeFixedEventChoices(preset.fixed_event_choices),
+    );
     setTargetAttributes(
       numberArray(preset.expect_attribute, DEFAULT_EXPECT_ATTRIBUTE),
     );
@@ -3611,6 +3633,7 @@ export default function AutoResearch() {
       skip_double_circle_unless_high_hint: skipDoubleCircle,
       maximize_skill_score_at_end: maximizeSkillScoreAtEnd,
       skill_purchase_turns: normalizeTurnList(skillPurchaseTurns),
+      fixed_event_choices: normalizeFixedEventChoices(fixedEventChoices),
       expect_attribute: targetAttributes.map((value) =>
         Math.max(0, Math.trunc(value)),
       ),
@@ -3704,6 +3727,9 @@ export default function AutoResearch() {
         preset: boundPreset,
         max_steps: maxSteps,
         burn_clocks: burnClocks,
+        factor_selection: normalizeOfflineFactorSelection(
+          offlineFactorSelection,
+        ),
       });
       commitOverviewResponse(selectedAccountId, {
         ...result,
@@ -3773,6 +3799,7 @@ export default function AutoResearch() {
         preset,
         max_steps: setting.max_steps || 2500,
         burn_clocks: setting.burn_clocks,
+        factor_selection: factorSelectionFromSetting(setting),
       });
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
@@ -3886,6 +3913,7 @@ export default function AutoResearch() {
       | 'burn_clocks'
       | 'recover_tp_with_item'
       | 'recover_tp_with_jewels'
+      | 'factor_selection'
     >,
   ) => {
     if (!selectedAccountId) return false;
@@ -3926,6 +3954,12 @@ export default function AutoResearch() {
               careerOptions?.recover_tp_with_jewels ??
               activeAutomationSetting?.recover_tp_with_jewels ??
               recoverTpWithJewels,
+            factor_selection: normalizeOfflineFactorSelection(
+              careerOptions?.factor_selection ||
+                activeAutomationSetting?.factor_selection ||
+                activeAutomationSetting?.offline_factor_selection ||
+                offlineFactorSelection,
+            ),
           }),
         },
       );
@@ -4176,6 +4210,9 @@ export default function AutoResearch() {
         ...(raw as Partial<Preset>),
         name,
         scenario_id: normalizeOnlineScenarioId(raw.scenario_id),
+        fixed_event_choices: normalizeFixedEventChoices(
+          raw.fixed_event_choices,
+        ),
       });
       const nextPresets = [...presets, importedPreset];
       setPresets(nextPresets);
@@ -4412,8 +4449,9 @@ export default function AutoResearch() {
     setOfflineSetupAccountId('');
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
-    setOfflineFactorSelection(
-      normalizeOfflineFactorSelection(setting.offline_factor_selection),
+    setOfflineFactorSelection(factorSelectionFromSetting(setting));
+    setOfflinePrioritySkillIds(
+      normalizeOfflinePrioritySkillIds(setting.offline_priority_skill_ids),
     );
     setOfflineSkillSettings(
       normalizeOfflineSkillSettings(setting.offline_skill_settings),
@@ -4454,6 +4492,7 @@ export default function AutoResearch() {
     setOfflineScenarioId(0);
     setOfflineRaceDeckNum(0);
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
+    setOfflinePrioritySkillIds([]);
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
@@ -4564,14 +4603,15 @@ export default function AutoResearch() {
       recover_tp_with_jewels: recoverTpWithJewels,
       offline_race_deck_num:
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
+      offline_priority_skill_ids:
+        careerMode === 'offline'
+          ? normalizeOfflinePrioritySkillIds(offlinePrioritySkillIds)
+          : undefined,
       offline_skill_settings:
         careerMode === 'offline'
           ? normalizeOfflineSkillSettings(offlineSkillSettings)
           : undefined,
-      offline_factor_selection:
-        careerMode === 'offline'
-          ? normalizeOfflineFactorSelection(offlineFactorSelection)
-          : undefined,
+      factor_selection: normalizeOfflineFactorSelection(offlineFactorSelection),
       updated_at: new Date().toISOString(),
     };
     const nextSettings = [
@@ -4602,6 +4642,7 @@ export default function AutoResearch() {
       burn_clocks: burnClocks,
       recover_tp_with_item: recoverTpWithItem,
       recover_tp_with_jewels: recoverTpWithJewels,
+      factor_selection: normalizeOfflineFactorSelection(offlineFactorSelection),
     });
   };
 
@@ -4791,6 +4832,9 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: selectedCareerSetting?.id || '',
         career_setting_name: selectedCareerSetting?.name || careerSettingName,
+        priority_skill_array: buildOfflinePrioritySkillArray(
+          offlinePrioritySkillIds,
+        ),
         offline_skill_settings:
           normalizeOfflineSkillSettings(offlineSkillSettings),
         factor_selection: normalizeOfflineFactorSelection(
@@ -4873,11 +4917,14 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: setting.id,
         career_setting_name: setting.name,
+        priority_skill_array: buildOfflinePrioritySkillArray(
+          setting.offline_priority_skill_ids || [],
+        ),
         offline_skill_settings: normalizeOfflineSkillSettings(
           setting.offline_skill_settings,
         ),
         factor_selection: normalizeOfflineFactorSelection(
-          setting.offline_factor_selection,
+          setting.factor_selection || setting.offline_factor_selection,
         ),
         race_deck_num: setting.offline_race_deck_num,
         race_array: raceArray,
@@ -4971,11 +5018,14 @@ export default function AutoResearch() {
         max_steps: resolved.max_steps,
         burn_clocks: resolved.burn_clocks,
         running_style: 0,
+        priority_skill_array: buildOfflinePrioritySkillArray(
+          resolved.offline_priority_skill_ids || [],
+        ),
         offline_skill_settings: normalizeOfflineSkillSettings(
           resolved.offline_skill_settings,
         ),
         factor_selection: normalizeOfflineFactorSelection(
-          resolved.offline_factor_selection,
+          resolved.factor_selection || resolved.offline_factor_selection,
         ),
         race_deck_num: resolved.offline_race_deck_num || 0,
       },
@@ -6785,6 +6835,9 @@ export default function AutoResearch() {
                     setSkillPurchaseYearOffset={setSkillPurchaseYearOffset}
                     skillPurchaseTurns={skillPurchaseTurns}
                     setSkillPurchaseTurns={setSkillPurchaseTurns}
+                    fixedEventChoices={fixedEventChoices}
+                    setFixedEventChoices={setFixedEventChoices}
+                    stories={umaDatabase?.stories || []}
                     editingSkillSelectionId={editingSkillSelectionId}
                     setSkillLearningSettings={setSkillLearningSettings}
                     targetAttributes={targetAttributes}
@@ -6893,6 +6946,8 @@ export default function AutoResearch() {
                     skills={skills}
                     offlineFactorSelection={offlineFactorSelection}
                     setOfflineFactorSelection={setOfflineFactorSelection}
+                    offlinePrioritySkillIds={offlinePrioritySkillIds}
+                    setOfflinePrioritySkillIds={setOfflinePrioritySkillIds}
                     offlineSkillSettings={offlineSkillSettings}
                     setOfflineSkillSettings={setOfflineSkillSettings}
                   />

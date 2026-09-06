@@ -1,5 +1,3 @@
-import https from 'https';
-import zlib from 'zlib';
 import log from 'electron-log';
 import { resolveEventRule } from 'constant/events';
 import {
@@ -20,6 +18,7 @@ import {
 } from 'types/gameTypes';
 import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
 import { UMDB } from './Data';
+import { fetchStoryDetail } from './StoryDetail';
 
 const PERF_TYPE_TO_NOTE_KEY: Record<number, keyof NoteStat> = {
   1: 'da',
@@ -34,9 +33,6 @@ const formatColorHtml = (input: string) => {
     .replace(/<color=([^>]+)>/g, '<span style="color:$1">')
     .replace(/<\/color>/g, '</span>');
 };
-
-const storyDetailCache = new Map<number, StoryDetail>();
-const storyDetailInFlight = new Map<number, Promise<StoryDetail | null>>();
 
 const resolveScenarioType = (
   data: Record<string, unknown> | null | undefined,
@@ -267,96 +263,6 @@ const normalizeSingleModeData = (data: Record<string, any>) => {
   }
 
   return normalized;
-};
-
-const fetchStoryDetail = (storyId: number): Promise<StoryDetail | null> => {
-  const cached = storyDetailCache.get(storyId);
-  if (cached) {
-    return Promise.resolve(cached);
-  }
-  const inflight = storyDetailInFlight.get(storyId);
-  if (inflight) {
-    return inflight;
-  }
-
-  const request = new Promise<StoryDetail | null>((resolve) => {
-    const url = `https://le3-api.game.bilibili.com/x/api/umav1/story/detail?story_id=${storyId}`;
-    https
-      .get(
-        url,
-        {
-          headers: {
-            'User-Agent':
-              'Dalvik/2.1.0 (Linux; U; Android 12; 22041216C Build/688207e.0)',
-            Connection: 'Keep-Alive',
-            'Accept-Encoding': 'gzip',
-          },
-        },
-        (res) => {
-          if (res.statusCode !== 200) {
-            res.resume();
-            resolve(null);
-            return;
-          }
-
-          const chunks: Buffer[] = [];
-          res.on('data', (chunk) => chunks.push(chunk));
-          res.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            const encoding = res.headers['content-encoding'];
-            const handleBody = (body: Buffer) => {
-              try {
-                const parsed = JSON.parse(body.toString('utf-8'));
-                const optionList = parsed?.data?.option_list;
-                if (!Array.isArray(optionList)) {
-                  resolve(null);
-                  return;
-                }
-                const detail: StoryDetail = {
-                  storyId,
-                  optionList: optionList
-                    .map((opt: any) => ({
-                      option: String(opt?.option ?? ''),
-                      gainList: Array.isArray(opt?.gain_list)
-                        ? opt.gain_list.map((gain: any) => String(gain))
-                        : [],
-                    }))
-                    .filter(
-                      (opt: any) => opt.option || opt.gainList.length > 0,
-                    ),
-                };
-                storyDetailCache.set(storyId, detail);
-                resolve(detail);
-              } catch (err) {
-                log.warn('story detail parse failed:', err);
-                resolve(null);
-              }
-            };
-
-            if (encoding === 'gzip') {
-              zlib.gunzip(buffer, (err, decoded) => {
-                if (err) {
-                  resolve(null);
-                  return;
-                }
-                handleBody(decoded);
-              });
-            } else {
-              handleBody(buffer);
-            }
-          });
-        },
-      )
-      .on('error', (err) => {
-        log.warn('story detail request failed:', err);
-        resolve(null);
-      });
-  }).finally(() => {
-    storyDetailInFlight.delete(storyId);
-  });
-
-  storyDetailInFlight.set(storyId, request);
-  return request;
 };
 
 // eslint-disable-next-line import/prefer-default-export

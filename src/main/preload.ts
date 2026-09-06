@@ -30,6 +30,8 @@ const electronHandler = {
     getUmaDatabase: () => {
       return ipcRenderer.invoke('umdb-get');
     },
+    getStoryDetail: (storyId: number) =>
+      ipcRenderer.invoke('story-detail:get', storyId),
     navigation: {
       onNavigate: (callback: (data: { path: string; state: any }) => void) => {
         const subscription = (_event: IpcRendererEvent, data: any) =>

@@ -122,6 +122,8 @@ type CareerTabProps = {
   skills: AutoResearchSkill[];
   offlineFactorSelection: OfflineFactorSelection;
   setOfflineFactorSelection: Dispatch<SetStateAction<OfflineFactorSelection>>;
+  offlinePrioritySkillIds: number[];
+  setOfflinePrioritySkillIds: Dispatch<SetStateAction<number[]>>;
   offlineSkillSettings: OfflineSkillSettings;
   setOfflineSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
@@ -276,6 +278,8 @@ export default function CareerTab(props: CareerTabProps) {
     skills,
     offlineFactorSelection,
     setOfflineFactorSelection,
+    offlinePrioritySkillIds,
+    setOfflinePrioritySkillIds,
     offlineSkillSettings,
     setOfflineSkillSettings,
   } = props;
@@ -432,6 +436,30 @@ export default function CareerTab(props: CareerTabProps) {
     createCareerSave();
     setNewCareerDialogOpen(false);
   };
+  const careerModeSettings = (
+    <OfflineCareerSettings
+      factorOnly={careerMode === 'online'}
+      setup={offlineSetup}
+      scenarios={offlineScenarios}
+      selectedScenarioId={offlineScenarioId}
+      onScenarioChange={changeOfflineScenario}
+      races={races}
+      selectedDeckNum={offlineRaceDeckNum}
+      setSelectedDeckNum={setOfflineRaceDeckNum}
+      busy={busy}
+      prepare={prepareOfflineCareer}
+      saveDeck={saveOfflineRaceDeck}
+      factorSelection={offlineFactorSelection}
+      setFactorSelection={setOfflineFactorSelection}
+      parents={dashboard.parents}
+      umas={dashboard.umas}
+      skills={skills}
+      prioritySkillIds={offlinePrioritySkillIds}
+      setPrioritySkillIds={setOfflinePrioritySkillIds}
+      skillSettings={offlineSkillSettings}
+      setSkillSettings={setOfflineSkillSettings}
+    />
+  );
   return activeCareer?.active && !careerSaveOpen ? (
     <section>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -754,11 +782,15 @@ export default function CareerTab(props: CareerTabProps) {
               ['career-selection', '选择阵容'],
               ...(careerMode === 'offline'
                 ? [
-                    ['offline-career-setup', '赛程槽位'],
-                    ['career-options', '结束点技能'],
                     ['career-factor-options', '因子筛选'],
+                    ['offline-career-setup', '赛程槽位'],
+                    ['career-options', '技能设置'],
+                    ['career-other-options', '其他设置'],
                   ]
-                : [['career-options', '其他设置']]),
+                : [
+                    ['career-factor-options', '因子筛选'],
+                    ['career-options', '其他设置'],
+                  ]),
             ].map(([target, label]) => (
               <button
                 key={target}
@@ -1487,67 +1519,38 @@ export default function CareerTab(props: CareerTabProps) {
               ) : null}
             </section>
 
+            {selectionConflict ? (
+              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {selectionConflict}
+              </div>
+            ) : null}
+
+            {careerModeSettings}
+
             <section
-              id={careerMode === 'online' ? 'career-options' : undefined}
-              className={
+              id={
                 careerMode === 'online'
-                  ? 'scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4'
-                  : 'contents'
+                  ? 'career-options'
+                  : 'career-other-options'
               }
+              className="mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
             >
-              {careerMode === 'online' ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
-                    5
-                  </span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      编辑其他设置
-                    </h3>
-                  </div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                  {careerMode === 'online' ? 6 : 9}
+                </span>
+                <div>
+                  <h3 className="font-semibold text-gray-800">编辑其他设置</h3>
                 </div>
-              ) : null}
-
-              {selectionConflict ? (
-                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  {selectionConflict}
-                </div>
-              ) : null}
-
-              {careerMode === 'offline' ? (
-                <OfflineCareerSettings
-                  setup={offlineSetup}
-                  scenarios={offlineScenarios}
-                  selectedScenarioId={offlineScenarioId}
-                  onScenarioChange={changeOfflineScenario}
-                  races={races}
-                  selectedDeckNum={offlineRaceDeckNum}
-                  setSelectedDeckNum={setOfflineRaceDeckNum}
-                  busy={busy}
-                  prepare={prepareOfflineCareer}
-                  saveDeck={saveOfflineRaceDeck}
-                  factorSelection={offlineFactorSelection}
-                  setFactorSelection={setOfflineFactorSelection}
-                  parents={dashboard.parents}
-                  umas={dashboard.umas}
-                  skills={skills}
-                  skillSettings={offlineSkillSettings}
-                  setSkillSettings={setOfflineSkillSettings}
-                />
-              ) : null}
+              </div>
 
               <div
-                className={`mt-4 grid max-w-4xl gap-2 sm:grid-cols-2 ${
-                  careerMode === 'online' ? 'auto-rows-fr' : ''
-                }`}
+                className="mt-4 grid auto-rows-fr gap-2"
+                style={{
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(min(100%, 18rem), 1fr))',
+                }}
               >
-                {careerMode === 'offline' ? (
-                  <div className="px-1 py-1 sm:col-span-2">
-                    <strong className="block text-sm font-medium text-slate-800">
-                      TP 恢复设置
-                    </strong>
-                  </div>
-                ) : null}
                 {careerMode === 'online' ? (
                   <>
                     <button

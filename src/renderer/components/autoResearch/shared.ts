@@ -121,6 +121,25 @@ export function createDefaultOfflineSkillSettings(): OfflineSkillSettings {
   };
 }
 
+export function normalizeOfflinePrioritySkillIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<number>();
+  return value
+    .map((item) => Math.trunc(Number(item) || 0))
+    .filter((skillId) => {
+      if (skillId <= 0 || seen.has(skillId)) return false;
+      seen.add(skillId);
+      return true;
+    });
+}
+
+export function buildOfflinePrioritySkillArray(skillIds: readonly number[]) {
+  return normalizeOfflinePrioritySkillIds(skillIds).map((skillId, index) => ({
+    priority: index + 1,
+    skill_id: skillId,
+  }));
+}
+
 export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
   return {
     name,
@@ -134,6 +153,7 @@ export function createDefaultPreset(name = DEFAULT_PRESET_NAME): Preset {
     skip_double_circle_unless_high_hint: false,
     maximize_skill_score_at_end: false,
     skill_purchase_turns: [],
+    fixed_event_choices: {},
     extra_race_list: [],
     expect_attribute: [...DEFAULT_EXPECT_ATTRIBUTE],
     target_attribute_stages: [],
@@ -322,6 +342,20 @@ export function normalizeTurnList(value: string | number[] | undefined) {
         .filter((turn) => Number.isInteger(turn) && turn >= 1 && turn <= 76),
     ),
   ).sort((left, right) => left - right);
+}
+
+export function normalizeFixedEventChoices(
+  value: Record<string, unknown> | undefined,
+) {
+  const result: Record<string, number> = {};
+  Object.entries(value || {}).forEach(([rawStoryId, rawChoiceNumber]) => {
+    const storyId = Math.trunc(Number(rawStoryId));
+    const choiceNumber = Math.trunc(Number(rawChoiceNumber));
+    if (storyId > 0 && choiceNumber > 0) {
+      result[String(storyId)] = choiceNumber;
+    }
+  });
+  return result;
 }
 
 export function normalizeSkillLearningSettings(

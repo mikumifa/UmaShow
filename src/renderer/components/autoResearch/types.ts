@@ -616,7 +616,10 @@ export type CareerSetting = {
   recover_tp_with_item: boolean;
   recover_tp_with_jewels: boolean;
   offline_race_deck_num?: number;
+  offline_priority_skill_ids?: number[];
   offline_skill_settings?: OfflineSkillSettings;
+  factor_selection?: OfflineFactorSelection;
+  /** Legacy saved field; read for compatibility with existing settings. */
   offline_factor_selection?: OfflineFactorSelection;
   run_queue?: CareerRunQueueItem[];
   updated_at: string;
@@ -722,6 +725,7 @@ export type Preset = {
   skip_double_circle_unless_high_hint?: boolean;
   maximize_skill_score_at_end?: boolean;
   skill_purchase_turns?: number[];
+  fixed_event_choices?: Record<string, number>;
   extra_race_list?: number[];
   expect_attribute?: number[];
   target_attribute_stages?: TargetAttributeStage[];
