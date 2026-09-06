@@ -57,6 +57,7 @@ type AnimatedStatValueProps = {
   label: string;
   value?: number;
   resetKey: string;
+  tone?: 'sky' | 'rose' | 'amber' | 'pink' | 'emerald' | 'indigo';
 };
 
 type AnimatedStatNumberProps = {
@@ -255,12 +256,59 @@ function AnimatedStatNumber({
   );
 }
 
-function AnimatedStatValue({ label, value, resetKey }: AnimatedStatValueProps) {
+const STAT_TONE_CLASSES = {
+  sky: {
+    container: 'bg-sky-50/80',
+    label: 'text-sky-600',
+    value: 'text-sky-950',
+  },
+  rose: {
+    container: 'bg-rose-50/80',
+    label: 'text-rose-600',
+    value: 'text-rose-950',
+  },
+  amber: {
+    container: 'bg-amber-50/80',
+    label: 'text-amber-600',
+    value: 'text-amber-950',
+  },
+  pink: {
+    container: 'bg-pink-50/80',
+    label: 'text-pink-600',
+    value: 'text-pink-950',
+  },
+  emerald: {
+    container: 'bg-emerald-50/80',
+    label: 'text-emerald-600',
+    value: 'text-emerald-950',
+  },
+  indigo: {
+    container: 'bg-indigo-50/90',
+    label: 'text-indigo-600',
+    value: 'text-indigo-950',
+  },
+};
+
+function AnimatedStatValue({
+  label,
+  value,
+  resetKey,
+  tone = 'sky',
+}: AnimatedStatValueProps) {
+  const toneClasses = STAT_TONE_CLASSES[tone];
   return (
-    <div className="relative min-w-[80px] bg-white px-3 py-3">
-      <p className="text-xs text-slate-400">{label}</p>
-      <div className="mt-1">
-        <AnimatedStatNumber value={value} resetKey={resetKey} />
+    <div
+      className={`relative min-w-[92px] flex-1 rounded-lg px-3 py-2.5 ${toneClasses.container}`}
+    >
+      <p className={`text-[11px] font-semibold ${toneClasses.label}`}>
+        {label}
+      </p>
+      <div className="mt-0.5">
+        <AnimatedStatNumber
+          value={value}
+          resetKey={resetKey}
+          className={`origin-bottom text-2xl font-bold tabular-nums ${toneClasses.value}`}
+        />
       </div>
     </div>
   );
@@ -595,63 +643,75 @@ export default function ProgressTab({
         ) : null}
 
         {!offlineMode && !waitingForCareerStart ? (
-          <div className="mt-5 inline-grid max-w-full grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-100 sm:grid-cols-3 xl:grid-cols-9">
-            {[
-              ['速度', currentRunnerStats.speed],
-              ['耐力', currentRunnerStats.stamina],
-              ['力量', currentRunnerStats.power],
-              ['毅力', currentRunnerStats.guts],
-              ['智力', currentRunnerStats.wit],
-              ['PT', currentRunnerStats.skill_point],
-            ].map(([label, value]) => (
-              <AnimatedStatValue
-                key={String(label)}
-                label={String(label)}
-                value={typeof value === 'number' ? value : undefined}
-                resetKey={statAnimationResetKey}
-              />
-            ))}
-            <div className="min-w-[80px] bg-white px-3 py-3">
-              <p className="text-xs text-slate-400">大差</p>
-              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
-                <AnimatedStatNumber
-                  value={runner?.large_margin_count || 0}
+          <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(440px,0.65fr)]">
+            <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-sm">
+              {[
+                ['速度', currentRunnerStats.speed, 'sky'],
+                ['耐力', currentRunnerStats.stamina, 'rose'],
+                ['力量', currentRunnerStats.power, 'amber'],
+                ['毅力', currentRunnerStats.guts, 'pink'],
+                ['智力', currentRunnerStats.wit, 'emerald'],
+                ['PT', currentRunnerStats.skill_point, 'indigo'],
+              ].map(([label, value, tone]) => (
+                <AnimatedStatValue
+                  key={String(label)}
+                  label={String(label)}
+                  value={typeof value === 'number' ? value : undefined}
                   resetKey={statAnimationResetKey}
-                  className="origin-bottom text-xl font-bold tabular-nums text-amber-700"
+                  tone={tone as AnimatedStatValueProps['tone']}
                 />
-                <span className="pb-0.5 text-xs">/</span>
-                <span className="pb-px text-lg font-bold tabular-nums text-slate-700">
-                  {runnerG123RaceCount}
-                </span>
-                <span className="pb-0.5 text-xs">场</span>
-              </div>
+              ))}
             </div>
-            <div className="min-w-[80px] bg-white px-3 py-3">
-              <p className="text-xs text-slate-400">本局宝石</p>
-              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
-                <AnimatedStatNumber
-                  value={runner?.jewel_drop_count || 0}
-                  resetKey={statAnimationResetKey}
-                  className="origin-bottom text-xl font-bold tabular-nums text-violet-700"
-                />
-                <span className="pb-0.5 text-xs">次 /</span>
-                <AnimatedStatNumber
-                  value={runner?.jewels_earned || 0}
-                  resetKey={statAnimationResetKey}
-                  className="origin-bottom text-lg font-bold tabular-nums text-violet-700"
-                />
-                <span className="pb-0.5 text-xs">个</span>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+                <p className="text-[11px] font-semibold text-amber-700">大差</p>
+                <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-amber-700">
+                  <AnimatedStatNumber
+                    value={runner?.large_margin_count || 0}
+                    resetKey={statAnimationResetKey}
+                    className="origin-bottom text-2xl font-bold tabular-nums text-amber-800"
+                  />
+                  <span className="pb-0.5 text-xs">/</span>
+                  <span className="pb-px text-lg font-bold tabular-nums text-amber-950">
+                    {runnerG123RaceCount}
+                  </span>
+                  <span className="pb-0.5 text-xs">场</span>
+                </div>
               </div>
-            </div>
-            <div className="min-w-[80px] bg-white px-3 py-3">
-              <p className="text-xs text-slate-400">今日宝石</p>
-              <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-slate-500">
-                <AnimatedStatNumber
-                  value={runner?.daily_jewel_drop_count || 0}
-                  resetKey={statAnimationResetKey}
-                  className="origin-bottom text-xl font-bold tabular-nums text-violet-700"
-                />
-                <span className="pb-0.5 text-xs">次</span>
+
+              <div className="rounded-xl border border-violet-100 bg-violet-50/70 px-4 py-3">
+                <p className="text-[11px] font-semibold text-violet-700">
+                  本局宝石
+                </p>
+                <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-violet-600">
+                  <AnimatedStatNumber
+                    value={runner?.jewel_drop_count || 0}
+                    resetKey={statAnimationResetKey}
+                    className="origin-bottom text-2xl font-bold tabular-nums text-violet-800"
+                  />
+                  <span className="pb-0.5 text-xs">次 /</span>
+                  <AnimatedStatNumber
+                    value={runner?.jewels_earned || 0}
+                    resetKey={statAnimationResetKey}
+                    className="origin-bottom text-lg font-bold tabular-nums text-violet-800"
+                  />
+                  <span className="pb-0.5 text-xs">个</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
+                <p className="text-[11px] font-semibold text-indigo-700">
+                  今日宝石
+                </p>
+                <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-indigo-600">
+                  <AnimatedStatNumber
+                    value={runner?.daily_jewel_drop_count || 0}
+                    resetKey={statAnimationResetKey}
+                    className="origin-bottom text-2xl font-bold tabular-nums text-indigo-800"
+                  />
+                  <span className="pb-0.5 text-xs">次</span>
+                </div>
               </div>
             </div>
           </div>
