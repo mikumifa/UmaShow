@@ -25,6 +25,7 @@ import { handleSuccessionIndex } from './handle/SuccessionIndex';
 import { handleSuccessionPlayerScan } from './handle/SuccessionPlayerScan';
 import handlePracticeRaceSimulation from './handle/PracticeRaceSimulation';
 import handleStoryDetail from './handle/StoryDetail';
+import handleMonteCarlo from './handle/MonteCarlo';
 import { getServerPort, SERVER_PORT_OPTIONS, setServerPort } from './config';
 import { ASSET_SCHEME, registerAssetProtocol } from './handle/AssetProtocol';
 
@@ -165,6 +166,7 @@ handleSuccessionIndex(ipcMain);
 handleSuccessionPlayerScan(ipcMain);
 handlePracticeRaceSimulation(ipcMain);
 handleStoryDetail(ipcMain);
+handleMonteCarlo(ipcMain);
 ipcMain.handle('server:get-port', () => getServerPort());
 ipcMain.handle('app-shell:get-info', (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);

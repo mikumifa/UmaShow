@@ -22,6 +22,33 @@ import { NOTE_STYLES, type NoteType } from './scenarios/idolCup/NoteStyles';
 import MinNoteTransfer, {
   getMinNoteTypes,
 } from './scenarios/idolCup/MinNoteTransfer';
+import { useMonteCarloRecommendation } from './MonteCarloProvider';
+import {
+  RecommendationScoreFooter,
+  rankRecommendationActions,
+  recommendationRankTone,
+} from './RecommendationRank';
+
+const UMA_AI_TRAIN_INDEX = new Map<number, number>([
+  [101, 0],
+  [105, 1],
+  [102, 2],
+  [103, 3],
+  [106, 4],
+  [601, 0],
+  [602, 1],
+  [603, 2],
+  [604, 3],
+  [605, 4],
+  [1101, 0],
+  [1102, 1],
+  [1103, 2],
+  [1104, 3],
+  [1105, 4],
+  [901, 0],
+  [902, 2],
+  [906, 4],
+]);
 
 export interface TargetConfig {
   label: string;
@@ -237,6 +264,7 @@ export default function TrainingCard({
   liveSpecialtyRateBonus?: number;
   arcData?: ArcData;
 }) {
+  const { settings, capturedState, result } = useMonteCarloRecommendation();
   const isDisabled = command.isEnable === 0;
   const name = COMMAND_NAME_MAP[command.commandId] || `禁用`;
   const arcCommand = arcData?.commandInfo.find(
@@ -377,6 +405,26 @@ export default function TrainingCard({
         : 0)
     );
   }, 0);
+  const recommendationAvailable = Boolean(
+    settings.enabled &&
+      capturedState &&
+      result?.ok &&
+      (capturedState.scenarioId === 6 || capturedState.scenarioId === 9),
+  );
+  const trainIndex = UMA_AI_TRAIN_INDEX.get(command.commandId);
+  const rankedRecommendations = recommendationAvailable
+    ? rankRecommendationActions(result)
+    : [];
+  const recommendation = rankedRecommendations.find(
+    ({ action }) => action.train === trainIndex,
+  );
+  let cardStateClass = `border-white hover:border-${mainConfig.color}-300 hover:-translate-y-1 shadow-md hover:shadow-xl bg-gradient-to-br from-gray-50 to-gray-100`;
+  if (isDisabled) {
+    cardStateClass =
+      'border-gray-300 bg-gray-100 grayscale cursor-not-allowed opacity-60';
+  } else if (recommendation) {
+    cardStateClass = `${recommendationRankTone(recommendation.rank).card} hover:-translate-y-1`;
+  }
 
   return (
     <button
@@ -387,11 +435,7 @@ export default function TrainingCard({
       className={`
         relative group flex flex-col items-stretch text-left
         border-4 rounded-xl transition-all duration-150 transform active:scale-95
-        ${
-          isDisabled
-            ? 'border-gray-300 bg-gray-100 grayscale cursor-not-allowed opacity-60'
-            : `border-white hover:border-${mainConfig.color}-300 hover:-translate-y-1 shadow-md hover:shadow-xl bg-gradient-to-br from-gray-50 to-gray-100`
-        }
+        ${cardStateClass}
       `}
     >
       {/* Level Badge */}
@@ -432,7 +476,13 @@ export default function TrainingCard({
       </div>
 
       {/* Stats Impact List */}
-      <div className="p-3 space-y-2 bg-white rounded-b-lg flex-1">
+      <div
+        className={`flex-1 space-y-2 bg-white p-3 ${
+          command.trainingPartners.length > 0 || recommendation
+            ? ''
+            : 'rounded-b-lg'
+        }`}
+      >
         {/* Gains */}
         <div className="space-y-1">
           <MinNoteTransfer
@@ -580,7 +630,11 @@ export default function TrainingCard({
       </div>
       {/* Partners Footer */}
       {command.trainingPartners.length > 0 && (
-        <div className="min-h-[54px] flex flex-wrap justify-start gap-1.5 rounded-b-lg border-t border-gray-100 bg-gray-50 p-2">
+        <div
+          className={`min-h-[54px] flex flex-wrap justify-start gap-1.5 border-t border-gray-100 bg-gray-50 p-2 ${
+            recommendation ? '' : 'rounded-b-lg'
+          }`}
+        >
           {command.trainingPartners.map((p) => {
             const partner = partnerStats.find((c) => c.position === p);
             const arcCharaId = getArcCharaId(p);
@@ -751,6 +805,9 @@ export default function TrainingCard({
           })}
         </div>
       )}
+      {recommendation ? (
+        <RecommendationScoreFooter recommendation={recommendation} />
+      ) : null}
     </button>
   );
 }

@@ -1,4 +1,9 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import {
+  HashRouter as Router,
+  Navigate,
+  Routes,
+  Route,
+} from 'react-router-dom';
 import KeepAlive, { AliveScope } from 'react-activation';
 import MonitorDashboard from 'renderer/ui/MonitorDashboard';
 import 'tailwindcss/tailwind.css';
@@ -11,6 +16,7 @@ import LeaderboardAnalysis from 'renderer/ui/LeaderboardAnalysis';
 import AutoResearch from 'renderer/ui/AutoResearch';
 import SuccessionPlanner from 'renderer/ui/SuccessionPlanner';
 import AppMenuBar from 'renderer/components/AppMenuBar';
+import { MonteCarloProvider } from 'renderer/components/MonteCarloProvider';
 
 export default function App() {
   return (
@@ -56,88 +62,97 @@ export default function App() {
         `}
       </style>
       <Router>
-        <AliveScope>
-          <HiddenNavigator />
-          <AppMenuBar />
-          <div className="app-route-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <KeepAlive name="Dashboard" cacheKey="Dashboard">
-                    <MonitorDashboard />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/races"
-                element={
-                  <KeepAlive name="RaceList" cacheKey="RaceList">
-                    <RaceList />
-                  </KeepAlive>
-                }
-              />
-              <Route path="/race" element={<RaceDataPage />} />
-              <Route
-                path="/training-history"
-                element={
-                  <KeepAlive name="TrainingHistory" cacheKey="TrainingHistory">
-                    <TrainingHistory />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/race-stats"
-                element={
-                  <KeepAlive name="RaceStats" cacheKey="RaceStats">
-                    <RaceStats />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/loh"
-                element={
-                  <KeepAlive
-                    name="LeaderboardAnalysis"
-                    cacheKey="LeaderboardAnalysis"
-                  >
-                    <LeaderboardAnalysis />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/auto-research"
-                element={
-                  <KeepAlive name="AutoResearch" cacheKey="AutoResearch">
-                    <AutoResearch />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/succession"
-                element={
-                  <KeepAlive
-                    name="SuccessionPlanner"
-                    cacheKey="SuccessionPlanner"
-                  >
-                    <SuccessionPlanner />
-                  </KeepAlive>
-                }
-              />
-              <Route
-                path="/leaderboard-analysis"
-                element={
-                  <KeepAlive
-                    name="LeaderboardAnalysis"
-                    cacheKey="LeaderboardAnalysis"
-                  >
-                    <LeaderboardAnalysis />
-                  </KeepAlive>
-                }
-              />
-            </Routes>
-          </div>
-        </AliveScope>
+        <MonteCarloProvider>
+          <AliveScope>
+            <HiddenNavigator />
+            <AppMenuBar />
+            <div className="app-route-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <KeepAlive name="Dashboard" cacheKey="Dashboard">
+                      <MonitorDashboard />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/races"
+                  element={
+                    <KeepAlive name="RaceList" cacheKey="RaceList">
+                      <RaceList />
+                    </KeepAlive>
+                  }
+                />
+                <Route path="/race" element={<RaceDataPage />} />
+                <Route
+                  path="/training-history"
+                  element={
+                    <KeepAlive
+                      name="TrainingHistory"
+                      cacheKey="TrainingHistory"
+                    >
+                      <TrainingHistory />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/race-stats"
+                  element={
+                    <KeepAlive name="RaceStats" cacheKey="RaceStats">
+                      <RaceStats />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/loh"
+                  element={
+                    <KeepAlive
+                      name="LeaderboardAnalysis"
+                      cacheKey="LeaderboardAnalysis"
+                    >
+                      <LeaderboardAnalysis />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/monte-carlo"
+                  element={<Navigate to="/" replace />}
+                />
+                <Route
+                  path="/auto-research"
+                  element={
+                    <KeepAlive name="AutoResearch" cacheKey="AutoResearch">
+                      <AutoResearch />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/succession"
+                  element={
+                    <KeepAlive
+                      name="SuccessionPlanner"
+                      cacheKey="SuccessionPlanner"
+                    >
+                      <SuccessionPlanner />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/leaderboard-analysis"
+                  element={
+                    <KeepAlive
+                      name="LeaderboardAnalysis"
+                      cacheKey="LeaderboardAnalysis"
+                    >
+                      <LeaderboardAnalysis />
+                    </KeepAlive>
+                  }
+                />
+              </Routes>
+            </div>
+          </AliveScope>
+        </MonteCarloProvider>
       </Router>
     </div>
   );

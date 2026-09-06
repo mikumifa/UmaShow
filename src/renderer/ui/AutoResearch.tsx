@@ -91,6 +91,8 @@ import {
   AccountOptionsResponse,
   AutoResearchTab,
   CapturedCredential,
+  CloudCareerConfig,
+  CloudConfigurationResponse,
   CareerSessionRecord,
   CareerRunQueueItem,
   CareerSetting,
@@ -736,6 +738,7 @@ export default function AutoResearch() {
     new Map<string, AccountOptionsResponse['options']>(),
   );
   const accountOptionsRequests = useRef(new Map<string, Promise<void>>());
+  const loadedCareerHistoryKeyRef = useRef('');
   const [cardId, setCardId] = useState(0);
   const [deckId, setDeckId] = useState(0);
   const [supportCardIds, setSupportCardIds] = useState<number[]>([]);
@@ -790,6 +793,9 @@ export default function AutoResearch() {
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
   const [supportSearch, setSupportSearch] = useState('');
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
+  const [cloudCareerConfigIds, setCloudCareerConfigIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [selectedCareerSettingId, setSelectedCareerSettingId] = useState('');
   const [careerSettingName, setCareerSettingName] = useState('');
   const [careerPresetName, setCareerPresetName] = useState('');
@@ -815,7 +821,6 @@ export default function AutoResearch() {
   const [offlineSkillSettings, setOfflineSkillSettings] =
     useState<OfflineSkillSettings>(() => createDefaultOfflineSkillSettings());
   const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
-  const [historyCareerSettingId, setHistoryCareerSettingId] = useState('');
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
     CareerSessionRecord[] | null
   >(null);
@@ -1000,25 +1005,6 @@ export default function AutoResearch() {
     runner?.preset,
     selectedCareerSetting,
   ]);
-  const historyCareerSetting = useMemo(
-    () =>
-      accountCareerSettings.find(
-        (setting) => setting.id === historyCareerSettingId,
-      ),
-    [accountCareerSettings, historyCareerSettingId],
-  );
-  const historyCareerRecords = useMemo(() => {
-    if (!historyCareerSetting) return [];
-    return careerHistory.filter((report) => {
-      if (report.career_setting_id) {
-        return report.career_setting_id === historyCareerSetting.id;
-      }
-      return (
-        report.preset_name === historyCareerSetting.preset_name &&
-        report.card_id === historyCareerSetting.card_id
-      );
-    });
-  }, [careerHistory, historyCareerSetting]);
   const continuingCurrentCareer = Boolean(activeCareer?.active);
   const effectiveCardId =
     cardId ||
@@ -1084,15 +1070,21 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (!automationActive) return;
-    const mode = runner?.run_plan?.mode;
+    const dailyScheduleActive = Boolean(
+      runner?.daily_jewel_schedule?.enabled &&
+        runner.daily_jewel_schedule.mode !== 'queue',
+    );
+    const rawMode = dailyScheduleActive
+      ? runner?.daily_jewel_schedule?.mode || runner?.run_plan?.mode
+      : runner?.run_plan?.mode;
+    const mode =
+      rawMode === 'daily_count'
+        ? 'count'
+        : rawMode === 'daily_jewel_drops' || rawMode === 'daily_jewel_schedule'
+          ? 'jewel_drops'
+          : rawMode;
     if (mode) {
-      setRunMode(
-        mode === 'daily_count'
-          ? 'count'
-          : mode === 'daily_jewel_drops'
-            ? 'jewel_drops'
-            : mode,
-      );
+      setRunMode(mode);
     }
     setRepeatDaily(
       Boolean(
@@ -1101,18 +1093,26 @@ export default function AutoResearch() {
           runner?.run_plan?.queue?.repeat_daily,
       ),
     );
-    if (mode === 'count' && runner?.run_plan?.target) {
-      setRunCountTarget(runner.run_plan.target);
+    const target = dailyScheduleActive
+      ? runner?.daily_jewel_schedule?.target
+      : runner?.run_plan?.target;
+    if (mode === 'count' && target) {
+      setRunCountTarget(target);
     }
-    if (mode === 'daily_count' && runner?.run_plan?.target) {
-      setRunCountTarget(runner.run_plan.target);
+    if (mode === 'jewel_drops' && target) {
+      setJewelDropTarget(target);
     }
-    if (mode === 'jewel_drops' && runner?.run_plan?.target) {
-      setJewelDropTarget(runner.run_plan.target);
+    if (dailyScheduleActive) {
+      setScheduleStartTime(runner?.daily_jewel_schedule?.start_time || '05:00');
+      setScheduleEndTime(runner?.daily_jewel_schedule?.end_time || '05:00');
     }
   }, [
     automationActive,
     runner?.daily_jewel_schedule?.enabled,
+    runner?.daily_jewel_schedule?.end_time,
+    runner?.daily_jewel_schedule?.mode,
+    runner?.daily_jewel_schedule?.start_time,
+    runner?.daily_jewel_schedule?.target,
     runner?.run_plan?.mode,
     runner?.run_plan?.queue?.repeat_daily,
     runner?.run_plan?.repeat_daily,
@@ -1958,6 +1958,134 @@ export default function AutoResearch() {
     [accounts, request, server],
   );
 
+  const loadCloudConfiguration = useCallback(
+    async (accountId: string) => {
+      if (!accountId || !server) return;
+      const account = accounts.find((item) => item.id === accountId);
+      if (!account) return;
+      const credential = (await window.electron.autoResearch.credential(
+        accountId,
+      )) as { uid: string; accessKey: string };
+      const result = await request<CloudConfigurationResponse>(
+        '/api/account/configuration/query',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+          }),
+        },
+      );
+      const cloudSettings = (result.career_configs || []).flatMap((config) => {
+        const setting = config.payload?.setting;
+        if (!setting?.id || !setting.name) return [];
+        return [
+          {
+            ...setting,
+            id: config.config_id,
+            name: config.name,
+            account_uid: account.uid,
+            updated_at: config.updated_at || setting.updated_at,
+          } satisfies CareerSetting,
+        ];
+      });
+      setCloudCareerConfigIds(
+        new Set(
+          (result.career_configs || []).map((config) => config.config_id),
+        ),
+      );
+      setCareerSettings((current) => {
+        const accountSettings = new Map(
+          current
+            .filter((setting) => setting.account_uid === account.uid)
+            .map((setting) => [setting.id, setting]),
+        );
+        cloudSettings.forEach((setting) =>
+          accountSettings.set(setting.id, setting),
+        );
+        const next = [
+          ...current.filter((setting) => setting.account_uid !== account.uid),
+          ...accountSettings.values(),
+        ];
+        setSharedStorageItem(CAREER_SETTINGS_KEY, JSON.stringify(next));
+        return next;
+      });
+
+      const cloudPresets = (result.career_configs || []).flatMap((config) => {
+        const preset = config.payload?.preset;
+        if (!preset?.name) return [];
+        return [
+          migratePresetSkillIdentifiers({
+            ...preset,
+            scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
+            fixed_event_choices: normalizeFixedEventChoices(
+              preset.fixed_event_choices,
+            ),
+          }),
+        ];
+      });
+      if (cloudPresets.length) {
+        setPresets((current) => {
+          const presetMap = new Map(
+            current.map((preset) => [preset.name, preset]),
+          );
+          cloudPresets.forEach((preset) => presetMap.set(preset.name, preset));
+          const next = [...presetMap.values()];
+          setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
+
+      const dailyConfig = result.daily_config;
+      if (dailyConfig?.payload.daily_tasks) {
+        const saved = writeLocalDailyTasks(
+          account.uid,
+          dailyConfig.payload.daily_tasks,
+        );
+        setDailyTasksOverview((current) =>
+          current
+            ? {
+                ...current,
+                daily_tasks: { ...current.daily_tasks, ...saved },
+              }
+            : current,
+        );
+      }
+      const cloudSchedule = dailyConfig?.payload.schedule;
+      if (cloudSchedule) {
+        setRepeatDaily(Boolean(dailyConfig?.enabled));
+        setScheduleStartTime(cloudSchedule.start_time || '05:00');
+        setScheduleEndTime(cloudSchedule.end_time || '05:00');
+        if (cloudSchedule.mode) setRunMode(cloudSchedule.mode);
+        if (cloudSchedule.mode === 'count' && cloudSchedule.target) {
+          setRunCountTarget(cloudSchedule.target);
+        }
+        if (cloudSchedule.mode === 'jewel_drops' && cloudSchedule.target) {
+          setJewelDropTarget(cloudSchedule.target);
+        }
+      }
+    },
+    [accounts, request, server],
+  );
+
+  const pullCloudConfiguration = useCallback(async () => {
+    if (!selectedAccountId || !server) {
+      setError('拉取云端详设前，请先连接自动育成服务器');
+      return;
+    }
+    setBusy('cloud-config-pull');
+    setError('');
+    setSuccessMessage('');
+    try {
+      await loadCloudConfiguration(selectedAccountId);
+      setSuccessMessage('云端详设、预设和每日配置已拉取');
+    } catch (caught) {
+      setError(`拉取云端详设失败：${(caught as Error).message}`);
+    } finally {
+      setBusy('');
+    }
+  }, [loadCloudConfiguration, selectedAccountId, server]);
+
   const deleteCareerHistory = useCallback(
     async (reportIds: string[]) => {
       if (!selectedAccountId || !reportIds.length) return;
@@ -2500,6 +2628,57 @@ export default function AutoResearch() {
     [clearAccountOverviewSnapshot],
   );
 
+  const uploadDailyConfig = useCallback(
+    async (config: DailyTasksConfig) => {
+      if (!selectedAccountId || !server) return;
+      const credential = (await window.electron.autoResearch.credential(
+        selectedAccountId,
+      )) as { uid: string; accessKey: string };
+      const enabled = Boolean(
+        repeatDaily ||
+          config.run_with_career ||
+          config.daily_race.enabled ||
+          config.daily_legend_race.enabled ||
+          config.team_stadium.enabled ||
+          config.limited_shop.enabled,
+      );
+      await request('/api/account/configuration/daily/upsert', {
+        method: 'POST',
+        body: JSON.stringify({
+          uid: credential.uid,
+          access_key: credential.accessKey,
+          enabled,
+          payload: {
+            daily_tasks: editableDailyTasksConfig(config),
+            schedule: {
+              mode: runMode,
+              target:
+                runMode === 'count'
+                  ? runCountTarget
+                  : runMode === 'jewel_drops'
+                    ? jewelDropTarget
+                    : 1,
+              start_time: scheduleStartTime,
+              end_time: scheduleEndTime,
+              queue_mode: runMode === 'queue',
+            },
+          },
+        }),
+      });
+    },
+    [
+      jewelDropTarget,
+      repeatDaily,
+      request,
+      runCountTarget,
+      runMode,
+      scheduleEndTime,
+      scheduleStartTime,
+      selectedAccountId,
+      server,
+    ],
+  );
+
   const saveDailyTasks = useCallback(
     async (config: DailyTasksConfig) => {
       if (serverHostedMode) {
@@ -2519,13 +2698,14 @@ export default function AutoResearch() {
               }
             : current,
         );
+        await uploadDailyConfig(saved);
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
         setBusy('');
       }
     },
-    [selectedAccount, selectedAccountId, serverHostedMode],
+    [selectedAccount, selectedAccountId, serverHostedMode, uploadDailyConfig],
   );
 
   const runDailyTasks = useCallback(
@@ -2929,7 +3109,7 @@ export default function AutoResearch() {
     setNewCareerSaveName('');
     setNewCareerPresetName('');
     setCareerHistory([]);
-    setHistoryCareerSettingId('');
+    setCloudCareerConfigIds(new Set());
     setSelectedCareerRecords(null);
     setDailyTasksOverview(null);
     setDailyTasksLoading(false);
@@ -2941,13 +3121,12 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
-    setSelectedCareerRecords(null);
-  }, [historyCareerSettingId]);
-
-  useEffect(() => {
     if (activeTab !== 'history' || !selectedAccountId || !server) {
       return;
     }
+    const historyKey = `${server}\u0000${selectedAccountId}`;
+    if (loadedCareerHistoryKeyRef.current === historyKey) return;
+    loadedCareerHistoryKeyRef.current = historyKey;
     loadCareerHistory(selectedAccountId).catch(() => undefined);
   }, [
     activeTab,
@@ -3917,6 +4096,7 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: selectedCareerSetting?.id || '',
         career_setting_name: selectedCareerSetting?.name || careerSettingName,
+        career_config: selectedCareerSetting || {},
         preset_name: careerPresetName,
         preset: boundPreset,
         max_steps: maxSteps,
@@ -3989,6 +4169,7 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: setting.id,
         career_setting_name: setting.name,
+        career_config: setting,
         preset_name: setting.preset_name,
         preset,
         max_steps: setting.max_steps || 2500,
@@ -4126,6 +4307,9 @@ export default function AutoResearch() {
           body: JSON.stringify({
             run_mode: mode,
             run_target: target,
+            repeat_daily: repeatDaily,
+            schedule_start_time: scheduleStartTime,
+            schedule_end_time: scheduleEndTime,
             ...(preset
               ? {
                   preset_name: preset.name,
@@ -4537,6 +4721,139 @@ export default function AutoResearch() {
   const persistCareerSettings = (nextSettings: CareerSetting[]) => {
     setCareerSettings(nextSettings);
     setSharedStorageItem(CAREER_SETTINGS_KEY, JSON.stringify(nextSettings));
+  };
+
+  const careerConfigCloudPayload = (setting: CareerSetting) => ({
+    setting: structuredClone(setting),
+    preset:
+      setting.mode === 'offline'
+        ? undefined
+        : presets.find((preset) => preset.name === setting.preset_name),
+  });
+
+  const uploadCareerSetting = async (settingId: string) => {
+    if (!selectedAccountId || !server) {
+      setError('上传详设前，请先连接自动育成服务器');
+      return;
+    }
+    const setting = careerSettings.find((item) => item.id === settingId);
+    if (!setting) return;
+    const busyKey = `career-cloud-upload:${setting.id}`;
+    setBusy(busyKey);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        selectedAccountId,
+      )) as { uid: string; accessKey: string };
+      const result = await request<{
+        success: boolean;
+        config: CloudCareerConfig;
+      }>('/api/account/configuration/career/upsert', {
+        method: 'POST',
+        body: JSON.stringify({
+          uid: credential.uid,
+          access_key: credential.accessKey,
+          config_id: setting.id,
+          name: setting.name,
+          payload: careerConfigCloudPayload(setting),
+        }),
+      });
+      setCloudCareerConfigIds((current) => {
+        const next = new Set(current);
+        next.add(result.config.config_id);
+        return next;
+      });
+      setSuccessMessage(`详设“${setting.name}”已上传到云端`);
+    } catch (caught) {
+      setError(`详设上传失败：${(caught as Error).message}`);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const downloadCareerSetting = async (records: CareerSessionRecord[]) => {
+    const record = records.find(
+      (item) => item.career_setting_snapshot?.setting,
+    );
+    const snapshot = record?.career_setting_snapshot;
+    const storedSetting = snapshot?.setting as CareerSetting | undefined;
+    if (!record || !storedSetting || !selectedAccount) return;
+
+    const settingId =
+      String(storedSetting.id || record.career_setting_id || '').trim() ||
+      `${selectedAccount.uid}-${Date.now()}`;
+    if (careerSettings.some((setting) => setting.id === settingId)) {
+      setSuccessMessage('UmaShow 中已经有这个详设');
+      return;
+    }
+
+    const busyKey = `history-setting-download:${settingId}`;
+    setBusy(busyKey);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const mode = storedSetting.mode === 'offline' ? 'offline' : 'online';
+      let importedPresetName = storedSetting.preset_name;
+      const rawPreset = snapshot?.preset as Partial<Preset> | undefined;
+      if (mode === 'online' && rawPreset?.name) {
+        const existingPreset = presets.find(
+          (preset) => preset.name === rawPreset.name,
+        );
+        const samePreset =
+          existingPreset &&
+          JSON.stringify(existingPreset) === JSON.stringify(rawPreset);
+        let importedPreset = existingPreset;
+        if (!samePreset) {
+          let importedName = rawPreset.name;
+          let suffix = 2;
+          const existingNames = new Set(presets.map((preset) => preset.name));
+          while (existingNames.has(importedName)) {
+            importedName = `${rawPreset.name} (${suffix})`;
+            suffix += 1;
+          }
+          importedPreset = migratePresetSkillIdentifiers({
+            ...createDefaultPreset(importedName),
+            ...rawPreset,
+            name: importedName,
+            scenario_id: normalizeOnlineScenarioId(rawPreset.scenario_id),
+            fixed_event_choices: normalizeFixedEventChoices(
+              rawPreset.fixed_event_choices,
+            ),
+          });
+          const nextPresets = [...presets, importedPreset];
+          setPresets(nextPresets);
+          setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+        }
+        importedPresetName = importedPreset?.name || rawPreset.name;
+      }
+
+      const setting: CareerSetting = {
+        ...structuredClone(storedSetting),
+        id: settingId,
+        name:
+          String(record.career_setting_name || storedSetting.name).trim() ||
+          '记录详设',
+        account_uid: selectedAccount.uid,
+        mode,
+        preset_name: mode === 'online' ? importedPresetName : '',
+        updated_at: new Date().toISOString(),
+      };
+      persistCareerSettings([
+        setting,
+        ...careerSettings.filter((item) => item.id !== setting.id),
+      ]);
+      setCloudCareerConfigIds((current) => {
+        const next = new Set(current);
+        next.add(setting.id);
+        return next;
+      });
+      setSuccessMessage(`已下载详设“${setting.name}”`);
+    } catch (caught) {
+      setError(`详设下载失败：${(caught as Error).message}`);
+    } finally {
+      setBusy('');
+    }
   };
 
   const closeCareerEditor = () => {
@@ -5026,6 +5343,7 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: selectedCareerSetting?.id || '',
         career_setting_name: selectedCareerSetting?.name || careerSettingName,
+        career_config: selectedCareerSetting || {},
         priority_skill_array: buildOfflinePrioritySkillArray(
           offlinePrioritySkillIds,
         ),
@@ -5111,6 +5429,7 @@ export default function AutoResearch() {
         daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
         career_setting_id: setting.id,
         career_setting_name: setting.name,
+        career_config: setting,
         priority_skill_array: buildOfflinePrioritySkillArray(
           setting.offline_priority_skill_ids || [],
         ),
@@ -5193,6 +5512,7 @@ export default function AutoResearch() {
       target: queueItem.target,
       preset: preset || {},
       request: {
+        career_config: resolved,
         card_id: resolved.card_id,
         support_card_ids: resolved.support_card_ids,
         friend_viewer_id: 0,
@@ -5311,6 +5631,17 @@ export default function AutoResearch() {
       started = await runCareer(runMode, target);
     }
     if (started) {
+      const uploadedSettingId =
+        pendingRun.type === 'saved' || pendingRun.type === 'append'
+          ? pendingRun.settingId
+          : selectedCareerSetting?.id;
+      if (uploadedSettingId) {
+        setCloudCareerConfigIds((current) => {
+          const next = new Set(current);
+          next.add(uploadedSettingId);
+          return next;
+        });
+      }
       setRunDialogOpen(false);
       setPendingRun(null);
       setCareerSaveOpen(false);
@@ -5318,10 +5649,41 @@ export default function AutoResearch() {
     }
   };
 
-  const deleteCareerSetting = (settingId: string) => {
+  const deleteCareerSetting = async (settingId: string) => {
     const setting = careerSettings.find((item) => item.id === settingId);
     if (!setting) return;
     if (!window.confirm(`确定删除养马详设“${setting.name}”吗？`)) return;
+    if (cloudCareerConfigIds.has(setting.id)) {
+      if (!selectedAccountId || !server) {
+        setError('删除云端详设前，请先连接自动育成服务器');
+        return;
+      }
+      setBusy(`career-cloud-delete:${setting.id}`);
+      setError('');
+      try {
+        const credential = (await window.electron.autoResearch.credential(
+          selectedAccountId,
+        )) as { uid: string; accessKey: string };
+        await request('/api/account/configuration/career/delete', {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            config_id: setting.id,
+          }),
+        });
+        setCloudCareerConfigIds((current) => {
+          const next = new Set(current);
+          next.delete(setting.id);
+          return next;
+        });
+      } catch (caught) {
+        setError(`云端详设删除失败：${(caught as Error).message}`);
+        return;
+      } finally {
+        setBusy('');
+      }
+    }
     persistCareerSettings(
       careerSettings.filter((item) => item.id !== setting.id),
     );
@@ -7202,6 +7564,9 @@ export default function AutoResearch() {
                     editPresetForCareerSetting={editPresetForCareerSetting}
                     continueWithSetting={openSavedRunDialog}
                     deleteCareerSetting={deleteCareerSetting}
+                    uploadCareerSetting={uploadCareerSetting}
+                    pullCloudConfiguration={pullCloudConfiguration}
+                    cloudCareerConfigIds={cloudCareerConfigIds}
                     newCareerSaveName={newCareerSaveName}
                     setNewCareerSaveName={setNewCareerSaveName}
                     createCareerSave={createCareerSave}
@@ -7303,6 +7668,10 @@ export default function AutoResearch() {
                     setJewelDropTarget={setJewelDropTarget}
                     remainingJewelDrops={remainingJewelDrops}
                     repeatDaily={repeatDaily}
+                    scheduleStartTime={scheduleStartTime}
+                    setScheduleStartTime={setScheduleStartTime}
+                    scheduleEndTime={scheduleEndTime}
+                    setScheduleEndTime={setScheduleEndTime}
                     runDailyTasksWithCareer={Boolean(
                       readCareerDailyTasks(selectedAccount?.uid || '')
                         ?.run_with_career,
@@ -7385,13 +7754,11 @@ export default function AutoResearch() {
                       selectedCareerRecords={selectedCareerRecords}
                       setSelectedCareerRecords={setSelectedCareerRecords}
                       busy={busy}
-                      historyCareerSetting={historyCareerSetting}
                       loadCareerHistory={loadCareerHistory}
                       selectedAccountId={selectedAccountId}
-                      historyCareerSettingId={historyCareerSettingId}
-                      setHistoryCareerSettingId={setHistoryCareerSettingId}
                       accountCareerSettings={accountCareerSettings}
-                      historyCareerRecords={historyCareerRecords}
+                      careerHistory={careerHistory}
+                      downloadCareerSetting={downloadCareerSetting}
                       deleteCareerHistory={deleteCareerHistory}
                       downloadTrainingHistory={downloadTrainingHistory}
                       localTrainingHistoryIds={localTrainingHistoryIds}

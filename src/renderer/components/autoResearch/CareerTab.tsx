@@ -2,6 +2,8 @@
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  CloudDownload,
+  CloudUpload,
   Database,
   Play,
   Plus,
@@ -53,6 +55,9 @@ type CareerTabProps = {
   editPresetForCareerSetting: (settingId: string) => void;
   continueWithSetting: (settingId: string) => void;
   deleteCareerSetting: (settingId: string) => void;
+  uploadCareerSetting: (settingId: string) => Promise<void>;
+  pullCloudConfiguration: () => Promise<void>;
+  cloudCareerConfigIds: Set<string>;
   newCareerSaveName: string;
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
   createCareerSave: () => void;
@@ -213,6 +218,9 @@ export default function CareerTab(props: CareerTabProps) {
     editPresetForCareerSetting,
     continueWithSetting,
     deleteCareerSetting,
+    uploadCareerSetting,
+    pullCloudConfiguration,
+    cloudCareerConfigIds,
     newCareerSaveName,
     setNewCareerSaveName,
     createCareerSave,
@@ -576,6 +584,17 @@ export default function CareerTab(props: CareerTabProps) {
   ) : !careerSaveOpen && !automationActive ? (
     <>
       <section className="flex-1">
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={pullCloudConfiguration}
+            disabled={busy === 'cloud-config-pull'}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
+          >
+            <CloudDownload size={15} />
+            {busy === 'cloud-config-pull' ? '正在拉取…' : '拉取云端'}
+          </button>
+        </div>
         <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
           {accountCareerSettings.map((setting) => {
             const uma = dashboard.umas.find(
@@ -650,6 +669,20 @@ export default function CareerTab(props: CareerTabProps) {
                     className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     进入详设
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => uploadCareerSetting(setting.id)}
+                    disabled={busy === `career-cloud-upload:${setting.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                    title={
+                      cloudCareerConfigIds.has(setting.id)
+                        ? '更新云端详设'
+                        : '上传到云端详设库'
+                    }
+                  >
+                    <CloudUpload size={15} />
+                    {cloudCareerConfigIds.has(setting.id) ? '更新' : '上传'}
                   </button>
                   <button
                     type="button"

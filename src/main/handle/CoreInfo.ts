@@ -9,6 +9,7 @@ import {
   type ArcData,
   CharStats,
   type CharaEffect,
+  type EventOption,
   GameStats,
   NoteStat,
   type ScenarioType,
@@ -477,17 +478,20 @@ export async function extractCoreInfo(
       log.info('  -', choice);
     });
     const rule = resolveEventRule(storyId);
-    const options = choiceArray.map((choice: any, position: number) => {
-      const idx = choice.select_index;
-      const matched = rule?.options?.[position]?.[idx];
-      return (
-        matched ?? {
-          desp: `选项结果id: ${choice.select_index}`,
-          detail: '相同选项id的具体效果相同，可以通过多次触发事件进行确认。',
-          type: 'unknown',
-        }
-      );
-    });
+    const options: EventOption[] = choiceArray.map(
+      (choice: any, position: number) => {
+        const idx = choice.select_index;
+        const matched = rule?.options?.[position]?.[idx];
+        return {
+          ...(matched ?? {
+            desp: '事件选项',
+            detail: '',
+            type: 'unknown',
+          }),
+          selectIndex: Number.isFinite(Number(idx)) ? Number(idx) : undefined,
+        };
+      },
+    );
 
     const storyName = UMDB.stories.find((story) => story.id === storyId)?.name;
     return [

@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import UmaAiSettingsDialog from 'renderer/components/UmaAiSettingsDialog';
+import { useMonteCarloRecommendation } from 'renderer/components/MonteCarloProvider';
 
 type AppShellInfo = {
   version: string;
@@ -66,8 +68,10 @@ export default function AppMenuBar() {
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [umaAiSettingsOpen, setUmaAiSettingsOpen] = useState(false);
   const [info, setInfo] = useState<AppShellInfo | null>(null);
   const [changingPort, setChangingPort] = useState<number | null>(null);
+  const { settings } = useMonteCarloRecommendation();
 
   useEffect(() => {
     window.electron.appShell
@@ -189,6 +193,23 @@ export default function AppMenuBar() {
         id="app-page-actions"
         className="app-no-drag ml-2 flex max-w-[55vw] flex-none items-center gap-1.5 overflow-hidden"
       />
+
+      {location.pathname === '/' ? (
+        <button
+          type="button"
+          onClick={() => setUmaAiSettingsOpen(true)}
+          className="app-no-drag ml-1.5 flex h-7 flex-none items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          title="配置推荐"
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              settings.enabled ? 'bg-emerald-500' : 'bg-slate-300'
+            }`}
+          />
+          <Bot size={14} />
+          <span className="hidden md:inline">推荐设置</span>
+        </button>
+      ) : null}
 
       <div
         id="app-page-secondary-tabs"
@@ -321,6 +342,10 @@ export default function AppMenuBar() {
           </button>
         </div>
       ) : null}
+      <UmaAiSettingsDialog
+        open={umaAiSettingsOpen}
+        onClose={() => setUmaAiSettingsOpen(false)}
+      />
     </header>
   );
 }

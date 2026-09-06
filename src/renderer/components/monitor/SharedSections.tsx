@@ -1,13 +1,36 @@
 import { useMemo, useState } from 'react';
-import { Battery, ChevronDown, Lightbulb } from 'lucide-react';
+import {
+  AlertCircle,
+  Battery,
+  BedDouble,
+  Bot,
+  ChevronDown,
+  CircleEllipsis,
+  Flag,
+  Footprints,
+  Lightbulb,
+  Loader2,
+  Users,
+  Utensils,
+} from 'lucide-react';
 import TrainingCard from 'renderer/components/TrainingCard';
-import EventCard from 'renderer/components/EventCard';
 import EventDetailRow, {
-  type EventDetailOption,
+  buildEventDetailRows,
 } from 'renderer/components/EventDetailRow';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
-import type { CharInfo } from 'types/gameTypes';
+import {
+  COMMAND_TARGET_TYPE_MAP,
+  TARGET_TYPE,
+  type CharInfo,
+} from 'types/gameTypes';
 import type { NoteType } from 'renderer/components/scenarios/idolCup/NoteStyles';
+import { useMonteCarloRecommendation } from 'renderer/components/MonteCarloProvider';
+import {
+  type RankedRecommendation,
+  rankRecommendationActions,
+  recommendationDeltaLabel,
+  recommendationRankTone,
+} from 'renderer/components/RecommendationRank';
 import autoResearchCatalog from '../../../../assets/data/auto_research_catalog.json';
 
 const MOTIVATION_BADGES: Record<number, { label: string; iconPath: string }> = {
@@ -31,6 +54,117 @@ type HintSkillCatalogEntry = {
 };
 
 const HINT_DISCOUNT_PERCENT = [0, 10, 20, 30, 35, 40];
+
+const recommendationActivityIcon = (label: string) => {
+  if (label.includes('SS')) return Users;
+  if (label.includes('法棍')) return Utensils;
+  if (label.includes('休息')) return BedDouble;
+  if (label.includes('外出')) return Footprints;
+  if (label.includes('比赛')) return Flag;
+  return CircleEllipsis;
+};
+
+function RecommendationActivitiesCard({
+  recommendations,
+}: {
+  recommendations: RankedRecommendation[];
+}) {
+  return (
+    <article className="flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border-4 border-slate-200 bg-white shadow-md">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-3 py-2">
+        <span className="text-sm font-black text-slate-800">其他活动</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-2">
+        {recommendations.map((recommendation) => {
+          const { action, rank } = recommendation;
+          const [label, ...modifiers] = action.label.split(' + ');
+          const Icon = recommendationActivityIcon(label);
+          const tone = recommendationRankTone(rank);
+          const deltaLabel = recommendationDeltaLabel(action);
+          return (
+            <div
+              key={action.id}
+              title={`第 ${rank} 名 · ${action.label} · 预测最终分 ${Math.round(
+                action.scoreMean,
+              )} · 相对第一名 ${deltaLabel}`}
+              className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 ${tone.footer}`}
+            >
+              <span
+                className={`shrink-0 rounded px-1.5 py-1 text-xs font-black tabular-nums ${tone.badge}`}
+              >
+                #{rank}
+              </span>
+              <Icon size={16} className="shrink-0 opacity-75" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-black">
+                  {label}
+                </span>
+                {modifiers.length > 0 ? (
+                  <span className="block truncate text-[9px] font-semibold opacity-65">
+                    {modifiers.join(' · ')}
+                  </span>
+                ) : null}
+              </span>
+              <span className="shrink-0 text-right tabular-nums">
+                <span className="block whitespace-nowrap text-sm font-black leading-none">
+                  {Math.round(action.scoreMean)}
+                  <span className="ml-0.5 text-[9px] opacity-60">分</span>
+                </span>
+                <span
+                  className={`mt-1 inline-block min-w-10 rounded px-1 py-0.5 text-center text-[10px] font-black ${tone.delta}`}
+                >
+                  {deltaLabel}
+                </span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
+function UmaAiCommonHint() {
+  const { settings, capturedState, result, busy, error } =
+    useMonteCarloRecommendation();
+  if (!settings.enabled) return null;
+
+  const alternatives = (result?.actions ?? [])
+    .filter((action) => action.id !== result?.bestActionId)
+    .slice(0, 3)
+    .map((action) => `${action.label} -${Math.round(action.deltaFromBest)}`)
+    .join(' / ');
+  let label = capturedState ? '等待计算' : '等待育成数据';
+  let title = '推荐已开启，等待可计算的行动选择回合。';
+  let tone = 'border-indigo-200 bg-indigo-50 text-indigo-700';
+  let icon = <Bot size={12} strokeWidth={2.5} />;
+  if (busy) {
+    label = '正在计算';
+    title = '正在更新当前回合推荐。';
+    icon = <Loader2 size={12} className="animate-spin" />;
+  } else if (error) {
+    label = '计算失败';
+    title = error;
+    tone = 'border-rose-200 bg-rose-50 text-rose-700';
+    icon = <AlertCircle size={12} />;
+  } else if (result?.ok && result.bestAction) {
+    label = result.bestAction;
+    title = `推荐：${result.bestAction}。预测养成分 ${Math.round(
+      result.predictedScore ?? 0,
+    )}${alternatives ? `。备选：${alternatives}` : ''}`;
+  }
+
+  return (
+    <div
+      title={title}
+      className={`flex h-6 min-w-0 max-w-[360px] shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-bold ${tone}`}
+    >
+      {icon}
+      <span className="shrink-0">推荐</span>
+      <span className="truncate font-black">{label}</span>
+    </div>
+  );
+}
 
 const hintSkillKey = (groupId: number, rarity: number) =>
   `${groupId}:${rarity}`;
@@ -302,6 +436,7 @@ export function VitalPanel({
                 ))
               : null}
           </div>
+          <UmaAiCommonHint />
           <button
             type="button"
             title="展开可学习技能"
@@ -420,31 +555,17 @@ export function TrainingEventsSection({
   onTrainingHoverChange?: (commandId: number | null) => void;
   compact?: boolean;
 }) {
-  const eventDetailRows = (charInfo.gameEvents ?? [])
-    .map((event) => {
-      const detail = charInfo.eventDetails?.[event.eventId];
-      if (!detail) {
-        return null;
-      }
-      const options: EventDetailOption[] = detail.optionList.map((opt) => ({
-        option: opt.option,
-        gainList: opt.gainList,
-      }));
-      return {
-        eventId: event.eventId,
-        eventName: event.eventName,
-        options: options.filter((opt) => opt.gainList.length > 0),
-      };
-    })
-    .filter(
-      (
-        row,
-      ): row is {
-        eventId: number;
-        eventName: string;
-        options: EventDetailOption[];
-      } => !!row && row.options.length > 0,
+  const { settings, capturedState, result } = useMonteCarloRecommendation();
+  const activityRecommendations = useMemo(() => {
+    if (!settings.enabled || !capturedState) return [];
+    return rankRecommendationActions(result).filter(
+      ({ action }) => action.train >= 5,
     );
+  }, [capturedState, result, settings.enabled]);
+  const eventDetailRows = buildEventDetailRows(
+    charInfo.gameEvents,
+    charInfo.eventDetails,
+  );
 
   return (
     <>
@@ -456,10 +577,9 @@ export function TrainingEventsSection({
         >
           {charInfo.commands
             .filter((cmd) => {
+              const targetType = COMMAND_TARGET_TYPE_MAP[cmd.commandId];
               return (
-                cmd.trainingPartners?.length > 0 ||
-                cmd.tipsPartners?.length > 0 ||
-                cmd.params?.length > 0
+                targetType >= TARGET_TYPE.SPEED && targetType <= TARGET_TYPE.WIZ
               );
             })
             .map((cmd) => (
@@ -478,9 +598,11 @@ export function TrainingEventsSection({
                 }
               />
             ))}
-          {charInfo.gameEvents.map((ev) => (
-            <EventCard key={ev.eventId} event={ev} />
-          ))}
+          {activityRecommendations.length > 0 ? (
+            <RecommendationActivitiesCard
+              recommendations={activityRecommendations}
+            />
+          ) : null}
         </div>
       </section>
 

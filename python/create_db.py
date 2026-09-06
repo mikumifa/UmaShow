@@ -76,6 +76,34 @@ SUPPORT_CARD_EFFECT_LEVEL_COLUMNS = (
     (45, "limit_lv45"),
     (50, "limit_lv50"),
 )
+
+MONTE_CARLO_DIRECT_MERGE_CARDS = {30128, 30155, 30171}
+MONTE_CARLO_HINT_VALUES = (
+    (6, 0, 2, 0, 0, 0),
+    (0, 6, 0, 2, 0, 0),
+    (0, 2, 6, 0, 0, 0),
+    (1, 0, 1, 6, 0, 0),
+    (2, 0, 0, 0, 6, 0),
+)
+MONTE_CARLO_SPECIAL_RACES = {
+    1005: {"races": [32, 45]},
+    1009: {"races": [33]},
+    1016: {"races": [55, 67, 69, 71]},
+    1022: {"freeRaces": [{"startTurn": 67, "endTurn": 71, "count": 1}]},
+    1031: {"freeRaces": [{"startTurn": 69, "endTurn": 71, "count": 1}]},
+    1032: {"races": [33]},
+    1056: {
+        "races": [29],
+        "freeRaces": [{"startTurn": 60, "endTurn": 63, "count": 1}],
+    },
+    1069: {"races": [58]},
+    1071: {"races": [43]},
+    1079: {"races": [53]},
+    1093: {"races": [41]},
+    1109: {"races": [32]},
+    1116: {"races": [71]},
+    1121: {"races": [41]},
+}
 LIVE_SHOW_CONTEXT_BY_ID = {
     40000: "擅长率 +5",
     40001: "友情加成 +5%",
@@ -311,6 +339,261 @@ def build_support_card_meta(cursor: sqlite3.Cursor) -> dict:
             for effect_type, name in SUPPORT_CARD_ALL_EFFECT_TYPES.items()
         },
         "supportCardLevels": dict(support_card_levels),
+    }
+
+
+def _monte_carlo_interpolate(values: dict) -> list[int]:
+    """Expand sparse level-5 effect values to 0/5/.../50 like UmaAi."""
+    raw = [int(values.get(str(level), -1)) for level, _ in SUPPORT_CARD_EFFECT_LEVEL_COLUMNS]
+    populated = [(index, value) for index, value in enumerate(raw) if value != -1]
+    if not populated:
+        return [0] * len(raw)
+
+    result = [0] * len(raw)
+    first_index, first_value = populated[0]
+    for index in range(first_index + 1):
+        result[index] = first_value if index == first_index else 0
+    for (left_index, left_value), (right_index, right_value) in zip(
+        populated, populated[1:]
+    ):
+        result[left_index] = left_value
+        distance = right_index - left_index
+        for index in range(left_index + 1, right_index):
+            ratio = (index - left_index) / distance
+            result[index] = int(left_value + (right_value - left_value) * ratio)
+        result[right_index] = right_value
+    last_index, last_value = populated[-1]
+    for index in range(last_index, len(raw)):
+        result[index] = last_value
+    return result
+
+
+def _monte_carlo_merge_effect(card_value: dict, effect_type: int, value: int):
+    if effect_type == 41:
+        for index in range(5):
+            card_value["bonus"][index] += 1
+    elif effect_type == 1:
+        base = card_value.get("youQing", 0)
+        card_value["youQing"] = (100 + value) * (100 + base) / 100 - 100
+    elif effect_type == 2:
+        card_value["ganJing"] = card_value.get("ganJing", 0) + value
+    elif 3 <= effect_type <= 7:
+        card_value["bonus"][effect_type - 3] += value
+    elif effect_type == 8:
+        card_value["xunLian"] = card_value.get("xunLian", 0) + value
+    elif 9 <= effect_type <= 13:
+        card_value["initialBonus"][effect_type - 9] += value
+    elif effect_type == 14:
+        card_value["initialJiBan"] = card_value.get("initialJiBan", 0) + value
+    elif effect_type == 15:
+        card_value["saiHou"] = card_value.get("saiHou", 0) + value
+    elif effect_type == 17:
+        card_value["hintBonus"][5] += value * 5
+    elif effect_type == 19:
+        base = card_value.get("deYiLv", 0)
+        card_value["deYiLv"] = (100 + value) * (100 + base) / 100 - 100
+    elif effect_type == 27:
+        base = card_value.get("failRateDrop", 0)
+        card_value["failRateDrop"] = 100 - (100 - base) * (100 - value) / 100
+    elif effect_type == 28:
+        base = card_value.get("vitalCostDrop", 0)
+        card_value["vitalCostDrop"] = 100 - (100 - base) * (100 - value) / 100
+    elif effect_type == 30:
+        card_value["bonus"][5] += value
+    elif effect_type == 31:
+        card_value["wizVitalBonus"] = card_value.get("wizVitalBonus", 0) + value
+
+
+def _monte_carlo_prepare_unique(card: dict, unique_effects: dict):
+    effects = [value for value in unique_effects.values() if isinstance(value, dict)]
+    special = next((effect for effect in effects if int(effect.get("type", 0)) >= 100), None)
+    base_effects = [effect for effect in effects if 0 < int(effect.get("type", 0)) < 100]
+
+    if special is None or card["cardId"] in MONTE_CARLO_DIRECT_MERGE_CARDS:
+        for card_value in card["cardValue"]:
+            for effect in base_effects:
+                _monte_carlo_merge_effect(
+                    card_value, int(effect.get("type", 0)), int(effect.get("value", 0))
+                )
+        card["uniqueEffectType"] = 0
+        return
+
+    source_type = int(special.get("type", 0))
+    params = [
+        source_type,
+        int(special.get("value", 0)),
+        int(special.get("value1", 0)),
+        int(special.get("value2", 0)),
+        int(special.get("value3", 0)),
+        int(special.get("value4", 0)),
+    ]
+    if source_type == 101:
+        mapped_type = 1 if params[1] == 80 else 2 if params[1] == 100 else 0
+    elif source_type == 102:
+        mapped_type = 3
+    elif source_type == 103:
+        mapped_type = 21
+        params[3] = params[2]
+        params[2] = 8
+    elif source_type <= 120:
+        mapped_type = source_type - 100
+    else:
+        mapped_type = source_type - 99
+    card["uniqueEffectType"] = mapped_type
+    card["uniqueEffectParam"] = params
+
+
+def build_monte_carlo_support_cards(
+    cursor: sqlite3.Cursor, support_card_meta: dict
+) -> dict:
+    cursor.execute(
+        """SELECT s.id, s.chara_id, s.rarity, s.command_id, s.support_card_type,
+                  COALESCE(t.text, '')
+           FROM support_card_data AS s
+           LEFT JOIN text_data AS t ON t.category=75 AND t."index"=s.id;"""
+    )
+    cursor.execute(
+        "SELECT support_card_id, COUNT(*) FROM single_mode_hint_gain "
+        "WHERE hint_gain_type=0 GROUP BY support_card_id;"
+    )
+    hint_counts = {int(card_id): int(count) for card_id, count in cursor.fetchall()}
+
+    # Re-run the identity query because sqlite cursors only hold one result set.
+    cursor.execute(
+        """SELECT s.id, s.chara_id, s.rarity, s.command_id, s.support_card_type,
+                  COALESCE(t.text, '')
+           FROM support_card_data AS s
+           LEFT JOIN text_data AS t ON t.category=75 AND t."index"=s.id;"""
+    )
+    result = {}
+    for card_id, chara_id, rarity, command_id, support_type, name in cursor.fetchall():
+        if support_type == 1:
+            card_type = {101: 0, 105: 1, 102: 2, 103: 3, 106: 4}.get(command_id, 0)
+        elif support_type == 2:
+            card_type = 5
+        else:
+            card_type = 6
+        meta = support_card_meta["supportCardMeta"].get(str(card_id), {})
+        effect_values = meta.get("effectValues", {})
+        start_index = 3 + int(rarity)
+        expanded = {
+            int(effect_type): _monte_carlo_interpolate(level_values)
+            for effect_type, level_values in effect_values.items()
+        }
+        card_values = []
+        for break_index in range(5):
+            source_index = min(10, start_index + break_index)
+            value = {
+                "filled": True,
+                "bonus": [0, 0, 0, 0, 0, 0],
+                "initialBonus": [0, 0, 0, 0, 0, 0],
+                "hintBonus": [0, 0, 0, 0, 0, 5],
+                "hintLevel": 0,
+            }
+            for effect_type, values in expanded.items():
+                effect_value = values[source_index]
+                if effect_type in (1, 2, 8, 14, 15, 18, 19, 25, 26, 27, 28, 31):
+                    key = {
+                        1: "youQing",
+                        2: "ganJing",
+                        8: "xunLian",
+                        14: "initialJiBan",
+                        15: "saiHou",
+                        18: "hintProbIncrease",
+                        19: "deYiLv",
+                        25: "eventRecoveryAmountUp",
+                        26: "eventEffectUp",
+                        27: "failRateDrop",
+                        28: "vitalCostDrop",
+                        31: "wizVitalBonus",
+                    }[effect_type]
+                    value[key] = effect_value
+                elif 3 <= effect_type <= 7:
+                    value["bonus"][effect_type - 3] = effect_value
+                elif 9 <= effect_type <= 13:
+                    value["initialBonus"][effect_type - 9] = effect_value
+                elif effect_type == 17:
+                    value["hintBonus"][5] += 5 * effect_value
+                    value["hintLevel"] = effect_value + 1
+                elif effect_type == 30:
+                    value["bonus"][5] = effect_value
+            card_values.append(value)
+        card = {
+            "cardId": int(card_id),
+            "charaId": int(chara_id),
+            "cardName": name,
+            "rarity": int(rarity),
+            "cardType": card_type,
+            "cardValue": card_values,
+        }
+        _monte_carlo_prepare_unique(card, meta.get("uniqueEffects", {}))
+        if hint_counts.get(int(card_id), 0) == 0 and card_type < 5:
+            for value in card_values:
+                value["hintBonus"] = list(MONTE_CARLO_HINT_VALUES[card_type])
+                value["hintLevel"] = 0
+        result[str(card_id)] = card
+    return result
+
+
+def build_monte_carlo_umas(cursor: sqlite3.Cursor) -> dict:
+    cursor.execute(
+        """SELECT c.id, c.chara_id, c.talent_speed, c.talent_stamina,
+                  c.talent_pow, c.talent_guts, c.talent_wiz,
+                  r.speed, r.stamina, r.pow, r.guts, r.wiz,
+                  COALESCE(t.text, '')
+           FROM card_data AS c
+           JOIN card_rarity_data AS r ON r.card_id=c.id AND r.rarity=5
+           LEFT JOIN text_data AS t ON t.category=4 AND t."index"=c.id
+           WHERE c.default_rarity != 0;"""
+    )
+    rows = cursor.fetchall()
+    result = {}
+    for row in rows:
+        card_id, chara_id = int(row[0]), int(row[1])
+        cursor.execute(
+            """SELECT turn, condition_type, condition_id, condition_value_1,
+                      condition_value_2, determine_race
+               FROM single_mode_route_race
+               WHERE race_set_id=? AND scenario_group_id=100
+               ORDER BY turn, sort_id;""",
+            (chara_id,),
+        )
+        races = []
+        free_races = []
+        last_race = -1
+        for turn, condition_type, condition_id, _rank, count, determine_race in cursor.fetchall():
+            if condition_type == 1 and determine_race == 0:
+                adjusted = int(turn) - 1
+                if adjusted not in races:
+                    races.append(adjusted)
+            elif condition_type in (2, 3):
+                free_races.append(
+                    {"startTurn": last_race, "endTurn": int(turn) - 1, "count": int(count or 1)}
+                )
+            last_race = int(turn)
+        special = MONTE_CARLO_SPECIAL_RACES.get(chara_id, {})
+        races.extend(special.get("races", []))
+        free_races.extend(special.get("freeRaces", []))
+        result[str(card_id)] = {
+            "bonusData": [],
+            "fiveStatusBonus": [int(value or 0) for value in row[2:7]],
+            "fiveStatusInitial": [int(value or 0) for value in row[7:12]],
+            "freeRaces": sorted(free_races, key=lambda item: item["startTurn"]),
+            "gameId": card_id,
+            "name": row[12],
+            "preferRaces": [],
+            "preferReds": [],
+            "races": sorted(set(races)),
+            "star": 5,
+        }
+    return result
+
+
+def build_monte_carlo_data(cursor: sqlite3.Cursor, support_card_meta: dict) -> dict:
+    return {
+        "version": 1,
+        "umas": build_monte_carlo_umas(cursor),
+        "supportCards": build_monte_carlo_support_cards(cursor, support_card_meta),
     }
 
 
@@ -986,6 +1269,7 @@ def main():
     ):
         p(pb, cursor)
     support_card_meta = build_support_card_meta(cursor)
+    monte_carlo_data = build_monte_carlo_data(cursor, support_card_meta)
     chara_effect_texts = build_chara_effect_texts(cursor)
     skill_tip_names = build_skill_tip_names(cursor)
     card_talent_rates = build_card_talent_rates(cursor)
@@ -1031,6 +1315,8 @@ def main():
     ):
         with open(support_card_meta_path, "w", encoding="utf-8") as f:
             json.dump(support_card_meta, f, ensure_ascii=False, indent=2)
+    with open("assets/data/monte_carlo.json", "w", encoding="utf-8") as f:
+        json.dump(monte_carlo_data, f, ensure_ascii=False, separators=(",", ":"))
 
 
 if __name__ == "__main__":

@@ -36,13 +36,11 @@ type HistoryTabProps = {
     SetStateAction<CareerSessionRecord[] | null>
   >;
   busy: string;
-  historyCareerSetting?: CareerSetting;
   loadCareerHistory: (accountId: string) => Promise<void>;
   selectedAccountId: string;
-  historyCareerSettingId: string;
-  setHistoryCareerSettingId: Dispatch<SetStateAction<string>>;
   accountCareerSettings: CareerSetting[];
-  historyCareerRecords: CareerSessionRecord[];
+  careerHistory: CareerSessionRecord[];
+  downloadCareerSetting: (records: CareerSessionRecord[]) => Promise<void>;
   deleteCareerHistory: (reportIds: string[]) => Promise<void>;
   downloadTrainingHistory: (recordId: string) => Promise<void>;
   localTrainingHistoryIds: Set<string>;
@@ -268,8 +266,31 @@ const formatRecordDate = (dateKey: string) => {
   return `${label} · 05:00–次日05:00`;
 };
 
-const groupRecordsByDate = (records: CareerSessionRecord[]) => {
-  const groups = new Map<string, CareerSessionRecord[]>();
+const recordSettingName = (record?: CareerSessionRecord) =>
+  String(record?.career_setting_name || record?.preset_name || '').trim() ||
+  '未命名详设';
+
+const recordCareerMode = (record?: CareerSessionRecord) => {
+  if (record?.career_setting_snapshot?.mode) {
+    return record.career_setting_snapshot.mode;
+  }
+  return record?.preset_name ? 'online' : 'offline';
+};
+
+const recordSettingKey = (record: CareerSessionRecord) =>
+  String(record.career_setting_id || '').trim() ||
+  `${recordSettingName(record)}:${record.card_id || 0}:${recordCareerMode(record)}`;
+
+const groupRecordsBySettingAndDate = (records: CareerSessionRecord[]) => {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      settingName: string;
+      dateKey: string;
+      records: CareerSessionRecord[];
+    }
+  >();
   [...records]
     .sort((left, right) =>
       String(right.ended_at || right.started_at || '').localeCompare(
@@ -277,11 +298,40 @@ const groupRecordsByDate = (records: CareerSessionRecord[]) => {
       ),
     )
     .forEach((record) => {
-      const key = recordDateKey(record);
-      groups.set(key, [...(groups.get(key) || []), record]);
+      const dateKey = recordDateKey(record);
+      const settingKey = recordSettingKey(record);
+      const key = `${settingKey}\u0000${dateKey}`;
+      const group = groups.get(key);
+      if (group) {
+        group.records.push(record);
+      } else {
+        groups.set(key, {
+          key,
+          settingName: recordSettingName(record),
+          dateKey,
+          records: [record],
+        });
+      }
     });
-  return [...groups.entries()];
+  return [...groups.values()];
 };
+
+const hasLocalCareerSetting = (
+  records: CareerSessionRecord[],
+  settings: CareerSetting[],
+) => {
+  const record = records[0];
+  if (!record) return false;
+  const settingId = String(record.career_setting_id || '').trim();
+  if (settingId) return settings.some((setting) => setting.id === settingId);
+  const name = recordSettingName(record);
+  return settings.some(
+    (setting) => setting.name === name && setting.card_id === record.card_id,
+  );
+};
+
+const hasCareerSettingSnapshot = (records: CareerSessionRecord[]) =>
+  records.some((record) => Boolean(record.career_setting_snapshot?.setting));
 
 const aggregateRecords = (records: CareerSessionRecord[]) => {
   const count = records.reduce((sum, record) => {
@@ -373,13 +423,11 @@ export default function HistoryTab({
   selectedCareerRecords,
   setSelectedCareerRecords,
   busy,
-  historyCareerSetting,
   loadCareerHistory,
   selectedAccountId,
-  historyCareerSettingId,
-  setHistoryCareerSettingId,
   accountCareerSettings,
-  historyCareerRecords,
+  careerHistory,
+  downloadCareerSetting,
   deleteCareerHistory,
   downloadTrainingHistory,
   localTrainingHistoryIds,
@@ -434,9 +482,15 @@ export default function HistoryTab({
     const aggregate = aggregateRecords(selectedCareerRecords);
     const recordUma = resolveRecordUma(aggregate.cardId);
     const dateKey = recordDateKey(selectedCareerRecords[0]);
-    const offlineHistory =
-      historyCareerSetting?.mode === 'offline' ||
-      selectedCareerRecords.every((record) => record.mode === 'offline');
+    const settingName = recordSettingName(selectedCareerRecords[0]);
+    const offlineHistory = selectedCareerRecords.every(
+      (record) => recordCareerMode(record) === 'offline',
+    );
+    const settingDownloaded = hasLocalCareerSetting(
+      selectedCareerRecords,
+      accountCareerSettings,
+    );
+    const canDownloadSetting = hasCareerSettingSnapshot(selectedCareerRecords);
 
     return (
       <div className="space-y-4">
@@ -450,25 +504,41 @@ export default function HistoryTab({
               <ArrowLeft size={14} />
               返回记录
             </PlannerButton>
-            <PlannerButton
-              variant="danger"
-              size="small"
-              disabled={busy === 'history-delete'}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
-                  )
-                ) {
-                  deleteCareerHistory(
-                    selectedCareerRecords.map((record) => record.id),
-                  );
-                }
-              }}
-            >
-              <Trash2 size={14} />
-              删除当天记录
-            </PlannerButton>
+            <div className="flex items-center gap-2">
+              {canDownloadSetting ? (
+                <PlannerButton
+                  variant="secondary"
+                  size="small"
+                  disabled={
+                    settingDownloaded ||
+                    busy.startsWith('history-setting-download:')
+                  }
+                  onClick={() => downloadCareerSetting(selectedCareerRecords)}
+                >
+                  <Download size={14} />
+                  {settingDownloaded ? '详设已保存' : '下载详设'}
+                </PlannerButton>
+              ) : null}
+              <PlannerButton
+                variant="danger"
+                size="small"
+                disabled={busy === 'history-delete'}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                    )
+                  ) {
+                    deleteCareerHistory(
+                      selectedCareerRecords.map((record) => record.id),
+                    );
+                  }
+                }}
+              >
+                <Trash2 size={14} />
+                删除当天记录
+              </PlannerButton>
+            </div>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -491,11 +561,12 @@ export default function HistoryTab({
               </span>
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-bold text-slate-900">
-                  {historyCareerSetting?.name || '未命名详设'} ·{' '}
-                  {formatRecordDate(dateKey)}
+                  {settingName} · {formatRecordDate(dateKey)}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {recordUma?.name || `育成马娘 ${aggregate.cardId || '-'}`}
+                  {offlineHistory
+                    ? '离线详设'
+                    : `在线详设 · 预设：${selectedCareerRecords[0]?.preset_name || '未命名'}`}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
                   {formatReportTime(aggregate.startedAt)} 至{' '}
@@ -779,215 +850,163 @@ export default function HistoryTab({
         </AppSideNotch>
       </AppMenuPortal>
       <section>
-        <div className="mt-5">
-          <p className="text-sm font-medium text-slate-700">选择详设</p>
-          {accountCareerSettings.length ? (
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {accountCareerSettings.map((setting) => {
-                const selected = historyCareerSettingId === setting.id;
-                const settingUma = resolveRecordUma(setting.card_id);
-                const offline = setting.mode === 'offline';
-                return (
-                  <button
-                    key={setting.id}
-                    type="button"
-                    onClick={() => setHistoryCareerSettingId(setting.id)}
-                    className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                      selected
-                        ? 'border-indigo-400 bg-indigo-50 text-indigo-950'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40'
-                    }`}
-                  >
-                    <span className="h-12 w-12 flex-none overflow-hidden rounded-md bg-slate-100">
-                      {settingUma ? (
-                        <AssetIcon
-                          path={
-                            horseIconPath(
-                              settingUma.id,
-                              settingUma.rarity,
-                              settingUma.race_cloth_id,
-                            ) || ''
+        <div className="mt-5 space-y-4">
+          {groupRecordsBySettingAndDate(careerHistory).map(
+            ({ key, settingName, dateKey, records }) => {
+              const aggregate = aggregateRecords(records);
+              const recordUma = resolveRecordUma(aggregate.cardId);
+              const offline = records.every(
+                (record) => recordCareerMode(record) === 'offline',
+              );
+              const settingDownloaded = hasLocalCareerSetting(
+                records,
+                accountCareerSettings,
+              );
+              const canDownloadSetting = hasCareerSettingSnapshot(records);
+              return (
+                <section
+                  key={key}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <h3 className="font-semibold text-slate-800">
+                      {formatRecordDate(dateKey)}
+                    </h3>
+                    <span className="flex flex-wrap items-center justify-end gap-2">
+                      <span className={careerSettingModeBadgeClass(offline)}>
+                        {offline ? '离线' : '在线'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {aggregate.count} 次育成 · {records.length} 次托管
+                      </span>
+                      {canDownloadSetting ? (
+                        <button
+                          type="button"
+                          disabled={
+                            settingDownloaded ||
+                            busy.startsWith('history-setting-download:')
                           }
-                          alt={settingUma.name}
-                          className="h-full w-full object-cover"
-                          loading="eager"
-                          fallback={
-                            <Trophy
-                              size={20}
-                              className="m-3.5 text-slate-300"
-                            />
+                          onClick={() => downloadCareerSetting(records)}
+                          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:text-slate-400 disabled:opacity-70"
+                          title={
+                            settingDownloaded
+                              ? 'UmaShow 中已有这个详设'
+                              : '将记录中的详设保存到 UmaShow'
                           }
-                        />
-                      ) : (
-                        <Trophy size={20} className="m-3.5 text-slate-300" />
-                      )}
+                        >
+                          <Download size={14} />
+                          {settingDownloaded ? '详设已保存' : '下载详设'}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={busy === 'history-delete'}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                            )
+                          ) {
+                            deleteCareerHistory(
+                              records.map((record) => record.id),
+                            );
+                          }
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        title="删除当天记录"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <strong className="min-w-0 flex-1 truncate text-sm">
-                          {setting.name}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCareerRecords(records)}
+                    className="grid w-full gap-4 px-4 py-3 text-left transition hover:bg-indigo-50/40 lg:grid-cols-[minmax(220px,1.2fr)_minmax(300px,1.6fr)_minmax(300px,1.5fr)] lg:items-center"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="h-14 w-14 flex-none overflow-hidden rounded-lg bg-slate-100">
+                        {recordUma ? (
+                          <AssetIcon
+                            path={
+                              horseIconPath(
+                                recordUma.id,
+                                recordUma.rarity,
+                                recordUma.race_cloth_id,
+                              ) || ''
+                            }
+                            alt={settingName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Trophy
+                            size={20}
+                            className="m-[18px] text-slate-300"
+                          />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <strong className="block truncate text-slate-900">
+                          {settingName}
                         </strong>
-                        <span className={careerSettingModeBadgeClass(offline)}>
-                          {offline ? '离线' : '在线'}
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {formatReportTime(aggregate.startedAt)} 至{' '}
+                          {formatReportTime(aggregate.endedAt)}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-400">
+                          点击查看当天每一次育成结果
                         </span>
                       </span>
-                      <span
-                        className={`mt-0.5 block truncate text-xs ${
-                          selected ? 'text-indigo-600' : 'text-slate-400'
-                        }`}
-                      >
-                        {settingUma?.name || '尚未选择育成马娘'} ·{' '}
-                        {offline
-                          ? '游戏离线育成'
-                          : `预设：${setting.preset_name || '未绑定预设'}`}
+                    </span>
+
+                    <span className="grid grid-cols-5 gap-1 text-center text-[11px] text-slate-500">
+                      {attributeItems.map(([attributeKey, label]) => (
+                        <span
+                          key={attributeKey}
+                          className="rounded bg-slate-50 px-1 py-1.5"
+                        >
+                          <strong className="block text-xs text-slate-700">
+                            {formatMetric(
+                              aggregate.attributesAverage[attributeKey],
+                            )}
+                          </strong>
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+
+                    <span className="grid grid-cols-3 gap-2 text-center text-xs text-slate-500">
+                      <span>
+                        <strong className="block text-sm text-slate-800">
+                          {aggregate.count}
+                        </strong>
+                        完成
+                      </span>
+                      <span>
+                        <strong className="block text-sm text-amber-700">
+                          {aggregate.largeMarginCount}
+                        </strong>
+                        大差
+                      </span>
+                      <span>
+                        <strong className="flex items-center justify-center gap-1 text-sm text-violet-700">
+                          <Gem size={12} />
+                          {aggregate.jewelDropCount}/{aggregate.jewelsEarned}
+                        </strong>
+                        掉落/宝石
                       </span>
                     </span>
                   </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">
-              当前账号还没有养马详设
-            </p>
+                </section>
+              );
+            },
           )}
         </div>
-
-        {!historyCareerSetting ? (
+        {!careerHistory.length && busy !== 'history' ? (
           <p className="py-14 text-center text-sm text-slate-400">
-            选择养马详设后，才会显示该详设的养马记录
+            当前账号暂无养马记录
           </p>
-        ) : (
-          <>
-            <div className="mt-5 space-y-4">
-              {groupRecordsByDate(historyCareerRecords).map(
-                ([dateKey, records]) => {
-                  const aggregate = aggregateRecords(records);
-                  const recordUma = resolveRecordUma(aggregate.cardId);
-                  return (
-                    <section
-                      key={dateKey}
-                      className="overflow-hidden rounded-xl border border-slate-200 bg-white"
-                    >
-                      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
-                        <h3 className="font-semibold text-slate-800">
-                          {formatRecordDate(dateKey)}
-                        </h3>
-                        <span className="flex items-center gap-3">
-                          <span className="text-xs text-slate-500">
-                            {aggregate.count} 次育成 · {records.length} 次托管
-                          </span>
-                          <button
-                            type="button"
-                            disabled={busy === 'history-delete'}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
-                                )
-                              ) {
-                                deleteCareerHistory(
-                                  records.map((record) => record.id),
-                                );
-                              }
-                            }}
-                            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                            title="删除当天记录"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCareerRecords(records)}
-                        className="grid w-full gap-4 px-4 py-3 text-left transition hover:bg-indigo-50/40 lg:grid-cols-[minmax(220px,1.2fr)_minmax(300px,1.6fr)_minmax(300px,1.5fr)] lg:items-center"
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <span className="h-14 w-14 flex-none overflow-hidden rounded-lg bg-slate-100">
-                            {recordUma ? (
-                              <AssetIcon
-                                path={
-                                  horseIconPath(
-                                    recordUma.id,
-                                    recordUma.rarity,
-                                    recordUma.race_cloth_id,
-                                  ) || ''
-                                }
-                                alt={recordUma.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <Trophy
-                                size={20}
-                                className="m-[18px] text-slate-300"
-                              />
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <strong className="block truncate text-slate-900">
-                              {recordUma?.name ||
-                                `育成马娘 ${aggregate.cardId || '-'}`}
-                            </strong>
-                            <span className="mt-1 block text-xs text-slate-500">
-                              {formatReportTime(aggregate.startedAt)} 至{' '}
-                              {formatReportTime(aggregate.endedAt)}
-                            </span>
-                            <span className="mt-1 block text-xs text-slate-400">
-                              点击查看当天每一次育成结果
-                            </span>
-                          </span>
-                        </span>
-
-                        <span className="grid grid-cols-5 gap-1 text-center text-[11px] text-slate-500">
-                          {attributeItems.map(([key, label]) => (
-                            <span
-                              key={key}
-                              className="rounded bg-slate-50 px-1 py-1.5"
-                            >
-                              <strong className="block text-xs text-slate-700">
-                                {formatMetric(aggregate.attributesAverage[key])}
-                              </strong>
-                              {label}
-                            </span>
-                          ))}
-                        </span>
-
-                        <span className="grid grid-cols-3 gap-2 text-center text-xs text-slate-500">
-                          <span>
-                            <strong className="block text-sm text-slate-800">
-                              {aggregate.count}
-                            </strong>
-                            完成
-                          </span>
-                          <span>
-                            <strong className="block text-sm text-amber-700">
-                              {aggregate.largeMarginCount}
-                            </strong>
-                            大差
-                          </span>
-                          <span>
-                            <strong className="flex items-center justify-center gap-1 text-sm text-violet-700">
-                              <Gem size={12} />
-                              {aggregate.jewelDropCount}/
-                              {aggregate.jewelsEarned}
-                            </strong>
-                            掉落/宝石
-                          </span>
-                        </span>
-                      </button>
-                    </section>
-                  );
-                },
-              )}
-            </div>
-            {!historyCareerRecords.length && busy !== 'history' ? (
-              <p className="py-14 text-center text-sm text-slate-400">
-                该详设暂无养马记录
-              </p>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </section>
     </>
   );

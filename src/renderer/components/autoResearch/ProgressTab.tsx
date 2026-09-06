@@ -493,9 +493,7 @@ export default function ProgressTab({
       !runner?.finished,
   );
   const liveActivityLabel =
-    automationActive && liveActivity?.endpoint
-      ? `Endpoint: ${liveActivity.endpoint}${liveActivity.delay > 0 ? ` · Delay: ${liveActivity.delay.toFixed(3)}s` : ''}${liveActivity.detail && !runnerErrors.includes(formatAccountError(liveActivity.detail)) ? ` · ${liveActivity.detail}` : ''}`
-      : '';
+    automationActive && liveActivity?.endpoint ? liveActivity.endpoint : '';
   return currentCareerActive ? (
     <div className="space-y-4">
       <section>

@@ -63,6 +63,23 @@ const electronHandler = {
     },
     checkForUpdates: () => ipcRenderer.invoke('app-shell:check-for-updates'),
   },
+  monteCarlo: {
+    status: () => ipcRenderer.invoke('monte-carlo:status'),
+    analyze: (
+      state: Record<string, unknown>,
+      options?: Record<string, unknown>,
+    ) => ipcRenderer.invoke('monte-carlo:analyze', state, options),
+    loadLatestState: () => ipcRenderer.invoke('monte-carlo:load-latest-state'),
+    stop: () => ipcRenderer.invoke('monte-carlo:stop'),
+    onStateCaptured(callback: (data: any) => void) {
+      const subscription = (_event: IpcRendererEvent, data: any) =>
+        callback(data);
+      ipcRenderer.on('monte-carlo:state-captured', subscription);
+      return () => {
+        ipcRenderer.removeListener('monte-carlo:state-captured', subscription);
+      };
+    },
+  },
   race: {
     list: (archiveId?: string) => ipcRenderer.invoke('race:list', archiveId),
     delete: (names: string[]) => ipcRenderer.invoke('race:delete', names),

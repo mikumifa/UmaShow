@@ -249,6 +249,7 @@ export interface EventOption {
   desp: string;
   detail: string;
   type: 'correct' | 'wrong' | 'neutral' | 'unknown';
+  selectIndex?: number;
 }
 
 export interface GameEvent {

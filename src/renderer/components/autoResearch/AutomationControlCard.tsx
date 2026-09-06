@@ -27,6 +27,10 @@ type AutomationControlCardProps = {
   setJewelDropTarget: Dispatch<SetStateAction<number>>;
   remainingJewelDrops: number;
   repeatDaily: boolean;
+  scheduleStartTime: string;
+  setScheduleStartTime: Dispatch<SetStateAction<string>>;
+  scheduleEndTime: string;
+  setScheduleEndTime: Dispatch<SetStateAction<string>>;
   runDailyTasksWithCareer: boolean;
   updateRunningAutomation: () => Promise<void>;
   pauseCareer: () => Promise<void>;
@@ -58,6 +62,10 @@ export default function AutomationControlCard({
   setJewelDropTarget,
   remainingJewelDrops,
   repeatDaily,
+  scheduleStartTime,
+  setScheduleStartTime,
+  scheduleEndTime,
+  setScheduleEndTime,
   runDailyTasksWithCareer,
   updateRunningAutomation,
   pauseCareer,
@@ -78,7 +86,7 @@ export default function AutomationControlCard({
   const rawCurrentMode =
     runner?.daily_jewel_schedule?.enabled &&
     runner.daily_jewel_schedule.mode !== 'queue'
-      ? runner.daily_jewel_schedule.mode
+      ? runner.daily_jewel_schedule.mode || runner?.run_plan?.mode
       : runner?.run_plan?.mode;
   const currentMode =
     rawCurrentMode === 'daily_count'
@@ -87,7 +95,15 @@ export default function AutomationControlCard({
           rawCurrentMode === 'daily_jewel_schedule'
         ? 'jewel_drops'
         : rawCurrentMode;
-  const currentTarget = runner?.run_plan?.target || 1;
+  const currentTarget =
+    runner?.daily_jewel_schedule?.enabled &&
+    runner.daily_jewel_schedule.mode !== 'queue'
+      ? runner.daily_jewel_schedule.target
+      : runner?.run_plan?.target || 1;
+  const currentScheduleStartTime =
+    runner?.daily_jewel_schedule?.start_time || '05:00';
+  const currentScheduleEndTime =
+    runner?.daily_jewel_schedule?.end_time || '05:00';
   const queue = runner?.run_plan?.queue;
   const queueCurrent = queue?.items?.[queue.current_index];
   const countProgress =
@@ -99,19 +115,23 @@ export default function AutomationControlCard({
       : currentMode === 'count'
         ? {
             completed:
-              (rawCurrentMode === 'daily_count'
-                ? runner?.run_plan?.daily_completed_runs
-                : runner?.run_plan?.completed_runs) ?? 0,
+              (runner?.daily_jewel_schedule?.enabled
+                ? runner.daily_jewel_schedule.completed_runs
+                : rawCurrentMode === 'daily_count'
+                  ? runner?.run_plan?.daily_completed_runs
+                  : runner?.run_plan?.completed_runs) ?? 0,
             target: currentTarget,
           }
         : null;
   const planChanged = Boolean(
     !queue?.active &&
-      !repeatDaily &&
       currentMode &&
       (currentMode !== runMode ||
         (['count', 'jewel_drops'].includes(runMode) &&
-          currentTarget !== selectedTarget)),
+          currentTarget !== selectedTarget) ||
+        (repeatDaily &&
+          (currentScheduleStartTime !== scheduleStartTime ||
+            currentScheduleEndTime !== scheduleEndTime))),
   );
 
   return (
@@ -235,7 +255,7 @@ export default function AutomationControlCard({
         </div>
       </div>
 
-      {!queue?.active && !repeatDaily ? (
+      {!queue?.active ? (
         <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
           {modeOptions.map((option) => {
             const Icon = option.icon;
@@ -305,11 +325,11 @@ export default function AutomationControlCard({
         </ol>
       ) : null}
 
-      {!queue?.active && !repeatDaily && runMode === 'count' ? (
+      {!queue?.active && runMode === 'count' ? (
         <RunTargetInput
           compact
           className="mt-2 w-fit"
-          prefix="从现在起完成"
+          prefix={repeatDaily ? '每天完成' : '从现在起完成'}
           value={runCountTarget}
           max={100}
           suffix="次育成"
@@ -317,17 +337,47 @@ export default function AutomationControlCard({
         />
       ) : null}
 
-      {!queue?.active && !repeatDaily && runMode === 'jewel_drops' ? (
+      {!queue?.active && runMode === 'jewel_drops' ? (
         <RunTargetInput
           compact
           className="mt-2 w-fit"
-          prefix="从现在起获得"
+          prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
           value={jewelDropTarget}
-          max={Math.max(1, remainingJewelDrops)}
+          max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
           suffix="次宝石掉落"
-          hint={`本周期剩余 ${remainingJewelDrops} 次`}
+          hint={
+            repeatDaily
+              ? '当天已有的宝石掉落会计入目标'
+              : `本周期剩余 ${remainingJewelDrops} 次`
+          }
           onValueChange={setJewelDropTarget}
         />
+      ) : null}
+
+      {!queue?.active && repeatDaily ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2 text-xs text-slate-600">
+          <label>
+            <span className="mb-1 block">每日启动</span>
+            <input
+              type="time"
+              value={scheduleStartTime}
+              onChange={(event) => setScheduleStartTime(event.target.value)}
+              className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label>
+            <span className="mb-1 block">每日结束</span>
+            <input
+              type="time"
+              value={scheduleEndTime}
+              onChange={(event) => setScheduleEndTime(event.target.value)}
+              className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <span className="pb-2 text-slate-400">
+            时段外等待；相同时间表示完整的一天周期
+          </span>
+        </div>
       ) : null}
     </section>
   );

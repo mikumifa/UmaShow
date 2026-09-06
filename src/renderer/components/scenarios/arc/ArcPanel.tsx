@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BadgeCheck, Globe2, Users } from 'lucide-react';
+import { BadgeCheck, Bot, Globe2, Users } from 'lucide-react';
 import {
   ARC_POTENTIAL_CONDITIONS,
   ARC_POTENTIALS,
@@ -21,8 +21,14 @@ import {
   TrainingEventsSection,
   VitalPanel,
 } from 'renderer/components/monitor/SharedSections';
+import { useMonteCarloRecommendation } from 'renderer/components/MonteCarloProvider';
+import {
+  RecommendationRankChip,
+  rankRecommendationActions,
+} from 'renderer/components/RecommendationRank';
 
 const TRAINING_ORDER = [101, 105, 102, 103, 106];
+const LARC_TRAIN_POTENTIAL_IDS = [4, 5, 1, 2, 6];
 const PARAM_LABELS: Record<number, string> = {
   [TARGET_TYPE.SPEED]: '速',
   [TARGET_TYPE.STAMINA]: '耐',
@@ -67,6 +73,38 @@ const SS_MATCH_MARKS: Record<number, { iconPath: string; label: string }> = {
 const UNKNOWN_SS_MATCH_MARK = {
   iconPath: null,
   label: '未知',
+};
+
+const useArcUmaAiAction = () => {
+  const { settings, capturedState, result } = useMonteCarloRecommendation();
+  if (!settings.enabled || capturedState?.scenarioId !== 6 || !result?.ok) {
+    return null;
+  }
+  return (
+    result.actions?.find((action) => action.id === result.bestActionId) ?? null
+  );
+};
+
+const useArcRankedRecommendations = () => {
+  const { settings, capturedState, result } = useMonteCarloRecommendation();
+  if (!settings.enabled || capturedState?.scenarioId !== 6 || !result?.ok) {
+    return [];
+  }
+  return rankRecommendationActions(result);
+};
+
+const recommendedArcPotentialIds = (
+  action: ReturnType<typeof useArcUmaAiAction>,
+) => {
+  const result = new Set<number>();
+  if (!action) return result;
+  if (action.buy50p && action.train >= 0 && action.train < 5) {
+    result.add(LARC_TRAIN_POTENTIAL_IDS[action.train]);
+  }
+  if (action.buyPt10) result.add(3);
+  if (action.buyVital20) result.add(7);
+  if (action.buyFriend20) result.add(8);
+  return result;
 };
 
 const mergeParams = (...groups: Array<CommandParam[] | undefined>) => {
@@ -292,6 +330,13 @@ function ArcStatusBar({
   arcData: ArcData;
   partnerStats: CharInfo['partnerStats'];
 }) {
+  const umaAiAction = useArcUmaAiAction();
+  const rankedRecommendations = useArcRankedRecommendations();
+  const umaAiPotentialIds = recommendedArcPotentialIds(umaAiAction);
+  const ssRecommendation = rankedRecommendations.find(
+    ({ action }) => action.train === 5,
+  );
+  const isSsRecommended = ssRecommendation?.isBest ?? false;
   const [openPanel, setOpenPanel] = useState<'potential' | 'rivals' | null>(
     null,
   );
@@ -343,6 +388,9 @@ function ArcStatusBar({
           SS {arcData.ssMatchWinCount}胜 · SSS {arcData.specialSsMatchWinCount}
           胜
         </span>
+        {ssRecommendation ? (
+          <RecommendationRankChip recommendation={ssRecommendation} />
+        ) : null}
         {selection ? <ParamChips params={matchParams} /> : null}
         {arcData.allRivalBoostBlocked ? (
           <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 font-black text-rose-700">
@@ -364,6 +412,9 @@ function ArcStatusBar({
             }
           >
             <BadgeCheck size={13} /> 海外适应性
+            {umaAiPotentialIds.size > 0
+              ? ` · 推荐${umaAiPotentialIds.size}项`
+              : ''}
           </button>
           <button
             type="button"
@@ -383,83 +434,98 @@ function ArcStatusBar({
         </div>
       </div>
       {selection ? (
-        <div className="mt-1.5 grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-10">
-          {selection.rivals.map((selectionRival) => {
-            const rival = arcData.rivals.find(
-              (item) => item.charaId === selectionRival.charaId,
-            );
-            const name = UMDB.charaName(selectionRival.charaId);
-            const evaluation = evaluationByCharaId.get(selectionRival.charaId);
-            const matchMark =
-              SS_MATCH_MARKS[selectionRival.mark] ?? UNKNOWN_SS_MATCH_MARK;
-            return (
-              <article
-                key={selectionRival.charaId}
-                className={`relative min-w-0 overflow-hidden rounded-lg ${
-                  selection.isSpecialMatch
-                    ? 'p-[2px] shadow-[0_0_8px_rgba(217,70,239,0.65)]'
-                    : 'border border-indigo-400 bg-indigo-50 p-1 ring-1 ring-indigo-300'
-                }`}
-                title={`${name} · 胜算${matchMark.label}${selection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
-              >
-                {selection.isSpecialMatch ? (
-                  <div className="pointer-events-none absolute -inset-[120%] animate-spin bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] [animation-duration:2.5s]" />
-                ) : null}
-                <div
-                  className={
+        <div className="mt-1.5">
+          <div
+            className={`inline-flex max-w-full flex-wrap items-stretch gap-1 rounded-lg ${
+              isSsRecommended
+                ? 'border-2 border-amber-400 bg-amber-100/60 p-1 ring-2 ring-amber-200'
+                : ''
+            }`}
+            title={
+              ssRecommendation
+                ? `第 ${ssRecommendation.rank} 名 · ${ssRecommendation.action.label}`
+                : ''
+            }
+          >
+            {selection.rivals.map((selectionRival) => {
+              const rival = arcData.rivals.find(
+                (item) => item.charaId === selectionRival.charaId,
+              );
+              const name = UMDB.charaName(selectionRival.charaId);
+              const evaluation = evaluationByCharaId.get(
+                selectionRival.charaId,
+              );
+              const matchMark =
+                SS_MATCH_MARKS[selectionRival.mark] ?? UNKNOWN_SS_MATCH_MARK;
+              return (
+                <article
+                  key={selectionRival.charaId}
+                  className={`relative min-w-0 overflow-hidden rounded-lg ${
                     selection.isSpecialMatch
-                      ? 'relative z-10 h-full rounded-[6px] bg-indigo-50 p-1'
-                      : ''
-                  }
+                      ? 'p-[2px] shadow-[0_0_8px_rgba(217,70,239,0.65)]'
+                      : 'border border-indigo-400 bg-indigo-50 p-1 ring-1 ring-indigo-300'
+                  }`}
+                  title={`${name} · 胜算${matchMark.label}${selection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
                 >
-                  <div className="flex items-center gap-1">
-                    {rival ? (
-                      <div className="flex shrink-0 flex-col items-center">
-                        <div className="relative">
-                          <RivalAvatar
-                            rival={rival}
-                            ring="ring-indigo-200"
-                            large
-                            showLevel={false}
-                          />
-                          {matchMark.iconPath ? (
-                            <img
-                              src={matchMark.iconPath}
-                              alt={`胜算：${matchMark.label}`}
-                              title={`胜算：${matchMark.label}`}
-                              className="absolute -right-1 -top-1 z-30 h-[18px] w-[18px] object-contain drop-shadow-sm"
+                  {selection.isSpecialMatch ? (
+                    <div className="pointer-events-none absolute -inset-[120%] animate-spin bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] [animation-duration:2.5s]" />
+                  ) : null}
+                  <div
+                    className={
+                      selection.isSpecialMatch
+                        ? 'relative z-10 h-full rounded-[6px] bg-indigo-50 p-1'
+                        : ''
+                    }
+                  >
+                    <div className="flex items-center gap-1">
+                      {rival ? (
+                        <div className="flex shrink-0 flex-col items-center">
+                          <div className="relative">
+                            <RivalAvatar
+                              rival={rival}
+                              ring="ring-indigo-200"
+                              large
+                              showLevel={false}
                             />
-                          ) : (
-                            <span className="absolute -right-1 -top-1 z-30 text-2xl font-black text-slate-500">
-                              ?
-                            </span>
-                          )}
+                            {matchMark.iconPath ? (
+                              <img
+                                src={matchMark.iconPath}
+                                alt={`胜算：${matchMark.label}`}
+                                title={`胜算：${matchMark.label}`}
+                                className="absolute -right-1 -top-1 z-30 h-[18px] w-[18px] object-contain drop-shadow-sm"
+                              />
+                            ) : (
+                              <span className="absolute -right-1 -top-1 z-30 text-2xl font-black text-slate-500">
+                                ?
+                              </span>
+                            )}
+                          </div>
+                          {evaluation !== undefined ? (
+                            <RivalBondGauge value={evaluation} />
+                          ) : null}
                         </div>
-                        {evaluation !== undefined ? (
-                          <RivalBondGauge value={evaluation} />
-                        ) : null}
+                      ) : null}
+                      {rival ? <RivalSelectionEffects rival={rival} /> : null}
+                    </div>
+                    {!rival ? (
+                      <div className="flex h-12 items-center justify-between gap-2 px-1 text-xs font-bold text-slate-500">
+                        <span className="truncate">{name}</span>
+                        {matchMark.iconPath ? (
+                          <img
+                            src={matchMark.iconPath}
+                            alt={`胜算：${matchMark.label}`}
+                            className="h-[18px] w-[18px] object-contain"
+                          />
+                        ) : (
+                          <span>?</span>
+                        )}
                       </div>
                     ) : null}
-                    {rival ? <RivalSelectionEffects rival={rival} /> : null}
                   </div>
-                  {!rival ? (
-                    <div className="flex h-12 items-center justify-between gap-2 px-1 text-xs font-bold text-slate-500">
-                      <span className="truncate">{name}</span>
-                      {matchMark.iconPath ? (
-                        <img
-                          src={matchMark.iconPath}
-                          alt={`胜算：${matchMark.label}`}
-                          className="h-[18px] w-[18px] object-contain"
-                        />
-                      ) : (
-                        <span>?</span>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-            );
-          })}
+                </article>
+              );
+            })}
+          </div>
         </div>
       ) : null}
       {openPanel ? (
@@ -477,6 +543,8 @@ function ArcStatusBar({
 /* eslint-enable no-use-before-define */
 
 function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
+  const umaAiAction = useArcUmaAiAction();
+  const umaAiPotentialIds = recommendedArcPotentialIds(umaAiAction);
   const currentById = new Map(
     arcData.potentials.map((potential) => [potential.potentialId, potential]),
   );
@@ -495,7 +563,10 @@ function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
           const canUpgrade = nextCost != null && arcData.globalExp >= nextCost;
           const progress = current?.progress ?? [];
           const unlocked = level > 0;
-          const cardStyle = getPotentialCardStyle(canUpgrade, unlocked);
+          const isUmaAiRecommended = umaAiPotentialIds.has(meta.id);
+          const cardStyle = isUmaAiRecommended
+            ? 'border-indigo-500 bg-indigo-50 shadow-[0_0_0_2px_rgba(99,102,241,.18)]'
+            : getPotentialCardStyle(canUpgrade, unlocked);
           let upgradeStatus = null;
           if (level >= meta.maxLevel) {
             upgradeStatus = (
@@ -552,6 +623,12 @@ function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
                   </div>
                 </div>
               </div>
+
+              {isUmaAiRecommended ? (
+                <div className="mt-1 flex items-center justify-center gap-1 rounded bg-indigo-600 py-0.5 text-[9px] font-black text-white">
+                  <Bot size={10} /> 建议升至 Lv3
+                </div>
+              ) : null}
 
               <div className="mt-1 space-y-0.5">
                 {Object.entries(meta.levelEffects).map(([rawLevel, effect]) => {

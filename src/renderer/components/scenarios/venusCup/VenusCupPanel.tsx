@@ -1,8 +1,7 @@
 import type { CharInfo } from 'types/gameTypes';
 import { VitalPanel } from 'renderer/components/monitor/SharedSections';
-import EventCard from 'renderer/components/EventCard';
 import EventDetailRow, {
-  type EventDetailOption,
+  buildEventDetailRows,
 } from 'renderer/components/EventDetailRow';
 import VenusCupTrainingCard, {
   VenusFragmentGrid,
@@ -95,32 +94,10 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
       NON_TRAINING_COMMAND_TYPE_ORDER.indexOf(nonTrainingCommandKey(left)) -
       NON_TRAINING_COMMAND_TYPE_ORDER.indexOf(nonTrainingCommandKey(right)),
   );
-  const visibleGameEvents = charInfo.gameEvents ?? [];
-  const eventDetailRows = visibleGameEvents
-    .map((event) => {
-      const detail = charInfo.eventDetails?.[event.eventId];
-      if (!detail) {
-        return null;
-      }
-      const options: EventDetailOption[] = detail.optionList.map((opt) => ({
-        option: opt.option,
-        gainList: opt.gainList,
-      }));
-      return {
-        eventId: event.eventId,
-        eventName: event.eventName,
-        options: options.filter((opt) => opt.gainList.length > 0),
-      };
-    })
-    .filter(
-      (
-        row,
-      ): row is {
-        eventId: number;
-        eventName: string;
-        options: EventDetailOption[];
-      } => !!row && row.options.length > 0,
-    );
+  const eventDetailRows = buildEventDetailRows(
+    charInfo.gameEvents,
+    charInfo.eventDetails,
+  );
   const hasSpiritTree = !!charInfo.venusData;
   const venusPassionActive = isVenusPassionActive(charInfo);
 
@@ -189,21 +166,15 @@ export default function VenusCupPanel({ charInfo }: { charInfo: CharInfo }) {
         </section>
       ) : null}
 
-      {visibleGameEvents.length > 0 || eventDetailRows.length > 0 ? (
+      {eventDetailRows.length > 0 ? (
         <section className="mt-4">
-          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-start gap-4">
-            {visibleGameEvents.map((ev) => (
-              <div key={ev.eventId} className="w-[248px] shrink-0">
-                <EventCard event={ev} />
-              </div>
-            ))}
+          <div className="space-y-3">
             {eventDetailRows.map((row) => (
-              <div key={row.eventId} className="min-w-[420px] flex-1">
-                <EventDetailRow
-                  eventName={row.eventName}
-                  options={row.options}
-                />
-              </div>
+              <EventDetailRow
+                key={row.eventId}
+                eventName={row.eventName}
+                options={row.options}
+              />
             ))}
           </div>
         </section>

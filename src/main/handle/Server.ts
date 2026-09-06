@@ -12,6 +12,7 @@ import {
   captureAutoResearchSessionResponse,
 } from './AutoResearchCredentials';
 import { captureSuccessionIndex } from './SuccessionIndex';
+import { captureMonteCarloPacket } from './MonteCarloState';
 
 export interface ExpressServerController {
   getPort: () => number;
@@ -83,6 +84,7 @@ export async function startExpressServer(
             captureAutoResearchSessionResponse(decoded);
             captureSuccessionIndex(decoded, _mainWindow);
           }
+          captureMonteCarloPacket(decoded, packetType, _mainWindow);
           persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
           handleTrainingHistoryInfo(decoded, _mainWindow);
           await extractCoreInfo(decoded, _mainWindow);

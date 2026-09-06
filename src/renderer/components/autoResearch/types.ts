@@ -507,6 +507,12 @@ export type CareerSessionRecord = {
   g123_race_records?: G123RaceRecord[];
   jewel_drop_count: number;
   jewels_earned: number;
+  career_setting_snapshot?: {
+    mode?: 'online' | 'offline';
+    setting?: Record<string, unknown>;
+    request?: Record<string, unknown>;
+    preset?: Record<string, unknown>;
+  };
   runs: CareerSessionRun[];
   current?: CareerSessionRun | null;
 };
@@ -729,6 +735,40 @@ export type Preset = {
   extra_race_list?: number[];
   expect_attribute?: number[];
   target_attribute_stages?: TargetAttributeStage[];
+};
+
+export type CloudCareerConfig = {
+  uid: string;
+  config_id: string;
+  name: string;
+  payload: {
+    setting?: CareerSetting;
+    preset?: Preset;
+  };
+  version: number;
+  updated_at: string;
+};
+
+export type CloudDailyConfig = {
+  uid: string;
+  payload: {
+    daily_tasks?: DailyTasksConfig;
+    schedule?: {
+      mode?: RunMode;
+      target?: number;
+      start_time?: string;
+      end_time?: string;
+      queue_mode?: boolean;
+    };
+  };
+  enabled: boolean;
+  updated_at: string;
+};
+
+export type CloudConfigurationResponse = {
+  success: boolean;
+  career_configs: CloudCareerConfig[];
+  daily_config?: CloudDailyConfig | null;
 };
 
 export type SkillOption = Partial<Omit<AutoResearchSkill, 'id'>> & {
