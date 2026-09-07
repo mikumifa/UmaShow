@@ -88,6 +88,7 @@ import {
 } from 'renderer/components/autoResearch/shared';
 import {
   Account,
+  AccountAutomation,
   AccountOptionsResponse,
   AutoResearchTab,
   CapturedCredential,
@@ -106,8 +107,10 @@ import {
   PendingRun,
   Preset,
   RaceOption,
-  Runner,
   RunMode,
+  ScheduleGoal,
+  ScheduleIntent,
+  ScheduleItem,
   SessionAccount,
   SessionResponse,
   SkillLearningSetting,
@@ -348,30 +351,37 @@ const readCareerDailyTasks = (uid: string): DailyTasksConfig | undefined => {
   }
 };
 
-const runnerHasHostedTask = (runner?: Runner) => {
-  const queue = runner?.run_plan?.queue;
-  const queueHasTask = Boolean(
-    queue?.items?.length &&
-      (queue.active ||
-        queue.status === 'idle' ||
-        queue.status === 'running' ||
-        queue.status === 'paused'),
-  );
-  return Boolean(
-    runner?.running ||
-      runner?.run_plan?.active ||
-      runner?.run_plan?.paused ||
-      runner?.daily_jewel_schedule?.enabled ||
-      queueHasTask,
-  );
-};
+const emptyAutomation = (): AccountAutomation => ({
+  schedule: null,
+  observation: {
+    phase: 'idle',
+    reason: '',
+    last_error: '',
+    current_item_id: '',
+    current_index: -1,
+    completed_runs: 0,
+    jewel_drops: 0,
+    item_progress: [],
+    wake_at: '',
+    daily_completed_runs: 0,
+    daily_jewel_drops: 0,
+    runner: { running: false },
+  },
+});
+
+const automationHasSchedule = (automation?: AccountAutomation) =>
+  Boolean(automation?.schedule);
+
+const runtimeRunner = (
+  runtime?: Partial<Pick<Account['runtime'], 'automation'>>,
+) => runtime?.automation?.observation.runner;
 
 const runtimeSessionOwner = (
   runtime?: Partial<
-    Pick<Account['runtime'], 'session_owner' | 'logged_in' | 'runner'>
+    Pick<Account['runtime'], 'session_owner' | 'logged_in' | 'automation'>
   >,
 ) => {
-  if (runnerHasHostedTask(runtime?.runner)) return 'server' as const;
+  if (automationHasSchedule(runtime?.automation)) return 'server' as const;
   if (runtime?.session_owner === 'local') return 'local' as const;
   return 'none' as const;
 };
@@ -508,30 +518,6 @@ const normalizeOfflineSkillSettings = (
     skip_double_circle_unless_high_hint: false,
     maximize_skill_score_at_end: true,
   };
-};
-
-const preferNewerRunner = (
-  current: Runner | undefined,
-  incoming: Runner | undefined,
-) => {
-  if (!incoming) return current;
-  if (!current) return incoming;
-  const currentEpoch = String(current.state_epoch || '');
-  const incomingEpoch = String(incoming.state_epoch || '');
-  if (currentEpoch && incomingEpoch && currentEpoch !== incomingEpoch) {
-    return incoming;
-  }
-  const currentRevision = Number(current.state_revision || 0);
-  const incomingRevision = Number(incoming.state_revision || 0);
-  if (currentRevision > 0 && incomingRevision <= 0) return current;
-  if (
-    currentRevision > 0 &&
-    incomingRevision > 0 &&
-    incomingRevision < currentRevision
-  ) {
-    return current;
-  }
-  return incoming;
 };
 
 function ErrorToast({
@@ -850,21 +836,26 @@ export default function AutoResearch() {
   const selectedAccountName = selectedAccount
     ? selectedAccount.label.trim() || `UID ${selectedAccount.uid}`
     : '';
-  const runner = session?.runtime?.runner || selectedAccount?.runtime.runner;
+  const automation =
+    session?.runtime?.automation || selectedAccount?.runtime.automation;
+  const schedule = automation?.schedule;
+  const observation = automation?.observation;
+  const runner =
+    runtimeRunner(session?.runtime) || runtimeRunner(selectedAccount?.runtime);
   const runnerStopping = Boolean(
     runner?.stopping || stoppingAccountId === selectedAccountId,
   );
-  const runnerPaused = Boolean(runner?.run_plan?.paused);
-  const dailyJewelSchedule = runner?.daily_jewel_schedule;
-  const runQueue = runner?.run_plan?.queue;
-  const currentRunQueueItem = runQueue?.items?.[runQueue.current_index];
+  const runnerPaused = Boolean(schedule?.paused);
+  const currentScheduleItem =
+    schedule?.items[Math.max(0, observation?.current_index ?? 0)] ||
+    schedule?.items[0];
   const queuedCareerPlan = Boolean(
-    runner?.run_plan?.active && !runner?.running,
+    schedule &&
+      !runner?.running &&
+      (observation?.phase === 'recovering' || observation?.phase === 'waiting'),
   );
-  const automationActive = Boolean(runnerHasHostedTask(runner));
-  const serverCareerActive = Boolean(
-    runner?.running || runner?.run_plan?.active || runnerPaused,
-  );
+  const automationActive = Boolean(schedule);
+  const serverCareerActive = automationActive;
   const localAccountSessionState = selectedAccountId
     ? localAccountSessionStates[selectedAccountId] || 'unknown'
     : 'unknown';
@@ -873,24 +864,23 @@ export default function AutoResearch() {
       runtimeSessionOwner(selectedAccount?.runtime) === 'local' ||
       localAccountSessionState === 'ready',
   );
-  const sessionOwner =
-    serverCareerActive || dailyJewelSchedule?.enabled
-      ? 'server'
-      : hasLocalSession
-        ? 'local'
-        : 'none';
+  const sessionOwner = serverCareerActive
+    ? 'server'
+    : hasLocalSession
+      ? 'local'
+      : 'none';
   const serverHostedMode = sessionOwner === 'server';
   const localSessionMode = sessionOwner === 'local';
   const remainingJewelDrops = Math.max(
     0,
     (runner?.daily_jewel_drop_limit || 20) -
-      (runner?.daily_jewel_drop_count || 0),
+      (observation?.daily_jewel_drops || 0),
   );
   const currentIdleSingleMode = dashboard?.account?.idle_single_mode;
   const activeCareer = dashboard?.account?.career;
   const offlinePlanActive = Boolean(
     serverCareerActive &&
-      (currentRunQueueItem?.career_mode === 'offline' ||
+      (currentScheduleItem?.career_mode === 'offline' ||
         currentIdleSingleMode?.active),
   );
   const activeCareerUma = dashboard?.umas.find(
@@ -899,13 +889,10 @@ export default function AutoResearch() {
   const runnerCareerUma = dashboard?.umas.find(
     (uma) => uma.id === Number(runner?.card_id || 0),
   );
-  // The persisted run plan remains authoritative before the next career step
-  // has produced a live Runner snapshot.
+  // The persisted schedule remains authoritative before its disposable
+  // attempt has produced a live Runner snapshot.
   const currentCareerActive = Boolean(
-    activeCareer?.active ||
-      runner?.running ||
-      runner?.run_plan?.active ||
-      runnerPaused,
+    activeCareer?.active || runner?.running || automationActive,
   );
   const currentCareerUma =
     (offlinePlanActive ? runnerCareerUma : activeCareerUma) ||
@@ -972,15 +959,12 @@ export default function AutoResearch() {
     return selectedCareerSetting;
   }, [careerSettings, pendingRun, selectedCareerSetting]);
   const appendingCareerPlan = pendingRun?.type === 'append';
-  const activeQueueItems = runQueue?.items || [];
+  const activeScheduleItems = schedule?.items || [];
   const appendBlockedByContinuous =
-    (activeQueueItems.length
-      ? activeQueueItems[activeQueueItems.length - 1]?.goal === 'continuous'
-      : runner?.run_plan?.mode === 'continuous') ||
-    runner?.daily_jewel_schedule?.mode === 'continuous';
+    activeScheduleItems[activeScheduleItems.length - 1]?.goal === 'continuous';
   const activeAutomationSetting = useMemo(() => {
-    const queueSetting = accountCareerSettings.find(
-      (setting) => setting.id === currentRunQueueItem?.career_setting_id,
+    const scheduleSetting = accountCareerSettings.find(
+      (setting) => setting.id === currentScheduleItem?.career_setting_id,
     );
     const runnerSetting = accountCareerSettings.find(
       (setting) =>
@@ -991,14 +975,14 @@ export default function AutoResearch() {
             (!runner?.preset || setting.preset_name === runner.preset)),
     );
     return (
-      queueSetting ||
+      scheduleSetting ||
       runnerSetting ||
       selectedCareerSetting ||
       matchingCareerSettings[0]
     );
   }, [
     accountCareerSettings,
-    currentRunQueueItem?.career_setting_id,
+    currentScheduleItem?.career_setting_id,
     matchingCareerSettings,
     offlinePlanActive,
     runner?.card_id,
@@ -1070,54 +1054,24 @@ export default function AutoResearch() {
 
   useEffect(() => {
     if (!automationActive) return;
-    const dailyScheduleActive = Boolean(
-      runner?.daily_jewel_schedule?.enabled &&
-        runner.daily_jewel_schedule.mode !== 'queue',
-    );
-    const rawMode = dailyScheduleActive
-      ? runner?.daily_jewel_schedule?.mode || runner?.run_plan?.mode
-      : runner?.run_plan?.mode;
-    const mode =
-      rawMode === 'daily_count'
-        ? 'count'
-        : rawMode === 'daily_jewel_drops' || rawMode === 'daily_jewel_schedule'
-          ? 'jewel_drops'
-          : rawMode;
-    if (mode) {
-      setRunMode(mode);
+    const item =
+      schedule?.items[Math.max(0, observation?.current_index ?? 0)] ||
+      schedule?.items[0];
+    if (item?.goal) {
+      setRunMode(item.goal);
     }
-    setRepeatDaily(
-      Boolean(
-        runner?.run_plan?.repeat_daily ||
-          runner?.daily_jewel_schedule?.enabled ||
-          runner?.run_plan?.queue?.repeat_daily,
-      ),
-    );
-    const target = dailyScheduleActive
-      ? runner?.daily_jewel_schedule?.target
-      : runner?.run_plan?.target;
-    if (mode === 'count' && target) {
-      setRunCountTarget(target);
+    setRepeatDaily(schedule?.cadence === 'daily');
+    if (item?.goal === 'count') {
+      setRunCountTarget(item.target);
     }
-    if (mode === 'jewel_drops' && target) {
-      setJewelDropTarget(target);
+    if (item?.goal === 'jewel_drops') {
+      setJewelDropTarget(item.target);
     }
-    if (dailyScheduleActive) {
-      setScheduleStartTime(runner?.daily_jewel_schedule?.start_time || '05:00');
-      setScheduleEndTime(runner?.daily_jewel_schedule?.end_time || '05:00');
+    if (schedule?.cadence === 'daily') {
+      setScheduleStartTime(schedule.start_time || '05:00');
+      setScheduleEndTime(schedule.end_time || '05:00');
     }
-  }, [
-    automationActive,
-    runner?.daily_jewel_schedule?.enabled,
-    runner?.daily_jewel_schedule?.end_time,
-    runner?.daily_jewel_schedule?.mode,
-    runner?.daily_jewel_schedule?.start_time,
-    runner?.daily_jewel_schedule?.target,
-    runner?.run_plan?.mode,
-    runner?.run_plan?.queue?.repeat_daily,
-    runner?.run_plan?.repeat_daily,
-    runner?.run_plan?.target,
-  ]);
+  }, [automationActive, observation?.current_index, schedule]);
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
@@ -1251,7 +1205,7 @@ export default function AutoResearch() {
           logged_in: false,
           session_owner: 'none',
           last_error: '',
-          runner: { running: false },
+          automation: emptyAutomation(),
           account: null,
         },
       })),
@@ -1280,19 +1234,16 @@ export default function AutoResearch() {
                   : 'none';
                 const incomingAccount =
                   response?.dashboard?.account ?? response?.runtime?.account;
-                const incomingRunner =
-                  response?.runtime?.runner || response?.runner;
-                const nextRunner =
-                  nextSessionOwner !== 'server'
-                    ? incomingRunner || { running: false }
-                    : preferNewerRunner(account.runtime.runner, incomingRunner);
+                const incomingAutomation =
+                  response?.runtime?.automation || response?.automation;
                 return {
                   ...account,
                   runtime: response
                     ? {
                         ...account.runtime,
                         ...(response.runtime || {}),
-                        runner: nextRunner || account.runtime.runner,
+                        automation:
+                          incomingAutomation || account.runtime.automation,
                         logged_in: nextSessionOwner !== 'none',
                         session_owner: nextSessionOwner,
                         account:
@@ -1306,7 +1257,7 @@ export default function AutoResearch() {
                         logged_in: false,
                         session_owner: 'none',
                         last_error: '',
-                        runner: { running: false },
+                        automation: emptyAutomation(),
                         account: null,
                       },
                 };
@@ -1341,7 +1292,7 @@ export default function AutoResearch() {
                   logged_in: false,
                   session_owner: 'none',
                   last_error: '',
-                  runner: { running: false },
+                  automation: emptyAutomation(),
                   account: null,
                 },
               }
@@ -1366,7 +1317,7 @@ export default function AutoResearch() {
       const hostedResponse = sessionTokens.current.has(accountId);
       const responseRuntime =
         response.runtime ||
-        (response.runner ||
+        (response.automation ||
         response.account !== undefined ||
         response.logged_in !== undefined
           ? {
@@ -1374,23 +1325,24 @@ export default function AutoResearch() {
               session_owner: response.session_owner,
               last_error: response.last_error || '',
               last_refreshed_at: response.last_refreshed_at,
-              runner: response.runner || { running: false },
+              automation: response.automation || emptyAutomation(),
               account: response.account ?? null,
             }
           : undefined);
-      const responseRunner = responseRuntime?.runner || response.runner;
+      const responseAutomation =
+        responseRuntime?.automation || response.automation;
       const responseOwner = hostedResponse
-        ? runnerHasHostedTask(responseRunner)
+        ? automationHasSchedule(responseAutomation)
           ? ('server' as const)
           : ('none' as const)
         : runtimeSessionOwner({
             ...responseRuntime,
-            runner: responseRunner,
+            automation: responseAutomation,
           });
       const normalizedRuntime = responseRuntime
         ? {
             ...responseRuntime,
-            runner: responseRunner,
+            automation: responseAutomation || emptyAutomation(),
             session_owner: responseOwner,
           }
         : undefined;
@@ -1431,7 +1383,7 @@ export default function AutoResearch() {
       const normalized = {
         ...response,
         runtime: normalizedRuntime,
-        runner: response.runner || normalizedRuntime?.runner,
+        automation: responseAutomation,
         dashboard:
           responseOwner !== 'none' && responseDashboard
             ? {
@@ -1441,31 +1393,17 @@ export default function AutoResearch() {
               }
             : undefined,
       } as SessionResponse;
-      setSession((current) => {
-        const currentRunner = current?.runtime?.runner || current?.runner;
-        const incomingRunner = normalized.runtime?.runner || normalized.runner;
-        const nextRunner =
-          responseOwner !== 'server'
-            ? incomingRunner || { running: false }
-            : preferNewerRunner(currentRunner, incomingRunner);
-        return {
-          ...normalized,
-          runner: normalized.runner ? nextRunner : normalized.runner,
-          runtime: normalized.runtime
-            ? { ...normalized.runtime, runner: nextRunner }
-            : normalized.runtime,
-        };
-      });
+      setSession(normalized);
       updateRuntime(accountId, normalized);
       return true;
     },
     [invalidateOverviewResponses, updateRuntime],
   );
 
-  const commitRunnerStream = useCallback(
+  const commitAutomationStream = useCallback(
     (
       accountId: string,
-      nextRunner: Runner,
+      nextAutomation: AccountAutomation,
       nextAccount?: SessionAccount | null,
       nextSessionOwner: Account['runtime']['session_owner'] = 'server',
     ) => {
@@ -1475,60 +1413,48 @@ export default function AutoResearch() {
       setAccounts((current) =>
         current.map((account) =>
           account.id === accountId
-            ? (() => {
-                const acceptedRunner =
-                  preferNewerRunner(account.runtime.runner, nextRunner) ||
-                  account.runtime.runner;
-                return {
-                  ...account,
-                  runtime: {
-                    ...account.runtime,
-                    logged_in: nextSessionOwner !== 'none',
-                    session_owner: nextSessionOwner,
-                    runner: acceptedRunner,
-                    account:
-                      acceptedRunner === nextRunner &&
-                      streamedAccount !== undefined
-                        ? streamedAccount
-                        : account.runtime.account,
-                  },
-                };
-              })()
+            ? {
+                ...account,
+                runtime: {
+                  ...account.runtime,
+                  logged_in: nextSessionOwner !== 'none',
+                  session_owner: nextSessionOwner,
+                  automation: nextAutomation,
+                  account:
+                    streamedAccount !== undefined
+                      ? streamedAccount
+                      : account.runtime.account,
+                },
+              }
             : account,
         ),
       );
       if (selectedAccountIdRef.current !== accountId) return;
       setSession((current) =>
         current
-          ? (() => {
-              const currentRunner = current.runtime?.runner || current.runner;
-              const acceptedRunner =
-                preferNewerRunner(currentRunner, nextRunner) || nextRunner;
-              return {
-                ...current,
-                dashboard:
-                  acceptedRunner === nextRunner && streamedAccount !== undefined
+          ? {
+              ...current,
+              dashboard:
+                streamedAccount !== undefined
+                  ? streamedAccount
+                    ? {
+                        ...(current.dashboard || emptyAccountOptions()),
+                        account: streamedAccount,
+                      }
+                    : undefined
+                  : current.dashboard,
+              automation: nextAutomation,
+              runtime: {
+                ...(current.runtime || {}),
+                logged_in: nextSessionOwner !== 'none',
+                session_owner: nextSessionOwner,
+                automation: nextAutomation,
+                account:
+                  streamedAccount !== undefined
                     ? streamedAccount
-                      ? {
-                          ...(current.dashboard || emptyAccountOptions()),
-                          account: streamedAccount,
-                        }
-                      : undefined
-                    : current.dashboard,
-                runner: acceptedRunner,
-                runtime: {
-                  ...(current.runtime || {}),
-                  logged_in: nextSessionOwner !== 'none',
-                  session_owner: nextSessionOwner,
-                  runner: acceptedRunner,
-                  account:
-                    acceptedRunner === nextRunner &&
-                    streamedAccount !== undefined
-                      ? streamedAccount
-                      : current.runtime?.account,
-                },
-              };
-            })()
+                    : current.runtime?.account,
+              },
+            }
           : current,
       );
     },
@@ -1558,8 +1484,13 @@ export default function AutoResearch() {
   );
 
   const releaseIdleHostedContext = useCallback(
-    (accountId: string, candidateRunner?: Runner): Promise<boolean> => {
-      if (runnerHasHostedTask(candidateRunner)) return Promise.resolve(false);
+    (
+      accountId: string,
+      candidateAutomation?: AccountAutomation,
+    ): Promise<boolean> => {
+      if (automationHasSchedule(candidateAutomation)) {
+        return Promise.resolve(false);
+      }
       const token = sessionTokens.current.get(accountId);
       if (!token) return Promise.resolve(false);
 
@@ -1748,12 +1679,12 @@ export default function AutoResearch() {
         (overviewRequestVersions.current.get(accountId) || 0) !== requestVersion
       )
         return;
-      const resultRunner = result.runtime?.runner || result.runner;
+      const resultAutomation = result.runtime?.automation || result.automation;
       if (
         sessionTokens.current.has(accountId) &&
-        !runnerHasHostedTask(resultRunner)
+        !automationHasSchedule(resultAutomation)
       ) {
-        await releaseIdleHostedContext(accountId, resultRunner);
+        await releaseIdleHostedContext(accountId, resultAutomation);
         return;
       }
       commitOverviewResponse(accountId, result, requestOrder);
@@ -1841,8 +1772,9 @@ export default function AutoResearch() {
           attachTimeoutPromise,
         ]);
         if (isStale()) return false;
-        const attachedRunner = attached.runtime?.runner || attached.runner;
-        if (!runnerHasHostedTask(attachedRunner)) {
+        const attachedAutomation =
+          attached.runtime?.automation || attached.automation;
+        if (!automationHasSchedule(attachedAutomation)) {
           // A 200 attach can still represent an idle in-memory AccountContext.
           // Release that backend game session before allowing UmaShow to enter
           // local mode; logging out only revokes the bearer token.
@@ -1877,7 +1809,7 @@ export default function AutoResearch() {
                     logged_in: false,
                     session_owner: 'none',
                     last_error: '',
-                    runner: { running: false },
+                    automation: emptyAutomation(),
                     account: null,
                   },
                 }
@@ -2050,19 +1982,6 @@ export default function AutoResearch() {
               }
             : current,
         );
-      }
-      const cloudSchedule = dailyConfig?.payload.schedule;
-      if (cloudSchedule) {
-        setRepeatDaily(Boolean(dailyConfig?.enabled));
-        setScheduleStartTime(cloudSchedule.start_time || '05:00');
-        setScheduleEndTime(cloudSchedule.end_time || '05:00');
-        if (cloudSchedule.mode) setRunMode(cloudSchedule.mode);
-        if (cloudSchedule.mode === 'count' && cloudSchedule.target) {
-          setRunCountTarget(cloudSchedule.target);
-        }
-        if (cloudSchedule.mode === 'jewel_drops' && cloudSchedule.target) {
-          setJewelDropTarget(cloudSchedule.target);
-        }
       }
     },
     [accounts, request, server],
@@ -2343,7 +2262,7 @@ export default function AutoResearch() {
       const targetAccount = accountsRef.current.find(
         (account) => account.id === accountId,
       );
-      if (runnerHasHostedTask(targetAccount?.runtime.runner)) {
+      if (automationHasSchedule(targetAccount?.runtime.automation)) {
         setError('当前账号处于服务器托管状态，请先停止托管');
         return;
       }
@@ -2381,7 +2300,7 @@ export default function AutoResearch() {
                   logged_in: false,
                   session_owner: 'none',
                   last_error: '',
-                  runner: { running: false },
+                  automation: emptyAutomation(),
                   account: null,
                 },
               }
@@ -2532,15 +2451,15 @@ export default function AutoResearch() {
       const targetAccount = accountsRef.current.find(
         (account) => account.id === targetAccountId,
       );
-      const targetRunner = targetAccount?.runtime.runner;
+      const targetAutomation = targetAccount?.runtime.automation;
       if (sessionTokens.current.has(targetAccountId)) {
-        if (runnerHasHostedTask(targetRunner)) {
+        if (automationHasSchedule(targetAutomation)) {
           setSelectedAccountId(targetAccountId);
           localStorage.setItem(LAST_ACCOUNT_KEY, targetAccountId);
           return;
         }
         try {
-          await releaseIdleHostedContext(targetAccountId, targetRunner);
+          await releaseIdleHostedContext(targetAccountId, targetAutomation);
         } catch (caught) {
           setError(
             `释放已完成的托管会话失败，未执行本地登录：${(caught as Error).message}`,
@@ -2568,8 +2487,8 @@ export default function AutoResearch() {
 
       // The backend probe is authoritative for ownership. `/api/auth/attach`
       // returns the runtime overview. UmaShow enters hosted mode only when that
-      // overview contains a plan, queue, or daily schedule; an idle backend
-      // context is reset before local SID login is allowed.
+      // overview contains a ScheduleIntent; an idle backend context is reset
+      // before local SID login is allowed.
       try {
         if (await attachExistingRuntime(targetAccountId)) return;
       } catch (caught) {
@@ -2596,7 +2515,7 @@ export default function AutoResearch() {
       const targetAccount = accountsRef.current.find(
         (account) => account.id === accountId,
       );
-      if (runnerHasHostedTask(targetAccount?.runtime.runner)) {
+      if (automationHasSchedule(targetAccount?.runtime.automation)) {
         setError('服务器托管任务运行中，不能清除本地游戏会话');
         return;
       }
@@ -2635,8 +2554,7 @@ export default function AutoResearch() {
         selectedAccountId,
       )) as { uid: string; accessKey: string };
       const enabled = Boolean(
-        repeatDaily ||
-          config.run_with_career ||
+        config.run_with_career ||
           config.daily_race.enabled ||
           config.daily_legend_race.enabled ||
           config.team_stadium.enabled ||
@@ -2650,33 +2568,11 @@ export default function AutoResearch() {
           enabled,
           payload: {
             daily_tasks: editableDailyTasksConfig(config),
-            schedule: {
-              mode: runMode,
-              target:
-                runMode === 'count'
-                  ? runCountTarget
-                  : runMode === 'jewel_drops'
-                    ? jewelDropTarget
-                    : 1,
-              start_time: scheduleStartTime,
-              end_time: scheduleEndTime,
-              queue_mode: runMode === 'queue',
-            },
           },
         }),
       });
     },
-    [
-      jewelDropTarget,
-      repeatDaily,
-      request,
-      runCountTarget,
-      runMode,
-      scheduleEndTime,
-      scheduleStartTime,
-      selectedAccountId,
-      server,
-    ],
+    [request, selectedAccountId, server],
   );
 
   const saveDailyTasks = useCallback(
@@ -2761,7 +2657,7 @@ export default function AutoResearch() {
                     logged_in: false,
                     session_owner: 'none',
                     last_error: '',
-                    runner: { running: false },
+                    automation: emptyAutomation(),
                     account: null,
                   },
                 },
@@ -2810,16 +2706,7 @@ export default function AutoResearch() {
         getSharedStorageItem(CAREER_SETTINGS_KEY) || '[]',
       );
       if (Array.isArray(stored)) {
-        const normalizedSettings = stored.map((setting: CareerSetting) => {
-          const normalized = { ...setting };
-          delete normalized.run_queue;
-          return normalized;
-        });
-        setCareerSettings(normalizedSettings);
-        setSharedStorageItem(
-          CAREER_SETTINGS_KEY,
-          JSON.stringify(normalizedSettings),
-        );
+        setCareerSettings(stored as CareerSetting[]);
       }
     } catch {
       setCareerSettings([]);
@@ -2957,7 +2844,7 @@ export default function AutoResearch() {
                     logged_in: false,
                     session_owner: 'none',
                     last_error: '',
-                    runner: { running: false },
+                    automation: emptyAutomation(),
                     account: null,
                   },
                 }
@@ -3185,19 +3072,29 @@ export default function AutoResearch() {
       try {
         const event = JSON.parse(line) as {
           success?: boolean;
-          runner?: Runner;
+          automation?: AccountAutomation;
           account?: SessionAccount | null;
         };
-        if (!event.runner) return;
+        if (!event.automation) return;
         retryDelay = 1000;
-        if (!runnerHasHostedTask(event.runner)) {
-          releaseIdleHostedContext(accountId, event.runner).catch((caught) => {
-            if (cancelled || selectedAccountIdRef.current !== accountId) return;
-            setError(`释放已完成的托管会话失败：${(caught as Error).message}`);
-          });
+        if (!automationHasSchedule(event.automation)) {
+          releaseIdleHostedContext(accountId, event.automation).catch(
+            (caught) => {
+              if (cancelled || selectedAccountIdRef.current !== accountId)
+                return;
+              setError(
+                `释放已完成的托管会话失败：${(caught as Error).message}`,
+              );
+            },
+          );
           return;
         }
-        commitRunnerStream(accountId, event.runner, event.account, 'server');
+        commitAutomationStream(
+          accountId,
+          event.automation,
+          event.account,
+          'server',
+        );
       } catch {
         // Ignore an incomplete or malformed stream record and keep reading.
       }
@@ -3207,14 +3104,14 @@ export default function AutoResearch() {
         controller = new AbortController();
         try {
           const response = await fetch(
-            `${server}/api/account/career/runner/stream`,
+            `${server}/api/account/career/schedule/stream`,
             {
               headers: { Authorization: `Bearer ${token}` },
               signal: controller.signal,
             },
           );
           if (!response.ok || !response.body) {
-            throw new Error(`runner stream HTTP ${response.status}`);
+            throw new Error(`schedule stream HTTP ${response.status}`);
           }
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -3246,7 +3143,7 @@ export default function AutoResearch() {
     };
   }, [
     automationActive,
-    commitRunnerStream,
+    commitAutomationStream,
     releaseIdleHostedContext,
     selectedAccountId,
     server,
@@ -3256,20 +3153,20 @@ export default function AutoResearch() {
     if (
       !selectedAccountId ||
       !sessionTokens.current.has(selectedAccountId) ||
-      runnerHasHostedTask(runner)
+      automationHasSchedule(automation)
     ) {
       return undefined;
     }
     const accountId = selectedAccountId;
     let cancelled = false;
-    releaseIdleHostedContext(accountId, runner).catch((caught) => {
+    releaseIdleHostedContext(accountId, automation).catch((caught) => {
       if (cancelled || selectedAccountIdRef.current !== accountId) return;
       setError(`释放已完成的托管会话失败：${(caught as Error).message}`);
     });
     return () => {
       cancelled = true;
     };
-  }, [releaseIdleHostedContext, runner, selectedAccountId]);
+  }, [automation, releaseIdleHostedContext, selectedAccountId]);
 
   useEffect(() => {
     if (!stoppingAccountId) return;
@@ -3278,14 +3175,11 @@ export default function AutoResearch() {
       stoppingAccountId === selectedAccountId
         ? session?.runtime || account?.runtime
         : account?.runtime;
-    const accountRunner =
-      stoppingAccountId === selectedAccountId
-        ? accountRuntime?.runner
-        : account?.runtime.runner;
+    const accountAutomation = accountRuntime?.automation;
+    const accountRunner = runtimeRunner(accountRuntime);
     if (
       !accountRunner?.stopping &&
-      (accountRunner?.run_plan?.paused ||
-        (!accountRunner?.running && !accountRunner?.run_plan?.active))
+      (accountAutomation?.schedule?.paused || !accountAutomation?.schedule)
     ) {
       setStoppingAccountId('');
     }
@@ -3552,7 +3446,7 @@ export default function AutoResearch() {
                   logged_in: false,
                   session_owner: 'none',
                   last_error: '',
-                  runner: { running: false },
+                  automation: emptyAutomation(),
                   account: null,
                 },
               }
@@ -3568,10 +3462,10 @@ export default function AutoResearch() {
                   ...(current.runtime || {}),
                   logged_in: false,
                   session_owner: 'none',
-                  runner: { running: false },
+                  automation: emptyAutomation(),
                   account: null,
                 },
-                runner: { running: false },
+                automation: emptyAutomation(),
               }
             : current,
         );
@@ -3595,20 +3489,62 @@ export default function AutoResearch() {
     accountId: string,
     taskType: 'career' | 'idle_single_mode',
     payload: Record<string, unknown>,
+    goal: ScheduleGoal,
+    target: number,
   ) => {
     try {
+      const rawPreset = payload.preset;
+      const careerRequest = { ...payload };
+      [
+        'preset',
+        'career_setting_id',
+        'career_setting_name',
+        'max_steps',
+        'burn_clocks',
+      ].forEach((key) => delete careerRequest[key]);
+      const submittedSchedule: ScheduleIntent = {
+        cadence: repeatDaily ? 'daily' : 'once',
+        start_time: scheduleStartTime,
+        end_time: scheduleEndTime,
+        items: [
+          {
+            id: `schedule-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            career_setting_id: String(payload.career_setting_id || ''),
+            career_setting_name: String(payload.career_setting_name || ''),
+            career_mode: taskType === 'idle_single_mode' ? 'offline' : 'online',
+            goal,
+            target: Math.max(1, target),
+            max_steps: Math.max(1, Number(payload.max_steps || 2500)),
+            burn_clocks: Boolean(payload.burn_clocks),
+            request: careerRequest,
+            preset:
+              rawPreset && typeof rawPreset === 'object'
+                ? (rawPreset as Record<string, unknown>)
+                : {},
+          },
+        ],
+      };
+      if (sessionTokens.current.has(accountId)) {
+        return await accountRequest<SessionResponse>(
+          accountId,
+          '/api/account/career/schedule',
+          {
+            method: 'POST',
+            body: JSON.stringify(submittedSchedule),
+          },
+        );
+      }
       const credential = (await window.electron.autoResearch.credential(
         accountId,
       )) as { uid: string; accessKey: string };
       const submitted = await request<HostedControlResponse>(
-        '/api/tasks/submit',
+        '/api/tasks/schedule',
         {
           method: 'POST',
           body: JSON.stringify({
             uid: credential.uid,
             access_key: credential.accessKey,
-            task_type: taskType,
-            payload,
+            schedule: submittedSchedule,
           }),
         },
       );
@@ -3722,7 +3658,7 @@ export default function AutoResearch() {
   };
 
   const accountDeleteBlockedReason = (account: Account) => {
-    if (runnerHasHostedTask(account.runtime.runner)) {
+    if (automationHasSchedule(account.runtime.automation)) {
       return '账号正在养马或仍有待执行计划，请先停止任务';
     }
     if (activeLoginOperation.current || loginProgress) {
@@ -4070,41 +4006,41 @@ export default function AutoResearch() {
     setBusy('run');
     setError('');
     try {
-      const result = await submitServerTask(selectedAccountId, 'career', {
-        card_id: effectiveCardId,
-        support_card_ids: effectiveSupportCardIds,
-        friend_viewer_id: 0,
-        friend_card_id: effectiveFriendCardId,
-        parent_id_1: effectiveParentId1,
-        parent_id_2: effectiveParentId2,
-        parent_1_viewer_id:
-          selectedParent1?.viewer_id ||
-          parentViewerIdFromSelection(effectiveParentKey1),
-        parent_2_viewer_id:
-          selectedParent2?.viewer_id ||
-          parentViewerIdFromSelection(effectiveParentKey2),
-        scenario_id: normalizeOnlineScenarioId(boundPreset.scenario_id),
-        deck_id: effectiveDeckId || 1,
-        use_tp: 30,
-        recover_tp_with_item: recoverTpWithItem,
-        recover_tp_with_jewels: recoverTpWithJewels,
-        run_mode: mode,
-        run_target: target,
-        repeat_daily: repeatDaily,
-        schedule_start_time: scheduleStartTime,
-        schedule_end_time: scheduleEndTime,
-        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-        career_setting_id: selectedCareerSetting?.id || '',
-        career_setting_name: selectedCareerSetting?.name || careerSettingName,
-        career_config: selectedCareerSetting || {},
-        preset_name: careerPresetName,
-        preset: boundPreset,
-        max_steps: maxSteps,
-        burn_clocks: burnClocks,
-        factor_selection: normalizeOfflineFactorSelection(
-          offlineFactorSelection,
-        ),
-      });
+      const result = await submitServerTask(
+        selectedAccountId,
+        'career',
+        {
+          card_id: effectiveCardId,
+          support_card_ids: effectiveSupportCardIds,
+          friend_viewer_id: 0,
+          friend_card_id: effectiveFriendCardId,
+          parent_id_1: effectiveParentId1,
+          parent_id_2: effectiveParentId2,
+          parent_1_viewer_id:
+            selectedParent1?.viewer_id ||
+            parentViewerIdFromSelection(effectiveParentKey1),
+          parent_2_viewer_id:
+            selectedParent2?.viewer_id ||
+            parentViewerIdFromSelection(effectiveParentKey2),
+          scenario_id: normalizeOnlineScenarioId(boundPreset.scenario_id),
+          deck_id: effectiveDeckId || 1,
+          use_tp: 30,
+          recover_tp_with_item: recoverTpWithItem,
+          recover_tp_with_jewels: recoverTpWithJewels,
+          career_setting_id: selectedCareerSetting?.id || '',
+          career_setting_name: selectedCareerSetting?.name || careerSettingName,
+          career_config: selectedCareerSetting || {},
+          preset_name: careerPresetName,
+          preset: boundPreset,
+          max_steps: maxSteps,
+          burn_clocks: burnClocks,
+          factor_selection: normalizeOfflineFactorSelection(
+            offlineFactorSelection,
+          ),
+        },
+        mode === 'queue' ? 'single' : mode,
+        target,
+      );
       commitOverviewResponse(selectedAccountId, {
         ...result,
         dashboard: result.dashboard || dashboard,
@@ -4147,35 +4083,35 @@ export default function AutoResearch() {
     setBusy(busyKey);
     setError('');
     try {
-      const result = await submitServerTask(selectedAccountId, 'career', {
-        card_id: setting.card_id,
-        support_card_ids: resumeSupportCardIds,
-        friend_viewer_id: 0,
-        friend_card_id: setting.friend_card_id,
-        parent_id_1: setting.parent_id_1,
-        parent_id_2: setting.parent_id_2,
-        parent_1_viewer_id: parentViewerIdFromSelection(setting.parent_key_1),
-        parent_2_viewer_id: parentViewerIdFromSelection(setting.parent_key_2),
-        scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
-        deck_id: setting.deck_id || 1,
-        use_tp: 30,
-        recover_tp_with_item: setting.recover_tp_with_item,
-        recover_tp_with_jewels: setting.recover_tp_with_jewels,
-        run_mode: mode,
-        run_target: target,
-        repeat_daily: repeatDaily,
-        schedule_start_time: scheduleStartTime,
-        schedule_end_time: scheduleEndTime,
-        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-        career_setting_id: setting.id,
-        career_setting_name: setting.name,
-        career_config: setting,
-        preset_name: setting.preset_name,
-        preset,
-        max_steps: setting.max_steps || 2500,
-        burn_clocks: setting.burn_clocks,
-        factor_selection: factorSelectionFromSetting(setting),
-      });
+      const result = await submitServerTask(
+        selectedAccountId,
+        'career',
+        {
+          card_id: setting.card_id,
+          support_card_ids: resumeSupportCardIds,
+          friend_viewer_id: 0,
+          friend_card_id: setting.friend_card_id,
+          parent_id_1: setting.parent_id_1,
+          parent_id_2: setting.parent_id_2,
+          parent_1_viewer_id: parentViewerIdFromSelection(setting.parent_key_1),
+          parent_2_viewer_id: parentViewerIdFromSelection(setting.parent_key_2),
+          scenario_id: normalizeOnlineScenarioId(preset.scenario_id),
+          deck_id: setting.deck_id || 1,
+          use_tp: 30,
+          recover_tp_with_item: setting.recover_tp_with_item,
+          recover_tp_with_jewels: setting.recover_tp_with_jewels,
+          career_setting_id: setting.id,
+          career_setting_name: setting.name,
+          career_config: setting,
+          preset_name: setting.preset_name,
+          preset,
+          max_steps: setting.max_steps || 2500,
+          burn_clocks: setting.burn_clocks,
+          factor_selection: factorSelectionFromSetting(setting),
+        },
+        mode === 'queue' ? 'single' : mode,
+        target,
+      );
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
       commitOverviewResponse(selectedAccountId, {
@@ -4200,10 +4136,9 @@ export default function AutoResearch() {
     try {
       const result = await accountRequest<SessionResponse>(
         accountId,
-        '/api/account/career/runner/stop',
+        '/api/account/career/schedule',
         {
-          method: 'POST',
-          body: '{}',
+          method: 'DELETE',
         },
       );
       invalidateOverviewResponses(accountId);
@@ -4211,7 +4146,10 @@ export default function AutoResearch() {
         ...result,
         dashboard: result.dashboard || dashboard,
       });
-      loadOverview(accountId).catch(() => undefined);
+      await releaseIdleHostedContext(
+        accountId,
+        result.runtime?.automation || result.automation,
+      );
     } catch (caught) {
       setStoppingAccountId('');
       setError((caught as Error).message);
@@ -4229,15 +4167,14 @@ export default function AutoResearch() {
     try {
       const result = await accountRequest<SessionResponse>(
         accountId,
-        '/api/account/career/runner/pause',
-        { method: 'POST', body: '{}' },
+        '/api/account/career/schedule',
+        { method: 'PATCH', body: JSON.stringify({ paused: true }) },
       );
       invalidateOverviewResponses(accountId);
       commitOverviewResponse(accountId, {
         ...result,
         dashboard: result.dashboard || dashboard,
       });
-      loadOverview(accountId).catch(() => undefined);
     } catch (caught) {
       setStoppingAccountId('');
       setError((caught as Error).message);
@@ -4262,15 +4199,14 @@ export default function AutoResearch() {
     try {
       const result = await accountRequest<SessionResponse>(
         accountId,
-        '/api/account/career/runner/resume',
-        { method: 'POST', body: '{}' },
+        '/api/account/career/schedule',
+        { method: 'PATCH', body: JSON.stringify({ paused: false }) },
       );
       invalidateOverviewResponses(accountId);
       commitOverviewResponse(accountId, {
         ...result,
         dashboard: result.dashboard || dashboard,
       });
-      loadOverview(accountId).catch(() => undefined);
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
@@ -4292,52 +4228,73 @@ export default function AutoResearch() {
     >,
   ) => {
     if (!selectedAccountId) return false;
-    if (mode === 'daily_jewel_schedule') {
+    if (!schedule || !schedule.revision) {
+      setError('当前计划尚未同步完成，请稍后重试');
+      return false;
+    }
+    if (!['single', 'continuous', 'count', 'jewel_drops'].includes(mode)) {
       setError('运行中请先选择单次、持续、完成次数或宝石目标');
       return false;
     }
-    setBusy('update-runner');
+    setBusy('update-schedule');
     setError('');
     try {
+      const currentIndex = Math.max(0, observation?.current_index ?? 0);
+      const nextItems = schedule.items.map((item, index) => {
+        if (index !== currentIndex) return item;
+        const nextMaxSteps =
+          careerOptions?.max_steps ||
+          activeAutomationSetting?.max_steps ||
+          maxSteps;
+        const nextBurnClocks =
+          careerOptions?.burn_clocks ??
+          activeAutomationSetting?.burn_clocks ??
+          burnClocks;
+        const nextRequest: Record<string, unknown> = {
+          ...item.request,
+          recover_tp_with_item:
+            careerOptions?.recover_tp_with_item ??
+            activeAutomationSetting?.recover_tp_with_item ??
+            recoverTpWithItem,
+          recover_tp_with_jewels:
+            careerOptions?.recover_tp_with_jewels ??
+            activeAutomationSetting?.recover_tp_with_jewels ??
+            recoverTpWithJewels,
+          factor_selection: normalizeOfflineFactorSelection(
+            careerOptions?.factor_selection ||
+              activeAutomationSetting?.factor_selection ||
+              activeAutomationSetting?.offline_factor_selection ||
+              offlineFactorSelection,
+          ),
+        };
+        [
+          'career_mode',
+          'run_mode',
+          'run_target',
+          'max_steps',
+          'burn_clocks',
+        ].forEach((key) => delete nextRequest[key]);
+        return {
+          ...item,
+          goal: mode as ScheduleGoal,
+          target,
+          max_steps: nextMaxSteps,
+          burn_clocks: nextBurnClocks,
+          request: nextRequest,
+          preset: preset || item.preset,
+        };
+      });
       const result = await accountRequest<SessionResponse>(
         selectedAccountId,
-        '/api/account/career/runner/update',
+        '/api/account/career/schedule',
         {
-          method: 'POST',
+          method: 'PUT',
           body: JSON.stringify({
-            run_mode: mode,
-            run_target: target,
-            repeat_daily: repeatDaily,
-            schedule_start_time: scheduleStartTime,
-            schedule_end_time: scheduleEndTime,
-            ...(preset
-              ? {
-                  preset_name: preset.name,
-                  preset,
-                }
-              : {}),
-            max_steps:
-              careerOptions?.max_steps ||
-              activeAutomationSetting?.max_steps ||
-              maxSteps,
-            burn_clocks:
-              careerOptions?.burn_clocks ??
-              activeAutomationSetting?.burn_clocks ??
-              burnClocks,
-            recover_tp_with_item:
-              careerOptions?.recover_tp_with_item ??
-              activeAutomationSetting?.recover_tp_with_item ??
-              recoverTpWithItem,
-            recover_tp_with_jewels:
-              careerOptions?.recover_tp_with_jewels ??
-              activeAutomationSetting?.recover_tp_with_jewels ??
-              recoverTpWithJewels,
-            factor_selection: normalizeOfflineFactorSelection(
-              careerOptions?.factor_selection ||
-                activeAutomationSetting?.factor_selection ||
-                activeAutomationSetting?.offline_factor_selection ||
-                offlineFactorSelection,
-            ),
+            cadence: repeatDaily ? 'daily' : 'once',
+            start_time: scheduleStartTime,
+            end_time: scheduleEndTime,
+            items: nextItems,
+            expected_revision: schedule.revision,
           }),
         },
       );
@@ -5332,29 +5289,29 @@ export default function AutoResearch() {
         offlineRaceDeckNum,
       );
       if (!(await prepareServerTaskSubmission(accountId))) return false;
-      const result = await submitServerTask(accountId, 'idle_single_mode', {
-        ...selectionRequest,
-        running_style: 0,
-        run_mode: mode,
-        run_target: target,
-        repeat_daily: repeatDaily,
-        schedule_start_time: scheduleStartTime,
-        schedule_end_time: scheduleEndTime,
-        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-        career_setting_id: selectedCareerSetting?.id || '',
-        career_setting_name: selectedCareerSetting?.name || careerSettingName,
-        career_config: selectedCareerSetting || {},
-        priority_skill_array: buildOfflinePrioritySkillArray(
-          offlinePrioritySkillIds,
-        ),
-        offline_skill_settings:
-          normalizeOfflineSkillSettings(offlineSkillSettings),
-        factor_selection: normalizeOfflineFactorSelection(
-          offlineFactorSelection,
-        ),
-        race_deck_num: offlineRaceDeckNum,
-        race_array: raceArray,
-      });
+      const result = await submitServerTask(
+        accountId,
+        'idle_single_mode',
+        {
+          ...selectionRequest,
+          running_style: 0,
+          career_setting_id: selectedCareerSetting?.id || '',
+          career_setting_name: selectedCareerSetting?.name || careerSettingName,
+          career_config: selectedCareerSetting || {},
+          priority_skill_array: buildOfflinePrioritySkillArray(
+            offlinePrioritySkillIds,
+          ),
+          offline_skill_settings:
+            normalizeOfflineSkillSettings(offlineSkillSettings),
+          factor_selection: normalizeOfflineFactorSelection(
+            offlineFactorSelection,
+          ),
+          race_deck_num: offlineRaceDeckNum,
+          race_array: raceArray,
+        },
+        mode === 'queue' ? 'single' : mode,
+        target,
+      );
       if (selectedAccountIdRef.current !== accountId) return false;
       commitOverviewResponse(accountId, {
         ...result,
@@ -5418,30 +5375,30 @@ export default function AutoResearch() {
         setting.offline_race_deck_num,
       );
       if (!(await prepareServerTaskSubmission(accountId))) return false;
-      const result = await submitServerTask(accountId, 'idle_single_mode', {
-        ...selectionRequest,
-        running_style: 0,
-        run_mode: mode,
-        run_target: target,
-        repeat_daily: repeatDaily,
-        schedule_start_time: scheduleStartTime,
-        schedule_end_time: scheduleEndTime,
-        daily_tasks: readCareerDailyTasks(selectedAccount?.uid || ''),
-        career_setting_id: setting.id,
-        career_setting_name: setting.name,
-        career_config: setting,
-        priority_skill_array: buildOfflinePrioritySkillArray(
-          setting.offline_priority_skill_ids || [],
-        ),
-        offline_skill_settings: normalizeOfflineSkillSettings(
-          setting.offline_skill_settings,
-        ),
-        factor_selection: normalizeOfflineFactorSelection(
-          setting.factor_selection || setting.offline_factor_selection,
-        ),
-        race_deck_num: setting.offline_race_deck_num,
-        race_array: raceArray,
-      });
+      const result = await submitServerTask(
+        accountId,
+        'idle_single_mode',
+        {
+          ...selectionRequest,
+          running_style: 0,
+          career_setting_id: setting.id,
+          career_setting_name: setting.name,
+          career_config: setting,
+          priority_skill_array: buildOfflinePrioritySkillArray(
+            setting.offline_priority_skill_ids || [],
+          ),
+          offline_skill_settings: normalizeOfflineSkillSettings(
+            setting.offline_skill_settings,
+          ),
+          factor_selection: normalizeOfflineFactorSelection(
+            setting.factor_selection || setting.offline_factor_selection,
+          ),
+          race_deck_num: setting.offline_race_deck_num,
+          race_array: raceArray,
+        },
+        mode === 'queue' ? 'single' : mode,
+        target,
+      );
       if (selectedAccountIdRef.current !== accountId) return false;
       setSelectedCareerSettingId(setting.id);
       setCareerSettingName(setting.name);
@@ -5463,8 +5420,8 @@ export default function AutoResearch() {
   const saveAndRunCareer = () => {
     if (!saveCareerSetting()) return;
     setRepeatDaily(false);
-    setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
-    setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
+    setScheduleStartTime(schedule?.start_time || '05:00');
+    setScheduleEndTime(schedule?.end_time || '05:00');
     setPendingRun({ type: 'current' });
     setRunMode((current) => (current === 'queue' ? 'single' : current));
     setRunDialogOpen(true);
@@ -5472,8 +5429,8 @@ export default function AutoResearch() {
 
   const openSavedRunDialog = (settingId: string) => {
     setRepeatDaily(false);
-    setScheduleStartTime(dailyJewelSchedule?.start_time || '05:00');
-    setScheduleEndTime(dailyJewelSchedule?.end_time || '05:00');
+    setScheduleStartTime(schedule?.start_time || '05:00');
+    setScheduleEndTime(schedule?.end_time || '05:00');
     setPendingRun({ type: 'saved', settingId });
     setRunMode((current) => (current === 'queue' ? 'single' : current));
     setRunDialogOpen(true);
@@ -5483,7 +5440,7 @@ export default function AutoResearch() {
   const buildCareerQueuePayload = (
     queueItem: CareerRunQueueItem,
     resolved: CareerSetting,
-  ) => {
+  ): ScheduleItem => {
     if (!dashboard) throw new Error('账号数据尚未加载完成');
     const parentOne = dashboard.parents.find(
       (parent) => parent.selection_id === resolved.parent_key_1,
@@ -5510,6 +5467,8 @@ export default function AutoResearch() {
       career_mode: offline ? 'offline' : 'online',
       goal: queueItem.goal,
       target: queueItem.target,
+      max_steps: resolved.max_steps || 2500,
+      burn_clocks: resolved.burn_clocks,
       preset: preset || {},
       request: {
         career_config: resolved,
@@ -5552,6 +5511,10 @@ export default function AutoResearch() {
     target: number,
   ) => {
     if (!selectedAccountId) return false;
+    if (!schedule || !schedule.revision) {
+      setError('当前计划尚未同步完成，请稍后重试');
+      return false;
+    }
     const setting = careerSettings.find((item) => item.id === settingId);
     if (!setting) {
       setError('要追加的养马详设不存在');
@@ -5574,20 +5537,22 @@ export default function AutoResearch() {
       );
       const result = await accountRequest<SessionResponse>(
         selectedAccountId,
-        '/api/account/career/queue/append',
+        '/api/account/career/schedule',
         {
-          method: 'POST',
-          body: JSON.stringify(payload),
+          method: 'PUT',
+          body: JSON.stringify({
+            cadence: schedule.cadence,
+            start_time: schedule.start_time,
+            end_time: schedule.end_time,
+            items: [...schedule.items, payload],
+            expected_revision: schedule.revision,
+          }),
         },
       );
-      if (result.runner) {
-        commitRunnerStream(
-          selectedAccountId,
-          result.runner,
-          undefined,
-          'server',
-        );
-      }
+      commitOverviewResponse(selectedAccountId, {
+        ...result,
+        dashboard: result.dashboard || dashboard,
+      });
       return true;
     } catch (caught) {
       setError((caught as Error).message);
@@ -7656,7 +7621,7 @@ export default function AutoResearch() {
                 automationActive &&
                 !careerSaveOpen ? (
                   <AutomationControlCard
-                    runner={runner}
+                    automation={automation}
                     runnerStopping={runnerStopping}
                     runnerPaused={runnerPaused}
                     busy={busy}
@@ -7687,13 +7652,7 @@ export default function AutoResearch() {
                       !appendBlockedByContinuous
                     }
                     openAppendCareerPlan={() => {
-                      setRepeatDaily(
-                        Boolean(
-                          runner?.daily_jewel_schedule?.enabled ||
-                            runner?.run_plan?.repeat_daily ||
-                            runner?.run_plan?.queue?.repeat_daily,
-                        ),
-                      );
+                      setRepeatDaily(schedule?.cadence === 'daily');
                       setAppendPlanPickerOpen(true);
                       setError('');
                     }}
@@ -7718,7 +7677,7 @@ export default function AutoResearch() {
                       currentRunnerStats={currentRunnerStats}
                       busy={busy}
                       activeSetting={activeAutomationSetting}
-                      dailyJewelSchedule={dailyJewelSchedule}
+                      automation={automation}
                       offlineMode={offlinePlanActive}
                       serverHostedMode={serverHostedMode}
                       idleSingleMode={currentIdleSingleMode}

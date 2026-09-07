@@ -185,7 +185,9 @@ const double vitalFactor = 1;
 const double smallFailValue = -30;
 const double bigFailValue = -90;
 const double wizFailValue = 5;
-const double statusWeights[5] = { 1.0,1.0,1.0,1.0,1.0 };
+// 固定配比为 5:5:7:6:6。这里按凯旋门原有估值量级归一化，
+// 避免改变属性相对技能点、羁绊和体力的整体价值。
+const double statusWeights[5] = { 1.0,1.0,1.4,1.2,1.2 };
 const double ptWeight = 0.5;
 const double restValueFactor = 1.5;//休息估值权重
 const float remainStatusFactorEachTurnAbroad = 40;//控属性时给每回合预留多少（远征后）

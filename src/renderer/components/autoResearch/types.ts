@@ -19,11 +19,9 @@ export type RunnerStats = {
   skill_point?: number;
 };
 
-export type CareerRunQueueGoal =
-  | 'single'
-  | 'continuous'
-  | 'count'
-  | 'jewel_drops';
+export type ScheduleGoal = 'single' | 'continuous' | 'count' | 'jewel_drops';
+
+export type CareerRunQueueGoal = ScheduleGoal;
 
 export type CareerRunQueueItem = {
   id: string;
@@ -32,39 +30,33 @@ export type CareerRunQueueItem = {
   target: number;
 };
 
-export type CareerRunQueueState = {
-  active: boolean;
-  status?: 'idle' | 'running' | 'completed' | 'paused' | 'stopped';
-  repeat_daily?: boolean;
-  session_id: string;
-  started_at: string;
-  current_index: number;
-  stop_reason: string;
-  items: Array<
-    CareerRunQueueItem & {
-      career_setting_name: string;
-      career_mode: 'online' | 'offline';
-      status:
-        | 'pending'
-        | 'queued'
-        | 'running'
-        | 'completed'
-        | 'skipped'
-        | 'paused'
-        | 'failed'
-        | 'stopped';
-      completed_runs: number;
-      stop_reason: string;
-      started_at?: string;
-      ended_at?: string;
-    }
-  >;
+export type ScheduleItem = {
+  id: string;
+  career_setting_id: string;
+  career_setting_name: string;
+  career_mode: 'online' | 'offline';
+  goal: ScheduleGoal;
+  target: number;
+  max_steps: number;
+  burn_clocks: boolean;
+  request: Record<string, unknown>;
+  preset: Record<string, unknown>;
+};
+
+export type ScheduleIntent = {
+  id?: string;
+  revision?: number;
+  paused?: boolean;
+  cadence: 'once' | 'daily';
+  start_time: string;
+  end_time: string;
+  submitted_at?: string;
+  updated_at?: string;
+  items: ScheduleItem[];
 };
 
 export type Runner = {
   run_id?: string;
-  state_epoch?: string;
-  state_revision?: number;
   running?: boolean;
   stopping?: boolean;
   started_at?: string;
@@ -105,43 +97,11 @@ export type Runner = {
   chara_score?: number;
   large_margin_count?: number;
   large_margin_race_counts?: Record<string, number>;
+  g123_race_counts?: Record<string, number>;
   daily_jewel_drop_count?: number;
   daily_jewels_earned?: number;
   daily_jewel_drop_limit?: number;
   daily_jewel_reset_time?: string;
-  run_plan?: {
-    active: boolean;
-    paused?: boolean;
-    session_id?: string;
-    started_at?: string;
-    mode:
-      | 'single'
-      | 'continuous'
-      | 'count'
-      | 'daily_count'
-      | 'jewel_drops'
-      | 'daily_jewel_drops';
-    repeat_daily?: boolean;
-    target: number;
-    completed_runs: number;
-    completed_jewel_drops: number;
-    daily_completed_runs: number;
-    stop_reason: string;
-    queue?: CareerRunQueueState | null;
-  };
-  daily_jewel_schedule?: {
-    enabled: boolean;
-    mode?: 'single' | 'continuous' | 'count' | 'jewel_drops' | 'queue';
-    target: number;
-    start_time: string;
-    end_time: string;
-    status: string;
-    last_error: string;
-    daily_jewel_drop_count?: number;
-    completed_runs?: number;
-    completed_day?: string;
-    updated_at: string;
-  };
   jewel_history?: Array<{
     turn: number;
     program_id: number;
@@ -150,6 +110,38 @@ export type Runner = {
     amount: number;
     time: string;
   }>;
+};
+
+export type AutomationObservation = {
+  phase:
+    | 'idle'
+    | 'paused'
+    | 'running'
+    | 'waiting'
+    | 'recovering'
+    | 'blocked'
+    | 'completed';
+  reason: string;
+  last_error: string;
+  current_item_id: string;
+  current_index: number;
+  completed_runs: number;
+  jewel_drops: number;
+  item_progress: Array<{
+    id: string;
+    completed_runs: number;
+    jewel_drops: number;
+    active: boolean;
+  }>;
+  wake_at: string;
+  daily_completed_runs: number;
+  daily_jewel_drops: number;
+  runner: Runner;
+};
+
+export type AccountAutomation = {
+  schedule: ScheduleIntent | null;
+  observation: AutomationObservation;
 };
 
 export type SessionAccount = {
@@ -206,7 +198,7 @@ export type Account = {
     session_owner?: 'local' | 'server' | 'none';
     last_error: string;
     last_refreshed_at?: string;
-    runner: Runner;
+    automation: AccountAutomation;
     account?: SessionAccount | null;
   };
 };
@@ -627,19 +619,10 @@ export type CareerSetting = {
   factor_selection?: OfflineFactorSelection;
   /** Legacy saved field; read for compatibility with existing settings. */
   offline_factor_selection?: OfflineFactorSelection;
-  run_queue?: CareerRunQueueItem[];
   updated_at: string;
 };
 
-export type RunMode =
-  | 'single'
-  | 'continuous'
-  | 'count'
-  | 'daily_count'
-  | 'jewel_drops'
-  | 'daily_jewel_drops'
-  | 'daily_jewel_schedule'
-  | 'queue';
+export type RunMode = ScheduleGoal | 'queue';
 
 export type PendingRun =
   | { type: 'current' }
@@ -671,12 +654,13 @@ export type SessionResponse = {
   success: boolean;
   dashboard?: Dashboard;
   runtime?: Partial<Account['runtime']>;
-  runner?: Runner;
   logged_in?: boolean;
   session_owner?: Account['runtime']['session_owner'];
   last_error?: string;
   last_refreshed_at?: string;
   account?: SessionAccount | null;
+  automation?: AccountAutomation;
+  daily_tasks?: DailyTasksConfig;
   relogged_in?: boolean;
   offline_setup?: OfflineSingleModeSetup;
 };
@@ -753,13 +737,6 @@ export type CloudDailyConfig = {
   uid: string;
   payload: {
     daily_tasks?: DailyTasksConfig;
-    schedule?: {
-      mode?: RunMode;
-      target?: number;
-      start_time?: string;
-      end_time?: string;
-      queue_mode?: boolean;
-    };
   };
   enabled: boolean;
   updated_at: string;

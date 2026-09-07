@@ -11,11 +11,11 @@ import {
   Settings2,
 } from 'lucide-react';
 import { runModeLabel, statusBadgeClass } from './shared';
-import { CareerSetting, Runner, RunMode } from './types';
+import { AccountAutomation, CareerSetting, RunMode } from './types';
 import RunTargetInput from './RunTargetInput';
 
 type AutomationControlCardProps = {
-  runner?: Runner;
+  automation?: AccountAutomation;
   runnerStopping: boolean;
   runnerPaused: boolean;
   busy: string;
@@ -49,8 +49,21 @@ const modeOptions = [
   { id: 'jewel_drops' as const, label: '获得 X 次', icon: Gem },
 ];
 
+const itemGoalLabel = (
+  goal: 'single' | 'continuous' | 'count' | 'jewel_drops',
+  target: number,
+  daily: boolean,
+) => {
+  if (goal === 'single') return '单次';
+  if (goal === 'continuous') return '持续';
+  if (goal === 'jewel_drops') {
+    return `${daily ? '今日' : '目标'} ${target} 钻`;
+  }
+  return `${target} 次`;
+};
+
 export default function AutomationControlCard({
-  runner,
+  automation,
   runnerStopping,
   runnerPaused,
   busy,
@@ -76,6 +89,8 @@ export default function AutomationControlCard({
   canAppendCareerPlan,
   openAppendCareerPlan,
 }: AutomationControlCardProps) {
+  const schedule = automation?.schedule;
+  const observation = automation?.observation;
   const runnerClosing = busy === 'stop';
   const selectedTarget =
     runMode === 'count'
@@ -83,55 +98,30 @@ export default function AutomationControlCard({
       : runMode === 'jewel_drops'
         ? jewelDropTarget
         : 1;
-  const rawCurrentMode =
-    runner?.daily_jewel_schedule?.enabled &&
-    runner.daily_jewel_schedule.mode !== 'queue'
-      ? runner.daily_jewel_schedule.mode || runner?.run_plan?.mode
-      : runner?.run_plan?.mode;
-  const currentMode =
-    rawCurrentMode === 'daily_count'
-      ? 'count'
-      : rawCurrentMode === 'daily_jewel_drops' ||
-          rawCurrentMode === 'daily_jewel_schedule'
-        ? 'jewel_drops'
-        : rawCurrentMode;
-  const currentTarget =
-    runner?.daily_jewel_schedule?.enabled &&
-    runner.daily_jewel_schedule.mode !== 'queue'
-      ? runner.daily_jewel_schedule.target
-      : runner?.run_plan?.target || 1;
-  const currentScheduleStartTime =
-    runner?.daily_jewel_schedule?.start_time || '05:00';
-  const currentScheduleEndTime =
-    runner?.daily_jewel_schedule?.end_time || '05:00';
-  const queue = runner?.run_plan?.queue;
-  const queueCurrent = queue?.items?.[queue.current_index];
+  const activeItemIndex = Math.max(0, observation?.current_index ?? 0);
+  const activeItem = schedule?.items[activeItemIndex] || schedule?.items[0];
+  const activeProgress = observation?.item_progress.find(
+    (progress) => progress.id === activeItem?.id,
+  );
+  const daily = schedule?.cadence === 'daily';
   const countProgress =
-    queue?.active && queueCurrent?.goal === 'count'
+    activeItem?.goal === 'count'
       ? {
-          completed: queueCurrent.completed_runs || 0,
-          target: queueCurrent.target,
+          completed: activeProgress?.completed_runs || 0,
+          target: activeItem.target,
         }
-      : currentMode === 'count'
-        ? {
-            completed:
-              (runner?.daily_jewel_schedule?.enabled
-                ? runner.daily_jewel_schedule.completed_runs
-                : rawCurrentMode === 'daily_count'
-                  ? runner?.run_plan?.daily_completed_runs
-                  : runner?.run_plan?.completed_runs) ?? 0,
-            target: currentTarget,
-          }
-        : null;
+      : null;
+  const editableSingleItem = schedule?.items.length === 1;
   const planChanged = Boolean(
-    !queue?.active &&
-      currentMode &&
-      (currentMode !== runMode ||
+    editableSingleItem &&
+      activeItem &&
+      (activeItem.goal !== runMode ||
         (['count', 'jewel_drops'].includes(runMode) &&
-          currentTarget !== selectedTarget) ||
+          activeItem.target !== selectedTarget) ||
+        daily !== repeatDaily ||
         (repeatDaily &&
-          (currentScheduleStartTime !== scheduleStartTime ||
-            currentScheduleEndTime !== scheduleEndTime))),
+          (schedule.start_time !== scheduleStartTime ||
+            schedule.end_time !== scheduleEndTime))),
   );
 
   return (
@@ -141,7 +131,14 @@ export default function AutomationControlCard({
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={statusBadgeClass(
-                runnerStopping || runnerPaused ? 'amber' : 'emerald',
+                runnerStopping ||
+                  runnerPaused ||
+                  observation?.phase === 'blocked' ||
+                  observation?.phase === 'recovering'
+                  ? 'amber'
+                  : observation?.phase === 'completed'
+                    ? 'slate'
+                    : 'emerald',
               )}
             >
               {runnerStopping
@@ -150,16 +147,24 @@ export default function AutomationControlCard({
                   : '正在暂停…'
                 : runnerPaused
                   ? '已暂停'
-                  : queue?.active
-                    ? `队列 ${Math.min(queue.current_index + 1, queue.items.length)}/${queue.items.length}`
-                    : runModeLabel(currentMode)}
+                  : observation?.phase === 'blocked'
+                    ? '需要处理'
+                    : observation?.phase === 'recovering'
+                      ? '正在恢复'
+                      : observation?.phase === 'waiting'
+                        ? '等待调度'
+                        : observation?.phase === 'completed'
+                          ? '已完成'
+                          : schedule && schedule.items.length > 1
+                            ? `计划 ${Math.min(activeItemIndex + 1, schedule.items.length)}/${schedule.items.length}`
+                            : runModeLabel(activeItem?.goal)}
             </span>
             {countProgress ? (
               <span className={statusBadgeClass('sky')}>
                 {countProgress.completed}/{countProgress.target} 次
               </span>
             ) : null}
-            {repeatDaily ? (
+            {daily ? (
               <span className={statusBadgeClass('violet')}>每日任务</span>
             ) : null}
             {runDailyTasksWithCareer ? (
@@ -167,19 +172,15 @@ export default function AutomationControlCard({
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            {queue?.active && queueCurrent
-              ? `正在执行：${queueCurrent.career_setting_name} · ${
-                  queueCurrent.goal === 'single'
-                    ? '单次'
-                    : queueCurrent.goal === 'continuous'
-                      ? '持续'
-                      : queueCurrent.goal === 'jewel_drops'
-                        ? `${repeatDaily ? '今日累计达到' : '获得'} ${queueCurrent.target} 次钻石`
-                        : `完成 ${queueCurrent.target} 次育成`
-                }`
+            {activeItem
+              ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
+                  activeItem.goal,
+                  activeItem.target,
+                  daily,
+                )}`
               : activeSetting?.mode === 'offline'
                 ? '离线技能与因子配置已由服务器接管执行。'
-                : '修改从下一次育成开始生效。'}
+                : observation?.reason || '等待调度器选择下一次育成。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -249,21 +250,20 @@ export default function AutomationControlCard({
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
             >
               <Play size={14} />
-              {busy === 'update-runner' ? '正在应用…' : '应用计划'}
+              {busy === 'update-schedule' ? '正在应用…' : '应用计划'}
             </button>
           ) : null}
         </div>
       </div>
 
-      {!queue?.active ? (
+      {editableSingleItem ? (
         <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
           {modeOptions.map((option) => {
             const Icon = option.icon;
             const disabled =
-              Boolean(queue?.active) ||
-              (option.id === 'jewel_drops' &&
-                !repeatDaily &&
-                remainingJewelDrops <= 0);
+              option.id === 'jewel_drops' &&
+              !repeatDaily &&
+              remainingJewelDrops <= 0;
             return (
               <button
                 key={option.id}
@@ -293,39 +293,38 @@ export default function AutomationControlCard({
         </div>
       ) : null}
 
-      {queue?.items?.length ? (
+      {schedule && schedule.items.length > 1 ? (
         <ol className="mt-3 grid gap-1.5 sm:grid-cols-2">
-          {queue.items.map((item, index) => (
-            <li
-              key={item.id}
-              className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs ${
-                index === queue.current_index
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
-                  : 'border-slate-200 bg-white text-slate-500'
-              }`}
-            >
-              <span className="min-w-0 truncate">
-                {index + 1}. {item.career_setting_name}
-              </span>
-              <span className="flex-none font-medium">
-                {item.status === 'completed'
-                  ? '已完成'
-                  : item.status === 'skipped'
-                    ? '已跳过'
-                    : item.goal === 'single'
-                      ? '单次'
-                      : item.goal === 'continuous'
-                        ? '持续'
-                        : item.goal === 'jewel_drops'
-                          ? `${repeatDaily ? '今日' : '目标'} ${item.target} 钻`
-                          : `${item.completed_runs || 0}/${item.target} 次`}
-              </span>
-            </li>
-          ))}
+          {schedule.items.map((item, index) => {
+            const progress = observation?.item_progress.find(
+              (candidate) => candidate.id === item.id,
+            );
+            return (
+              <li
+                key={item.id}
+                className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                  index === activeItemIndex
+                    ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
+                    : 'border-slate-200 bg-white text-slate-500'
+                }`}
+              >
+                <span className="min-w-0 truncate">
+                  {index + 1}. {item.career_setting_name || '未命名详设'}
+                </span>
+                <span className="flex-none font-medium">
+                  {item.goal === 'count'
+                    ? `${progress?.completed_runs || 0}/${item.target} 次`
+                    : item.goal === 'jewel_drops'
+                      ? `${progress?.jewel_drops || 0}/${item.target} 钻`
+                      : itemGoalLabel(item.goal, item.target, daily)}
+                </span>
+              </li>
+            );
+          })}
         </ol>
       ) : null}
 
-      {!queue?.active && runMode === 'count' ? (
+      {editableSingleItem && runMode === 'count' ? (
         <RunTargetInput
           compact
           className="mt-2 w-fit"
@@ -337,7 +336,7 @@ export default function AutomationControlCard({
         />
       ) : null}
 
-      {!queue?.active && runMode === 'jewel_drops' ? (
+      {editableSingleItem && runMode === 'jewel_drops' ? (
         <RunTargetInput
           compact
           className="mt-2 w-fit"
@@ -354,7 +353,7 @@ export default function AutomationControlCard({
         />
       ) : null}
 
-      {!queue?.active && repeatDaily ? (
+      {editableSingleItem && repeatDaily ? (
         <div className="mt-2 flex flex-wrap items-end gap-2 text-xs text-slate-600">
           <label>
             <span className="mb-1 block">每日启动</span>

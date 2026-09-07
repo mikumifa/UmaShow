@@ -855,12 +855,12 @@ export default function CareerTab(props: CareerTabProps) {
                 disabled={Boolean(busy)}
                 className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-medium text-white disabled:opacity-50"
               >
-                {busy === 'update-runner' ? (
+                {busy === 'update-schedule' ? (
                   <RefreshCw size={14} className="animate-spin" />
                 ) : (
                   <Save size={14} />
                 )}
-                {busy === 'update-runner' ? '正在应用…' : '保存并应用'}
+                {busy === 'update-schedule' ? '正在应用…' : '保存并应用'}
               </button>
             ) : (
               <>

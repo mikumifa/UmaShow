@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
-  dailyJewelScheduleStatusLabel,
   describeLogAction,
   describeLogDetail,
   describeRunnerAction,
@@ -17,11 +16,11 @@ import {
   formatDailyJewelScheduleWindow,
   HIDDEN_RUNNER_LOG_ACTIONS,
   panelClass,
-  runModeLabel,
   statusBadgeClass,
   turnDateLabel,
 } from './shared';
 import {
+  AccountAutomation,
   CareerSetting,
   Dashboard,
   Runner,
@@ -41,7 +40,7 @@ type ProgressTabProps = {
   currentRunnerStats: RunnerStats;
   busy: string;
   activeSetting?: CareerSetting;
-  dailyJewelSchedule?: Runner['daily_jewel_schedule'];
+  automation?: AccountAutomation;
   offlineMode: boolean;
   serverHostedMode: boolean;
   idleSingleMode?: SessionAccount['idle_single_mode'];
@@ -330,43 +329,46 @@ function visibleRunnerLog(runner?: Runner) {
   });
 }
 
-function dailyPlanGoalLabel(
-  schedule: NonNullable<Runner['daily_jewel_schedule']>,
-  dailyJewelDropCount?: number,
-) {
-  switch (schedule.mode) {
+function scheduleGoalLabel(automation?: AccountAutomation) {
+  const schedule = automation?.schedule;
+  const observation = automation?.observation;
+  if (!schedule) return '等待计划';
+  const itemIndex = Math.max(0, observation?.current_index ?? 0);
+  const item = schedule.items[itemIndex] || schedule.items[0];
+  if (!item) return '等待计划';
+  const progress = observation?.item_progress.find(
+    (candidate) => candidate.id === item.id,
+  );
+  const dailyPrefix = schedule.cadence === 'daily' ? '每天' : '';
+  switch (item.goal) {
     case 'single':
-      return '每天单次';
+      return `${dailyPrefix}单次`;
     case 'continuous':
-      return '每天持续';
+      return `${dailyPrefix}持续`;
     case 'count':
-      return `每天完成 ${schedule.target} 次`;
-    case 'queue':
-      return '每天执行完整队列';
+      return `${dailyPrefix}完成 ${progress?.completed_runs || 0}/${item.target} 次`;
     case 'jewel_drops':
     default:
-      return `今日钻石 ${schedule.daily_jewel_drop_count ?? dailyJewelDropCount ?? 0}/${schedule.target} 次`;
+      return `${dailyPrefix || '本轮'}钻石 ${progress?.jewel_drops || 0}/${item.target} 次`;
   }
 }
 
-function currentRunPlanLabel(runner?: Runner) {
-  const queue = runner?.run_plan?.queue;
-  const queueItem = queue?.items?.[queue.current_index];
-  const mode = queueItem?.goal || runner?.run_plan?.mode;
-  const target = queueItem?.target || runner?.run_plan?.target || 1;
-
-  switch (mode) {
-    case 'count':
-      return `完成 ${target} 次`;
-    case 'jewel_drops':
-      return `获得 ${target} 次钻石`;
-    case 'daily_count':
-      return `每日完成 ${target} 次`;
-    case 'daily_jewel_drops':
-    case 'daily_jewel_schedule':
-      return `每日获得 ${target} 次钻石`;
+function automationPhaseLabel(automation?: AccountAutomation) {
+  switch (automation?.observation.phase) {
+    case 'paused':
+      return '计划已暂停';
+    case 'running':
+      return '自动育成中';
+    case 'recovering':
+      return '正在恢复执行';
+    case 'waiting':
+      return '等待调度时段';
+    case 'completed':
+      return '计划已完成';
+    case 'blocked':
+      return '计划需要处理';
     default:
-      return runModeLabel(mode);
+      return '等待开始';
   }
 }
 
@@ -442,24 +444,25 @@ export default function ProgressTab({
   currentRunnerStats,
   busy,
   activeSetting,
-  dailyJewelSchedule,
+  automation,
   offlineMode,
   serverHostedMode,
   idleSingleMode,
   abandonCareer,
 }: ProgressTabProps) {
+  const schedule = automation?.schedule;
+  const observation = automation?.observation;
   const runnerClosing = busy === 'stop';
   const liveActivity = runner?.live_activity;
   const runnerLog = visibleRunnerLog(runner);
   const statAnimationResetKey =
     runner?.run_id ||
-    runner?.state_epoch ||
     `${activeCareer?.card_id || currentCareerUma?.id || 'career'}:${activeCareer?.scenario_id || 0}`;
-  const activeQueue = runner?.run_plan?.queue;
-  const activeQueueItem = activeQueue?.items?.[activeQueue.current_index];
+  const activeItemIndex = Math.max(0, observation?.current_index ?? 0);
+  const activeItem = schedule?.items[activeItemIndex] || schedule?.items[0];
   const currentSettingName =
     activeSetting?.name ||
-    activeQueueItem?.career_setting_name ||
+    activeItem?.career_setting_name ||
     activeCareer?.name ||
     currentCareerUma?.name ||
     '当前详设';
@@ -468,12 +471,12 @@ export default function ProgressTab({
     runner?.current_turn,
     ...(runner?.action_history || []).map((row) => row.turn),
     ...(runner?.log || []).map((row) => row.turn),
-  ].reduce((latest, value) => {
+  ].reduce<number>((latest, value) => {
     const turn = Number(value);
     return Number.isFinite(turn) && turn > latest ? turn : latest;
   }, 0);
   const currentCareerTurn = liveRunnerTurn || activeCareer?.turn;
-  const runnerErrors = [runner?.last_error]
+  const runnerErrors = [observation?.last_error, runner?.last_error]
     .map(formatAccountError)
     .filter(
       (message, index, messages) =>
@@ -481,8 +484,12 @@ export default function ProgressTab({
     );
   const runnerG123RaceCount = Object.values(
     runner?.g123_race_counts || {},
-  ).reduce((sum, count) => sum + Number(count || 0), 0);
-  const queuedPlan = Boolean(runner?.run_plan?.active && !runner?.running);
+  ).reduce<number>((sum, count) => sum + Number(count || 0), 0);
+  const queuedPlan = Boolean(
+    schedule &&
+      !runner?.running &&
+      (observation?.phase === 'recovering' || observation?.phase === 'waiting'),
+  );
   const waitingForCareerStart = Boolean(
     currentCareerActive &&
       automationActive &&
@@ -516,7 +523,7 @@ export default function ProgressTab({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-bold text-slate-900">
-                  {currentSettingName} · {currentRunPlanLabel(runner)}
+                  {currentSettingName} · {scheduleGoalLabel(automation)}
                 </h2>
                 <span
                   className={statusBadgeClass(
@@ -533,16 +540,9 @@ export default function ProgressTab({
                       : '正在暂停…'
                     : runnerPaused
                       ? '计划已暂停'
-                      : offlineMode
-                        ? idleSingleMode?.active
-                          ? '离线育成中'
-                          : '等待服务端调度'
-                        : queuedPlan
-                          ? '等待服务端调度'
-                          : automationActive
-                            ? '自动育成中'
-                            : runner?.run_plan?.stop_reason ||
-                              (runner?.finished ? '本次已完成' : '等待开始')}
+                      : offlineMode && idleSingleMode?.active
+                        ? '离线育成中'
+                        : automationPhaseLabel(automation)}
                 </span>
               </div>
               <p className="mt-1 text-sm font-medium text-indigo-600">
@@ -584,8 +584,12 @@ export default function ProgressTab({
                         : '计划已提交，正在等待服务端开始离线育成'
                       : queuedPlan
                         ? liveActivityLabel || '计划已提交，等待服务端推进'
-                        : liveActivityLabel ||
-                          describeRunnerAction(runner?.last_action)}
+                        : observation?.phase === 'blocked' ||
+                            observation?.phase === 'recovering'
+                          ? observation.reason ||
+                            describeRunnerAction(runner?.last_action)
+                          : liveActivityLabel ||
+                            describeRunnerAction(runner?.last_action)}
               </p>
               {!offlineMode && !waitingForCareerStart ? (
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
@@ -704,7 +708,7 @@ export default function ProgressTab({
                 </p>
                 <div className="mt-1 flex min-h-7 items-end gap-1 whitespace-nowrap text-indigo-600">
                   <AnimatedStatNumber
-                    value={runner?.daily_jewel_drop_count || 0}
+                    value={observation?.daily_jewel_drops || 0}
                     resetKey={statAnimationResetKey}
                     className="origin-bottom text-2xl font-bold tabular-nums text-indigo-800"
                   />
@@ -715,7 +719,7 @@ export default function ProgressTab({
           </div>
         ) : null}
 
-        {dailyJewelSchedule?.enabled ? (
+        {schedule?.cadence === 'daily' ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
             <div>
               <span className="font-semibold text-violet-800">
@@ -723,16 +727,13 @@ export default function ProgressTab({
               </span>
               <span className="ml-2 text-xs text-violet-600">
                 {`${formatDailyJewelScheduleWindow(
-                  dailyJewelSchedule.start_time,
-                  dailyJewelSchedule.end_time,
-                )} · ${dailyPlanGoalLabel(
-                  dailyJewelSchedule,
-                  runner?.daily_jewel_drop_count,
-                )}`}
+                  schedule.start_time,
+                  schedule.end_time,
+                )} · ${scheduleGoalLabel(automation)}`}
               </span>
             </div>
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
-              {dailyJewelScheduleStatusLabel(dailyJewelSchedule.status)}
+              {automationPhaseLabel(automation)}
             </span>
           </div>
         ) : null}
@@ -784,32 +785,27 @@ export default function ProgressTab({
           className={`mx-auto ${automationActive ? 'animate-pulse text-indigo-300' : 'text-slate-300'}`}
         />
         <h2 className="mt-4 font-bold text-slate-700">
-          {dailyJewelSchedule?.enabled
-            ? dailyJewelSchedule.status === 'completed'
+          {schedule?.cadence === 'daily'
+            ? observation?.phase === 'completed'
               ? '今日运行计划已完成'
-              : `每日运行计划：${dailyJewelScheduleStatusLabel(
-                  dailyJewelSchedule.status,
-                )}`
-            : runner?.run_plan?.active
+              : `每日运行计划：${automationPhaseLabel(automation)}`
+            : schedule
               ? '正在准备下一次育成'
               : '当前没有进行中的养马'}
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          {dailyJewelSchedule?.enabled
+          {schedule?.cadence === 'daily'
             ? `每日 ${formatDailyJewelScheduleWindow(
-                dailyJewelSchedule.start_time,
-                dailyJewelSchedule.end_time,
-              )} 运行，${dailyPlanGoalLabel(
-                dailyJewelSchedule,
-                runner?.daily_jewel_drop_count,
-              )}。`
-            : runner?.run_plan?.active
+                schedule.start_time,
+                schedule.end_time,
+              )} 运行，${scheduleGoalLabel(automation)}。`
+            : schedule
               ? '新的育成开始后，这里会显示实时状态。'
               : '开始或继续育成后，这里会显示当前属性和流程。'}
         </p>
-        {dailyJewelSchedule?.last_error ? (
+        {observation?.last_error ? (
           <p className="mt-2 text-xs text-red-500">
-            {formatAccountError(dailyJewelSchedule.last_error)}
+            {formatAccountError(observation.last_error)}
           </p>
         ) : null}
       </div>

@@ -18,6 +18,12 @@ namespace {
 
 constexpr const char* kProtocolPrefix = "UMASHOW_JSON:";
 
+std::string pathToUtf8(const std::filesystem::path& path)
+{
+  const auto value = path.u8string();
+  return {reinterpret_cast<const char*>(value.data()), value.size()};
+}
+
 void writeResponse(const json& response)
 {
   std::cout << kProtocolPrefix << response.dump() << std::endl;
@@ -27,7 +33,7 @@ void loadUmaShowDatabase(const std::filesystem::path& path)
 {
   std::ifstream input(path, std::ios::binary);
   if (!input)
-    throw std::runtime_error("无法读取 UmaShow 蒙特卡洛数据: " + path.string());
+    throw std::runtime_error("无法读取 UmaShow 蒙特卡洛数据: " + pathToUtf8(path));
 
   json data = json::parse(input, nullptr, true, true);
   GameDatabase::AllUmas.clear();
@@ -181,7 +187,7 @@ json analyze(const json& request)
 
 } // namespace
 
-int main(int argc, char** argv)
+int wmain(int argc, wchar_t** argv)
 {
   std::ios::sync_with_stdio(false);
   std::cin.tie(nullptr);
@@ -190,7 +196,7 @@ int main(int argc, char** argv)
   {
     if (argc < 2)
       throw std::runtime_error("缺少 UmaShow 数据文件路径");
-    loadUmaShowDatabase(std::filesystem::u8path(argv[1]));
+    loadUmaShowDatabase(std::filesystem::path(argv[1]));
     writeResponse({{"ok", true}, {"type", "ready"}, {"scenarioId", 6}});
   }
   catch (const std::exception& error)

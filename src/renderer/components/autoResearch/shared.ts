@@ -499,29 +499,10 @@ export function runModeLabel(mode?: RunMode) {
     single: '单次运行',
     continuous: '持续运行',
     count: '运行指定次数',
-    daily_count: '每日运行次数',
     jewel_drops: '宝石掉落目标',
-    daily_jewel_drops: '今日宝石累计目标',
-    daily_jewel_schedule: '每日宝石计划',
     queue: '详设队列',
   };
   return labels[mode || 'single'];
-}
-
-export function dailyJewelScheduleStatusLabel(status?: string) {
-  const labels: Record<string, string> = {
-    waiting: '等待启动时间',
-    waiting_login: '等待账号登录',
-    starting: '正在启动',
-    running: '运行中',
-    occupied: '等待当前操作结束',
-    retry_wait: '稍后重试',
-    paused: '已暂停',
-    completed: '今日已完成',
-    disabled: '已停止',
-    invalid: '时间设置无效',
-  };
-  return labels[String(status || '')] || '等待启动时间';
 }
 
 export function formatDailyJewelScheduleWindow(start?: string, end?: string) {

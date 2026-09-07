@@ -2,13 +2,8 @@ import type { GameEvent, StoryDetail } from 'types/gameTypes';
 
 export type EventDetailOption = {
   option: string;
-  gains: EventDetailGain[];
-  currentSelectIndex?: number;
-};
-
-export type EventDetailGain = {
-  selectIndex: number;
-  detail: string;
+  gainList: string[];
+  resultIndex?: number;
 };
 
 export type EventDetailData = {
@@ -33,29 +28,21 @@ export function buildEventDetailRows(
       const networkGains = (networkOption?.gainList ?? [])
         .map((gain) => gain.trim())
         .filter(Boolean);
-      const currentSelectIndex = localOption?.selectIndex;
       const localDetail = localOption?.detail?.trim() ?? '';
-      const gains = networkGains.map((detail, gainIndex) => ({
-        selectIndex: gainIndex + 1,
-        detail,
-      }));
-      if (gains.length === 0 && localDetail) {
-        gains.push({
-          selectIndex:
-            currentSelectIndex != null && currentSelectIndex > 0
-              ? currentSelectIndex
-              : 1,
-          detail: localDetail,
-        });
-      }
+      const gainList =
+        networkGains.length > 0
+          ? networkGains
+          : localDetail
+            ? [localDetail]
+            : [];
 
       return {
         option:
           networkOption?.option?.trim() ||
           localOption?.desp?.trim() ||
           '事件选项',
-        gains,
-        currentSelectIndex,
+        gainList,
+        resultIndex: localOption?.selectIndex,
       };
     });
 
@@ -98,37 +85,30 @@ export default function EventDetailRow({
                 <span className="min-w-0 flex-1 text-sm font-bold text-slate-800">
                   {option.option}
                 </span>
+                {option.resultIndex != null ? (
+                  <span className="inline-flex shrink-0 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                    结果编号：{option.resultIndex}
+                  </span>
+                ) : null}
               </div>
-              {option.gains.length > 0 ? (
+              {option.gainList.length > 0 ? (
                 <div className="mt-1.5 space-y-1">
-                  {option.gains.map((gain) => {
-                    const formattedGain = formatGain(gain.detail);
-                    const isCurrent =
-                      option.currentSelectIndex === gain.selectIndex;
+                  {option.gainList.map((gain, gainIndex) => {
+                    const formattedGain = formatGain(gain);
                     return (
                       <div
-                        key={gain.selectIndex}
+                        key={gainIndex}
                         title={formattedGain}
-                        className={`flex items-start gap-2 rounded-md px-2 py-1 text-xs leading-5 ${
-                          isCurrent
-                            ? 'bg-purple-50 font-semibold text-purple-800'
-                            : 'text-slate-600'
-                        }`}
+                        className="text-xs leading-5 text-slate-600"
                       >
-                        <span className="shrink-0 font-mono text-[10px] font-bold text-purple-600">
-                          select_index: {gain.selectIndex}
-                        </span>
-                        <span>{formattedGain}</span>
+                        {formattedGain}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-                  <span className="font-mono font-bold text-purple-500">
-                    select_index: {option.currentSelectIndex ?? '未提供'}
-                  </span>
-                  <span>暂无效果数据</span>
+                <div className="mt-1 text-[11px] text-slate-400">
+                  暂无效果数据
                 </div>
               )}
             </div>

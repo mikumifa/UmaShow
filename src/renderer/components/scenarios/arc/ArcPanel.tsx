@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BadgeCheck, Bot, Globe2, Users } from 'lucide-react';
+import { BadgeCheck, Bot, Globe2, ShoppingCart, Users } from 'lucide-react';
 import {
   ARC_POTENTIAL_CONDITIONS,
   ARC_POTENTIALS,
@@ -337,6 +337,14 @@ function ArcStatusBar({
     ({ action }) => action.train === 5,
   );
   const isSsRecommended = ssRecommendation?.isBest ?? false;
+  const recommendedPotentialPurchases = ARC_POTENTIALS.filter((potential) =>
+    umaAiPotentialIds.has(potential.id),
+  ).map((potential) => ({
+    id: potential.id,
+    name: potential.name,
+    cost: potential.levelCosts[3],
+    effect: compactPotentialEffect(potential.levelEffects[3]),
+  }));
   const [openPanel, setOpenPanel] = useState<'potential' | 'rivals' | null>(
     null,
   );
@@ -433,6 +441,22 @@ function ArcStatusBar({
           </button>
         </div>
       </div>
+      {recommendedPotentialPurchases.length > 0 ? (
+        <div className="mt-1.5 inline-flex max-w-full flex-wrap items-center gap-1 rounded-lg border-2 border-amber-400 bg-amber-100/70 px-2 py-1 ring-2 ring-amber-200">
+          <span className="inline-flex items-center gap-1 text-xs font-black text-amber-900">
+            <ShoppingCart size={13} strokeWidth={2.5} /> 先购买
+          </span>
+          {recommendedPotentialPurchases.map((purchase) => (
+            <span
+              key={purchase.id}
+              className="rounded-md border border-amber-300 bg-white/85 px-2 py-0.5 text-xs font-black text-amber-900"
+            >
+              {purchase.name} Lv3
+              {purchase.cost ? ` · ${purchase.cost}Pt` : ''} · {purchase.effect}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {selection ? (
         <div className="mt-1.5">
           <div
