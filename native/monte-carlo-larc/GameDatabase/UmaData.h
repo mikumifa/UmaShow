@@ -72,7 +72,7 @@ struct UmaData
 		  if (j["races"][0].is_boolean())
 		  {
 			  // 老比赛格式
-			  for (int i = 0; i < j["races"].size(); ++i)
+			  for (std::size_t i = 0; i < j["races"].size(); ++i)
 				  if ((bool)(j["races"][i]))
 					  me.races[i] |= TURN_RACE;
 		  }

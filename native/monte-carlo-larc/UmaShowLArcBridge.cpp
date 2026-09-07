@@ -29,14 +29,12 @@ constexpr const char* kProtocolPrefix = "UMASHOW_JSON:";
 
 std::string pathToUtf8(const std::filesystem::path& path)
 {
-  const auto value = path.u8string();
-  return {reinterpret_cast<const char*>(value.data()), value.size()};
+  return path.u8string();
 }
 
 std::filesystem::path pathFromUtf8(const std::string& value)
 {
-  const auto* begin = reinterpret_cast<const char8_t*>(value.data());
-  return std::filesystem::path(std::u8string(begin, begin + value.size()));
+  return std::filesystem::u8path(value);
 }
 
 void writeResponse(const json& response)

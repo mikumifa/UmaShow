@@ -74,7 +74,7 @@ add_executable(UmaShowMonteCarloLArc
   UmaShowLArcBridge.cpp
 )
 
-target_compile_features(UmaShowMonteCarloLArc PRIVATE cxx_std_20)
+target_compile_features(UmaShowMonteCarloLArc PRIVATE cxx_std_17)
 if(WIN32)
   target_compile_definitions(UmaShowMonteCarloLArc PRIVATE
     NOMINMAX
@@ -91,6 +91,11 @@ target_link_libraries(UmaShowMonteCarloLArc PRIVATE
   "${UMASHOW_ONNXRUNTIME_LIBRARY}"
   Threads::Threads
 )
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+   CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  target_link_libraries(UmaShowMonteCarloLArc PRIVATE stdc++fs)
+endif()
 
 if(MSVC)
   target_compile_options(UmaShowMonteCarloLArc PRIVATE
