@@ -356,8 +356,6 @@ def stable_load_checkpoint(path: Path) -> tuple[dict[str, Any], str]:
                 "model",
                 "target_model",
                 "optimizer",
-                "last_iter",
-                "last_step",
             }
             missing_fields = sorted(required_fields - set(checkpoint))
             if missing_fields:
@@ -407,12 +405,19 @@ def stable_load_checkpoint(path: Path) -> tuple[dict[str, Any], str]:
             optimizer = checkpoint.get("optimizer")
             if not isinstance(optimizer, Mapping) or not optimizer:
                 raise ValueError("checkpoint does not contain optimizer state")
-            for counter in ("last_iter", "last_step"):
-                value = checkpoint.get(counter)
-                if type(value) is not int or value < 0:
-                    raise ValueError(
-                        f"checkpoint {counter} must be a non-negative integer"
-                    )
+            has_last_iter = "last_iter" in checkpoint
+            has_last_step = "last_step" in checkpoint
+            if has_last_iter != has_last_step:
+                raise ValueError(
+                    "checkpoint must contain both last_iter and last_step or neither"
+                )
+            if has_last_iter:
+                for counter in ("last_iter", "last_step"):
+                    value = checkpoint.get(counter)
+                    if type(value) is not int or value < 0:
+                        raise ValueError(
+                            f"checkpoint {counter} must be a non-negative integer"
+                        )
             return checkpoint, digest
         last_error = RuntimeError("checkpoint changed while it was being read")
         time.sleep(0.1)

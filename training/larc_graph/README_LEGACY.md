@@ -97,6 +97,19 @@ uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
 
 默认会随机生成覆盖不同角色、卡组、继承和部分目标上限的开局。固定目标可使用 `--target-speed/--target-stamina/--target-power/--target-guts/--target-wisdom`；只想测不设目标的总分时加 `--no-random-targets`。这是模拟器内“旧模型 vs 内置手写策略”的 A/B，并不等同于真实玩家手养记录；若要比较真人手养，还需要把真人每回合选择或终局记录作为另一份输入数据。
 
+直接比较两个旧版 `.pt` checkpoint 时，脚本会自动临时导出 ONNX，并让两个模型在完全相同的开局和搜索预算下完成整局育成：
+
+```bash
+uv run --extra larc-graph python training/larc_graph/compare_legacy_models.py \
+  training/larc_graph/checkpoints/larc_graph-v0.pt \
+  training/larc_graph/checkpoints/larc_graph-v1.pt \
+  --games 100 --workers 4 \
+  --nodes 64 --depth 8 --top-k 8 --chance-outcomes 8 \
+  --output training/larc_graph/evaluations/larc_graph-v0-vs-v1.json
+```
+
+输出中的所有差值均为 `modelB - modelA`，所以上述命令中正数代表 v1 更好。需要测试 Gumbel 根搜索时加 `--root-selection gumbel --gumbel-max-actions 16 --gumbel-scale 0`。
+
 ## 5. 用旧版数据热启动 LightZero
 
 旧版 `.pt`/`.onnx` 与 LightZero 架构不同，不能直接作为 LightZero checkpoint。
