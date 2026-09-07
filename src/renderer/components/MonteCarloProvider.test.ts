@@ -15,6 +15,32 @@ describe('recommendation settings', () => {
       graphSearchNodes: 384,
       graphSearchDepth: 5,
     });
+    expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('seed');
+    expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('maxDepth');
+    expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('scoringMode');
+  });
+
+  it('drops settings that are not used by the LArc recommendation engine', () => {
+    const settings = normalizeUmaAiSettings({
+      enabled: true,
+      options: {
+        seed: 123,
+        searchTotalMax: 9999,
+        searchGroupSize: 256,
+        searchCpuct: 8,
+        maxDepth: 12,
+        scorePtRate: 4,
+        scoringMode: 6,
+      },
+    });
+
+    expect(settings.options).not.toHaveProperty('seed');
+    expect(settings.options).not.toHaveProperty('searchTotalMax');
+    expect(settings.options).not.toHaveProperty('searchGroupSize');
+    expect(settings.options).not.toHaveProperty('searchCpuct');
+    expect(settings.options).not.toHaveProperty('maxDepth');
+    expect(settings.options).not.toHaveProperty('scorePtRate');
+    expect(settings.options).not.toHaveProperty('scoringMode');
   });
 
   it('normalizes configured attribute targets', () => {

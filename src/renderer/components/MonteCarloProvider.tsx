@@ -26,17 +26,10 @@ export type UmaAiOptions = Required<
   Pick<
     MonteCarloOptions,
     | 'modelPath'
-    | 'seed'
     | 'searchSingleMax'
-    | 'searchTotalMax'
-    | 'searchGroupSize'
     | 'threadNum'
     | 'radicalFactor'
-    | 'searchCpuct'
-    | 'maxDepth'
     | 'eventStrength'
-    | 'scorePtRate'
-    | 'scoringMode'
     | 'targetSpeed'
     | 'targetStamina'
     | 'targetPower'
@@ -58,7 +51,7 @@ export type UmaAiSettings = {
 
 type UmaAiSettingsInput = {
   enabled?: boolean;
-  options?: Partial<UmaAiOptions>;
+  options?: Partial<MonteCarloOptions>;
 };
 
 type MonteCarloContextValue = {
@@ -77,17 +70,10 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
   options: {
     modelPath: '',
-    seed: 0,
     searchSingleMax: 4096,
-    searchTotalMax: 0,
-    searchGroupSize: 128,
     threadNum: 8,
     radicalFactor: 3,
-    searchCpuct: 4,
-    maxDepth: 156,
     eventStrength: 20,
-    scorePtRate: 2,
-    scoringMode: 0,
     targetSpeed: 0,
     targetStamina: 0,
     targetPower: 0,
@@ -128,27 +114,12 @@ export const normalizeUmaAiSettings = (
   const threadNum = Math.round(
     boundedNumber(raw.threadNum, defaults.threadNum, 1, 32),
   );
-  const scoringMode = [0, 1, 6].includes(Number(raw.scoringMode))
-    ? Number(raw.scoringMode)
-    : defaults.scoringMode;
   return {
     enabled: Boolean(value?.enabled),
     options: {
       modelPath: typeof raw.modelPath === 'string' ? raw.modelPath.trim() : '',
-      seed: Math.round(boundedNumber(raw.seed, defaults.seed, 0, 2147483647)),
       searchSingleMax: Math.round(
         boundedNumber(raw.searchSingleMax, defaults.searchSingleMax, 16, 65536),
-      ),
-      searchTotalMax: Math.round(
-        boundedNumber(raw.searchTotalMax, defaults.searchTotalMax, 0, 10000000),
-      ),
-      searchGroupSize: Math.round(
-        boundedNumber(
-          raw.searchGroupSize,
-          defaults.searchGroupSize,
-          Math.min(4096, threadNum * 16),
-          4096,
-        ),
       ),
       threadNum,
       radicalFactor: boundedNumber(
@@ -157,15 +128,9 @@ export const normalizeUmaAiSettings = (
         0,
         20,
       ),
-      searchCpuct: boundedNumber(raw.searchCpuct, defaults.searchCpuct, 0, 50),
-      maxDepth: Math.round(
-        boundedNumber(raw.maxDepth, defaults.maxDepth, 1, 156),
-      ),
       eventStrength: Math.round(
         boundedNumber(raw.eventStrength, defaults.eventStrength, 0, 1000),
       ),
-      scorePtRate: boundedNumber(raw.scorePtRate, defaults.scorePtRate, 0, 20),
-      scoringMode,
       targetSpeed: Math.round(
         boundedNumber(raw.targetSpeed, defaults.targetSpeed, 0, 3000),
       ),
