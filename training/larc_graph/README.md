@@ -25,11 +25,11 @@ uv sync --extra larc-graph
 uv run python/build_monte_carlo.py
 ```
 
-```powershell
-uv run --extra larc-graph python training/larc_graph/generate_selfplay.py --games 2048 --searches 128 --threads 8 --shard-size 2048 --output-dir training/larc_graph/data/selfplay-v0
+```bash
+uv run --extra larc-graph python training/larc_graph/generate_selfplay.py --games 2048 --searches 128 --workers 8 --threads 1 --shard-size 2048 --output-dir training/larc_graph/data/selfplay-v0
 ```
 
-同一命令可以再次运行，新的分片会接着已有编号写入。中途按 `Ctrl+C` 时，会保存已经完成的样本。首版 teacher 使用当前完整终局搜索；以后可以增加 `--model-path 模型.onnx`，用已有模型参与下一轮自博弈。
+`--workers 8 --threads 1` 表示同时运行 8 局，每局内部使用 1 个线程，避免每个行动反复创建大量短生命周期线程。总并行度约为 `workers × threads`，应不超过服务器可用 CPU 数。同一命令可以再次运行，新的分片会接着已有编号写入。中途按 `Ctrl+C` 时，会保存已经完成的样本。首版 teacher 使用当前完整终局搜索；以后可以增加 `--model-path 模型.onnx`，用已有模型参与下一轮自博弈。
 
 `collect_teacher.py` 仍保留为以后使用真实回合状态校准模拟器的可选工具，但首版训练不依赖它。
 

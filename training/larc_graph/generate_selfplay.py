@@ -7,6 +7,7 @@ import secrets
 import subprocess
 import sys
 import uuid
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--games-per-request", type=int, default=1)
     parser.add_argument("--shard-size", type=int, default=1024)
     parser.add_argument("--searches", type=int, default=128)
-    parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="number of simulator processes generating games in parallel",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="threads used inside each simulated game",
+    )
     parser.add_argument("--policy-temperature", type=float, default=80.0)
     parser.add_argument("--play-temperature", type=float, default=120.0)
     parser.add_argument("--play-exploration", type=float, default=0.08)
@@ -97,12 +109,76 @@ def sample_arrays(sample: dict[str, Any], temperature: float) -> dict[str, np.nd
     }
 
 
+class SimulatorWorker:
+    def __init__(self, executable: Path, database: Path):
+        self.process = subprocess.Popen(
+            [str(executable), str(database)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            ready = read_protocol(self.process)
+            if not ready.get("ok"):
+                raise RuntimeError(
+                    ready.get("error", "recommendation process failed to start")
+                )
+        except BaseException:
+            self.close()
+            raise
+
+    def generate(
+        self,
+        game_count: int,
+        seed: int,
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
+        request_options = dict(options)
+        request_options["gameCount"] = game_count
+        request = {
+            "id": str(uuid.uuid4()),
+            "command": "selfplay",
+            "seed": seed,
+            "options": request_options,
+        }
+        if self.process.stdin is None:
+            raise RuntimeError("recommendation process stdin is unavailable")
+        self.process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
+        self.process.stdin.flush()
+        response = read_protocol(self.process)
+        if not response.get("ok"):
+            raise RuntimeError(response.get("error", "self-play generation failed"))
+        return response
+
+    def close(self) -> None:
+        if self.process.stdin is not None and not self.process.stdin.closed:
+            try:
+                self.process.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
+        if self.process.poll() is not None:
+            return
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait(timeout=10)
+
+
 def main() -> None:
     args = parse_args()
     if args.games <= 0:
         raise ValueError("--games must be positive")
     if not 1 <= args.games_per_request <= 16:
         raise ValueError("--games-per-request must be between 1 and 16")
+    if not 1 <= args.workers <= 32:
+        raise ValueError("--workers must be between 1 and 32")
+    if not 1 <= args.threads <= 32:
+        raise ValueError("--threads must be between 1 and 32")
     if args.shard_size <= 0:
         raise ValueError("--shard-size must be positive")
     executable = args.executable.resolve()
@@ -112,104 +188,127 @@ def main() -> None:
     if not database.is_file():
         raise FileNotFoundError(f"recommendation database not found: {database}")
 
-    process = subprocess.Popen(
-        [str(executable), str(database)],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    ready = read_protocol(process)
-    if not ready.get("ok"):
-        raise RuntimeError(ready.get("error", "recommendation process failed to start"))
-
     pending: dict[str, list[np.ndarray]] = {}
     pending_count = 0
     total_samples = 0
     completed_games = 0
+    scheduled_games = 0
     shard_index = next_shard_index(args.output_dir)
     base_seed = args.seed if args.seed is not None else secrets.randbelow(2**32)
     interrupted = False
-    assert process.stdin is not None
+    worker_count = min(args.workers, args.games)
+    available_cpus = os.cpu_count()
+    if available_cpus and worker_count * args.threads > available_cpus:
+        print(
+            f"warning: {worker_count} workers x {args.threads} threads exceeds "
+            f"{available_cpus} available CPUs",
+            file=sys.stderr,
+        )
+
+    workers: list[SimulatorWorker] = []
     try:
-        while completed_games < args.games:
-            request_games = min(
-                args.games_per_request,
-                args.games - completed_games,
-            )
-            options: dict[str, Any] = {
-                "gameCount": request_games,
-                "searchSingleMax": args.searches,
-                "threadNum": args.threads,
-                "radicalFactor": args.radical_factor,
-                "playTemperature": args.play_temperature,
-                "playExploration": args.play_exploration,
-                "randomizeTargets": not args.no_random_targets,
-            }
-            if args.model_path:
-                options["modelPath"] = str(args.model_path.resolve())
-            request = {
-                "id": str(uuid.uuid4()),
-                "command": "selfplay",
-                "seed": (base_seed + completed_games) & 0xFFFFFFFF,
-                "options": options,
-            }
-            process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
-            process.stdin.flush()
-            response = read_protocol(process)
-            if not response.get("ok"):
-                raise RuntimeError(response.get("error", "self-play generation failed"))
+        for _ in range(worker_count):
+            workers.append(SimulatorWorker(executable, database))
+    except BaseException:
+        for worker in workers:
+            worker.close()
+        raise
 
-            response_samples = response.get("samples")
-            if not isinstance(response_samples, list) or not response_samples:
-                raise RuntimeError("self-play returned no training samples")
-            for raw_sample in response_samples:
-                arrays = sample_arrays(raw_sample, args.policy_temperature)
-                for key, value in arrays.items():
-                    pending.setdefault(key, []).append(value)
-                pending_count += 1
-                total_samples += 1
-                if pending_count >= args.shard_size:
-                    output = write_shard(args.output_dir, shard_index, pending)
-                    print(f"wrote {pending_count} samples to {output}")
-                    shard_index += 1
-                    pending = {}
-                    pending_count = 0
+    options: dict[str, Any] = {
+        "searchSingleMax": args.searches,
+        "threadNum": args.threads,
+        "radicalFactor": args.radical_factor,
+        "playTemperature": args.play_temperature,
+        "playExploration": args.play_exploration,
+        "randomizeTargets": not args.no_random_targets,
+    }
+    if args.model_path:
+        options["modelPath"] = str(args.model_path.resolve())
 
-            completed_games += int(response.get("gameCount", request_games))
-            final_scores = [
-                int(game.get("finalScore", 0))
-                for game in response.get("games", [])
-                if isinstance(game, dict)
-            ]
-            print(
-                json.dumps(
-                    {
-                        "games": completed_games,
-                        "requestedGames": args.games,
-                        "samples": total_samples,
-                        "latestFinalScores": final_scores,
-                        "fallbacks": int(response.get("fallbackCount", 0)),
-                    },
-                    ensure_ascii=False,
+    executor = ThreadPoolExecutor(max_workers=worker_count)
+    in_flight: dict[
+        Future[dict[str, Any]],
+        tuple[SimulatorWorker, int],
+    ] = {}
+
+    def submit(worker: SimulatorWorker) -> None:
+        nonlocal scheduled_games
+        if scheduled_games >= args.games:
+            return
+        request_games = min(
+            args.games_per_request,
+            args.games - scheduled_games,
+        )
+        first_game = scheduled_games
+        scheduled_games += request_games
+        future = executor.submit(
+            worker.generate,
+            request_games,
+            (base_seed + first_game) & 0xFFFFFFFF,
+            options,
+        )
+        in_flight[future] = (worker, request_games)
+
+    try:
+        for worker in workers:
+            submit(worker)
+        while in_flight:
+            finished, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+            for future in finished:
+                worker, requested_games = in_flight.pop(future)
+                response = future.result()
+                response_games = int(response.get("gameCount", requested_games))
+                if response_games != requested_games:
+                    raise RuntimeError(
+                        "self-play returned an unexpected number of games"
+                    )
+
+                response_samples = response.get("samples")
+                if not isinstance(response_samples, list) or not response_samples:
+                    raise RuntimeError("self-play returned no training samples")
+                for raw_sample in response_samples:
+                    arrays = sample_arrays(raw_sample, args.policy_temperature)
+                    for key, value in arrays.items():
+                        pending.setdefault(key, []).append(value)
+                    pending_count += 1
+                    total_samples += 1
+                    if pending_count >= args.shard_size:
+                        output = write_shard(args.output_dir, shard_index, pending)
+                        print(f"wrote {pending_count} samples to {output}")
+                        shard_index += 1
+                        pending = {}
+                        pending_count = 0
+
+                completed_games += response_games
+                final_scores = [
+                    int(game.get("finalScore", 0))
+                    for game in response.get("games", [])
+                    if isinstance(game, dict)
+                ]
+                print(
+                    json.dumps(
+                        {
+                            "games": completed_games,
+                            "requestedGames": args.games,
+                            "samples": total_samples,
+                            "workers": worker_count,
+                            "threadsPerGame": args.threads,
+                            "latestFinalScores": final_scores,
+                            "fallbacks": int(response.get("fallbackCount", 0)),
+                        },
+                        ensure_ascii=False,
+                    )
                 )
-            )
+                submit(worker)
     except KeyboardInterrupt:
         interrupted = True
         print("generation interrupted; saving the completed samples...")
     finally:
-        try:
-            process.stdin.close()
-        except (BrokenPipeError, OSError):
-            pass
-        process.terminate()
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=10)
+        for future in in_flight:
+            future.cancel()
+        for worker in workers:
+            worker.close()
+        executor.shutdown(wait=True, cancel_futures=True)
 
     if pending_count:
         output = write_shard(args.output_dir, shard_index, pending)
