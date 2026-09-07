@@ -195,7 +195,7 @@ const float remainStatusFactorEachTurnAbroad = 40;//控属性时给每回合预�
 const float remainStatusFactorEachTurnBeforeAbroad = 20;//控属性时给每回合预留多少（远征前）
 const double outgoingBonusIfNotFullMotivation = 30;//掉心情时提高外出分数
 const double friendEventProbability = 0.4;
-const double friendBond60UnlockValue = 60;
+constexpr double friendBond60UnlockValue = 60.0;
 
 constexpr double friendBond60Potential(double friendship)
 {

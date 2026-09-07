@@ -141,12 +141,13 @@ bool cardCanJoinDeck(
   const std::unordered_set<int>& usedLinkEffects)
 {
   const auto& card = GameDatabase::AllCards.at(cardId);
-  if (usedBaseCards.contains(cardId / 10))
+  if (usedBaseCards.find(cardId / 10) != usedBaseCards.end())
     return false;
-  if (card.charaId > 0 && usedCharacters.contains(card.charaId))
+  if (card.charaId > 0 &&
+      usedCharacters.find(card.charaId) != usedCharacters.end())
     return false;
   return card.larc_linkSpecialEffect <= 0 ||
-    !usedLinkEffects.contains(card.larc_linkSpecialEffect);
+    usedLinkEffects.find(card.larc_linkSpecialEffect) == usedLinkEffects.end();
 }
 
 int chooseSelfplayCard(

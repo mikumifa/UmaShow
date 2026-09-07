@@ -27,8 +27,9 @@ void GameDatabase::loadUmas(const string& pathname)
             UmaData uma;
             int id = atoi(it.key().c_str());
             it.value().get_to(uma);
-            if (TLGTranslation[4].contains(id % 1000000))
-                uma.name = TLGTranslation[4][id % 1000000];
+            const auto translation = TLGTranslation[4].find(id % 1000000);
+            if (translation != TLGTranslation[4].end())
+                uma.name = translation->second;
             AllUmas[id] = uma;
            //cout << uma.name << endl;
         }
