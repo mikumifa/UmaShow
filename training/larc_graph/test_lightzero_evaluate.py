@@ -331,6 +331,17 @@ class LightZeroEvaluationTest(unittest.TestCase):
             self.assertEqual(checkpoint["last_iter"], 1)
             self.assertEqual(len(digest), 64)
 
+            torch.save(
+                {
+                    "model": state,
+                    "target_model": {"weight": torch.tensor([1.0])},
+                    "optimizer": {"state": {}, "param_groups": []},
+                },
+                path,
+            )
+            final_checkpoint, _ = stable_load_checkpoint(path)
+            self.assertNotIn("last_iter", final_checkpoint)
+
             torch.save({"model": state}, path)
             with self.assertRaisesRegex(ValueError, "full LightZero"):
                 stable_load_checkpoint(path)

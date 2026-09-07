@@ -95,6 +95,19 @@ uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
 - `finalScore`：不截断目标属性的模拟器终局总分。
 - `recommendationScore`：按用户目标属性截断后的推荐分，设置目标时应优先看这个指标。
 
+直接比较两个旧版 `.pt` checkpoint 时，脚本会自动临时导出 ONNX，并让两个模型在完全相同的开局和搜索预算下完成整局育成：
+
+```bash
+uv run --extra larc-graph python training/larc_graph/compare_legacy_models.py \
+  training/larc_graph/checkpoints/larc_graph-v0.pt \
+  training/larc_graph/checkpoints/larc_graph-v1.pt \
+  --games 100 --workers 4 \
+  --nodes 64 --depth 8 --top-k 8 --chance-outcomes 8 \
+  --output training/larc_graph/evaluations/larc_graph-v0-vs-v1.json
+```
+
+输出中的所有差值均为 `modelB - modelA`，所以上述命令中正数代表 v1 更好。需要测试 Gumbel 根搜索时加 `--root-selection gumbel --gumbel-max-actions 16 --gumbel-scale 0`。
+
 ## 5. 用旧版数据热启动 LightZero
 
 旧版 `.pt`/`.onnx` 与 LightZero 架构不同，不能直接作为 LightZero checkpoint。
