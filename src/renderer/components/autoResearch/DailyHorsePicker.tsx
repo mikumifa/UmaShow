@@ -5,7 +5,7 @@ import {
   PlannerSelectionCard,
 } from 'renderer/components/succession/PlannerComponents';
 import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
-import { characterIconPath } from './SelectionCards';
+import { umaSkinIconPath } from './SelectionCards';
 import { DailyTasksOptions } from './types';
 
 type Horse = DailyTasksOptions['trained_charas'][number];
@@ -249,7 +249,11 @@ export default function DailyHorsePicker({
       <div className="plannerDailyHorseBody">
         <div className="plannerDailyHorseGrid">
           {visibleHorses.map((horse) => {
-            const iconPath = characterIconPath(horse.card_id);
+            const iconPath = umaSkinIconPath(
+              horse.card_id,
+              horse.rarity,
+              horse.race_cloth_id,
+            );
             const distanceGrade = distanceAptitude(horse, race);
             const groundGrade = groundAptitude(horse, race);
             const styleGrade = runningStyleAptitude(horse, runningStyle);

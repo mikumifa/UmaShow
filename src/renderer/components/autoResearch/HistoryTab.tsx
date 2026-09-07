@@ -391,6 +391,10 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
       (sum, source) => sum + Number(source.jewels_earned || 0),
       0,
     ),
+    clocksUsed: statisticSources.reduce(
+      (sum, source) => sum + Number(source.clocks_used || 0),
+      0,
+    ),
     errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
     rows: sorted.flatMap((record) => {
       const recordRows = [
@@ -604,6 +608,14 @@ export default function HistoryTab({
                 </strong>
               </div>
             ) : null}
+            {!offlineHistory ? (
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">使用闹钟</p>
+                <strong className="mt-1 block text-xl text-sky-700">
+                  {aggregate.clocksUsed} 次
+                </strong>
+              </div>
+            ) : null}
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">宝石掉落</p>
               <strong className="mt-1 block text-xl text-violet-700">
@@ -639,6 +651,9 @@ export default function HistoryTab({
                     ))}
                     {!offlineHistory ? (
                       <th className="px-3 py-3 font-medium">比赛大差</th>
+                    ) : null}
+                    {!offlineHistory ? (
+                      <th className="px-3 py-3 font-medium">闹钟</th>
                     ) : null}
                     <th className="px-3 py-3 font-medium">宝石掉落</th>
                     <th className="px-3 py-3 font-medium">开始</th>
@@ -684,6 +699,11 @@ export default function HistoryTab({
                             <td className="px-3 py-3 text-amber-700">
                               {run.large_margin_count || 0} /{' '}
                               {totalRaceCount(run.g123_race_counts)} 场
+                            </td>
+                          ) : null}
+                          {!offlineHistory ? (
+                            <td className="px-3 py-3 text-sky-700">
+                              {run.clocks_used || 0} 次
                             </td>
                           ) : null}
                           <td className="px-3 py-3 text-violet-700">

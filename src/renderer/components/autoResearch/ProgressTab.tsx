@@ -540,6 +540,11 @@ export default function ProgressTab({
                       100}
                   </span>
                   <span>干劲 {currentRunnerStats.motivation ?? '-'}</span>
+                  {runner?.burn_clocks && runner.clock_use_limit ? (
+                    <span>
+                      闹钟 {runner.clocks_used || 0}/{runner.clock_use_limit} 次
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>

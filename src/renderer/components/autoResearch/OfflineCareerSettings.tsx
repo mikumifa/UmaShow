@@ -27,10 +27,10 @@ import SkillSelector, {
   skillIconPath,
 } from './SkillSelector';
 import {
-  characterIconPath,
   isRentalParent,
   ParentChoiceCard,
   RentalParentBadge,
+  umaSkinIconPath,
 } from './SelectionCards';
 import {
   Dashboard,
@@ -669,7 +669,7 @@ export default function OfflineCareerSettings({
       (option) => option.chara_id === setting.chara_id,
     );
     const iconPath = uma
-      ? characterIconPath(uma.card_id) || uma.icon
+      ? umaSkinIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) || uma.icon
       : undefined;
     const redFactor = APTITUDE_FACTORS.find(
       (factor) => factor.factor_group_id === setting.red_factor_group_id,
@@ -1120,8 +1120,10 @@ export default function OfflineCareerSettings({
                         selectedLineageParent ? (
                           <PlannerPortrait
                             path={
-                              characterIconPath(
+                              umaSkinIconPath(
                                 selectedLineageParent.card_id,
+                                selectedLineageParent.rarity,
+                                selectedLineageParent.race_cloth_id,
                               ) || ''
                             }
                             alt={selectedLineageParent.name}
@@ -2219,7 +2221,9 @@ export default function OfflineCareerSettings({
                   slot !== lineageTreePicker &&
                   factorSelection.lineage.tree[slot].chara_id === uma.chara_id,
               );
-              const iconPath = characterIconPath(uma.card_id) || uma.icon;
+              const iconPath =
+                umaSkinIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) ||
+                uma.icon;
               return (
                 <PlannerSelectionCard
                   key={uma.chara_id}

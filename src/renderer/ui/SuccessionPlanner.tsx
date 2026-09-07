@@ -44,6 +44,7 @@ import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import {
   characterIconPath,
   horseIconPath,
+  umaSkinIconPath,
 } from 'renderer/components/autoResearch/SelectionCards';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 
@@ -140,6 +141,8 @@ type FactorAssignment = {
 type TrainedLineageMember = {
   umaId: number;
   cardId?: number;
+  rarity?: number;
+  raceClothId?: number;
   factor: Pick<FactorAssignment, 'type' | 'stars'>;
   routeId: string;
   winSaddleIds?: number[];
@@ -1516,6 +1519,8 @@ function loadStoredSuccessionSettings(): StoredSuccessionSettings {
       return {
         umaId,
         cardId: Number(value?.cardId || 0) || undefined,
+        rarity: Number(value?.rarity || 0) || undefined,
+        raceClothId: Number(value?.raceClothId || 0) || undefined,
         factor: { type, stars: stars as 1 | 2 | 3 },
         routeId,
         winSaddleIds: normalizedSaddleIds(value?.winSaddleIds),
@@ -3190,6 +3195,8 @@ function capturedSetting(
   const member = (value: CapturedLineageMember): TrainedLineageMember => ({
     umaId: value.umaId,
     cardId: value.cardId,
+    rarity: value.rarity,
+    raceClothId: value.raceClothId,
     factor: { type: value.factor.type, stars: value.factor.stars },
     routeId,
     winSaddleIds: value.winSaddleIds,
@@ -3313,7 +3320,11 @@ async function copyText(value: string) {
 }
 
 function CapturedMemberPortrait({ member }: { member: CapturedLineageMember }) {
-  const path = characterIconPath(member.cardId);
+  const path = umaSkinIconPath(
+    member.cardId,
+    member.rarity,
+    member.raceClothId,
+  );
   const uma = data.umas.find((candidate) => candidate.id === member.umaId);
   return (
     <PlannerPortrait
@@ -4001,7 +4012,11 @@ function LineageUmaSetting({
     trainedSetting?.self.cardId;
   const displayedDressCardId = capturedCardId || fixedDressCardId;
   const displayedDressIconPath = displayedDressCardId
-    ? characterIconPath(displayedDressCardId)
+    ? umaSkinIconPath(
+        displayedDressCardId,
+        selectedCapturedUma?.rarity || trainedMember?.rarity,
+        selectedCapturedUma?.raceClothId || trainedMember?.raceClothId,
+      )
     : undefined;
   const hiddenParentFactors =
     trainedSetting && slot !== 'father' && slot !== 'mother'

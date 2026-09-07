@@ -47,6 +47,13 @@ uv run --extra larc-graph python training/larc_graph/train.py \
   --batch-size 256 --epochs 30
 ```
 
+```bash
+uv run --extra larc-graph python training/larc_graph/train.py \
+  "training/larc_graph/data/selfplay-v1/*.npz" \
+  --output training/larc_graph/checkpoints/larc_graph-v1.pt \
+  --batch-size 1024 --epochs 30
+```
+
 损失包含：搜索访问分布的 Policy 交叉熵、Q/Value Quantile Huber、原始最终分数辅助损失，以及 Q/Value 一致性损失。
 
 继续上一轮权重：

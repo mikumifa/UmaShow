@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   CalendarCheck,
+  CalendarClock,
   Check,
   CheckCircle2,
   Database,
@@ -112,6 +113,7 @@ import {
   ScheduleGoal,
   ScheduleIntent,
   ScheduleItem,
+  ScheduleTiming,
   SessionAccount,
   SessionResponse,
   SkillLearningSetting,
@@ -128,6 +130,27 @@ const localCatalog = autoResearchCatalog as {
   skills: Record<string, SkillOption>;
   races: RaceOption[];
 };
+
+const isScheduledDateTime = (value?: string) =>
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(value || ''));
+
+const toDateTimeLocalValue = (value?: string) =>
+  isScheduledDateTime(value) ? String(value).slice(0, 16) : '';
+
+const defaultScheduledDateTime = () => {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
+const scheduledDateTimeIsFuture = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+};
+
+const oneOffStartTime = (timing: ScheduleTiming, scheduledDateTime: string) =>
+  timing === 'scheduled' ? `${scheduledDateTime}:00+08:00` : '05:00';
 
 const localAutoResearchSkills = (() => {
   const byName = new Map<string, AutoResearchSkill>();
@@ -740,6 +763,7 @@ export default function AutoResearch() {
   const presetSaveFeedbackTimer = useRef<number | null>(null);
   const [maxSteps, setMaxSteps] = useState(2500);
   const [burnClocks, setBurnClocks] = useState(false);
+  const [clockUseLimit, setClockUseLimit] = useState(1);
   const [runningStyle, setRunningStyle] = useState(0);
   const [recoverTpWithItem, setRecoverTpWithItem] = useState(false);
   const [recoverTpWithJewels, setRecoverTpWithJewels] = useState(false);
@@ -750,6 +774,8 @@ export default function AutoResearch() {
   const [repeatDaily, setRepeatDaily] = useState(false);
   const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
   const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
+  const [scheduleTiming, setScheduleTiming] = useState<ScheduleTiming>('now');
+  const [scheduledStartAt, setScheduledStartAt] = useState('');
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [appendPlanPickerOpen, setAppendPlanPickerOpen] = useState(false);
   const [skillSelections, setSkillSelections] = useState<SkillSelectionEntry[]>(
@@ -1054,15 +1080,34 @@ export default function AutoResearch() {
   const canContinueCurrentCareer =
     continuingCurrentCareer && careerConfigDifferences.length === 0;
 
+  const syncedScheduleKeyRef = useRef('');
   useEffect(() => {
-    if (!automationActive) return;
+    if (!automationActive) {
+      syncedScheduleKeyRef.current = '';
+      return;
+    }
     const item =
       schedule?.items[Math.max(0, observation?.current_index ?? 0)] ||
       schedule?.items[0];
+    const syncKey = [
+      schedule?.id || '',
+      schedule?.revision || schedule?.updated_at || '',
+      observation?.current_index ?? 0,
+      item?.id || '',
+    ].join(':');
+    if (syncedScheduleKeyRef.current === syncKey) return;
+    syncedScheduleKeyRef.current = syncKey;
     if (item?.goal) {
       setRunMode(item.goal);
     }
-    setRepeatDaily(schedule?.cadence === 'daily');
+    const scheduleIsDaily = schedule?.cadence === 'daily';
+    setRepeatDaily(scheduleIsDaily);
+    const hasScheduledStart =
+      !scheduleIsDaily && isScheduledDateTime(schedule?.start_time);
+    setScheduleTiming(hasScheduledStart ? 'scheduled' : 'now');
+    setScheduledStartAt(
+      hasScheduledStart ? toDateTimeLocalValue(schedule?.start_time) : '',
+    );
     if (item?.goal === 'count') {
       setRunCountTarget(item.target);
     }
@@ -1073,7 +1118,17 @@ export default function AutoResearch() {
       setScheduleStartTime(schedule.start_time || '05:00');
       setScheduleEndTime(schedule.end_time || '05:00');
     }
-  }, [automationActive, observation?.current_index, schedule]);
+  }, [
+    automationActive,
+    observation?.current_index,
+    schedule?.cadence,
+    schedule?.end_time,
+    schedule?.id,
+    schedule?.items,
+    schedule?.revision,
+    schedule?.start_time,
+    schedule?.updated_at,
+  ]);
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
@@ -3504,10 +3559,13 @@ export default function AutoResearch() {
         'career_setting_name',
         'max_steps',
         'burn_clocks',
+        'clock_use_limit',
       ].forEach((key) => delete careerRequest[key]);
       const submittedSchedule: ScheduleIntent = {
         cadence: repeatDaily ? 'daily' : 'once',
-        start_time: scheduleStartTime,
+        start_time: repeatDaily
+          ? scheduleStartTime
+          : oneOffStartTime(scheduleTiming, scheduledStartAt),
         end_time: scheduleEndTime,
         items: [
           {
@@ -3519,6 +3577,10 @@ export default function AutoResearch() {
             target: Math.max(1, target),
             max_steps: Math.max(1, Number(payload.max_steps || 2500)),
             burn_clocks: Boolean(payload.burn_clocks),
+            clock_use_limit: Math.min(
+              100,
+              Math.max(1, Number(payload.clock_use_limit || 1)),
+            ),
             request: careerRequest,
             preset:
               rawPreset && typeof rawPreset === 'object'
@@ -4037,6 +4099,7 @@ export default function AutoResearch() {
           preset: boundPreset,
           max_steps: maxSteps,
           burn_clocks: burnClocks,
+          clock_use_limit: clockUseLimit,
           factor_selection: normalizeOfflineFactorSelection(
             offlineFactorSelection,
           ),
@@ -4110,6 +4173,7 @@ export default function AutoResearch() {
           preset,
           max_steps: setting.max_steps || 2500,
           burn_clocks: setting.burn_clocks,
+          clock_use_limit: setting.clock_use_limit || 1,
           factor_selection: factorSelectionFromSetting(setting),
         },
         mode === 'queue' ? 'single' : mode,
@@ -4225,6 +4289,7 @@ export default function AutoResearch() {
       CareerSetting,
       | 'max_steps'
       | 'burn_clocks'
+      | 'clock_use_limit'
       | 'recover_tp_with_item'
       | 'recover_tp_with_jewels'
       | 'factor_selection'
@@ -4253,6 +4318,10 @@ export default function AutoResearch() {
           careerOptions?.burn_clocks ??
           activeAutomationSetting?.burn_clocks ??
           burnClocks;
+        const nextClockUseLimit =
+          careerOptions?.clock_use_limit ??
+          activeAutomationSetting?.clock_use_limit ??
+          clockUseLimit;
         const nextRequest: Record<string, unknown> = {
           ...item.request,
           recover_tp_with_item:
@@ -4276,6 +4345,7 @@ export default function AutoResearch() {
           'run_target',
           'max_steps',
           'burn_clocks',
+          'clock_use_limit',
         ].forEach((key) => delete nextRequest[key]);
         return {
           ...item,
@@ -4283,6 +4353,7 @@ export default function AutoResearch() {
           target,
           max_steps: nextMaxSteps,
           burn_clocks: nextBurnClocks,
+          clock_use_limit: nextClockUseLimit,
           request: nextRequest,
           preset: preset || item.preset,
         };
@@ -4294,7 +4365,9 @@ export default function AutoResearch() {
           method: 'PUT',
           body: JSON.stringify({
             cadence: repeatDaily ? 'daily' : 'once',
-            start_time: scheduleStartTime,
+            start_time: repeatDaily
+              ? scheduleStartTime
+              : oneOffStartTime(scheduleTiming, scheduledStartAt),
             end_time: scheduleEndTime,
             items: nextItems,
             expected_revision: schedule.revision,
@@ -4312,6 +4385,14 @@ export default function AutoResearch() {
   };
 
   const updateRunningAutomation = async () => {
+    if (
+      !repeatDaily &&
+      scheduleTiming === 'scheduled' &&
+      !scheduledDateTimeIsFuture(scheduledStartAt)
+    ) {
+      setError('请选择晚于当前时间的定时启动日期和时间');
+      return;
+    }
     const target =
       runMode === 'count'
         ? Math.max(1, runCountTarget)
@@ -4914,6 +4995,7 @@ export default function AutoResearch() {
     );
     setMaxSteps(setting.max_steps || 2500);
     setBurnClocks(Boolean(setting.burn_clocks));
+    setClockUseLimit(Math.max(1, Number(setting.clock_use_limit || 1)));
     setRecoverTpWithItem(Boolean(setting.recover_tp_with_item));
     setRecoverTpWithJewels(Boolean(setting.recover_tp_with_jewels));
     setOfflineSetup(null);
@@ -4957,6 +5039,7 @@ export default function AutoResearch() {
     setParent2('');
     setMaxSteps(2500);
     setBurnClocks(false);
+    setClockUseLimit(1);
     setRecoverTpWithItem(false);
     setRecoverTpWithJewels(false);
     setOfflineSetup(null);
@@ -5073,6 +5156,7 @@ export default function AutoResearch() {
       running_style: careerMode === 'offline' ? offlineRunningStyle : undefined,
       max_steps: maxSteps,
       burn_clocks: burnClocks,
+      clock_use_limit: clockUseLimit,
       recover_tp_with_item: recoverTpWithItem,
       recover_tp_with_jewels: recoverTpWithJewels,
       offline_race_deck_num:
@@ -5114,6 +5198,7 @@ export default function AutoResearch() {
     await updateRunnerConfiguration(preset, runMode, target, {
       max_steps: maxSteps,
       burn_clocks: burnClocks,
+      clock_use_limit: clockUseLimit,
       recover_tp_with_item: recoverTpWithItem,
       recover_tp_with_jewels: recoverTpWithJewels,
       factor_selection: normalizeOfflineFactorSelection(offlineFactorSelection),
@@ -5426,6 +5511,8 @@ export default function AutoResearch() {
   const saveAndRunCareer = () => {
     if (!saveCareerSetting()) return;
     setRepeatDaily(false);
+    setScheduleTiming('now');
+    setScheduledStartAt('');
     setScheduleStartTime(schedule?.start_time || '05:00');
     setScheduleEndTime(schedule?.end_time || '05:00');
     setPendingRun({ type: 'current' });
@@ -5435,6 +5522,8 @@ export default function AutoResearch() {
 
   const openSavedRunDialog = (settingId: string) => {
     setRepeatDaily(false);
+    setScheduleTiming('now');
+    setScheduledStartAt('');
     setScheduleStartTime(schedule?.start_time || '05:00');
     setScheduleEndTime(schedule?.end_time || '05:00');
     setPendingRun({ type: 'saved', settingId });
@@ -5475,6 +5564,7 @@ export default function AutoResearch() {
       target: queueItem.target,
       max_steps: resolved.max_steps || 2500,
       burn_clocks: resolved.burn_clocks,
+      clock_use_limit: resolved.clock_use_limit || 1,
       preset: preset || {},
       request: {
         career_config: resolved,
@@ -5496,6 +5586,7 @@ export default function AutoResearch() {
         preset_name: resolved.preset_name,
         max_steps: resolved.max_steps,
         burn_clocks: resolved.burn_clocks,
+        clock_use_limit: resolved.clock_use_limit || 1,
         running_style: offline ? Number(resolved.running_style || 0) : 0,
         priority_skill_array: buildOfflinePrioritySkillArray(
           resolved.offline_priority_skill_ids || [],
@@ -5570,6 +5661,15 @@ export default function AutoResearch() {
 
   const confirmRunPlan = async () => {
     if (!pendingRun) return;
+    if (
+      !appendingCareerPlan &&
+      !repeatDaily &&
+      scheduleTiming === 'scheduled' &&
+      !scheduledDateTimeIsFuture(scheduledStartAt)
+    ) {
+      setError('请选择晚于当前时间的定时启动日期和时间');
+      return;
+    }
     const target =
       runMode === 'count'
         ? Math.max(1, runCountTarget)
@@ -6670,27 +6770,77 @@ export default function AutoResearch() {
                 </div>
               ) : (
                 <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={repeatDaily}
-                      onChange={(event) => {
-                        setRepeatDaily(event.target.checked);
-                        if (event.target.checked && runMode === 'jewel_drops') {
-                          setJewelDropTarget(20);
+                  <div className="flex flex-wrap items-center gap-1 rounded-xl bg-white/70 p-1">
+                    {[
+                      {
+                        id: 'now' as const,
+                        label: '立即启动',
+                        icon: Play,
+                      },
+                      {
+                        id: 'scheduled' as const,
+                        label: '定时启动',
+                        icon: CalendarClock,
+                      },
+                      {
+                        id: 'daily' as const,
+                        label: '每日重复',
+                        icon: CalendarCheck,
+                      },
+                    ].map((timingOption) => {
+                      const TimingIcon = timingOption.icon;
+                      const selected =
+                        timingOption.id === 'daily'
+                          ? repeatDaily
+                          : !repeatDaily && scheduleTiming === timingOption.id;
+                      return (
+                        <button
+                          key={timingOption.id}
+                          type="button"
+                          onClick={() => {
+                            const nextDaily = timingOption.id === 'daily';
+                            setRepeatDaily(nextDaily);
+                            if (!nextDaily) {
+                              setScheduleTiming(timingOption.id);
+                            }
+                            if (
+                              timingOption.id === 'scheduled' &&
+                              !scheduledStartAt
+                            ) {
+                              setScheduledStartAt(defaultScheduledDateTime());
+                            }
+                            if (nextDaily && runMode === 'jewel_drops') {
+                              setJewelDropTarget(20);
+                            }
+                          }}
+                          className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                            selected
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-indigo-700 hover:bg-white'
+                          }`}
+                        >
+                          <TimingIcon size={14} />
+                          {timingOption.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!repeatDaily && scheduleTiming === 'scheduled' ? (
+                    <label className="mt-3 block text-sm text-indigo-950">
+                      启动日期和时间
+                      <input
+                        type="datetime-local"
+                        value={scheduledStartAt}
+                        onChange={(event) =>
+                          setScheduledStartAt(event.target.value)
                         }
-                      }}
-                      className="mt-0.5 h-4 w-4 rounded border-indigo-300 text-indigo-600"
-                    />
-                    <span>
-                      <strong className="block text-sm text-indigo-950">
-                        作为每日任务重复
-                      </strong>
-                      <span className="mt-0.5 block text-xs leading-5 text-indigo-700">
-                        开启后，整个计划以及队列中的所有详设共同按天重复，不为单个队列项分别设置“每日”。
+                        className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                      />
+                      <span className="mt-1.5 block text-xs leading-5 text-indigo-700">
+                        使用北京时间；任务会先提交给服务器，并等待到指定时间再启动。
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                  ) : null}
                   {repeatDaily ? (
                     <div className="mt-3 grid gap-3 border-t border-indigo-100 pt-3 sm:grid-cols-2">
                       <label className="text-sm text-indigo-950">
@@ -6775,7 +6925,11 @@ export default function AutoResearch() {
                   Boolean(busy) ||
                   (runMode === 'jewel_drops' &&
                     !repeatDaily &&
-                    remainingJewelDrops <= 0)
+                    remainingJewelDrops <= 0) ||
+                  (!appendingCareerPlan &&
+                    !repeatDaily &&
+                    scheduleTiming === 'scheduled' &&
+                    !scheduledDateTimeIsFuture(scheduledStartAt))
                 }
                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
               >
@@ -6786,7 +6940,9 @@ export default function AutoResearch() {
                     : '正在启动…'
                   : appendingCareerPlan
                     ? '添加到后续计划'
-                    : '开始运行'}
+                    : !repeatDaily && scheduleTiming === 'scheduled'
+                      ? '预约启动'
+                      : '开始运行'}
               </button>
             </div>
           </div>
@@ -7598,6 +7754,8 @@ export default function AutoResearch() {
                     availableFriendSupportIds={availableFriendSupportIds}
                     burnClocks={burnClocks}
                     setBurnClocks={setBurnClocks}
+                    clockUseLimit={clockUseLimit}
+                    setClockUseLimit={setClockUseLimit}
                     recoverTpWithItem={recoverTpWithItem}
                     setRecoverTpWithItem={setRecoverTpWithItem}
                     recoverTpWithJewels={recoverTpWithJewels}
@@ -7662,6 +7820,10 @@ export default function AutoResearch() {
                     setScheduleStartTime={setScheduleStartTime}
                     scheduleEndTime={scheduleEndTime}
                     setScheduleEndTime={setScheduleEndTime}
+                    scheduleTiming={scheduleTiming}
+                    setScheduleTiming={setScheduleTiming}
+                    scheduledStartAt={scheduledStartAt}
+                    setScheduledStartAt={setScheduledStartAt}
                     runDailyTasksWithCareer={Boolean(
                       readCareerDailyTasks(selectedAccount?.uid || '')
                         ?.run_with_career,

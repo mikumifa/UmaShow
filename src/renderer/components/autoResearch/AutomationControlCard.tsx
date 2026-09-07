@@ -1,6 +1,7 @@
 /* eslint-disable no-nested-ternary, jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction } from 'react';
 import {
+  CalendarClock,
   CircleStop,
   Gem,
   ListChecks,
@@ -11,7 +12,12 @@ import {
   Settings2,
 } from 'lucide-react';
 import { runModeLabel, statusBadgeClass } from './shared';
-import { AccountAutomation, CareerSetting, RunMode } from './types';
+import {
+  AccountAutomation,
+  CareerSetting,
+  RunMode,
+  ScheduleTiming,
+} from './types';
 import RunTargetInput from './RunTargetInput';
 
 type AutomationControlCardProps = {
@@ -31,6 +37,10 @@ type AutomationControlCardProps = {
   setScheduleStartTime: Dispatch<SetStateAction<string>>;
   scheduleEndTime: string;
   setScheduleEndTime: Dispatch<SetStateAction<string>>;
+  scheduleTiming: ScheduleTiming;
+  setScheduleTiming: Dispatch<SetStateAction<ScheduleTiming>>;
+  scheduledStartAt: string;
+  setScheduledStartAt: Dispatch<SetStateAction<string>>;
   runDailyTasksWithCareer: boolean;
   updateRunningAutomation: () => Promise<void>;
   pauseCareer: () => Promise<void>;
@@ -48,6 +58,13 @@ const modeOptions = [
   { id: 'count' as const, label: '完成 X 次', icon: ListChecks },
   { id: 'jewel_drops' as const, label: '获得 X 次', icon: Gem },
 ];
+
+const defaultScheduledDateTime = () => {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
 
 const itemGoalLabel = (
   goal: 'single' | 'continuous' | 'count' | 'jewel_drops',
@@ -79,6 +96,10 @@ export default function AutomationControlCard({
   setScheduleStartTime,
   scheduleEndTime,
   setScheduleEndTime,
+  scheduleTiming,
+  setScheduleTiming,
+  scheduledStartAt,
+  setScheduledStartAt,
   runDailyTasksWithCareer,
   updateRunningAutomation,
   pauseCareer,
@@ -112,6 +133,28 @@ export default function AutomationControlCard({
         }
       : null;
   const editableSingleItem = schedule?.items.length === 1;
+  const scheduleHasDelayedStart = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(
+    String(schedule?.start_time || ''),
+  );
+  const scheduledStartChanged =
+    !repeatDaily &&
+    (scheduleTiming === 'scheduled'
+      ? !scheduleHasDelayedStart ||
+        String(schedule?.start_time || '').slice(0, 16) !== scheduledStartAt
+      : scheduleHasDelayedStart);
+  const scheduledStartValid =
+    scheduleTiming !== 'scheduled' ||
+    (Boolean(scheduledStartAt) &&
+      new Date(scheduledStartAt).getTime() > Date.now());
+  const scheduledStartLabel = scheduleHasDelayedStart
+    ? new Date(String(schedule?.start_time)).toLocaleString('zh-CN', {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : '';
   const planChanged = Boolean(
     editableSingleItem &&
       activeItem &&
@@ -119,6 +162,7 @@ export default function AutomationControlCard({
         (['count', 'jewel_drops'].includes(runMode) &&
           activeItem.target !== selectedTarget) ||
         daily !== repeatDaily ||
+        scheduledStartChanged ||
         (repeatDaily &&
           (schedule.start_time !== scheduleStartTime ||
             schedule.end_time !== scheduleEndTime))),
@@ -172,7 +216,9 @@ export default function AutomationControlCard({
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            {activeItem
+            {scheduleHasDelayedStart && observation?.phase === 'waiting'
+              ? `计划于 ${scheduledStartLabel} 启动 · ${activeItem?.career_setting_name || '当前详设'}`
+              : activeItem
               ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
                   activeItem.goal,
                   activeItem.target,
@@ -245,7 +291,8 @@ export default function AutomationControlCard({
                 Boolean(busy) ||
                 (runMode === 'jewel_drops' &&
                   !repeatDaily &&
-                  remainingJewelDrops <= 0)
+                  remainingJewelDrops <= 0) ||
+                !scheduledStartValid
               }
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
             >
@@ -290,6 +337,47 @@ export default function AutomationControlCard({
               </button>
             );
           })}
+        </div>
+      ) : null}
+
+      {editableSingleItem && !repeatDaily ? (
+        <div className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+          <button
+            type="button"
+            onClick={() => setScheduleTiming('now')}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
+              scheduleTiming === 'now'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
+            }`}
+          >
+            <Play size={14} /> 立即启动
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setScheduleTiming('scheduled');
+              if (!scheduledStartAt) {
+                setScheduledStartAt(defaultScheduledDateTime());
+              }
+            }}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
+              scheduleTiming === 'scheduled'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
+            }`}
+          >
+            <CalendarClock size={14} /> 定时启动
+          </button>
+          {scheduleTiming === 'scheduled' ? (
+            <input
+              type="datetime-local"
+              value={scheduledStartAt}
+              onChange={(event) => setScheduledStartAt(event.target.value)}
+              aria-label="定时启动日期和时间"
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+            />
+          ) : null}
         </div>
       ) : null}
 

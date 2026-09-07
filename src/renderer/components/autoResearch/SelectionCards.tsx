@@ -39,16 +39,22 @@ export function RentalParentBadge({ className = '' }: { className?: string }) {
   );
 }
 
-export function horseIconPath(cardId: number, rarity: number, raceClothId = 0) {
+export function umaSkinIconPath(cardId: number, rarity = 0, raceClothId = 0) {
   if (!cardId) return undefined;
   const charaId = Number(String(cardId).slice(0, 4));
-  const mappedDressId = UMDB.cardRarityData[cardId]?.[rarity];
+  const rarityMap = UMDB.cardRarityData[cardId] || {};
+  const mappedDressId = rarityMap[rarity];
+  const availableDressId =
+    Number(rarityMap[5] || rarityMap[4] || rarityMap[3]) ||
+    Object.values(rarityMap).map(Number).find(Boolean);
   const dressId =
-    raceClothId && raceClothId !== cardId
-      ? raceClothId
-      : mappedDressId || raceClothId || cardId;
+    Number(raceClothId) || mappedDressId || availableDressId || cardId;
   if (!charaId || !dressId) return undefined;
   return `trained_chr_icon/${charaId}_${String(dressId).padStart(6, '0')}.png`;
+}
+
+export function horseIconPath(cardId: number, rarity: number, raceClothId = 0) {
+  return umaSkinIconPath(cardId, rarity, raceClothId);
 }
 
 export function characterIconPath(cardId: number) {
@@ -69,7 +75,7 @@ export function UmaChoiceCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const iconPath = characterIconPath(uma.id);
+  const iconPath = umaSkinIconPath(uma.id, uma.rarity, uma.race_cloth_id);
   return (
     <button
       type="button"
@@ -214,7 +220,11 @@ export function ParentChoiceCard({
   onSelect: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const iconPath = characterIconPath(parent.card_id);
+  const iconPath = umaSkinIconPath(
+    parent.card_id,
+    parent.rarity,
+    parent.race_cloth_id,
+  );
   const rental = isRentalParent(parent);
   return (
     <>
@@ -246,7 +256,11 @@ export function ParentChoiceCard({
           name: UMDB.cards[ancestor.card_id]?.name || ancestor.name,
           portrait: (
             <PlannerPortrait
-              path={characterIconPath(ancestor.card_id)}
+              path={umaSkinIconPath(
+                ancestor.card_id,
+                ancestor.rarity,
+                ancestor.race_cloth_id,
+              )}
               alt={ancestor.name}
               size="medium"
             />
@@ -301,7 +315,11 @@ export function ParentChoiceCard({
               factors: factorDetails(parent.factors || []),
             },
             ...parent.ancestors.map((ancestor, index) => {
-              const ancestorIcon = characterIconPath(ancestor.card_id);
+              const ancestorIcon = umaSkinIconPath(
+                ancestor.card_id,
+                ancestor.rarity,
+                ancestor.race_cloth_id,
+              );
               return {
                 key: `ancestor:${ancestor.position_id}:${ancestor.card_id}`,
                 label: `父辈 ${index + 1}`,

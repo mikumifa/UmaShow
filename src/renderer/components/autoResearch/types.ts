@@ -39,6 +39,7 @@ export type ScheduleItem = {
   target: number;
   max_steps: number;
   burn_clocks: boolean;
+  clock_use_limit?: number;
   request: Record<string, unknown>;
   preset: Record<string, unknown>;
 };
@@ -48,12 +49,15 @@ export type ScheduleIntent = {
   revision?: number;
   paused?: boolean;
   cadence: 'once' | 'daily';
+  /** HH:mm for daily schedules; an ISO date-time for a delayed one-off run. */
   start_time: string;
   end_time: string;
   submitted_at?: string;
   updated_at?: string;
   items: ScheduleItem[];
 };
+
+export type ScheduleTiming = 'now' | 'scheduled';
 
 export type Runner = {
   run_id?: string;
@@ -68,6 +72,7 @@ export type Runner = {
   steps?: number;
   last_action?: string;
   last_error?: string;
+  burn_clocks?: boolean;
   finished?: boolean;
   live_activity?: {
     stage: string;
@@ -95,6 +100,8 @@ export type Runner = {
   jewels_earned?: number;
   jewel_drop_count?: number;
   chara_score?: number;
+  clocks_used?: number;
+  clock_use_limit?: number;
   large_margin_count?: number;
   large_margin_race_counts?: Record<string, number>;
   g123_race_counts?: Record<string, number>;
@@ -472,6 +479,7 @@ export type CareerSessionRun = {
   g123_race_records?: G123RaceRecord[];
   jewel_drop_count: number;
   jewels_earned: number;
+  clocks_used?: number;
   last_error: string;
 };
 
@@ -499,6 +507,7 @@ export type CareerSessionRecord = {
   g123_race_records?: G123RaceRecord[];
   jewel_drop_count: number;
   jewels_earned: number;
+  clocks_used?: number;
   career_setting_snapshot?: {
     mode?: 'online' | 'offline';
     setting?: Record<string, unknown>;
@@ -612,6 +621,7 @@ export type CareerSetting = {
   running_style?: number;
   max_steps: number;
   burn_clocks: boolean;
+  clock_use_limit?: number;
   recover_tp_with_item: boolean;
   recover_tp_with_jewels: boolean;
   offline_race_deck_num?: number;

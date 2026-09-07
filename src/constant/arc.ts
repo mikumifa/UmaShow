@@ -11,7 +11,7 @@ export interface ArcPotentialMeta {
 export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   {
     id: 1,
-    name: '海外草地适应性',
+    name: '生活节奏',
     row: 2,
     queue: 1,
     maxLevel: 3,
@@ -24,7 +24,7 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 2,
-    name: '隆尚适应性',
+    name: '海外草地适应性',
     row: 1,
     queue: 1,
     maxLevel: 3,
@@ -37,15 +37,15 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 3,
-    name: '生活节奏',
+    name: '海外远征',
     row: 3,
     queue: 1,
     maxLevel: 3,
     levelCosts: { 2: 100, 3: 200 },
     levelEffects: {
-      1: '训练时技能点 +10',
+      1: '训练时pt +10',
       2: '克服海外赛耐力 -200 难关',
-      3: '训练时技能点再 +10',
+      3: '训练时pt +10',
     },
   },
   {
@@ -63,7 +63,7 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 5,
-    name: '法语能力',
+    name: '隆尚适应性',
     row: 1,
     queue: 2,
     maxLevel: 3,
@@ -76,7 +76,7 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 6,
-    name: '海外远征',
+    name: '法语能力',
     row: 2,
     queue: 3,
     maxLevel: 3,
@@ -89,7 +89,7 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 7,
-    name: '大心脏',
+    name: '胆魂',
     row: 3,
     queue: 2,
     maxLevel: 3,
@@ -115,7 +115,7 @@ export const ARC_POTENTIALS: ArcPotentialMeta[] = [
   },
   {
     id: 9,
-    name: 'L’Arc的希望',
+    name: '凯旋门的希望',
     row: 4,
     queue: 1,
     maxLevel: 2,

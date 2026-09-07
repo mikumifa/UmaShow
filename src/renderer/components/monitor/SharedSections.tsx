@@ -11,9 +11,7 @@ import {
   Footprints,
   Lightbulb,
   Loader2,
-  Play,
   ShoppingCart,
-  Square,
   Users,
   Utensils,
 } from 'lucide-react';
@@ -41,6 +39,7 @@ import {
   requiredFirstExpeditionPurchases,
   type ArcPotentialPurchase,
 } from 'renderer/utils/arcRecommendation';
+import { getArcPotentialIconPath } from 'constant/arc';
 import autoResearchCatalog from '../../../../assets/data/auto_research_catalog.json';
 
 const MOTIVATION_BADGES: Record<number, { label: string; iconPath: string }> = {
@@ -89,27 +88,31 @@ function RecommendationActivitiesCard({
     result,
     busy,
     refining,
+    autoRefine,
     refinementStatus,
-    toggleRefinement,
+    setAutoRefine,
   } = useMonteCarloRecommendation();
-  const canRefine = Boolean(
-    settings.enabled &&
-      capturedState?.scenarioId === 6 &&
-      result?.ok &&
-      (!busy || refining),
+  const canAutoRefine = Boolean(
+    settings.enabled && capturedState?.scenarioId === 6,
   );
-  let refinementLabel = '追加采样，分数稳定后自动停止';
-  if (refinementStatus) {
+  let refinementLabel = canAutoRefine
+    ? '开启后，每次收到新训练数据都会自动追加计算'
+    : '请先开启凯旋门推荐';
+  if (autoRefine && !capturedState) {
+    refinementLabel = '已开启，等待训练数据';
+  } else if (autoRefine && busy && !refining) {
+    refinementLabel = '正在计算当前训练数据';
+  } else if (autoRefine && refinementStatus) {
     const total = refinementStatus.totalSearches.toLocaleString('zh-CN');
     if (refining) {
-      refinementLabel = `已追加 ${refinementStatus.passes} 轮 · 累计 ${total} 次`;
+      refinementLabel = `正在追加第 ${refinementStatus.passes + 1} 轮 · 累计 ${total} 次`;
     } else if (refinementStatus.stopReason === 'stable') {
-      refinementLabel = `分数已稳定 · 累计 ${total} 次`;
+      refinementLabel = `本回合分数已稳定 · 累计 ${total} 次`;
     } else if (refinementStatus.stopReason === 'limit') {
-      refinementLabel = `已达到本次上限 · 累计 ${total} 次`;
-    } else if (refinementStatus.stopReason === 'manual') {
-      refinementLabel = `已停止 · 累计 ${total} 次`;
+      refinementLabel = `本回合已达到计算上限 · 累计 ${total} 次`;
     }
+  } else if (autoRefine && result?.ok) {
+    refinementLabel = '已开启，等待追加计算';
   }
 
   return (
@@ -147,11 +150,23 @@ function RecommendationActivitiesCard({
               {recommendedPurchases.map((purchase) => (
                 <span
                   key={purchase.id}
-                  title={purchase.effect}
-                  className="rounded-md border border-amber-300 bg-white/85 px-1.5 py-1 text-[10px] font-black"
+                  title={`${purchase.name} Lv${purchase.targetLevel} · ${purchase.effect}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white/85 px-1.5 py-1"
                 >
-                  {purchase.name} Lv{purchase.targetLevel}
-                  {purchase.cost ? ` · ${purchase.cost}Pt` : ''}
+                  <img
+                    src={getArcPotentialIconPath(purchase.id)}
+                    alt=""
+                    className="h-7 w-7 shrink-0 object-contain"
+                  />
+                  <span className="min-w-0">
+                    <span className="block whitespace-nowrap text-xs font-black leading-tight">
+                      {purchase.effect}
+                    </span>
+                    <span className="block whitespace-nowrap text-[9px] font-bold leading-tight text-amber-800/70">
+                      {purchase.name} Lv{purchase.targetLevel}
+                      {purchase.cost ? ` · ${purchase.cost}Pt` : ''}
+                    </span>
+                  </span>
                 </span>
               ))}
             </div>
@@ -202,26 +217,34 @@ function RecommendationActivitiesCard({
           );
         })}
       </div>
-      <div className="border-t border-slate-200 p-2">
-        <p className="mb-1.5 truncate text-center text-[10px] text-slate-400">
-          {refinementLabel}
-        </p>
+      <div className="flex items-center gap-3 border-t border-slate-200 px-3 py-2.5">
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-bold text-slate-700">
+            增加计算
+          </span>
+          <span className="block truncate text-[10px] text-slate-400">
+            {refinementLabel}
+          </span>
+        </span>
         <button
           type="button"
-          disabled={!canRefine}
-          onClick={toggleRefinement}
-          className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-md border text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-            refining
-              ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+          role="switch"
+          aria-checked={autoRefine}
+          aria-label="收到新训练数据后自动增加计算"
+          disabled={!canAutoRefine}
+          onClick={() => setAutoRefine(!autoRefine)}
+          className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+            autoRefine
+              ? 'border-slate-700 bg-slate-700'
+              : 'border-slate-300 bg-slate-100'
           }`}
         >
-          {refining ? (
-            <Square size={12} fill="currentColor" />
-          ) : (
-            <Play size={13} fill="currentColor" />
-          )}
-          {refining ? '停止计算' : '增加计算'}
+          <span
+            aria-hidden="true"
+            className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${
+              autoRefine ? 'translate-x-[21px]' : 'translate-x-0.5'
+            }`}
+          />
         </button>
       </div>
     </article>
@@ -695,7 +718,7 @@ export function TrainingEventsSection({
     activityRecommendations.length > 0 ||
     requiredArcPurchases.length > 0 ||
     recommendedArcPurchases.length > 0 ||
-    Boolean(settings.enabled && capturedState?.scenarioId === 6 && result?.ok);
+    Boolean(settings.enabled && capturedState?.scenarioId === 6);
   const eventDetailRows = buildEventDetailRows(
     charInfo.gameEvents,
     charInfo.eventDetails,

@@ -26,12 +26,12 @@ import OfflineCareerSettings from './OfflineCareerSettings';
 import AppMenuPortal from '../AppMenuPortal';
 import AppSideNotch from '../AppSideNotch';
 import {
-  characterIconPath,
   DeckChoiceCard,
   isRentalParent,
   ParentChoiceCard,
   RentalParentBadge,
   SupportChoiceCard,
+  umaSkinIconPath,
 } from './SelectionCards';
 import { careerSettingModeBadgeClass, scrollToSection } from './shared';
 import { parentCompatibilityPreview } from './successionCompatibility';
@@ -103,6 +103,8 @@ type CareerTabProps = {
   availableFriendSupportIds: Set<number>;
   burnClocks: boolean;
   setBurnClocks: Dispatch<SetStateAction<boolean>>;
+  clockUseLimit: number;
+  setClockUseLimit: Dispatch<SetStateAction<number>>;
   recoverTpWithItem: boolean;
   setRecoverTpWithItem: Dispatch<SetStateAction<boolean>>;
   recoverTpWithJewels: boolean;
@@ -268,6 +270,8 @@ export default function CareerTab(props: CareerTabProps) {
     availableFriendSupportIds,
     burnClocks,
     setBurnClocks,
+    clockUseLimit,
+    setClockUseLimit,
     recoverTpWithItem,
     setRecoverTpWithItem,
     recoverTpWithJewels,
@@ -610,10 +614,13 @@ export default function CareerTab(props: CareerTabProps) {
             const presetExists =
               offline ||
               presets.some((preset) => preset.name === setting.preset_name);
-            // A saved setting already has enough information to show its base
-            // portrait. Do not wait for the server-side dashboard. Once the
-            // owned-card metadata arrives, switch to the exact race cloth.
-            const iconPath = characterIconPath(setting.card_id);
+            // The card id is enough to derive its costume. Once owned-card
+            // metadata arrives, prefer the exact rarity and race cloth.
+            const iconPath = umaSkinIconPath(
+              setting.card_id,
+              uma?.rarity,
+              uma?.race_cloth_id,
+            );
             return (
               <article
                 key={setting.id}
@@ -999,7 +1006,13 @@ export default function CareerTab(props: CareerTabProps) {
                     portrait={
                       selectedUma ? (
                         <PlannerPortrait
-                          path={characterIconPath(selectedUma.id) || ''}
+                          path={
+                            umaSkinIconPath(
+                              selectedUma.id,
+                              selectedUma.rarity,
+                              selectedUma.race_cloth_id,
+                            ) || ''
+                          }
                           alt={selectedUma.name}
                         />
                       ) : null
@@ -1053,7 +1066,13 @@ export default function CareerTab(props: CareerTabProps) {
                           selected={selected}
                           portrait={
                             <PlannerPortrait
-                              path={characterIconPath(uma.id) || ''}
+                              path={
+                                umaSkinIconPath(
+                                  uma.id,
+                                  uma.rarity,
+                                  uma.race_cloth_id,
+                                ) || ''
+                              }
                               alt={uma.name}
                               size="large"
                             />
@@ -1143,8 +1162,11 @@ export default function CareerTab(props: CareerTabProps) {
                             selectedParent ? (
                               <PlannerPortrait
                                 path={
-                                  characterIconPath(selectedParent.card_id) ||
-                                  ''
+                                  umaSkinIconPath(
+                                    selectedParent.card_id,
+                                    selectedParent.rarity,
+                                    selectedParent.race_cloth_id,
+                                  ) || ''
                                 }
                                 alt={selectedParent.name}
                               />
@@ -1673,7 +1695,7 @@ export default function CareerTab(props: CareerTabProps) {
                         </span>
                       </span>
                     </button>
-                    <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
+                    <div className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
                       <input
                         type="checkbox"
                         checked={burnClocks}
@@ -1690,8 +1712,32 @@ export default function CareerTab(props: CareerTabProps) {
                           失败后有可用闹钟时自动继续；当前有{' '}
                           {dashboard.account.clocks || 0} 个
                         </span>
+                        {burnClocks ? (
+                          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                            每次育成最多使用
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={clockUseLimit}
+                              onChange={(event) =>
+                                setClockUseLimit(
+                                  Math.min(
+                                    100,
+                                    Math.max(
+                                      1,
+                                      Number(event.target.value) || 1,
+                                    ),
+                                  ),
+                                )
+                              }
+                              className="w-16 rounded border border-slate-300 px-2 py-1 text-center text-sm text-slate-800"
+                            />
+                            次
+                          </label>
+                        ) : null}
                       </span>
-                    </label>
+                    </div>
                   </>
                 ) : null}
                 <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">

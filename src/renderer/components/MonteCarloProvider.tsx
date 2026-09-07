@@ -70,12 +70,14 @@ type MonteCarloContextValue = {
   result: MonteCarloResult | null;
   busy: boolean;
   refining: boolean;
+  autoRefine: boolean;
   refinementStatus: RecommendationRefinementStatus | null;
-  toggleRefinement: () => void;
+  setAutoRefine: (enabled: boolean) => void;
   error: string;
 };
 
 const SETTINGS_KEY = 'recommendation.settings.v2';
+const AUTO_REFINE_KEY = 'recommendation.auto-refine.v1';
 
 export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
@@ -309,6 +311,14 @@ const loadSettings = () => {
   }
 };
 
+const loadAutoRefine = () => {
+  try {
+    return localStorage.getItem(AUTO_REFINE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<MonteCarloBridgeStatus | null>(null);
   const [settings, setSettings] = useState<UmaAiSettings>(loadSettings);
@@ -317,6 +327,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [refining, setRefining] = useState(false);
+  const [autoRefine, setAutoRefineState] = useState(loadAutoRefine);
   const [refinementStatus, setRefinementStatus] =
     useState<RecommendationRefinementStatus | null>(null);
   const [error, setError] = useState('');
@@ -324,6 +335,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const settingsRef = useRef(settings);
   const busyRef = useRef(false);
   const refiningRef = useRef(false);
+  const autoRefinedSequenceRef = useRef(0);
   const refinementRunRef = useRef(0);
   const pendingStateRef = useRef<MonteCarloCapturedState | null>(null);
   const capturedStateRef = useRef<MonteCarloCapturedState | null>(null);
@@ -444,6 +456,20 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     window.electron.monteCarlo.stop().catch(() => undefined);
   }, []);
 
+  const setAutoRefine = useCallback(
+    (enabled: boolean) => {
+      autoRefinedSequenceRef.current = 0;
+      setAutoRefineState(enabled);
+      try {
+        localStorage.setItem(AUTO_REFINE_KEY, String(enabled));
+      } catch {
+        // Keep the preference for the current session if storage is unavailable.
+      }
+      if (!enabled) stopRefinement();
+    },
+    [stopRefinement],
+  );
+
   const startRefinement = useCallback(async () => {
     const state = capturedStateRef.current;
     const initialResult = resultRef.current;
@@ -542,17 +568,6 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toggleRefinement = useCallback(() => {
-    if (refiningRef.current) {
-      stopRefinement();
-      return;
-    }
-    startRefinement().catch((reason) => {
-      if (mountedRef.current) setError(errorText(reason));
-      return undefined;
-    });
-  }, [startRefinement, stopRefinement]);
-
   useEffect(() => {
     if (busy || !settings.enabled || !pendingStateRef.current) return;
     const pendingState = pendingStateRef.current;
@@ -561,6 +576,34 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       return undefined;
     });
   }, [analyzeCapturedState, busy, settings.enabled]);
+
+  useEffect(() => {
+    if (
+      !autoRefine ||
+      busy ||
+      refining ||
+      !settings.enabled ||
+      capturedState?.scenarioId !== 6 ||
+      !result?.ok ||
+      autoRefinedSequenceRef.current === capturedState.sequence
+    ) {
+      return;
+    }
+    autoRefinedSequenceRef.current = capturedState.sequence;
+    startRefinement().catch((reason) => {
+      if (mountedRef.current) setError(errorText(reason));
+      return undefined;
+    });
+  }, [
+    autoRefine,
+    busy,
+    capturedState?.scenarioId,
+    capturedState?.sequence,
+    refining,
+    result?.ok,
+    settings.enabled,
+    startRefinement,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -612,8 +655,9 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       result,
       busy,
       refining,
+      autoRefine,
       refinementStatus,
-      toggleRefinement,
+      setAutoRefine,
       error,
     }),
     [
@@ -624,8 +668,9 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       result,
       busy,
       refining,
+      autoRefine,
       refinementStatus,
-      toggleRefinement,
+      setAutoRefine,
       error,
     ],
   );
