@@ -109,7 +109,8 @@ function RecommendationActivitiesCard({
         {recommendedPurchases.length > 0 ? (
           <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-1.5 text-amber-950 ring-2 ring-amber-100">
             <div className="flex items-center gap-1 text-xs font-black">
-              <ShoppingCart size={14} strokeWidth={2.5} />第 1 名行动建议先购买
+              <ShoppingCart size={14} strokeWidth={2.5} />
+              建议先购买
             </div>
             <div className="mt-1 flex flex-wrap gap-1">
               {recommendedPurchases.map((purchase) => (
