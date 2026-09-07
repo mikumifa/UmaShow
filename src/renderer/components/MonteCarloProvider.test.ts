@@ -1,6 +1,8 @@
 import {
   DEFAULT_UMA_AI_SETTINGS,
+  mergeRecommendationResults,
   normalizeUmaAiSettings,
+  recommendationStabilitySignature,
 } from './MonteCarloProvider';
 
 describe('recommendation settings', () => {
@@ -87,5 +89,119 @@ describe('recommendation settings', () => {
       graphSearchChanceOutcomes: 1,
       graphSearchCpuct: 2.25,
     });
+  });
+
+  it('merges additional samples into the current recommendation', () => {
+    const merged = mergeRecommendationResults(
+      {
+        ok: true,
+        backend: 'builtin',
+        bestActionId: 1,
+        actions: [
+          {
+            id: 1,
+            label: '速度训练',
+            type: 0,
+            train: 0,
+            overdrive: false,
+            searches: 100,
+            scoreMean: 1000,
+            scoreStdev: 10,
+            value: 1020,
+            deltaFromBest: 0,
+          },
+          {
+            id: 2,
+            label: '耐力训练',
+            type: 0,
+            train: 1,
+            overdrive: false,
+            searches: 100,
+            scoreMean: 990,
+            scoreStdev: 8,
+            value: 1000,
+            deltaFromBest: 20,
+          },
+        ],
+      },
+      {
+        ok: true,
+        backend: 'builtin',
+        bestActionId: 2,
+        actions: [
+          {
+            id: 1,
+            label: '速度训练',
+            type: 0,
+            train: 0,
+            overdrive: false,
+            searches: 100,
+            scoreMean: 1010,
+            scoreStdev: 10,
+            value: 1020,
+            deltaFromBest: 0,
+          },
+          {
+            id: 2,
+            label: '耐力训练',
+            type: 0,
+            train: 1,
+            overdrive: false,
+            searches: 100,
+            scoreMean: 1000,
+            scoreStdev: 8,
+            value: 1010,
+            deltaFromBest: 10,
+          },
+        ],
+      },
+    );
+
+    expect(merged.bestActionId).toBe(1);
+    expect(merged.predictedScore).toBe(1005);
+    expect(merged.actions?.[0]).toMatchObject({
+      id: 1,
+      searches: 200,
+      value: 1020,
+      deltaFromBest: 0,
+    });
+    expect(merged.actions?.[1]).toMatchObject({
+      id: 2,
+      searches: 200,
+      value: 1005,
+      deltaFromBest: 15,
+    });
+  });
+
+  it('treats unchanged displayed scores and ranking as stable', () => {
+    const result = {
+      ok: true,
+      bestActionId: 1,
+      actions: [
+        {
+          id: 1,
+          label: '速度训练',
+          type: 0,
+          train: 0,
+          overdrive: false,
+          searches: 100,
+          scoreMean: 1000.4,
+          scoreStdev: 10,
+          value: 1020,
+          deltaFromBest: 0,
+        },
+      ],
+    };
+
+    expect(recommendationStabilitySignature(result)).toBe(
+      recommendationStabilitySignature({
+        ...result,
+        actions: result.actions.map((action) => ({
+          ...action,
+          scoreMean: 1000.2,
+          deltaFromBest: 0.2,
+        })),
+      }),
+    );
   });
 });

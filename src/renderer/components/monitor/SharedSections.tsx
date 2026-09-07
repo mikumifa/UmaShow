@@ -11,7 +11,9 @@ import {
   Footprints,
   Lightbulb,
   Loader2,
+  Play,
   ShoppingCart,
+  Square,
   Users,
   Utensils,
 } from 'lucide-react';
@@ -81,6 +83,35 @@ function RecommendationActivitiesCard({
   requiredPurchases: ArcPotentialPurchase[];
   recommendedPurchases: ArcPotentialPurchase[];
 }) {
+  const {
+    settings,
+    capturedState,
+    result,
+    busy,
+    refining,
+    refinementStatus,
+    toggleRefinement,
+  } = useMonteCarloRecommendation();
+  const canRefine = Boolean(
+    settings.enabled &&
+      capturedState?.scenarioId === 6 &&
+      result?.ok &&
+      (!busy || refining),
+  );
+  let refinementLabel = '追加采样，分数稳定后自动停止';
+  if (refinementStatus) {
+    const total = refinementStatus.totalSearches.toLocaleString('zh-CN');
+    if (refining) {
+      refinementLabel = `已追加 ${refinementStatus.passes} 轮 · 累计 ${total} 次`;
+    } else if (refinementStatus.stopReason === 'stable') {
+      refinementLabel = `分数已稳定 · 累计 ${total} 次`;
+    } else if (refinementStatus.stopReason === 'limit') {
+      refinementLabel = `已达到本次上限 · 累计 ${total} 次`;
+    } else if (refinementStatus.stopReason === 'manual') {
+      refinementLabel = `已停止 · 累计 ${total} 次`;
+    }
+  }
+
   return (
     <article className="flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border-4 border-slate-200 bg-white shadow-md">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-3 py-2">
@@ -170,6 +201,28 @@ function RecommendationActivitiesCard({
             </div>
           );
         })}
+      </div>
+      <div className="border-t border-slate-200 p-2">
+        <p className="mb-1.5 truncate text-center text-[10px] text-slate-400">
+          {refinementLabel}
+        </p>
+        <button
+          type="button"
+          disabled={!canRefine}
+          onClick={toggleRefinement}
+          className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-md border text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+            refining
+              ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+          }`}
+        >
+          {refining ? (
+            <Square size={12} fill="currentColor" />
+          ) : (
+            <Play size={13} fill="currentColor" />
+          )}
+          {refining ? '停止计算' : '增加计算'}
+        </button>
       </div>
     </article>
   );
@@ -641,7 +694,8 @@ export function TrainingEventsSection({
   const showActivitiesCard =
     activityRecommendations.length > 0 ||
     requiredArcPurchases.length > 0 ||
-    recommendedArcPurchases.length > 0;
+    recommendedArcPurchases.length > 0 ||
+    Boolean(settings.enabled && capturedState?.scenarioId === 6 && result?.ok);
   const eventDetailRows = buildEventDetailRows(
     charInfo.gameEvents,
     charInfo.eventDetails,

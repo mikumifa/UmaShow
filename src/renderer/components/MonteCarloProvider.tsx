@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import type {
+  MonteCarloActionResult,
   MonteCarloCapturedState,
   MonteCarloOptions,
   MonteCarloResult,
@@ -49,6 +50,13 @@ export type UmaAiSettings = {
   options: UmaAiOptions;
 };
 
+export type RecommendationRefinementStatus = {
+  passes: number;
+  totalSearches: number;
+  stablePasses: number;
+  stopReason?: 'stable' | 'manual' | 'limit';
+};
+
 type UmaAiSettingsInput = {
   enabled?: boolean;
   options?: Partial<MonteCarloOptions>;
@@ -61,6 +69,9 @@ type MonteCarloContextValue = {
   capturedState: MonteCarloCapturedState | null;
   result: MonteCarloResult | null;
   busy: boolean;
+  refining: boolean;
+  refinementStatus: RecommendationRefinementStatus | null;
+  toggleRefinement: () => void;
   error: string;
 };
 
@@ -92,6 +103,106 @@ const MonteCarloContext = createContext<MonteCarloContextValue | null>(null);
 
 const errorText = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
+
+const actionWeight = (action: MonteCarloActionResult) =>
+  Math.max(1, action.searches);
+
+const mergeActionResults = (
+  current: MonteCarloActionResult,
+  next: MonteCarloActionResult,
+): MonteCarloActionResult => {
+  const currentWeight = actionWeight(current);
+  const nextWeight = actionWeight(next);
+  const totalWeight = currentWeight + nextWeight;
+  const scoreMean =
+    (current.scoreMean * currentWeight + next.scoreMean * nextWeight) /
+    totalWeight;
+  const currentVariance = current.scoreStdev ** 2;
+  const nextVariance = next.scoreStdev ** 2;
+  const scoreVariance =
+    (currentWeight * (currentVariance + (current.scoreMean - scoreMean) ** 2) +
+      nextWeight * (nextVariance + (next.scoreMean - scoreMean) ** 2)) /
+    totalWeight;
+
+  return {
+    ...next,
+    searches: current.searches + next.searches,
+    scoreMean,
+    scoreStdev: Math.sqrt(Math.max(0, scoreVariance)),
+    value:
+      (current.value * currentWeight + next.value * nextWeight) / totalWeight,
+  };
+};
+
+export const mergeRecommendationResults = (
+  current: MonteCarloResult,
+  next: MonteCarloResult,
+): MonteCarloResult => {
+  if (
+    !current.ok ||
+    !next.ok ||
+    current.backend !== next.backend ||
+    !current.actions?.length ||
+    !next.actions?.length
+  ) {
+    return next;
+  }
+
+  const currentActions = new Map(
+    current.actions.map((action) => [action.id, action]),
+  );
+  const mergedActions = next.actions.map((action) => {
+    const previous = currentActions.get(action.id);
+    currentActions.delete(action.id);
+    return previous ? mergeActionResults(previous, action) : action;
+  });
+  currentActions.forEach((action) => mergedActions.push(action));
+  mergedActions.sort((left, right) => right.value - left.value);
+  const bestAction = mergedActions[0];
+  const actions = mergedActions.map((action) => ({
+    ...action,
+    deltaFromBest: bestAction.value - action.value,
+  }));
+
+  return {
+    ...next,
+    bestActionId: bestAction.id,
+    bestAction: bestAction.label,
+    bestValue: bestAction.value,
+    predictedScore: bestAction.scoreMean,
+    actions,
+    searchStats: {
+      simulations:
+        (current.searchStats?.simulations ?? 0) +
+        (next.searchStats?.simulations ?? 0),
+      nodes: (current.searchStats?.nodes ?? 0) + (next.searchStats?.nodes ?? 0),
+      elapsedMs:
+        (current.searchStats?.elapsedMs ?? 0) +
+        (next.searchStats?.elapsedMs ?? 0),
+    },
+  };
+};
+
+export const recommendationStabilitySignature = (result: MonteCarloResult) => {
+  const actions = [...(result.actions ?? [])].sort(
+    (left, right) => left.id - right.id,
+  );
+  return [
+    result.bestActionId ?? '',
+    ...actions.map(
+      (action) =>
+        `${action.id}:${Math.round(action.scoreMean)}:${Math.round(
+          action.deltaFromBest,
+        )}`,
+    ),
+  ].join('|');
+};
+
+const totalResultSearches = (result: MonteCarloResult) =>
+  (result.actions ?? []).reduce(
+    (total, action) => total + Math.max(0, action.searches),
+    0,
+  );
 
 const boundedNumber = (
   value: unknown,
@@ -205,12 +316,18 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     useState<MonteCarloCapturedState | null>(null);
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refinementStatus, setRefinementStatus] =
+    useState<RecommendationRefinementStatus | null>(null);
   const [error, setError] = useState('');
   const mountedRef = useRef(true);
   const settingsRef = useRef(settings);
   const busyRef = useRef(false);
+  const refiningRef = useRef(false);
+  const refinementRunRef = useRef(0);
   const pendingStateRef = useRef<MonteCarloCapturedState | null>(null);
   const capturedStateRef = useRef<MonteCarloCapturedState | null>(null);
+  const resultRef = useRef<MonteCarloResult | null>(null);
   const lastSequenceRef = useRef(0);
 
   const analyzeCapturedState = useCallback(
@@ -237,6 +354,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
           )) as MonteCarloResult;
           if (!response.ok) throw new Error(response.error || '计算失败');
           if (mountedRef.current && settingsRef.current.enabled) {
+            resultRef.current = response;
             setResult(response);
           }
         } catch (reason) {
@@ -255,6 +373,14 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
 
   const startAnalysis = useCallback(
     (nextState: MonteCarloCapturedState) => {
+      if (refiningRef.current) {
+        refiningRef.current = false;
+        setRefining(false);
+        window.electron.monteCarlo.stop().catch(() => undefined);
+      }
+      refinementRunRef.current += 1;
+      setRefinementStatus(null);
+      resultRef.current = null;
       setResult(null);
       analyzeCapturedState(nextState).catch((reason) => {
         if (mountedRef.current && settingsRef.current.enabled) {
@@ -290,9 +416,14 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
 
       setError('');
       if (!normalized.enabled) {
+        refinementRunRef.current += 1;
+        refiningRef.current = false;
         pendingStateRef.current = null;
+        resultRef.current = null;
         setResult(null);
         setBusy(false);
+        setRefining(false);
+        setRefinementStatus(null);
         window.electron.monteCarlo.stop().catch(() => undefined);
         return;
       }
@@ -300,6 +431,136 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     },
     [startAnalysis],
   );
+
+  const stopRefinement = useCallback(() => {
+    if (!refiningRef.current) return;
+    refiningRef.current = false;
+    if (mountedRef.current) {
+      setRefining(false);
+      setRefinementStatus((current) =>
+        current ? { ...current, stopReason: 'manual' } : current,
+      );
+    }
+    window.electron.monteCarlo.stop().catch(() => undefined);
+  }, []);
+
+  const startRefinement = useCallback(async () => {
+    const state = capturedStateRef.current;
+    const initialResult = resultRef.current;
+    if (
+      busyRef.current ||
+      !settingsRef.current.enabled ||
+      state?.scenarioId !== 6 ||
+      !initialResult?.ok ||
+      !initialResult.actions?.length
+    ) {
+      return;
+    }
+
+    const runId = refinementRunRef.current + 1;
+    refinementRunRef.current = runId;
+    refiningRef.current = true;
+    busyRef.current = true;
+    let aggregate = initialResult;
+    let lastSignature = recommendationStabilitySignature(initialResult);
+    let stablePasses = 0;
+    let passes = 0;
+    let stopReason: RecommendationRefinementStatus['stopReason'];
+    if (mountedRef.current) {
+      setError('');
+      setBusy(true);
+      setRefining(true);
+      setRefinementStatus({
+        passes: 0,
+        totalSearches: totalResultSearches(initialResult),
+        stablePasses: 0,
+      });
+    }
+
+    try {
+      while (refiningRef.current && passes < 32) {
+        // Refinement batches must run serially so each result can be merged
+        // before stability is evaluated.
+        // eslint-disable-next-line no-await-in-loop
+        const response = (await window.electron.monteCarlo.analyze(
+          state.state,
+          settingsRef.current.options,
+        )) as MonteCarloResult;
+        if (!response.ok) throw new Error(response.error || '追加计算失败');
+        if (
+          !refiningRef.current ||
+          runId !== refinementRunRef.current ||
+          capturedStateRef.current?.sequence !== state.sequence
+        ) {
+          break;
+        }
+
+        aggregate = mergeRecommendationResults(aggregate, response);
+        const signature = recommendationStabilitySignature(aggregate);
+        stablePasses = signature === lastSignature ? stablePasses + 1 : 0;
+        lastSignature = signature;
+        passes += 1;
+        resultRef.current = aggregate;
+        if (mountedRef.current) {
+          setResult(aggregate);
+          setRefinementStatus({
+            passes,
+            totalSearches: totalResultSearches(aggregate),
+            stablePasses,
+          });
+        }
+        if (stablePasses >= 3) {
+          stopReason = 'stable';
+          break;
+        }
+      }
+      if (!stopReason && refiningRef.current && passes >= 32) {
+        stopReason = 'limit';
+      }
+    } catch (reason) {
+      if (
+        refiningRef.current &&
+        runId === refinementRunRef.current &&
+        mountedRef.current
+      ) {
+        setError(errorText(reason));
+      }
+    } finally {
+      refiningRef.current = false;
+      busyRef.current = false;
+      if (mountedRef.current) {
+        setBusy(false);
+        setRefining(false);
+        if (runId === refinementRunRef.current) {
+          setRefinementStatus((current) =>
+            current && !current.stopReason && stopReason
+              ? { ...current, stopReason }
+              : current,
+          );
+        }
+      }
+    }
+  }, []);
+
+  const toggleRefinement = useCallback(() => {
+    if (refiningRef.current) {
+      stopRefinement();
+      return;
+    }
+    startRefinement().catch((reason) => {
+      if (mountedRef.current) setError(errorText(reason));
+      return undefined;
+    });
+  }, [startRefinement, stopRefinement]);
+
+  useEffect(() => {
+    if (busy || !settings.enabled || !pendingStateRef.current) return;
+    const pendingState = pendingStateRef.current;
+    analyzeCapturedState(pendingState).catch((reason) => {
+      if (mountedRef.current) setError(errorText(reason));
+      return undefined;
+    });
+  }, [analyzeCapturedState, busy, settings.enabled]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -336,6 +597,8 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     return () => {
       disposed = true;
       mountedRef.current = false;
+      refiningRef.current = false;
+      refinementRunRef.current += 1;
       unsubscribe();
     };
   }, [acceptCapturedState]);
@@ -348,9 +611,23 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       capturedState,
       result,
       busy,
+      refining,
+      refinementStatus,
+      toggleRefinement,
       error,
     }),
-    [status, settings, saveSettings, capturedState, result, busy, error],
+    [
+      status,
+      settings,
+      saveSettings,
+      capturedState,
+      result,
+      busy,
+      refining,
+      refinementStatus,
+      toggleRefinement,
+      error,
+    ],
   );
 
   return (

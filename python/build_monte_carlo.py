@@ -42,14 +42,14 @@ COMMON_CA_BUNDLES = (
 
 def parse_args() -> argparse.Namespace:
     default_target = "all" if os.name == "nt" else "larc"
-    parser = argparse.ArgumentParser(description="Build UmaShow recommendation components")
+    parser = argparse.ArgumentParser(
+        description="Build UmaShow recommendation components"
+    )
     parser.add_argument(
         "--target",
         choices=("all", "normal", "larc"),
         default=default_target,
-        help=(
-            "component to build; defaults to all on Windows and larc on Linux"
-        ),
+        help=("component to build; defaults to all on Windows and larc on Linux"),
     )
     return parser.parse_args()
 
@@ -235,9 +235,9 @@ def main():
             configure_command.append("-DCMAKE_BUILD_TYPE=Release")
         if name == "larc":
             assert onnxruntime_root is not None
-            configure_command.append(
-                f"-DUMASHOW_ONNXRUNTIME_ROOT={onnxruntime_root}"
-            )
+            # CMake caches find_path/find_library results separately from the root.
+            configure_command.append("-UUMASHOW_ONNXRUNTIME_*")
+            configure_command.append(f"-DUMASHOW_ONNXRUNTIME_ROOT={onnxruntime_root}")
 
         subprocess.run(configure_command, cwd=ROOT, check=True)
         subprocess.run(
