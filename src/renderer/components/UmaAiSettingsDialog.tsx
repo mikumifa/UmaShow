@@ -153,9 +153,6 @@ export default function UmaAiSettingsDialog({
                 )}
                 启用推荐
               </div>
-              <p className="mt-1 text-xs text-slate-500">
-                关闭时不会进行计算，也不会在育成界面显示推荐提示。
-              </p>
             </div>
             <button
               type="button"
@@ -182,14 +179,6 @@ export default function UmaAiSettingsDialog({
 
           <section>
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                  <Cpu size={16} className="text-indigo-600" /> 通用搜索参数
-                </h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  控制推荐计算的速度、稳定性和行动倾向。
-                </p>
-              </div>
               <div className="flex gap-1.5 text-[10px] font-semibold">
                 <span
                   className={`rounded-full px-2 py-1 ${
@@ -303,83 +292,78 @@ export default function UmaAiSettingsDialog({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-slate-100/60 p-4">
-            <div className="mb-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <Gauge size={16} className="text-cyan-600" /> 高级搜索参数
-              </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                用于进一步调整搜索预算、探索范围和最终评分方式。
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <NumberField
-                label="总搜索量上限"
-                description="所有行动累计搜索次数，0 表示不限，由单个行动搜索量决定停止。"
-                value={draft.options.searchTotalMax}
-                min={0}
-                max={10000000}
-                step={128}
-                onChange={(value) => updateOption('searchTotalMax', value)}
-              />
-              <NumberField
-                label="搜索分组大小"
-                description="每批分配的模拟量。官方 CPU 配置为 128，且不要小于线程数的 16 倍。"
-                value={draft.options.searchGroupSize}
-                min={Math.min(4096, draft.options.threadNum * 16)}
-                max={4096}
-                step={16}
-                onChange={(value) => updateOption('searchGroupSize', value)}
-              />
-              <NumberField
-                label="搜索 Cpuct"
-                description="控制探索与利用的平衡；数值越小，搜索越集中在高价值行动。"
-                value={draft.options.searchCpuct}
-                min={0}
-                max={50}
-                step={0.1}
-                onChange={(value) => updateOption('searchCpuct', value)}
-              />
-              <NumberField
-                label="最大搜索深度"
-                description="向后模拟的最大回合数；凯旋门会计算到当前育成结束。"
-                value={draft.options.maxDepth}
-                min={1}
-                max={156}
-                onChange={(value) => updateOption('maxDepth', value)}
-              />
-              <NumberField
-                label="每技能点估值"
-                description="普通评分时每 1 技能点折算的分数，默认 2.0。"
-                value={draft.options.scorePtRate}
-                min={0}
-                max={20}
-                step={0.05}
-                onChange={(value) => updateOption('scorePtRate', value)}
-              />
-              <label className="grid min-w-0 gap-1 rounded-xl border border-slate-200 bg-white p-3">
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-slate-700">
-                    评分模式
-                  </span>
-                  <select
-                    value={draft.options.scoringMode}
-                    onChange={(event) =>
-                      updateOption('scoringMode', Number(event.target.value))
-                    }
-                    className="h-8 w-36 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400"
-                  >
-                    <option value={0}>普通评价点</option>
-                    <option value={1}>通用大赛</option>
-                    <option value={6}>英里大赛</option>
-                  </select>
+          <div className="mb-3">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <Gauge size={16} className="text-cyan-600" /> 高级搜索参数
+            </h3>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <NumberField
+              label="总搜索量上限"
+              description="所有行动累计搜索次数，0 表示不限，由单个行动搜索量决定停止。"
+              value={draft.options.searchTotalMax}
+              min={0}
+              max={10000000}
+              step={128}
+              onChange={(value) => updateOption('searchTotalMax', value)}
+            />
+            <NumberField
+              label="搜索分组大小"
+              description="每批分配的模拟量。官方 CPU 配置为 128，且不要小于线程数的 16 倍。"
+              value={draft.options.searchGroupSize}
+              min={Math.min(4096, draft.options.threadNum * 16)}
+              max={4096}
+              step={16}
+              onChange={(value) => updateOption('searchGroupSize', value)}
+            />
+            <NumberField
+              label="搜索 Cpuct"
+              description="控制探索与利用的平衡；数值越小，搜索越集中在高价值行动。"
+              value={draft.options.searchCpuct}
+              min={0}
+              max={50}
+              step={0.1}
+              onChange={(value) => updateOption('searchCpuct', value)}
+            />
+            <NumberField
+              label="最大搜索深度"
+              description="向后模拟的最大回合数；凯旋门会计算到当前育成结束。"
+              value={draft.options.maxDepth}
+              min={1}
+              max={156}
+              onChange={(value) => updateOption('maxDepth', value)}
+            />
+            <NumberField
+              label="每技能点估值"
+              description="普通评分时每 1 技能点折算的分数，默认 2.0。"
+              value={draft.options.scorePtRate}
+              min={0}
+              max={20}
+              step={0.05}
+              onChange={(value) => updateOption('scorePtRate', value)}
+            />
+            <label className="grid min-w-0 gap-1 rounded-xl border border-slate-200 bg-white p-3">
+              <span className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-slate-700">
+                  评分模式
                 </span>
-                <span className="text-[11px] leading-4 text-slate-400">
-                  选择最终局面的打分方式。
-                </span>
-              </label>
-            </div>
-          </section>
+                <select
+                  value={draft.options.scoringMode}
+                  onChange={(event) =>
+                    updateOption('scoringMode', Number(event.target.value))
+                  }
+                  className="h-8 w-36 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400"
+                >
+                  <option value={0}>普通评价点</option>
+                  <option value={1}>通用大赛</option>
+                  <option value={6}>英里大赛</option>
+                </select>
+              </span>
+              <span className="text-[11px] leading-4 text-slate-400">
+                选择最终局面的打分方式。
+              </span>
+            </label>
+          </div>
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-3">

@@ -76,6 +76,8 @@ Action Search::buyBuffAction(int idx, int turn)
 
 Search::Search(Model* model, int batchSize, int threadNumInGame):threadNumInGame(threadNumInGame), batchSize(batchSize)
 {
+  finalScoreDistribution.resize(MAX_SCORE);
+  recommendationScoreDistribution.resize(MAX_SCORE);
   evaluators.resize(threadNumInGame);
   for (int i = 0; i < threadNumInGame; i++)
     evaluators[i] = Evaluator(model, batchSize);
@@ -232,8 +234,8 @@ ModelOutputValueV1 Search::evaluateSingleAction(const Game& game, std::mt19937_6
   }
   for (int i = 0; i < param.samplingNum; i++)
   {
-    addNormDistribution(finalScoreDistribution, NNresultBuf[i].scoreMean, NNresultBuf[i].scoreStdev);
-    addNormDistribution(recommendationScoreDistribution, NNresultBuf[i].value, NNresultBuf[i].scoreStdev);
+    addNormDistribution(finalScoreDistribution.data(), NNresultBuf[i].scoreMean, NNresultBuf[i].scoreStdev);
+    addNormDistribution(recommendationScoreDistribution.data(), NNresultBuf[i].value, NNresultBuf[i].scoreStdev);
   }
 
   double N = 0;//总样本量

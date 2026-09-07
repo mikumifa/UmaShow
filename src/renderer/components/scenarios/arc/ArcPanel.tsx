@@ -26,9 +26,13 @@ import {
   RecommendationRankChip,
   rankRecommendationActions,
 } from 'renderer/components/RecommendationRank';
+import {
+  buildArcPotentialPurchases,
+  compactArcPotentialEffect,
+  recommendedArcPotentialIds,
+} from 'renderer/utils/arcRecommendation';
 
 const TRAINING_ORDER = [101, 105, 102, 103, 106];
-const LARC_TRAIN_POTENTIAL_IDS = [4, 5, 1, 2, 6];
 const PARAM_LABELS: Record<number, string> = {
   [TARGET_TYPE.SPEED]: '速',
   [TARGET_TYPE.STAMINA]: '耐',
@@ -93,20 +97,6 @@ const useArcRankedRecommendations = () => {
   return rankRecommendationActions(result);
 };
 
-const recommendedArcPotentialIds = (
-  action: ReturnType<typeof useArcUmaAiAction>,
-) => {
-  const result = new Set<number>();
-  if (!action) return result;
-  if (action.buy50p && action.train >= 0 && action.train < 5) {
-    result.add(LARC_TRAIN_POTENTIAL_IDS[action.train]);
-  }
-  if (action.buyPt10) result.add(3);
-  if (action.buyVital20) result.add(7);
-  if (action.buyFriend20) result.add(8);
-  return result;
-};
-
 const mergeParams = (...groups: Array<CommandParam[] | undefined>) => {
   const values = new Map<number, number>();
   groups
@@ -140,20 +130,6 @@ const getPotentialEffectStyle = (
   if (effectLevel === nextLevel) return 'font-medium text-amber-700';
   return 'text-gray-400';
 };
-
-const compactPotentialEffect = (effect: string) =>
-  effect
-    .replace(/^训练时/, '')
-    .replace(/^克服海外赛/, '海外赛')
-    .replace(/适性下降$/, '适性')
-    .replace(/\s*难关$/, '')
-    .replace(/^远征时/, '')
-    .replace(/^所有训练效果\s*\+/, '全训练+')
-    .replace(/^友情训练效果\s*\+/, '友情+')
-    .replace(/训练效果\s*\+/, '训练+')
-    .replace(/^远征训练体力消耗\s*-/, '远征体力-')
-    .replace(/^凯旋门奖中获得 3 个特定技能启发$/, '凯旋门技能启发×3')
-    .replace(/^凯旋门奖赛事中获得的属性提升$/, '凯旋门属性提升');
 
 const compactSelectionEffect = (effect: string) =>
   effect.replace(/^获得/, '').replace(/\s+/g, '');
@@ -337,14 +313,11 @@ function ArcStatusBar({
     ({ action }) => action.train === 5,
   );
   const isSsRecommended = ssRecommendation?.isBest ?? false;
-  const recommendedPotentialPurchases = ARC_POTENTIALS.filter((potential) =>
-    umaAiPotentialIds.has(potential.id),
-  ).map((potential) => ({
-    id: potential.id,
-    name: potential.name,
-    cost: potential.levelCosts[3],
-    effect: compactPotentialEffect(potential.levelEffects[3]),
-  }));
+  const recommendedPotentialPurchases = buildArcPotentialPurchases(
+    arcData,
+    umaAiPotentialIds,
+    3,
+  );
   const [openPanel, setOpenPanel] = useState<'potential' | 'rivals' | null>(
     null,
   );
@@ -377,8 +350,17 @@ function ArcStatusBar({
       return charaId != null ? [[charaId, partner.evaluation] as const] : [];
     }),
   );
+  const visibleSelection = selection?.rivals.length ? selection : null;
+  const hasExpandedContent =
+    recommendedPotentialPurchases.length > 0 ||
+    visibleSelection !== null ||
+    openPanel !== null;
   return (
-    <section className="rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-indigo-50 px-3 py-2 shadow-sm">
+    <section
+      className={`h-fit flex-none rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-indigo-50 shadow-sm ${
+        hasExpandedContent ? 'px-3 py-2' : 'px-2 py-1'
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <div className="mr-1 flex items-center gap-1 font-black text-slate-800">
           <Globe2 className="text-cyan-600" size={16} />
@@ -399,7 +381,7 @@ function ArcStatusBar({
         {ssRecommendation ? (
           <RecommendationRankChip recommendation={ssRecommendation} />
         ) : null}
-        {selection ? <ParamChips params={matchParams} /> : null}
+        {visibleSelection ? <ParamChips params={matchParams} /> : null}
         {arcData.allRivalBoostBlocked ? (
           <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 font-black text-rose-700">
             群星槽锁定
@@ -457,7 +439,7 @@ function ArcStatusBar({
           ))}
         </div>
       ) : null}
-      {selection ? (
+      {visibleSelection ? (
         <div className="mt-1.5">
           <div
             className={`inline-flex max-w-full flex-wrap items-stretch gap-1 rounded-lg ${
@@ -471,7 +453,7 @@ function ArcStatusBar({
                 : ''
             }
           >
-            {selection.rivals.map((selectionRival) => {
+            {visibleSelection.rivals.map((selectionRival) => {
               const rival = arcData.rivals.find(
                 (item) => item.charaId === selectionRival.charaId,
               );
@@ -485,18 +467,18 @@ function ArcStatusBar({
                 <article
                   key={selectionRival.charaId}
                   className={`relative min-w-0 overflow-hidden rounded-lg ${
-                    selection.isSpecialMatch
+                    visibleSelection.isSpecialMatch
                       ? 'p-[2px] shadow-[0_0_8px_rgba(217,70,239,0.65)]'
                       : 'border border-indigo-400 bg-indigo-50 p-1 ring-1 ring-indigo-300'
                   }`}
-                  title={`${name} · 胜算${matchMark.label}${selection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
+                  title={`${name} · 胜算${matchMark.label}${visibleSelection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
                 >
-                  {selection.isSpecialMatch ? (
+                  {visibleSelection.isSpecialMatch ? (
                     <div className="pointer-events-none absolute -inset-[120%] animate-spin bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] [animation-duration:2.5s]" />
                   ) : null}
                   <div
                     className={
-                      selection.isSpecialMatch
+                      visibleSelection.isSpecialMatch
                         ? 'relative z-10 h-full rounded-[6px] bg-indigo-50 p-1'
                         : ''
                     }
@@ -667,7 +649,7 @@ function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
                         nextLevel,
                       )}`}
                     >
-                      L{effectLevel} · {compactPotentialEffect(effect)}
+                      L{effectLevel} · {compactArcPotentialEffect(effect)}
                     </div>
                   );
                 })}

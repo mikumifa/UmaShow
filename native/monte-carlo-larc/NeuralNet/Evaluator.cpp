@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <iostream>
 #include "Evaluator.h"
@@ -198,13 +197,6 @@ const double outgoingBonusIfNotFullMotivation = 30;//掉心情时提高外出分
 const double friendEventProbability = 0.4;
 const double friendBond60UnlockValue = 60;
 
-constexpr double expectedFriendEventCharge(bool firstClickCompleted, int notFullChargeCount)
-{
-  return firstClickCompleted
-    ? friendEventProbability * std::min(5, notFullChargeCount)
-    : 0.0;
-}
-
 constexpr double friendBond60Potential(double friendship)
 {
   const double ratio = friendship <= 0 ? 0.0 : friendship >= 60 ? 1.0 : friendship / 60.0;
@@ -216,35 +208,8 @@ constexpr double friendBond60ProgressValue(double friendship, double expectedGai
   return friendBond60Potential(friendship + expectedGain) - friendBond60Potential(friendship);
 }
 
-static_assert(expectedFriendEventCharge(false, 15) == 0.0);
-static_assert(expectedFriendEventCharge(true, 15) == 2.0);
-static_assert(expectedFriendEventCharge(true, 2) > 0.79 && expectedFriendEventCharge(true, 2) < 0.81);
 static_assert(friendBond60ProgressValue(60, 4) == 0.0);
 static_assert(friendBond60ProgressValue(56, 4) > friendBond60ProgressValue(20, 4));
-
-static int countNotFullChargeAfterTraining(const Game& game, int item)
-{
-  std::array<int, 15> chargeAfterTraining{};
-  for (int i = 0; i < 15; i++)
-    chargeAfterTraining[i] = game.persons[i].larc_charge;
-
-  const int chargeNum = game.trainShiningNum[item] + 1;
-  for (int i = 0; i < 5; i++)
-  {
-    const int personId = game.personDistribution[item][i];
-    if (personId < 0)
-      break;
-    if (personId >= 15)
-      continue;
-    const int personType = game.persons[personId].personType;
-    if (personType == 2 || personType == 3)
-      chargeAfterTraining[personId] = std::min(3, chargeAfterTraining[personId] + chargeNum);
-  }
-
-  return static_cast<int>(std::count_if(
-    chargeAfterTraining.begin(), chargeAfterTraining.end(),
-    [](int charge) { return charge < 3; }));
-}
 
 static double friendBond60ProgressValue(const Game& game)
 {
@@ -333,7 +298,6 @@ Action Evaluator::handWrittenStrategy(const Game& game)
     //充电量
     if (game.turn >= 2 && !game.larc_isAbroad)
     {
-      double expectChargeNum = 0;
       double chargeValue = game.turn < 20 ? 12.0 :
         game.turn < 40 ? 10.0 :
         game.turn < 58 ? 5.0 :
@@ -358,18 +322,12 @@ Action Evaluator::handWrittenStrategy(const Game& game)
           totalCharge += std::min(chargeN, 3 - game.persons[p].larc_charge);
         }
       }
-      expectChargeNum = totalCharge;
       if (haveZuoyue)
       {
         value += friendValue_nonAbroad;
         value += friendBond60ProgressValue(game);
-        if (game.larc_zuoyueFirstClick)
-        {
-          const int notFullChargeCount = countNotFullChargeAfterTraining(game, item);
-          expectChargeNum += expectedFriendEventCharge(true, notFullChargeCount);
-        }
       }
-      value += chargeValue * expectChargeNum;
+      value += chargeValue * totalCharge;
 
     }
     else if (game.larc_isAbroad && game.turn < 50)//第二年远征

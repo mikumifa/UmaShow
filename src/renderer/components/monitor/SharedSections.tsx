@@ -6,10 +6,12 @@ import {
   Bot,
   ChevronDown,
   CircleEllipsis,
+  ClockAlert,
   Flag,
   Footprints,
   Lightbulb,
   Loader2,
+  ShoppingCart,
   Users,
   Utensils,
 } from 'lucide-react';
@@ -31,6 +33,12 @@ import {
   recommendationDeltaLabel,
   recommendationRankTone,
 } from 'renderer/components/RecommendationRank';
+import {
+  buildArcPotentialPurchases,
+  recommendedArcPotentialIds,
+  requiredFirstExpeditionPurchases,
+  type ArcPotentialPurchase,
+} from 'renderer/utils/arcRecommendation';
 import autoResearchCatalog from '../../../../assets/data/auto_research_catalog.json';
 
 const MOTIVATION_BADGES: Record<number, { label: string; iconPath: string }> = {
@@ -66,8 +74,12 @@ const recommendationActivityIcon = (label: string) => {
 
 function RecommendationActivitiesCard({
   recommendations,
+  requiredPurchases,
+  recommendedPurchases,
 }: {
   recommendations: RankedRecommendation[];
+  requiredPurchases: ArcPotentialPurchase[];
+  recommendedPurchases: ArcPotentialPurchase[];
 }) {
   return (
     <article className="flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border-4 border-slate-200 bg-white shadow-md">
@@ -75,6 +87,44 @@ function RecommendationActivitiesCard({
         <span className="text-sm font-black text-slate-800">其他活动</span>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-2">
+        {requiredPurchases.length > 0 ? (
+          <div className="rounded-lg border-2 border-rose-400 bg-rose-50 p-1.5 text-rose-950 ring-2 ring-rose-100">
+            <div className="flex items-center gap-1 text-xs font-black">
+              <ClockAlert size={14} strokeWidth={2.5} />
+              经典级 6月后半提醒
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {requiredPurchases.map((purchase) => (
+                <span
+                  key={purchase.id}
+                  className="rounded-md border border-rose-300 bg-white/85 px-1.5 py-1 text-[10px] font-black"
+                >
+                  购买 {purchase.name} Lv{purchase.targetLevel}
+                  {purchase.cost ? ` · ${purchase.cost}Pt` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {recommendedPurchases.length > 0 ? (
+          <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-1.5 text-amber-950 ring-2 ring-amber-100">
+            <div className="flex items-center gap-1 text-xs font-black">
+              <ShoppingCart size={14} strokeWidth={2.5} />第 1 名行动建议先购买
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {recommendedPurchases.map((purchase) => (
+                <span
+                  key={purchase.id}
+                  title={purchase.effect}
+                  className="rounded-md border border-amber-300 bg-white/85 px-1.5 py-1 text-[10px] font-black"
+                >
+                  {purchase.name} Lv{purchase.targetLevel}
+                  {purchase.cost ? ` · ${purchase.cost}Pt` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {recommendations.map((recommendation) => {
           const { action, rank } = recommendation;
           const [label, ...modifiers] = action.label.split(' + ');
@@ -562,6 +612,35 @@ export function TrainingEventsSection({
       ({ action }) => action.train >= 5,
     );
   }, [capturedState, result, settings.enabled]);
+  const requiredArcPurchases = useMemo(() => {
+    if (!charInfo.arcData) return [];
+    return requiredFirstExpeditionPurchases(
+      charInfo.arcData,
+      charInfo.gameStats.turn,
+    );
+  }, [charInfo.arcData, charInfo.gameStats.turn]);
+  const recommendedArcPurchases = useMemo(() => {
+    if (
+      !settings.enabled ||
+      !charInfo.arcData ||
+      capturedState?.scenarioId !== 6 ||
+      !result?.ok
+    ) {
+      return [];
+    }
+    const bestAction =
+      result.actions?.find((action) => action.id === result.bestActionId) ??
+      null;
+    return buildArcPotentialPurchases(
+      charInfo.arcData,
+      recommendedArcPotentialIds(bestAction),
+      3,
+    );
+  }, [capturedState?.scenarioId, charInfo.arcData, result, settings.enabled]);
+  const showActivitiesCard =
+    activityRecommendations.length > 0 ||
+    requiredArcPurchases.length > 0 ||
+    recommendedArcPurchases.length > 0;
   const eventDetailRows = buildEventDetailRows(
     charInfo.gameEvents,
     charInfo.eventDetails,
@@ -598,9 +677,11 @@ export function TrainingEventsSection({
                 }
               />
             ))}
-          {activityRecommendations.length > 0 ? (
+          {showActivitiesCard ? (
             <RecommendationActivitiesCard
               recommendations={activityRecommendations}
+              requiredPurchases={requiredArcPurchases}
+              recommendedPurchases={recommendedArcPurchases}
             />
           ) : null}
         </div>

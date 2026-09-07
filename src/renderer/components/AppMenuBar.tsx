@@ -207,7 +207,7 @@ export default function AppMenuBar() {
             }`}
           />
           <Bot size={14} />
-          <span className="hidden md:inline">推荐设置</span>
+          <span className="hidden md:inline">助手</span>
         </button>
       ) : null}
 

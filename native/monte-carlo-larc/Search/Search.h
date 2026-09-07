@@ -59,8 +59,8 @@ public:
   //导出上次搜索的数据作为训练样本
   TrainingSample exportTrainingSample(float policyDelta = 50);//policyDelta是policy的软化系数
 
-  int32_t finalScoreDistribution[MAX_SCORE];//某个action的最终分数分布预测
-  int32_t recommendationScoreDistribution[MAX_SCORE];//应用目标属性后的推荐评分分布
+  std::vector<int32_t> finalScoreDistribution;//某个action的最终分数分布预测
+  std::vector<int32_t> recommendationScoreDistribution;//应用目标属性后的推荐评分分布
 
 private:
 
