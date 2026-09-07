@@ -300,68 +300,73 @@ export default function AutomationControlCard({
       </div>
 
       {editableSingleItem ? (
-        <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
-          {modeOptions.map((option) => {
-            const Icon = option.icon;
-            return (
+        <div className="mt-3 flex max-w-full flex-wrap items-center gap-2">
+          <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+            {modeOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setRunMode(option.id);
+                  }}
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-left text-xs font-semibold transition-all duration-150 ${
+                    runMode === option.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
+                  }`}
+                >
+                  <Icon size={14} className="flex-none" />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {!repeatDaily ? (
+            <div className="ml-auto flex w-fit max-w-full items-center gap-1 rounded-xl bg-slate-100/80 p-1">
               <button
-                key={option.id}
                 type="button"
-                onClick={() => {
-                  setRunMode(option.id);
-                }}
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-left text-xs font-semibold transition-all duration-150 ${
-                  runMode === option.id
+                onClick={() => setScheduleTiming('now')}
+                className={`flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-1 text-xs font-semibold transition-all duration-150 ${
+                  scheduleTiming === 'now'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
                 }`}
               >
-                <Icon size={14} className="flex-none" />
-                {option.label}
+                <Play size={14} /> 立即启动
               </button>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleTiming('scheduled');
+                  if (!scheduledStartAt) {
+                    setScheduledStartAt(defaultScheduledDateTime());
+                  }
+                }}
+                className={`flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-1 text-xs font-semibold transition-all duration-150 ${
+                  scheduleTiming === 'scheduled'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
+                }`}
+              >
+                <CalendarClock size={14} /> 定时启动
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      {editableSingleItem && !repeatDaily ? (
-        <div className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
-          <button
-            type="button"
-            onClick={() => setScheduleTiming('now')}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
-              scheduleTiming === 'now'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
-            }`}
-          >
-            <Play size={14} /> 立即启动
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setScheduleTiming('scheduled');
-              if (!scheduledStartAt) {
-                setScheduledStartAt(defaultScheduledDateTime());
-              }
-            }}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
-              scheduleTiming === 'scheduled'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
-            }`}
-          >
-            <CalendarClock size={14} /> 定时启动
-          </button>
-          {scheduleTiming === 'scheduled' ? (
-            <input
-              type="datetime-local"
-              value={scheduledStartAt}
-              onChange={(event) => setScheduledStartAt(event.target.value)}
-              aria-label="定时启动日期和时间"
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-            />
-          ) : null}
+      {editableSingleItem && !repeatDaily && scheduleTiming === 'scheduled' ? (
+        <div className="mt-2 flex justify-end">
+          <input
+            type="datetime-local"
+            value={scheduledStartAt}
+            onChange={(event) => setScheduledStartAt(event.target.value)}
+            aria-label="定时启动日期和时间"
+            className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
         </div>
       ) : null}
 

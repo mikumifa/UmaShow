@@ -6014,11 +6014,7 @@ export default function AutoResearch() {
                     id="auto-research-local-login-description"
                     className="mt-2 text-sm leading-6 text-slate-600"
                   >
-                    登录会刷新
-                    {localLoginConfirmationAccount
-                      ? `“${localLoginConfirmationAccount.label || `UID ${localLoginConfirmationAccount.uid}`}”`
-                      : '该账号'}
-                    的游戏会话，可能使游戏客户端或其他工具中的同账号掉线。
+                    会使其他在线的设备掉线。
                   </p>
                 </div>
               </div>
