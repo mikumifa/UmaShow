@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ONNXRUNTIME_VERSION = "1.22.1"
+ONNXRUNTIME_VERSION = "1.22.0"
 PROJECTS = {
     "normal": (
         ROOT / "native" / "monte-carlo",
@@ -143,6 +143,10 @@ def download_file(url: str, destination: Path) -> None:
         ) as response:
             with destination.open("wb") as output:
                 shutil.copyfileobj(response, output)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(
+            f"ONNX Runtime 官方发布文件不存在（HTTP {error.code}）：{url}"
+        ) from error
     except urllib.error.URLError as error:
         raise RuntimeError(
             "ONNX Runtime 下载失败。请安装或更新系统 CA 证书，也可以通过 "
