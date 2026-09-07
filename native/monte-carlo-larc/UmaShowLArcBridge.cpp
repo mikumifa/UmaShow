@@ -1,10 +1,14 @@
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "External/json.hpp"
@@ -68,6 +72,328 @@ void loadUmaShowDatabase(const std::filesystem::path& path)
   }
   if (GameDatabase::AllUmas.empty() || GameDatabase::AllCards.empty())
     throw std::runtime_error("UmaShow 蒙特卡洛数据为空");
+}
+
+int boundedInt(
+  const json& options,
+  const char* key,
+  int fallback,
+  int minimum,
+  int maximum);
+void applyStatusTargets(Game& game, const json& options);
+
+bool randomChance(std::mt19937_64& random, double probability)
+{
+  return std::generate_canonical<double, 53>(random) <
+    std::clamp(probability, 0.0, 1.0);
+}
+
+struct SelfplayCardPools
+{
+  std::array<std::vector<int>, 5> regular;
+  std::array<std::vector<int>, 5> regularFullBreak;
+  std::vector<int> friendCards;
+  std::vector<int> friendFullBreak;
+};
+
+SelfplayCardPools buildSelfplayCardPools()
+{
+  SelfplayCardPools result;
+  for (const auto& [cardId, card] : GameDatabase::AllCards)
+  {
+    if (!card.filled)
+      continue;
+    if (card.cardType >= 0 && card.cardType < 5)
+    {
+      result.regular[card.cardType].push_back(cardId);
+      if (cardId % 10 == 4)
+        result.regularFullBreak[card.cardType].push_back(cardId);
+      continue;
+    }
+
+    const int baseCardId = cardId / 10;
+    if (baseCardId == 30160 || baseCardId == 10094)
+    {
+      result.friendCards.push_back(cardId);
+      if (cardId % 10 == 4)
+        result.friendFullBreak.push_back(cardId);
+    }
+  }
+
+  for (auto& pool : result.regular)
+    std::sort(pool.begin(), pool.end());
+  for (auto& pool : result.regularFullBreak)
+    std::sort(pool.begin(), pool.end());
+  std::sort(result.friendCards.begin(), result.friendCards.end());
+  std::sort(result.friendFullBreak.begin(), result.friendFullBreak.end());
+  for (int type = 0; type < 5; ++type)
+  {
+    if (result.regular[type].empty())
+      throw std::runtime_error("自博弈找不到完整的支援卡类型");
+  }
+  return result;
+}
+
+bool cardCanJoinDeck(
+  int cardId,
+  const std::unordered_set<int>& usedBaseCards,
+  const std::unordered_set<int>& usedCharacters,
+  const std::unordered_set<int>& usedLinkEffects)
+{
+  const auto& card = GameDatabase::AllCards.at(cardId);
+  if (usedBaseCards.contains(cardId / 10))
+    return false;
+  if (card.charaId > 0 && usedCharacters.contains(card.charaId))
+    return false;
+  return card.larc_linkSpecialEffect <= 0 ||
+    !usedLinkEffects.contains(card.larc_linkSpecialEffect);
+}
+
+int chooseSelfplayCard(
+  std::mt19937_64& random,
+  const std::vector<int>& allCards,
+  const std::vector<int>& fullBreakCards,
+  const std::unordered_set<int>& usedBaseCards,
+  const std::unordered_set<int>& usedCharacters,
+  const std::unordered_set<int>& usedLinkEffects)
+{
+  for (int phase = 0; phase < 2; ++phase)
+  {
+    const bool preferFullBreak = phase == 0 &&
+      !fullBreakCards.empty() && randomChance(random, 0.9);
+    const auto& pool = preferFullBreak ? fullBreakCards : allCards;
+    for (int attempt = 0; attempt < 512; ++attempt)
+    {
+      const int cardId = pool[random() % pool.size()];
+      if (cardCanJoinDeck(
+            cardId,
+            usedBaseCards,
+            usedCharacters,
+            usedLinkEffects))
+      {
+        return cardId;
+      }
+    }
+  }
+  throw std::runtime_error("自博弈无法生成不重复的支援卡组");
+}
+
+void rememberDeckCard(
+  int cardId,
+  std::unordered_set<int>& usedBaseCards,
+  std::unordered_set<int>& usedCharacters,
+  std::unordered_set<int>& usedLinkEffects)
+{
+  const auto& card = GameDatabase::AllCards.at(cardId);
+  usedBaseCards.insert(cardId / 10);
+  if (card.charaId > 0)
+    usedCharacters.insert(card.charaId);
+  if (card.larc_linkSpecialEffect > 0)
+    usedLinkEffects.insert(card.larc_linkSpecialEffect);
+}
+
+std::array<int, 6> randomSelfplayDeck(
+  std::mt19937_64& random,
+  const SelfplayCardPools& pools)
+{
+  std::array<int, 5> typeCounts {};
+  const bool includeFriend = !pools.friendCards.empty() &&
+    randomChance(random, 0.875);
+  const int regularCount = includeFriend ? 5 : 6;
+  const int archetype = static_cast<int>(random() % 100);
+  if (archetype < 35)
+    typeCounts = {1, 0, 0, 3, 1};
+  else if (archetype < 65)
+    typeCounts = {2, 2, 0, 0, 1};
+  else if (archetype < 85)
+    typeCounts = {2, 0, 2, 0, 1};
+  else
+  {
+    for (int index = 0; index < 5; ++index)
+      ++typeCounts[random() % typeCounts.size()];
+  }
+  if (regularCount == 6)
+    ++typeCounts[random() % typeCounts.size()];
+
+  std::array<int, 6> result {};
+  int next = 0;
+  std::unordered_set<int> usedBaseCards;
+  std::unordered_set<int> usedCharacters;
+  std::unordered_set<int> usedLinkEffects;
+  if (includeFriend)
+  {
+    const int cardId = chooseSelfplayCard(
+      random,
+      pools.friendCards,
+      pools.friendFullBreak,
+      usedBaseCards,
+      usedCharacters,
+      usedLinkEffects);
+    result[next++] = cardId;
+    rememberDeckCard(cardId, usedBaseCards, usedCharacters, usedLinkEffects);
+  }
+  for (int type = 0; type < 5; ++type)
+  {
+    for (int count = 0; count < typeCounts[type]; ++count)
+    {
+      const int cardId = chooseSelfplayCard(
+        random,
+        pools.regular[type],
+        pools.regularFullBreak[type],
+        usedBaseCards,
+        usedCharacters,
+        usedLinkEffects);
+      result[next++] = cardId;
+      rememberDeckCard(cardId, usedBaseCards, usedCharacters, usedLinkEffects);
+    }
+  }
+  if (next != static_cast<int>(result.size()))
+    throw std::runtime_error("自博弈生成的支援卡数量不正确");
+  std::shuffle(result.begin(), result.end(), random);
+  return result;
+}
+
+std::array<int, 5> randomBlueInheritance(std::mt19937_64& random)
+{
+  std::array<int, 5> result {};
+  std::discrete_distribution<int> typeDistribution({35, 15, 30, 5, 15});
+  std::discrete_distribution<int> starDistribution({8, 22, 70});
+  for (int factor = 0; factor < 6; ++factor)
+    result[typeDistribution(random)] += starDistribution(random) + 1;
+  return result;
+}
+
+std::array<int, 6> randomExtraInheritance(std::mt19937_64& random)
+{
+  std::array<int, 6> result {};
+  std::discrete_distribution<int> scenarioDistribution({1, 1, 2});
+  std::discrete_distribution<int> starDistribution({10, 30, 60});
+  for (int factor = 0; factor < 6; ++factor)
+  {
+    const int scenario = scenarioDistribution(random);
+    const int stars = starDistribution(random) + 1;
+    const int bonus = stars == 3 ? 8 : stars == 2 ? 4 : 2;
+    if (scenario == 0)
+    {
+      result[2] += bonus;
+      result[4] += bonus;
+    }
+    else if (scenario == 1)
+    {
+      result[0] += bonus;
+      result[2] += bonus;
+    }
+    else
+    {
+      result[1] += bonus;
+      result[2] += bonus;
+    }
+  }
+  std::exponential_distribution<double> skillFactor(1.0 / 70.0);
+  result[5] = std::min(300, static_cast<int>(std::round(skillFactor(random))));
+  return result;
+}
+
+void randomizeSelfplayTargets(
+  Game& game,
+  std::mt19937_64& random,
+  const json& options)
+{
+  static const char* targetKeys[5] = {
+    "targetSpeed", "targetStamina", "targetPower", "targetGuts", "targetWisdom"
+  };
+  bool hasExplicitTargets = false;
+  for (const char* key : targetKeys)
+    hasExplicitTargets = hasExplicitTargets || options.contains(key);
+  if (hasExplicitTargets)
+  {
+    applyStatusTargets(game, options);
+    return;
+  }
+  if (!options.value("randomizeTargets", true) || !randomChance(random, 0.5))
+    return;
+
+  std::uniform_real_distribution<double> ratio(0.65, 0.95);
+  const int cappedStatusCount = randomChance(random, 0.25) ? 2 : 1;
+  std::array<int, 5> indices {0, 1, 2, 3, 4};
+  std::shuffle(indices.begin(), indices.end(), random);
+  for (int index = 0; index < cappedStatusCount; ++index)
+  {
+    const int status = indices[index];
+    game.fiveStatusTarget[status] = std::clamp(
+      static_cast<int>(std::round(game.fiveStatusLimit[status] * ratio(random))),
+      1000,
+      static_cast<int>(game.fiveStatusLimit[status]));
+  }
+}
+
+struct SelfplayOpening
+{
+  Game game;
+  json metadata;
+};
+
+SelfplayOpening randomSelfplayOpening(
+  std::mt19937_64& random,
+  const SelfplayCardPools& pools,
+  const json& options)
+{
+  std::vector<int> umaIds;
+  umaIds.reserve(GameDatabase::AllUmas.size());
+  for (const auto& [umaId, uma] : GameDatabase::AllUmas)
+  {
+    if (uma.gameId > 0)
+      umaIds.push_back(umaId);
+  }
+  if (umaIds.empty())
+    throw std::runtime_error("自博弈找不到可用的育成角色");
+  std::sort(umaIds.begin(), umaIds.end());
+
+  const int umaId = umaIds[random() % umaIds.size()];
+  const int maximumStars = std::clamp(GameDatabase::AllUmas.at(umaId).star, 3, 5);
+  const int starRoll = static_cast<int>(random() % 10);
+  const int umaStars = std::min(maximumStars, starRoll < 7 ? 5 : starRoll < 9 ? 4 : 3);
+  auto deck = randomSelfplayDeck(random, pools);
+  auto blueInheritance = randomBlueInheritance(random);
+  auto extraInheritance = randomExtraInheritance(random);
+
+  SelfplayOpening result;
+  try
+  {
+    result.game.newGame(
+      random,
+      false,
+      umaId,
+      umaStars,
+      deck.data(),
+      blueInheritance.data(),
+      extraInheritance.data());
+  }
+  catch (const std::string& error)
+  {
+    throw std::runtime_error(error);
+  }
+  std::normal_distribution<double> eventStrengthNoise(0.0, 4.0);
+  result.game.eventStrength = std::clamp(
+    result.game.eventStrength + static_cast<int>(std::round(eventStrengthNoise(random))),
+    0,
+    50);
+  const int debuffProfile = static_cast<int>(random() % 4);
+  result.game.larc_allowedDebuffsFirstLarc[4] = debuffProfile == 1 || debuffProfile == 3;
+  result.game.larc_allowedDebuffsFirstLarc[6] = debuffProfile == 2 || debuffProfile == 3;
+  randomizeSelfplayTargets(result.game, random, options);
+
+  result.metadata = {
+    {"umaId", umaId},
+    {"umaStars", umaStars},
+    {"cards", deck},
+    {"blueInheritance", blueInheritance},
+    {"extraInheritance", extraInheritance},
+    {"targets", std::vector<int>(
+      result.game.fiveStatusTarget,
+      result.game.fiveStatusTarget + 5)},
+  };
+  return result;
 }
 
 int boundedInt(const json& options, const char* key, int fallback, int minimum, int maximum)
@@ -312,6 +638,86 @@ RecommendationComputation runGraphRecommendation(
   return computation;
 }
 
+RecommendationComputation computeRecommendation(
+  const Game& game,
+  std::mt19937_64& random,
+  const json& options,
+  std::string& fallbackReason)
+{
+  const int samplingNum = boundedInt(
+    options,
+    "searchSingleMax",
+    4096,
+    1,
+    65536);
+  const int threadNum = boundedInt(options, "threadNum", 8, 1, 32);
+  const double radicalFactor = std::clamp(
+    options.value("radicalFactor", 3.0),
+    0.0,
+    20.0);
+  const std::string modelPath = options.value("modelPath", "");
+
+  RecommendationComputation computation;
+  if (!modelPath.empty())
+  {
+    try
+    {
+      auto& model = graphModelCache().get(modelPath);
+      computation = runGraphRecommendation(
+        game,
+        random,
+        model,
+        options,
+        radicalFactor);
+    }
+    catch (const std::exception& exception)
+    {
+      fallbackReason = std::string("模型不可用，已使用内置推荐逻辑：") +
+        exception.what();
+    }
+  }
+  if (computation.actions.empty())
+  {
+    computation = runBuiltinRecommendation(
+      game,
+      random,
+      samplingNum,
+      threadNum,
+      radicalFactor);
+  }
+  return computation;
+}
+
+json recommendationActionsJson(
+  const RecommendationComputation& computation,
+  const Game& game)
+{
+  json actions = json::array();
+  for (const auto& result : computation.actions)
+  {
+    actions.push_back({
+      {"id", result.id},
+      {"label", actionLabel(result.action, game)},
+      {"type", 0},
+      {"train", result.action.train},
+      {"overdrive", false},
+      {"buy50p", result.action.buy50p},
+      {"buyPt10", result.action.buyPt10},
+      {"buyFriend20", result.action.buyFriend20},
+      {"buyVital20", result.action.buyVital20},
+      {"searches", result.searches},
+      {"scoreMean", result.scoreMean},
+      {"scoreStdev", result.scoreStdev},
+      {"value", result.value},
+      {"deltaFromBest", computation.bestValue - result.value},
+    });
+  }
+  std::sort(actions.begin(), actions.end(), [](const json& left, const json& right) {
+    return left.at("value").get<double>() > right.at("value").get<double>();
+  });
+  return actions;
+}
+
 json graphFeaturesJson(
   const umashow::graph::GraphFeatures& features,
   const std::vector<umashow::graph::GraphAction>& actions)
@@ -361,6 +767,145 @@ json graphFeaturesJson(
   };
 }
 
+const ActionEvaluation& selectSelfplayAction(
+  const RecommendationComputation& computation,
+  const Game& game,
+  std::mt19937_64& random,
+  const json& options)
+{
+  if (computation.actions.empty())
+    throw std::runtime_error("自博弈搜索没有产生可用行动");
+  const double explorationRate = std::clamp(
+    options.value("playExploration", 0.08),
+    0.0,
+    1.0);
+  if (randomChance(random, explorationRate))
+    return computation.actions[random() % computation.actions.size()];
+
+  const double baseTemperature = std::max(
+    0.0,
+    options.value("playTemperature", 120.0));
+  if (baseTemperature <= 1e-9)
+  {
+    return *std::max_element(
+      computation.actions.begin(),
+      computation.actions.end(),
+      [](const ActionEvaluation& left, const ActionEvaluation& right) {
+        return left.value < right.value;
+      });
+  }
+
+  const double remainingRatio = std::clamp(
+    static_cast<double>(TOTAL_TURN - game.turn) / TOTAL_TURN,
+    0.0,
+    1.0);
+  const double temperature = std::max(
+    10.0,
+    baseTemperature * (0.35 + 0.65 * remainingRatio));
+  double bestValue = -std::numeric_limits<double>::infinity();
+  for (const auto& action : computation.actions)
+    bestValue = std::max(bestValue, action.value);
+  std::vector<double> weights;
+  weights.reserve(computation.actions.size());
+  for (const auto& action : computation.actions)
+  {
+    const double logWeight = std::clamp(
+      (action.value - bestValue) / temperature,
+      -60.0,
+      0.0);
+    weights.push_back(std::exp(logWeight));
+  }
+  std::discrete_distribution<std::size_t> selection(
+    weights.begin(),
+    weights.end());
+  return computation.actions[selection(random)];
+}
+
+json selfplaySampleJson(
+  const Game& game,
+  const RecommendationComputation& computation,
+  int playedActionId,
+  int gameIndex)
+{
+  const auto legalActions = umashow::graph::enumerateLegalActions(game);
+  return {
+    {"scenarioId", 6},
+    {"gameIndex", gameIndex},
+    {"turn", game.turn},
+    {"playedActionId", playedActionId},
+    {"bestActionId", computation.bestActionId},
+    {"bestValue", computation.bestValue},
+    {"predictedScore", computation.predictedScore},
+    {"backend", computation.backend},
+    {"actions", recommendationActionsJson(computation, game)},
+    {"graphFeatures", graphFeaturesJson(
+      umashow::graph::buildGraphFeatures(game, legalActions),
+      legalActions)},
+  };
+}
+
+json generateSelfplay(const json& request)
+{
+  const json options = request.value("options", json::object());
+  const int gameCount = boundedInt(options, "gameCount", 1, 1, 16);
+  const auto seed = request.value("seed", std::random_device{}());
+  std::mt19937_64 random(seed);
+  const auto cardPools = buildSelfplayCardPools();
+  json samples = json::array();
+  json games = json::array();
+  int fallbackCount = 0;
+
+  for (int gameIndex = 0; gameIndex < gameCount; ++gameIndex)
+  {
+    auto opening = randomSelfplayOpening(random, cardPools, options);
+    Game game = std::move(opening.game);
+    const std::size_t firstSample = samples.size();
+    int decisions = 0;
+    while (!game.isEnd())
+    {
+      if (decisions > TOTAL_TURN + 4)
+        throw std::runtime_error("自博弈回合推进没有正常结束");
+      std::string fallbackReason;
+      const auto computation = computeRecommendation(
+        game,
+        random,
+        options,
+        fallbackReason);
+      if (!fallbackReason.empty())
+        ++fallbackCount;
+      const auto& selected = selectSelfplayAction(
+        computation,
+        game,
+        random,
+        options);
+      samples.push_back(selfplaySampleJson(
+        game,
+        computation,
+        selected.id,
+        gameIndex));
+      game.applyTrainingAndNextTurn(random, selected.action);
+      ++decisions;
+    }
+    opening.metadata["decisions"] = decisions;
+    opening.metadata["samples"] = samples.size() - firstSample;
+    opening.metadata["finalScore"] = game.finalScore();
+    opening.metadata["recommendationScore"] = game.recommendationScore();
+    games.push_back(std::move(opening.metadata));
+  }
+
+  return {
+    {"ok", true},
+    {"id", request.value("id", "")},
+    {"type", "selfplay"},
+    {"scenarioId", 6},
+    {"gameCount", gameCount},
+    {"sampleCount", samples.size()},
+    {"fallbackCount", fallbackCount},
+    {"games", std::move(games)},
+    {"samples", std::move(samples)},
+  };
+}
+
 json analyze(const json& request)
 {
   const json options = request.value("options", json::object());
@@ -370,68 +915,24 @@ json analyze(const json& request)
   if (!game.loadGameFromJson(state.dump()))
     throw std::runtime_error("凯旋门蒙特卡洛核心无法解析当前回合数据");
 
-  const int samplingNum = boundedInt(options, "searchSingleMax", 4096, 1, 65536);
-  const int threadNum = boundedInt(options, "threadNum", 8, 1, 32);
-  const double radicalFactor = std::clamp(options.value("radicalFactor", 3.0), 0.0, 20.0);
-
   game.eventStrength = boundedInt(options, "eventStrength", game.eventStrength, 0, 1000);
   applyStatusTargets(game, options);
 
   const auto seed = request.value("seed", std::random_device{}());
   std::mt19937_64 random(seed);
+  const int samplingNum = boundedInt(options, "searchSingleMax", 4096, 1, 65536);
+  const int threadNum = boundedInt(options, "threadNum", 8, 1, 32);
+  const double radicalFactor = std::clamp(
+    options.value("radicalFactor", 3.0),
+    0.0,
+    20.0);
   const std::string modelPath = options.value("modelPath", "");
   std::string fallbackReason;
-  RecommendationComputation computation;
-  if (!modelPath.empty())
-  {
-    try
-    {
-      auto& model = graphModelCache().get(modelPath);
-      computation = runGraphRecommendation(
-        game,
-        random,
-        model,
-        options,
-        radicalFactor);
-    }
-    catch (const std::exception& exception)
-    {
-      fallbackReason = std::string("模型不可用，已使用内置推荐逻辑：") + exception.what();
-    }
-  }
-  if (computation.actions.empty())
-  {
-    computation = runBuiltinRecommendation(
-      game,
-      random,
-      samplingNum,
-      threadNum,
-      radicalFactor);
-  }
-
-  json actions = json::array();
-  for (const auto& result : computation.actions)
-  {
-    actions.push_back({
-      {"id", result.id},
-      {"label", actionLabel(result.action, game)},
-      {"type", 0},
-      {"train", result.action.train},
-      {"overdrive", false},
-      {"buy50p", result.action.buy50p},
-      {"buyPt10", result.action.buyPt10},
-      {"buyFriend20", result.action.buyFriend20},
-      {"buyVital20", result.action.buyVital20},
-      {"searches", result.searches},
-      {"scoreMean", result.scoreMean},
-      {"scoreStdev", result.scoreStdev},
-      {"value", result.value},
-      {"deltaFromBest", computation.bestValue - result.value},
-    });
-  }
-  std::sort(actions.begin(), actions.end(), [](const json& left, const json& right) {
-    return left.at("value").get<double>() > right.at("value").get<double>();
-  });
+  const auto computation = computeRecommendation(
+    game,
+    random,
+    options,
+    fallbackReason);
 
   json response = {
     {"ok", true},
@@ -443,7 +944,7 @@ json analyze(const json& request)
     {"bestAction", actionLabel(computation.bestAction, game)},
     {"bestValue", computation.bestValue},
     {"predictedScore", computation.predictedScore},
-    {"actions", actions},
+    {"actions", recommendationActionsJson(computation, game)},
     {"backend", computation.backend},
     {"modelLoaded", computation.backend == "graph"},
     {"modelPath", modelPath},
@@ -483,6 +984,16 @@ json analyze(const json& request)
   return response;
 }
 
+json handleRequest(const json& request)
+{
+  const std::string command = request.value("command", "analyze");
+  if (command == "analyze")
+    return analyze(request);
+  if (command == "selfplay")
+    return generateSelfplay(request);
+  throw std::runtime_error("未知的推荐组件命令: " + command);
+}
+
 } // namespace
 
 int wmain(int argc, wchar_t** argv)
@@ -511,7 +1022,7 @@ int wmain(int argc, wchar_t** argv)
     json response;
     try
     {
-      response = analyze(json::parse(line, nullptr, true, true));
+      response = handleRequest(json::parse(line, nullptr, true, true));
     }
     catch (const std::exception& error)
     {

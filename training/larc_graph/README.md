@@ -15,31 +15,46 @@
 
 ## 环境
 
-建议单独创建虚拟环境：
+训练直接使用仓库根目录的 `uv` 环境，依赖位于可选的 `larc-graph` extra 中。所有命令都从仓库根目录执行；首次使用时 `uv` 会按需安装训练依赖：
 
 ```powershell
-cd training/larc_graph
-python -m venv .venv
-.venv/Scripts/Activate.ps1
-python -m pip install -r requirements.txt
+uv sync --extra larc-graph
 ```
 
-这些依赖不需要安装到 UmaShow 的 Node/Electron 环境。
+也可以不预先同步，直接在各条训练命令中使用 `uv run --extra larc-graph`。Torch、ONNX 等训练依赖不会进入 Electron 安装包；普通的 `uv run`、`npm run package` 和 `.github/workflows/publish.yml` 都没有启用这个 extra，因此不会下载或安装 Torch。`uv.lock` 中保留可选依赖的版本与文件元数据，不代表发布环境会安装它们。
 
-## 1. 收集 teacher 数据
+## 1. 生成首版自博弈数据
 
-先运行仓库根目录的 `python python/build_monte_carlo.py`。准备 JSONL，每行是一个 `MonteCarloCapturedState`（含 `state` 字段）或直接的凯旋门推荐状态，然后运行：
+先构建仓库中的推荐组件：
 
 ```powershell
-python collect_teacher.py states.jsonl data/teacher-0001.npz --searches 4096 --threads 8
+uv run python/build_monte_carlo.py
 ```
 
-特征由 C++ 模拟器按协议直接导出，Python 不重复实现游戏字段转换。初始 teacher 是当前完整终局搜索；后续可通过 `--model-path model.onnx` 收集新模型搜索结果，逐轮摆脱旧手写策略上限。
+该命令在 Windows 上生成 `assets/native/UmaShowMonteCarloLArc.exe`，在 Linux x86_64/aarch64 上则默认只构建本训练需要的 `assets/native/UmaShowMonteCarloLArc`，并把对应的 `libonnxruntime.so` 放在同一目录。Linux 需要预先安装 CMake 和支持 C++20 的 GCC/Clang；不需要安装 Torch，也不需要 Wine：
+
+```bash
+uv run python/build_monte_carlo.py
+```
+
+因此自博弈数据生成、GPU 训练和 ONNX 导出可以全部在同一台 Linux 机器完成。后续命令与 Windows 相同；训练脚本的 `--device auto` 会优先使用 CUDA，也可以显式传入 `--device cuda --workers 4`。
+
+不需要准备 JSONL，也不会读取本地育成历史。模拟器会从合法凯旋门开局开始，随机选择育成角色、支援卡、继承与用户属性目标；训练分布、SS、充电、事件结果等都沿模拟器规则逐回合随机产生。每个决策回合先搜索各个合法行动，再用带温度和少量随机探索的策略继续整局。
+
+首版建议生成约 2048 局。每局通常产生 55～65 个决策状态，最终约为 11 万～13 万条样本，适合作为当前约 200 万参数网络的第一版训练集。`128` 次搜索用于兼顾 teacher 标签质量和总生成时间：
+
+```powershell
+uv run --extra larc-graph python training/larc_graph/generate_selfplay.py --games 2048 --searches 128 --threads 8 --shard-size 2048 --output-dir training/larc_graph/data/selfplay-v0
+```
+
+同一命令可以再次运行，新的分片会接着已有编号写入。中途按 `Ctrl+C` 时，会保存已经完成的样本。首版 teacher 使用当前完整终局搜索；以后可以增加 `--model-path 模型.onnx`，用已有模型参与下一轮自博弈。
+
+`collect_teacher.py` 仍保留为以后使用真实回合状态校准模拟器的可选工具，但首版训练不依赖它。
 
 ## 2. 训练
 
 ```powershell
-python train.py "data/*.npz" --output checkpoints/larc_graph.pt --batch-size 256 --epochs 30
+uv run --extra larc-graph python training/larc_graph/train.py "training/larc_graph/data/selfplay-v0/*.npz" --output training/larc_graph/checkpoints/larc_graph-v0.pt --batch-size 256 --epochs 30
 ```
 
 损失包含：搜索访问分布的 Policy 交叉熵、Q/Value Quantile Huber、原始最终分数辅助损失，以及 Q/Value 一致性损失。
@@ -47,7 +62,7 @@ python train.py "data/*.npz" --output checkpoints/larc_graph.pt --batch-size 256
 ## 3. 导出 ONNX
 
 ```powershell
-python export_onnx.py checkpoints/larc_graph.pt models/larc_graph.onnx
+uv run --extra larc-graph python training/larc_graph/export_onnx.py training/larc_graph/checkpoints/larc_graph-v0.pt training/larc_graph/models/larc_graph-v0.onnx
 ```
 
 导出器会写入协议版本、剧本和评分缩放元数据，并使用 ONNX Runtime 做一次 CPU 烟雾测试。之后在 UmaShow 的“推荐设置”中选择该文件即可。

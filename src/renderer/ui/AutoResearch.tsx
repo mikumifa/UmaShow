@@ -5070,8 +5070,7 @@ export default function AutoResearch() {
           : undefined,
       offline_scenario_id:
         careerMode === 'offline' ? offlineScenarioId : undefined,
-      running_style:
-        careerMode === 'offline' ? offlineRunningStyle : undefined,
+      running_style: careerMode === 'offline' ? offlineRunningStyle : undefined,
       max_steps: maxSteps,
       burn_clocks: burnClocks,
       recover_tp_with_item: recoverTpWithItem,

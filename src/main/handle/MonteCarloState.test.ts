@@ -652,11 +652,10 @@ describe('MonteCarloState', () => {
       backend: graphModelPath ? 'graph' : 'builtin',
       modelLoaded: Boolean(graphModelPath),
     });
-    if (graphModelPath) {
-      expect(response.fallbackReason).toBe('');
-    } else {
-      expect(String(response.fallbackReason)).toContain('已使用内置推荐逻辑');
-    }
+    const fallbackMatches = graphModelPath
+      ? response.fallbackReason === ''
+      : String(response.fallbackReason).includes('已使用内置推荐逻辑');
+    expect(fallbackMatches).toBe(true);
     expect(response.graphFeatures).toMatchObject({ schemaVersion: 2 });
     const graphFeatures = response.graphFeatures as Record<string, unknown>;
     expect(graphFeatures.globalFeatures).toHaveLength(96);

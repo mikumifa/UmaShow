@@ -216,8 +216,8 @@ export default function UmaAiSettingsDialog({
                   凯旋门多回合模型
                 </h3>
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-                  模型由独立 Python 工程训练。UmaShow
-                  只加载导出的 ONNX 文件，不包含训练环境或训练按钮。
+                  模型由独立 Python 工程训练。UmaShow 只加载导出的 ONNX
+                  文件，不包含训练环境或训练按钮。
                 </p>
               </div>
               <span
@@ -227,9 +227,7 @@ export default function UmaAiSettingsDialog({
                     : 'bg-slate-200 text-slate-600'
                 }`}
               >
-                {draft.options.modelPath
-                  ? '已选择模型'
-                  : '使用内置推荐逻辑'}
+                {draft.options.modelPath ? '已选择模型' : '使用内置推荐逻辑'}
               </span>
             </div>
 

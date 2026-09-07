@@ -10,3 +10,11 @@ dependencies = [
     "protobuf>=6.33.2",
     "requests>=2.32.5",
 ]
+
+[project.optional-dependencies]
+larc-graph = [
+    "numpy>=2.0,<3",
+    "torch>=2.6,<3",
+    "onnx>=1.17,<2",
+    "onnxruntime>=1.22,<2",
+]

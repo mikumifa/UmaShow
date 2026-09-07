@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.21)
 
 project(UmaShowMonteCarloLArc LANGUAGES CXX)
 
-if(NOT WIN32)
-  message(FATAL_ERROR "UmaShowMonteCarloLArc currently supports Windows only")
+if(NOT WIN32 AND NOT UNIX)
+  message(FATAL_ERROR "UmaShowMonteCarloLArc supports Windows and Linux only")
 endif()
 
-set(UMASHOW_ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime Windows x64 package root")
+set(UMASHOW_ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime package root")
 if(NOT UMASHOW_ONNXRUNTIME_ROOT)
   message(FATAL_ERROR "UMASHOW_ONNXRUNTIME_ROOT is required")
 endif()
@@ -23,12 +23,28 @@ find_library(UMASHOW_ONNXRUNTIME_LIBRARY
   NO_DEFAULT_PATH
   REQUIRED
 )
-find_file(UMASHOW_ONNXRUNTIME_DLL
-  NAMES onnxruntime.dll
-  PATHS "${UMASHOW_ONNXRUNTIME_ROOT}/lib"
-  NO_DEFAULT_PATH
-  REQUIRED
-)
+
+if(WIN32)
+  find_file(UMASHOW_ONNXRUNTIME_DLL
+    NAMES onnxruntime.dll
+    PATHS "${UMASHOW_ONNXRUNTIME_ROOT}/lib"
+    NO_DEFAULT_PATH
+    REQUIRED
+  )
+  set(UMASHOW_ONNXRUNTIME_RUNTIME_FILES "${UMASHOW_ONNXRUNTIME_DLL}")
+else()
+  file(GLOB UMASHOW_ONNXRUNTIME_RUNTIME_FILES
+    LIST_DIRECTORIES FALSE
+    "${UMASHOW_ONNXRUNTIME_ROOT}/lib/libonnxruntime.so*"
+  )
+  if(NOT UMASHOW_ONNXRUNTIME_RUNTIME_FILES)
+    message(FATAL_ERROR
+      "No libonnxruntime.so runtime files found under ${UMASHOW_ONNXRUNTIME_ROOT}/lib"
+    )
+  endif()
+endif()
+
+find_package(Threads REQUIRED)
 
 add_executable(UmaShowMonteCarloLArc
   External/mathFunctions.cpp
@@ -59,18 +75,21 @@ add_executable(UmaShowMonteCarloLArc
 )
 
 target_compile_features(UmaShowMonteCarloLArc PRIVATE cxx_std_20)
-target_compile_definitions(UmaShowMonteCarloLArc PRIVATE
-  NOMINMAX
-  _CONSOLE
-  UNICODE
-  _UNICODE
-)
+if(WIN32)
+  target_compile_definitions(UmaShowMonteCarloLArc PRIVATE
+    NOMINMAX
+    _CONSOLE
+    UNICODE
+    _UNICODE
+  )
+endif()
 target_include_directories(UmaShowMonteCarloLArc PRIVATE
   External
   "${UMASHOW_ONNXRUNTIME_INCLUDE_DIR}"
 )
 target_link_libraries(UmaShowMonteCarloLArc PRIVATE
   "${UMASHOW_ONNXRUNTIME_LIBRARY}"
+  Threads::Threads
 )
 
 if(MSVC)
@@ -86,6 +105,16 @@ if(MSVC)
   set_property(TARGET UmaShowMonteCarloLArc PROPERTY
     INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
   )
+elseif(UNIX)
+  target_compile_options(UmaShowMonteCarloLArc PRIVATE
+    -Wall
+    -Wextra
+    -Wno-unused-parameter
+  )
+  set_target_properties(UmaShowMonteCarloLArc PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
+  )
 endif()
 
 set(UMASHOW_NATIVE_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/native")
@@ -97,9 +126,16 @@ set_target_properties(UmaShowMonteCarloLArc PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${UMASHOW_NATIVE_OUTPUT}"
 )
 
-add_custom_command(TARGET UmaShowMonteCarloLArc POST_BUILD
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-    "${UMASHOW_ONNXRUNTIME_DLL}"
-    "${UMASHOW_NATIVE_OUTPUT}/onnxruntime.dll"
-  VERBATIM
-)
+foreach(UMASHOW_ONNXRUNTIME_RUNTIME_FILE IN LISTS UMASHOW_ONNXRUNTIME_RUNTIME_FILES)
+  get_filename_component(
+    UMASHOW_ONNXRUNTIME_RUNTIME_NAME
+    "${UMASHOW_ONNXRUNTIME_RUNTIME_FILE}"
+    NAME
+  )
+  add_custom_command(TARGET UmaShowMonteCarloLArc POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      "${UMASHOW_ONNXRUNTIME_RUNTIME_FILE}"
+      "${UMASHOW_NATIVE_OUTPUT}/${UMASHOW_ONNXRUNTIME_RUNTIME_NAME}"
+    VERBATIM
+  )
+endforeach()

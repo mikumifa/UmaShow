@@ -225,7 +225,9 @@ export function ParentChoiceCard({
           subtitle: rental ? (
             <span className="inline-flex min-w-0 items-center gap-1">
               <RentalParentBadge />
-              <span className="truncate">{parent.owner_name || '未知玩家'}</span>
+              <span className="truncate">
+                {parent.owner_name || '未知玩家'}
+              </span>
             </span>
           ) : (
             '自己的马娘'
@@ -275,11 +277,7 @@ export function ParentChoiceCard({
         <SuccessionFactorDetailModal
           ariaLabel={`${parent.name}全部因子`}
           title={UMDB.cards[parent.card_id]?.name || parent.name}
-          description={`${
-            rental
-              ? `借用 · ${parent.owner_name || '未知玩家'}`
-              : '自己的马娘'
-          } · 完整因子与父辈`}
+          description={`${rental ? `借用 · ${parent.owner_name || '未知玩家'}` : '自己的马娘'} · 完整因子与父辈`}
           members={[
             {
               key: `self:${parent.instance_id}`,

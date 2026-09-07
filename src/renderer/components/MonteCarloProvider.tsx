@@ -134,8 +134,7 @@ export const normalizeUmaAiSettings = (
   return {
     enabled: Boolean(value?.enabled),
     options: {
-      modelPath:
-        typeof raw.modelPath === 'string' ? raw.modelPath.trim() : '',
+      modelPath: typeof raw.modelPath === 'string' ? raw.modelPath.trim() : '',
       seed: Math.round(boundedNumber(raw.seed, defaults.seed, 0, 2147483647)),
       searchSingleMax: Math.round(
         boundedNumber(raw.searchSingleMax, defaults.searchSingleMax, 16, 65536),
@@ -191,12 +190,7 @@ export const normalizeUmaAiSettings = (
         ),
       ),
       graphSearchDepth: Math.round(
-        boundedNumber(
-          raw.graphSearchDepth,
-          defaults.graphSearchDepth,
-          1,
-          16,
-        ),
+        boundedNumber(raw.graphSearchDepth, defaults.graphSearchDepth, 1, 16),
       ),
       graphSearchTimeMs: Math.round(
         boundedNumber(

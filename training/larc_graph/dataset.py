@@ -51,5 +51,5 @@ class GraphDataset(Dataset[dict[str, torch.Tensor]]):
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         return {
-            key: torch.from_numpy(value[index]) for key, value in self.arrays.items()
+            key: torch.as_tensor(value[index]) for key, value in self.arrays.items()
         }

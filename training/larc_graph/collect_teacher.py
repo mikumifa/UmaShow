@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,14 @@ except ImportError:
 
 PROTOCOL_PREFIX = "UMASHOW_JSON:"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+RECOMMENDATION_EXECUTABLE = (
+    "UmaShowMonteCarloLArc.exe" if os.name == "nt" else "UmaShowMonteCarloLArc"
+)
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--executable",
         type=Path,
-        default=REPOSITORY_ROOT / "assets/native/UmaShowMonteCarloLArc.exe",
+        default=REPOSITORY_ROOT / "assets/native" / RECOMMENDATION_EXECUTABLE,
     )
     parser.add_argument(
         "--database",

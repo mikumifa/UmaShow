@@ -31,3 +31,7 @@ npm-debug.log.*
 __pycache__
 tmp
 debug_packets
+
+# Offline graph-model training outputs
+training/larc_graph/data/
+training/larc_graph/checkpoints/
