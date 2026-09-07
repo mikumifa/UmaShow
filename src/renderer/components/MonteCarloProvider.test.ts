@@ -16,6 +16,9 @@ describe('recommendation settings', () => {
       modelPath: '',
       graphSearchNodes: 384,
       graphSearchDepth: 5,
+      graphRootSelection: 'puct',
+      graphRootGumbelMaxActions: 16,
+      graphRootGumbelScale: 1,
     });
     expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('seed');
     expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('maxDepth');
@@ -77,6 +80,9 @@ describe('recommendation settings', () => {
         graphSearchTopK: 30,
         graphSearchChanceOutcomes: -1,
         graphSearchCpuct: 2.25,
+        graphRootSelection: 'gumbel',
+        graphRootGumbelMaxActions: 99,
+        graphRootGumbelScale: -1,
       },
     });
 
@@ -88,7 +94,21 @@ describe('recommendation settings', () => {
       graphSearchTopK: 12,
       graphSearchChanceOutcomes: 1,
       graphSearchCpuct: 2.25,
+      graphRootSelection: 'gumbel',
+      graphRootGumbelMaxActions: 48,
+      graphRootGumbelScale: 0,
     });
+  });
+
+  it('falls back to PUCT for an unknown root search algorithm', () => {
+    const settings = normalizeUmaAiSettings({
+      enabled: true,
+      options: {
+        graphRootSelection: 'unknown' as 'puct',
+      },
+    });
+
+    expect(settings.options.graphRootSelection).toBe('puct');
   });
 
   it('merges additional samples into the current recommendation', () => {

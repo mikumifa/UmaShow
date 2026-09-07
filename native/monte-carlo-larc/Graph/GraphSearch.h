@@ -9,6 +9,12 @@ struct Game;
 
 namespace umashow::graph {
 
+enum class GraphRootSelection
+{
+  Puct,
+  GumbelSequentialHalving,
+};
+
 struct GraphSearchConfig
 {
   int nodeBudget = 384;
@@ -20,6 +26,9 @@ struct GraphSearchConfig
   double radicalFactor = 3.0;
   double rootDirichletAlpha = 0.0;
   double rootNoiseFraction = 0.0;
+  GraphRootSelection rootSelection = GraphRootSelection::Puct;
+  int rootGumbelMaxActions = 16;
+  double rootGumbelScale = 1.0;
 };
 
 struct GraphSearchActionResult
