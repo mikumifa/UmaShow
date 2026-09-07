@@ -629,6 +629,33 @@ RecommendationComputation runGraphRecommendation(
     options.value("rootNoiseFraction", 0.0),
     0.0,
     1.0);
+  const std::string rootSelection = options.value(
+    "graphRootSelection",
+    "puct");
+  if (rootSelection == "puct")
+  {
+    config.rootSelection = umashow::graph::GraphRootSelection::Puct;
+  }
+  else if (rootSelection == "gumbel")
+  {
+    config.rootSelection =
+      umashow::graph::GraphRootSelection::GumbelSequentialHalving;
+  }
+  else
+  {
+    throw std::runtime_error(
+      "graphRootSelection 只能是 puct 或 gumbel");
+  }
+  config.rootGumbelMaxActions = boundedInt(
+    options,
+    "graphRootGumbelMaxActions",
+    16,
+    1,
+    umashow::graph::kMaxActions);
+  config.rootGumbelScale = std::clamp(
+    options.value("graphRootGumbelScale", 1.0),
+    0.0,
+    10.0);
 
   umashow::graph::GraphSearch search(model, config);
   const auto searchResult = search.run(game, random);
@@ -959,6 +986,14 @@ const ActionEvaluation& selectSelfplayAction(
         : options.value("visitTemperatureAfter", 0.15));
     if (temperature <= 1e-9)
     {
+      const auto best = std::find_if(
+        computation.actions.begin(),
+        computation.actions.end(),
+        [&](const ActionEvaluation& action) {
+          return action.id == computation.bestActionId;
+        });
+      if (best != computation.actions.end())
+        return *best;
       return *std::max_element(
         computation.actions.begin(),
         computation.actions.end(),
@@ -1212,6 +1247,17 @@ json analyze(const json& request)
       {"graphSearchTimeMs", boundedInt(options, "graphSearchTimeMs", 900, 50, 30000)},
       {"graphSearchTopK", boundedInt(options, "graphSearchTopK", 4, 1, 12)},
       {"graphSearchCpuct", std::clamp(options.value("graphSearchCpuct", 1.5), 0.0, 20.0)},
+      {"graphRootSelection", options.value("graphRootSelection", "puct")},
+      {"graphRootGumbelMaxActions", boundedInt(
+        options,
+        "graphRootGumbelMaxActions",
+        16,
+        1,
+        umashow::graph::kMaxActions)},
+      {"graphRootGumbelScale", std::clamp(
+        options.value("graphRootGumbelScale", 1.0),
+        0.0,
+        10.0)},
       {"targetSpeed", options.value("targetSpeed", 0)},
       {"targetStamina", options.value("targetStamina", 0)},
       {"targetPower", options.value("targetPower", 0)},

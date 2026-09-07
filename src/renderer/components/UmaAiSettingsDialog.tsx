@@ -99,9 +99,11 @@ export default function UmaAiSettingsDialog({
 
   if (!open) return null;
 
-  const updateOption = (
-    key: Exclude<keyof UmaAiOptions, 'modelPath'>,
-    value: number,
+  const updateOption = <
+    Key extends Exclude<keyof UmaAiOptions, 'modelPath'>,
+  >(
+    key: Key,
+    value: UmaAiOptions[Key],
   ) => {
     setDraft((current) => ({
       ...current,
@@ -232,6 +234,54 @@ export default function UmaAiSettingsDialog({
                     </span>
                   </summary>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                    <label className="block min-w-0 sm:col-span-2 md:col-span-1 lg:col-span-2">
+                      <span className="text-xs font-semibold text-slate-700">
+                        根搜索算法
+                      </span>
+                      <select
+                        value={draft.options.graphRootSelection}
+                        onChange={(event) =>
+                          updateOption(
+                            'graphRootSelection',
+                            event.target.value as UmaAiOptions['graphRootSelection'],
+                          )
+                        }
+                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+                      >
+                        <option value="puct">PUCT（稳定通用）</option>
+                        <option value="gumbel">
+                          Gumbel Sequential Halving（低预算）
+                        </option>
+                      </select>
+                      <span className="mt-1 block text-[11px] leading-4 text-slate-400">
+                        Gumbel 会先覆盖更多当前回合行动，再把预算集中到较优候选。
+                      </span>
+                    </label>
+                    {draft.options.graphRootSelection === 'gumbel' ? (
+                      <>
+                        <NumberField
+                          label="根候选行动数"
+                          description="最多纳入逐轮淘汰的当前回合行动；低预算建议 8～16。"
+                          value={draft.options.graphRootGumbelMaxActions}
+                          min={1}
+                          max={48}
+                          onChange={(value) =>
+                            updateOption('graphRootGumbelMaxActions', value)
+                          }
+                        />
+                        <NumberField
+                          label="Gumbel 探索强度"
+                          description="0 为固定选择，1 为标准探索；越高越容易尝试冷门行动。"
+                          value={draft.options.graphRootGumbelScale}
+                          min={0}
+                          max={10}
+                          step={0.1}
+                          onChange={(value) =>
+                            updateOption('graphRootGumbelScale', value)
+                          }
+                        />
+                      </>
+                    ) : null}
                     <NumberField
                       label="搜索节点预算"
                       description="每回合最多搜索的节点数；越高越稳定，也越耗时。"

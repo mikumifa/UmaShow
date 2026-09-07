@@ -42,6 +42,9 @@ export type UmaAiOptions = Required<
     | 'graphSearchTopK'
     | 'graphSearchChanceOutcomes'
     | 'graphSearchCpuct'
+    | 'graphRootSelection'
+    | 'graphRootGumbelMaxActions'
+    | 'graphRootGumbelScale'
   >
 >;
 
@@ -96,6 +99,9 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
     graphSearchTopK: 4,
     graphSearchChanceOutcomes: 8,
     graphSearchCpuct: 1.5,
+    graphRootSelection: 'puct',
+    graphRootGumbelMaxActions: 16,
+    graphRootGumbelScale: 1,
   },
 };
 
@@ -292,6 +298,24 @@ export const normalizeUmaAiSettings = (
         defaults.graphSearchCpuct,
         0,
         20,
+      ),
+      graphRootSelection:
+        raw.graphRootSelection === 'gumbel' || raw.graphRootSelection === 'puct'
+          ? raw.graphRootSelection
+          : defaults.graphRootSelection,
+      graphRootGumbelMaxActions: Math.round(
+        boundedNumber(
+          raw.graphRootGumbelMaxActions,
+          defaults.graphRootGumbelMaxActions,
+          1,
+          48,
+        ),
+      ),
+      graphRootGumbelScale: boundedNumber(
+        raw.graphRootGumbelScale,
+        defaults.graphRootGumbelScale,
+        0,
+        10,
       ),
     },
   };

@@ -65,12 +65,82 @@ struct SearchNode
   std::vector<int> selectableEdges;
 };
 
+struct GumbelRootState
+{
+  std::vector<double> noise;
+  std::vector<int> consideredVisits;
+};
+
+std::vector<int> consideredVisitSequence(int actionCount, int simulations)
+{
+  std::vector<int> sequence;
+  sequence.reserve(simulations);
+  if (actionCount <= 1)
+  {
+    for (int visit = 0; visit < simulations; ++visit)
+      sequence.push_back(visit);
+    return sequence;
+  }
+
+  const int rounds = static_cast<int>(std::ceil(std::log2(actionCount)));
+  std::vector<int> visits(actionCount, 0);
+  int considered = actionCount;
+  while (static_cast<int>(sequence.size()) < simulations)
+  {
+    const int extraVisits = std::max(
+      1,
+      simulations / (rounds * considered));
+    for (int extra = 0;
+         extra < extraVisits && static_cast<int>(sequence.size()) < simulations;
+         ++extra)
+    {
+      for (int index = 0;
+           index < considered && static_cast<int>(sequence.size()) < simulations;
+           ++index)
+      {
+        sequence.push_back(visits[index]);
+      }
+      for (int index = 0; index < considered; ++index)
+        ++visits[index];
+    }
+    considered = std::max(2, considered / 2);
+  }
+  return sequence;
+}
+
+GumbelRootState makeGumbelRootState(
+  int actionCount,
+  int consideredActionCount,
+  int simulations,
+  double scale,
+  std::mt19937_64& random)
+{
+  GumbelRootState result;
+  result.noise.resize(actionCount, 0.0);
+  if (scale > 0.0)
+  {
+    for (double& value : result.noise)
+    {
+      const double uniform = std::clamp(
+        std::generate_canonical<double, 53>(random),
+        std::numeric_limits<double>::epsilon(),
+        1.0 - std::numeric_limits<double>::epsilon());
+      value = scale * -std::log(-std::log(uniform));
+    }
+  }
+  result.consideredVisits = consideredVisitSequence(
+    consideredActionCount,
+    simulations);
+  return result;
+}
+
 struct SearchContext
 {
   GraphModel& model;
   const GraphSearchConfig& config;
   double radicalFactor = 0.0;
   int nodes = 1;
+  const GumbelRootState* gumbelRoot = nullptr;
 
   void expand(SearchNode& node, bool root)
   {
@@ -134,10 +204,74 @@ struct SearchContext
     node.expanded = true;
   }
 
+  double gumbelRootScore(const SearchNode& node, int edgeIndex) const
+  {
+    if (!gumbelRoot || edgeIndex < 0 ||
+        edgeIndex >= static_cast<int>(node.edges.size()))
+    {
+      return -std::numeric_limits<double>::infinity();
+    }
+
+    int maximumVisits = 0;
+    for (const auto& edge : node.edges)
+      maximumVisits = std::max(maximumVisits, edge.visits);
+
+    double minimum = std::numeric_limits<double>::infinity();
+    double maximum = -std::numeric_limits<double>::infinity();
+    for (const auto& edge : node.edges)
+    {
+      // SparseGraph models expose an action-Q head, while the LightZero
+      // compatibility path initializes every action from the state value.
+      // searchValue() therefore preserves useful action-Q information when it
+      // exists and naturally matches value completion when it does not.
+      const double value = edge.searchValue();
+      minimum = std::min(minimum, value);
+      maximum = std::max(maximum, value);
+    }
+    const auto& edge = node.edges[edgeIndex];
+    const double value = edge.searchValue();
+    const double normalizedValue = maximum - minimum > 1e-8
+      ? (value - minimum) / (maximum - minimum)
+      : 0.0;
+    const double valueScale = (50.0 + maximumVisits) * 0.1;
+    return gumbelRoot->noise[edgeIndex] +
+      std::log(std::max(1e-9, edge.prior)) +
+      valueScale * normalizedValue;
+  }
+
+  SearchEdge& selectGumbelRootEdge(SearchNode& node)
+  {
+    if (!gumbelRoot || gumbelRoot->consideredVisits.empty())
+      throw std::runtime_error("Gumbel 根搜索尚未初始化");
+    const int simulation = std::min(
+      node.visits,
+      static_cast<int>(gumbelRoot->consideredVisits.size()) - 1);
+    const int consideredVisit = gumbelRoot->consideredVisits[simulation];
+
+    int bestIndex = -1;
+    double bestScore = -std::numeric_limits<double>::infinity();
+    for (int index = 0; index < static_cast<int>(node.edges.size()); ++index)
+    {
+      if (node.edges[index].visits != consideredVisit)
+        continue;
+      const double score = gumbelRootScore(node, index);
+      if (score > bestScore)
+      {
+        bestIndex = index;
+        bestScore = score;
+      }
+    }
+    if (bestIndex < 0)
+      throw std::runtime_error("Gumbel 根搜索无法选择后续行动");
+    return node.edges[bestIndex];
+  }
+
   SearchEdge& selectEdge(SearchNode& node)
   {
     if (node.depth == 0)
     {
+      if (config.rootSelection == GraphRootSelection::GumbelSequentialHalving)
+        return selectGumbelRootEdge(node);
       SearchEdge* bestUnvisited = nullptr;
       for (auto& edge : node.edges)
       {
@@ -247,6 +381,11 @@ GraphSearch::GraphSearch(GraphModel& model, GraphSearchConfig config)
     config_.rootNoiseFraction,
     0.0,
     1.0);
+  config_.rootGumbelMaxActions = std::clamp(
+    config_.rootGumbelMaxActions,
+    1,
+    kMaxActions);
+  config_.rootGumbelScale = std::clamp(config_.rootGumbelScale, 0.0, 10.0);
 }
 
 GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
@@ -260,7 +399,8 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
     adjustedRadicalFactor(config_.radicalFactor, game.turn),
   };
   context.expand(root, true);
-  if (config_.rootDirichletAlpha > 0.0 &&
+  if (config_.rootSelection == GraphRootSelection::Puct &&
+      config_.rootDirichletAlpha > 0.0 &&
       config_.rootNoiseFraction > 0.0 &&
       !root.edges.empty())
   {
@@ -290,8 +430,24 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
         config_.rootNoiseFraction * noise[index];
     }
   }
-  const int minimumSimulations = static_cast<int>(root.edges.size());
+  const int minimumSimulations = config_.rootSelection ==
+      GraphRootSelection::GumbelSequentialHalving
+    ? std::min(
+        static_cast<int>(root.edges.size()),
+        config_.rootGumbelMaxActions)
+    : static_cast<int>(root.edges.size());
   const int simulationBudget = std::max(config_.nodeBudget, minimumSimulations);
+  GumbelRootState gumbelRoot;
+  if (config_.rootSelection == GraphRootSelection::GumbelSequentialHalving)
+  {
+    gumbelRoot = makeGumbelRootState(
+      static_cast<int>(root.edges.size()),
+      minimumSimulations,
+      simulationBudget,
+      config_.rootGumbelScale,
+      random);
+    context.gumbelRoot = &gumbelRoot;
+  }
 
   int simulations = 0;
   while (simulations < simulationBudget)
@@ -333,14 +489,32 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
       actionResult.scoreStdev = edge.initialScore.stdev;
       actionResult.value = edge.initialValue.riskAdjusted;
     }
-    if (actionResult.visits > bestVisits ||
-        (actionResult.visits == bestVisits && actionResult.value > bestValue))
+    if (config_.rootSelection == GraphRootSelection::Puct &&
+        (actionResult.visits > bestVisits ||
+         (actionResult.visits == bestVisits && actionResult.value > bestValue)))
     {
       bestVisits = actionResult.visits;
       bestValue = actionResult.value;
       result.bestActionIndex = static_cast<int>(index);
     }
     result.actions.push_back(actionResult);
+  }
+  if (config_.rootSelection == GraphRootSelection::GumbelSequentialHalving)
+  {
+    for (const auto& edge : root.edges)
+      bestVisits = std::max(bestVisits, edge.visits);
+    double bestScore = -std::numeric_limits<double>::infinity();
+    for (int index = 0; index < static_cast<int>(root.edges.size()); ++index)
+    {
+      if (root.edges[index].visits != bestVisits)
+        continue;
+      const double score = context.gumbelRootScore(root, index);
+      if (score > bestScore)
+      {
+        bestScore = score;
+        result.bestActionIndex = index;
+      }
+    }
   }
   return result;
 }

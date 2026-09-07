@@ -22,6 +22,9 @@ export type MonteCarloOptions = {
   graphSearchTopK?: number;
   graphSearchChanceOutcomes?: number;
   graphSearchCpuct?: number;
+  graphRootSelection?: 'puct' | 'gumbel';
+  graphRootGumbelMaxActions?: number;
+  graphRootGumbelScale?: number;
 };
 
 export type MonteCarloActionResult = {
