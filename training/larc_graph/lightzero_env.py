@@ -49,10 +49,15 @@ class NativeLArcEnvironment:
             encoding="utf-8",
             errors="replace",
         )
-        ready = self._read()
-        if not ready.get("ok"):
+        try:
+            ready = self._read()
+            if not ready.get("ok"):
+                raise RuntimeError(
+                    ready.get("error", "native environment failed to start")
+                )
+        except BaseException:
             self.close()
-            raise RuntimeError(ready.get("error", "native environment failed to start"))
+            raise
 
     def request(self, command: str, **payload: Any) -> dict[str, Any]:
         if self.process.stdin is None:
@@ -155,11 +160,15 @@ class UmaShowLArcEnv(gym.Env):
                 f"native observation shape {observation.shape}, "
                 f"expected {(LIGHTZERO_OBSERVATION,)}"
             )
+        if not np.isfinite(observation).all():
+            raise ValueError("native observation contains non-finite values")
         if action_mask.shape != (LIGHTZERO_ACTIONS,):
             raise ValueError(
                 f"native action mask shape {action_mask.shape}, "
                 f"expected {(LIGHTZERO_ACTIONS,)}"
             )
+        if not np.isin(action_mask, (0, 1)).all():
+            raise ValueError("native action mask must contain only zero or one")
         return {
             "observation": observation,
             "action_mask": action_mask,

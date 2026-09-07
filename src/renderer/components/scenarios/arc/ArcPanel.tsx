@@ -17,6 +17,7 @@ import {
   type CommandParam,
 } from 'types/gameTypes';
 import { UMDB } from 'renderer/utils/umdb';
+import assetUrl from 'renderer/utils/assetUrl';
 import {
   TrainingEventsSection,
   VitalPanel,
@@ -178,12 +179,12 @@ function RivalAvatar({
       >
         {iconUrl ? (
           <img
-            src={iconUrl}
+            src={assetUrl(iconUrl)}
             alt={name}
             className="h-full w-full object-cover"
             onError={(event) => {
               event.currentTarget.onerror = null;
-              event.currentTarget.src = fallbackIconUrl;
+              event.currentTarget.src = assetUrl(fallbackIconUrl);
             }}
           />
         ) : (

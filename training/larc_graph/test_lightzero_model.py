@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
+
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
 import torch
 from lzero.model.stochastic_muzero_model_mlp import StochasticMuZeroModelMLP
@@ -8,6 +12,10 @@ from lzero.model.stochastic_muzero_model_mlp import StochasticMuZeroModelMLP
 from training.larc_graph.lightzero_model import (
     LArcStochasticMuZeroModelMLP,
     _PENDING_CHANCE_ONE_HOT,
+)
+from training.larc_graph.lightzero_runtime import (
+    CHANCE_SEARCH_PATCH,
+    configure_stochastic_muzero_chance_space,
 )
 
 
@@ -112,6 +120,30 @@ class LArcStochasticMuZeroModelTest(unittest.TestCase):
         upstream = StochasticMuZeroModelMLP(**self.model_config())
         upstream.load_state_dict(self.model.state_dict(), strict=True)
         self.model.load_state_dict(upstream.state_dict(), strict=True)
+
+    def test_ctree_roots_receive_configured_chance_space(self) -> None:
+        import lzero.policy.stochastic_muzero as policy_module
+
+        result = configure_stochastic_muzero_chance_space(7)
+        with patch(
+            "lzero.mcts.tree_search.mcts_ctree_stochastic."
+            "stochastic_mz_tree.Roots"
+        ) as roots_constructor:
+            policy_module.MCTSCtree.roots(2, [[0, 1], [2]])
+        roots_constructor.assert_called_once_with(2, [[0, 1], [2]], 7)
+        self.assertEqual(result["patch"], CHANCE_SEARCH_PATCH)
+
+    def test_ptree_chance_nodes_use_configured_space(self) -> None:
+        import lzero.policy.stochastic_muzero as policy_module
+
+        configure_stochastic_muzero_chance_space(7)
+        roots = policy_module.MCTSPtree.roots(1, [[0, 1]])
+        roots.prepare_no_noise([0.0], [[0.0, 0.0]], [-1])
+        chance_node = roots.roots[0].children[0]
+        self.assertTrue(chance_node.is_chance)
+        self.assertEqual(chance_node.chance_space_size, 7)
+        chance_node.expand(-1, 1, 0, 0.0, [0.0] * 7)
+        self.assertEqual(len(chance_node.children), 7)
 
 
 if __name__ == "__main__":

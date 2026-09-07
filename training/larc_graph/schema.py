@@ -23,6 +23,7 @@ LIGHTZERO_MODEL_FAMILY = "larc_stochastic_muzero_initial_v1"
 LIGHTZERO_MANIFEST = "umashow-model.json"
 LIGHTZERO_COMMIT = "9ccf29b3c2174f65e06d21c3d0c51dc76853f37f"
 LEARNED_CHANCE_GRADIENT = "ste_one_hot_v1"
+LIGHTZERO_CHANCE_SEARCH = "configured_roots_v1"
 
 INPUT_NAMES = (
     "global_features",

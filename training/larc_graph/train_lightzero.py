@@ -18,6 +18,7 @@ from easydict import EasyDict
 from training.larc_graph.schema import (
     LEARNED_CHANCE_GRADIENT,
     LIGHTZERO_ACTIONS,
+    LIGHTZERO_CHANCE_SEARCH,
     LIGHTZERO_COMMIT,
     LIGHTZERO_MANIFEST,
     LIGHTZERO_MODEL_FAMILY,
@@ -59,12 +60,23 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=REPOSITORY_ROOT / "training/larc_graph/runs/stochastic-muzero",
     )
-    parser.add_argument(
+    initialization = parser.add_mutually_exclusive_group()
+    initialization.add_argument(
         "--resume",
         "--model-path",
         dest="resume",
         type=Path,
-        help="continue from a LightZero .pth.tar checkpoint",
+        help="continue from a full LightZero .pth.tar checkpoint",
+    )
+    initialization.add_argument(
+        "--init-weights",
+        "--warm-start",
+        dest="init_weights",
+        type=Path,
+        help=(
+            "start a fresh run from weights produced by "
+            "pretrain_lightzero_from_legacy.py"
+        ),
     )
     parser.add_argument("--checkpoint-every", type=int, default=1_000)
     parser.add_argument("--no-random-targets", action="store_true")
@@ -118,6 +130,7 @@ def model_manifest(args: argparse.Namespace) -> dict:
         "scenarioId": SCENARIO_ID,
         "scoreScale": SCORE_SCALE,
         "learnedChanceGradient": LEARNED_CHANCE_GRADIENT,
+        "chanceSearch": LIGHTZERO_CHANCE_SEARCH,
         "observationFeatures": LIGHTZERO_OBSERVATION,
         "actionSpaceSize": LIGHTZERO_ACTIONS,
         "lightZeroCommit": LIGHTZERO_COMMIT,
@@ -284,6 +297,10 @@ def main() -> None:
         raise ValueError("--checkpoint-every must be positive")
     if args.resume is not None and not args.resume.is_file():
         raise FileNotFoundError(f"checkpoint not found: {args.resume}")
+    if args.init_weights is not None and not args.init_weights.is_file():
+        raise FileNotFoundError(
+            f"pretrained weights not found: {args.init_weights}"
+        )
     if not args.executable.is_file():
         raise FileNotFoundError(f"recommendation executable not found: {args.executable}")
     if not args.database.is_file():
@@ -334,8 +351,14 @@ def main() -> None:
 
     try:
         from lzero.entry import train_muzero
+        from training.larc_graph.lightzero_checkpoint import (
+            load_pretrain_checkpoint,
+        )
         from training.larc_graph.lightzero_model import (
             LArcStochasticMuZeroModelMLP,
+        )
+        from training.larc_graph.lightzero_runtime import (
+            configure_stochastic_muzero_chance_space,
         )
     except Exception as exception:
         raise RuntimeError(
@@ -343,8 +366,25 @@ def main() -> None:
             "updating the repository; do not manually downgrade UmaShow's protobuf."
         ) from exception
 
+    search_patch = configure_stochastic_muzero_chance_space(
+        args.chance_space_size
+    )
+    print(
+        "configured stochastic MCTS chance space: "
+        f"{search_patch['chance_space_size']} ({search_patch['patch']})"
+    )
     main_config, create_config = build_config(args)
-    model = LArcStochasticMuZeroModelMLP(**model_config(args))
+    settings = model_config(args)
+    model = LArcStochasticMuZeroModelMLP(**settings)
+    if args.init_weights is not None:
+        initialization = load_pretrain_checkpoint(
+            args.init_weights.resolve(), model, settings
+        )
+        print(
+            "initialized LightZero weights: "
+            f"{args.init_weights.resolve()} "
+            f"({', '.join(initialization['pretrained_components'])})"
+        )
     args.experiment_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = write_model_manifest(args, args.experiment_dir.resolve())
     policy = train_with_stable_experiment_dir(

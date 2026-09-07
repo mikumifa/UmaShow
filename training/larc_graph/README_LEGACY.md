@@ -90,6 +90,24 @@ uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
 
 默认会随机生成覆盖不同角色、卡组、继承和部分目标上限的开局。固定目标可使用 `--target-speed/--target-stamina/--target-power/--target-guts/--target-wisdom`；只想测不设目标的总分时加 `--no-random-targets`。这是模拟器内“旧模型 vs 内置手写策略”的 A/B，并不等同于真实玩家手养记录；若要比较真人手养，还需要把真人每回合选择或终局记录作为另一份输入数据。
 
+## 5. 用旧版数据热启动 LightZero
+
+旧版 `.pt`/`.onnx` 与 LightZero 架构不同，不能直接作为 LightZero checkpoint。
+旧版 NPZ 中保存的搜索标签可以用于离线蒸馏：
+
+```bash
+env -u LD_LIBRARY_PATH .venv/bin/python \
+  training/larc_graph/pretrain_lightzero_from_legacy.py \
+  "training/larc_graph/data/selfplay-v0/*.npz" \
+  "training/larc_graph/data/selfplay-v1/*.npz" \
+  --output training/larc_graph/checkpoints/lightzero-legacy-init.pth.tar \
+  --epochs 10 --batch-size 512
+```
+
+生成的是 LightZero 专用的初始化权重，不是完整训练断点。在线训练时使用
+`train_lightzero.py --init-weights ...`；完整命令和两种 checkpoint 的区别见
+[README.md](README.md)。
+
 ## 数据协议
 
 固定尺寸在 `schema.py`，当前版本为 `2`。C++ 会同时校验输入输出名称、形状、float32 类型和 ONNX 元数据；任何不匹配都会给出原因并回退到内置推荐。

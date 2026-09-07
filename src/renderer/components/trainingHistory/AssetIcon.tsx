@@ -1,13 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-
-function assetUrl(path: string) {
-  return `asset:///${path
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .split('/')
-    .map(encodeURIComponent)
-    .join('/')}`;
-}
+import assetUrl from 'renderer/utils/assetUrl';
 
 export default function AssetIcon({
   path,

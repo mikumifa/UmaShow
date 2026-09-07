@@ -11,6 +11,7 @@ import {
   type CharStats,
 } from '../../types/gameTypes';
 import { UMDB } from '../utils/umdb';
+import assetUrl from '../utils/assetUrl';
 import {
   formatArcSelectionEffect,
   getArcSelectionEffectIconPath,
@@ -739,13 +740,14 @@ export default function TrainingCard({
                   <div className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-orange-100 text-[10px] shadow-sm transition-transform hover:scale-110">
                     {charaPath ? (
                       <img
-                        src={charaPath}
+                        src={assetUrl(charaPath)}
                         className="h-full w-full object-cover"
                         alt="support card"
                         onError={(event) => {
                           event.currentTarget.onerror = null;
-                          event.currentTarget.src =
-                            partner?.charaPath || fallbackCharaPath;
+                          event.currentTarget.src = assetUrl(
+                            partner?.charaPath || fallbackCharaPath,
+                          );
                         }}
                       />
                     ) : (
