@@ -16,6 +16,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 from easydict import EasyDict
 
 from training.larc_graph.schema import (
+    LEARNED_CHANCE_GRADIENT,
     LIGHTZERO_ACTIONS,
     LIGHTZERO_COMMIT,
     LIGHTZERO_MANIFEST,
@@ -27,7 +28,10 @@ from training.larc_graph.schema import (
 )
 
 
-TOTAL_TURNS = 65
+# The native LightZero environment exposes exactly 60 decision steps per game.
+# Keep both the full-return TD horizon and --games conversion aligned with the
+# observed environment trajectory length.
+TOTAL_TURNS = 60
 RECOMMENDATION_EXECUTABLE = (
     "UmaShowMonteCarloLArc.exe" if os.name == "nt" else "UmaShowMonteCarloLArc"
 )
@@ -113,6 +117,7 @@ def model_manifest(args: argparse.Namespace) -> dict:
         "graphSchema": SCHEMA_VERSION,
         "scenarioId": SCENARIO_ID,
         "scoreScale": SCORE_SCALE,
+        "learnedChanceGradient": LEARNED_CHANCE_GRADIENT,
         "observationFeatures": LIGHTZERO_OBSERVATION,
         "actionSpaceSize": LIGHTZERO_ACTIONS,
         "lightZeroCommit": LIGHTZERO_COMMIT,
@@ -240,6 +245,7 @@ def train_with_stable_experiment_dir(
     train_muzero: object,
     configs: list[EasyDict],
     *,
+    model: object,
     seed: int,
     model_path: str | None,
     max_env_step: int,
@@ -260,6 +266,7 @@ def train_with_stable_experiment_dir(
         return train_muzero(
             configs,
             seed=seed,
+            model=model,
             model_path=model_path,
             max_env_step=max_env_step,
         )
@@ -327,6 +334,9 @@ def main() -> None:
 
     try:
         from lzero.entry import train_muzero
+        from training.larc_graph.lightzero_model import (
+            LArcStochasticMuZeroModelMLP,
+        )
     except Exception as exception:
         raise RuntimeError(
             "LightZero failed to import. Run `uv sync --extra larc-graph` after "
@@ -334,11 +344,13 @@ def main() -> None:
         ) from exception
 
     main_config, create_config = build_config(args)
+    model = LArcStochasticMuZeroModelMLP(**model_config(args))
     args.experiment_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = write_model_manifest(args, args.experiment_dir.resolve())
     policy = train_with_stable_experiment_dir(
         train_muzero,
         [main_config, create_config],
+        model=model,
         seed=args.seed,
         model_path=str(args.resume.resolve()) if args.resume else None,
         max_env_step=args.games * TOTAL_TURNS,

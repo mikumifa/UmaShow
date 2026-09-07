@@ -416,8 +416,15 @@ constexpr int displayedStatusToInternal(int value)
   return value > 1200 ? value * 2 - 1200 : value;
 }
 
+constexpr int internalStatusToDisplayed(int value)
+{
+  return value > 1200 ? 1200 + (value - 1200) / 2 : value;
+}
+
 static_assert(displayedStatusToInternal(1200) == 1200);
 static_assert(displayedStatusToInternal(1600) == 2000);
+static_assert(internalStatusToDisplayed(1200) == 1200);
+static_assert(internalStatusToDisplayed(2000) == 1600);
 
 void applyStatusTargets(Game& game, const json& options)
 {
@@ -689,6 +696,11 @@ RecommendationComputation computeRecommendation(
     }
     catch (const std::exception& exception)
     {
+      if (options.value("requireModel", false))
+      {
+        throw std::runtime_error(
+          std::string("要求使用模型但加载或推理失败：") + exception.what());
+      }
       fallbackReason = std::string("模型不可用，已使用内置推荐逻辑：") +
         exception.what();
     }
@@ -1046,6 +1058,7 @@ json generateSelfplay(const json& request)
 {
   const json options = request.value("options", json::object());
   const int gameCount = boundedInt(options, "gameCount", 1, 1, 16);
+  const bool collectSamples = options.value("collectSamples", true);
   const auto seed = request.value(
     "seed",
     static_cast<std::uint64_t>(std::random_device{}()));
@@ -1082,28 +1095,46 @@ json generateSelfplay(const json& request)
         game,
         playRandom,
         options);
-      samples.push_back(selfplaySampleJson(
-        game,
-        computation,
-        selected.id,
-        gameIndex));
+      if (collectSamples)
+      {
+        samples.push_back(selfplaySampleJson(
+          game,
+          computation,
+          selected.id,
+          gameIndex));
+      }
       game.applyTrainingAndNextTurn(environmentRandom, selected.action);
       ++decisions;
     }
     const int outcomeScore = game.finalScore();
     const int outcomeValue = game.recommendationScore();
-    for (std::size_t sampleIndex = firstSample;
-         sampleIndex < samples.size();
-         ++sampleIndex)
+    if (collectSamples)
     {
-      samples[sampleIndex]["outcomeValue"] = outcomeValue;
-      samples[sampleIndex]["outcomeScore"] = outcomeScore;
+      for (std::size_t sampleIndex = firstSample;
+           sampleIndex < samples.size();
+           ++sampleIndex)
+      {
+        samples[sampleIndex]["outcomeValue"] = outcomeValue;
+        samples[sampleIndex]["outcomeScore"] = outcomeScore;
+      }
     }
+    std::vector<int> finalStatusInternal(
+      game.fiveStatus,
+      game.fiveStatus + 5);
+    std::vector<int> finalStatus;
+    finalStatus.reserve(finalStatusInternal.size());
+    for (const int value : finalStatusInternal)
+      finalStatus.push_back(internalStatusToDisplayed(value));
     opening.metadata["seed"] = gameSeed;
     opening.metadata["decisions"] = decisions;
     opening.metadata["samples"] = samples.size() - firstSample;
     opening.metadata["finalScore"] = outcomeScore;
     opening.metadata["recommendationScore"] = outcomeValue;
+    opening.metadata["finalStatus"] = std::move(finalStatus);
+    opening.metadata["finalStatusInternal"] = std::move(finalStatusInternal);
+    opening.metadata["skillPt"] = game.skillPt;
+    opening.metadata["estimatedSkillScore"] = game.getSkillScore();
+    opening.metadata["isQieZhe"] = game.isQieZhe;
     games.push_back(std::move(opening.metadata));
   }
 
