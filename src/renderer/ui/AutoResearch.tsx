@@ -6791,8 +6791,8 @@ export default function AutoResearch() {
                   </strong>
                 </div>
               ) : (
-                <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                  <div className="flex flex-wrap items-center gap-1 rounded-xl bg-white/70 p-1">
+                <section className="mt-4 rounded-xl bg-slate-50/80 p-2.5">
+                  <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
                     {[
                       {
                         id: 'now' as const,
@@ -6835,59 +6835,63 @@ export default function AutoResearch() {
                               setJewelDropTarget(20);
                             }
                           }}
-                          className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                          className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition ${
                             selected
                               ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-indigo-700 hover:bg-white'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                           }`}
                         >
                           <TimingIcon size={14} />
-                          {timingOption.label}
+                          <span className="text-xs">{timingOption.label}</span>
                         </button>
                       );
                     })}
                   </div>
                   {!repeatDaily && scheduleTiming === 'scheduled' ? (
-                    <label className="mt-3 block text-sm text-indigo-950">
-                      启动日期和时间
+                    <label className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-white/90 px-2.5 py-2 text-xs text-slate-600 shadow-sm ring-1 ring-slate-200/70">
+                      <span className="font-medium">启动日期和时间</span>
                       <input
                         type="datetime-local"
                         value={scheduledStartAt}
                         onChange={(event) =>
                           setScheduledStartAt(event.target.value)
                         }
-                        className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                        className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2.5 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                       />
-                      <span className="mt-1.5 block text-xs leading-5 text-indigo-700">
+                      <span className="text-slate-400">
                         使用北京时间；任务会先提交给服务器，并等待到指定时间再启动。
                       </span>
                     </label>
                   ) : null}
                   {repeatDaily ? (
-                    <div className="mt-3 grid gap-3 border-t border-indigo-100 pt-3 sm:grid-cols-2">
-                      <label className="text-sm text-indigo-950">
-                        每日启动时间
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                      <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                        <span className="whitespace-nowrap text-slate-500">
+                          每日启动
+                        </span>
                         <input
                           type="time"
                           value={scheduleStartTime}
                           onChange={(event) =>
                             setScheduleStartTime(event.target.value)
                           }
-                          className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                          className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                       </label>
-                      <label className="text-sm text-indigo-950">
-                        每日结束时间
+                      <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                        <span className="whitespace-nowrap text-slate-500">
+                          每日结束
+                        </span>
                         <input
                           type="time"
                           value={scheduleEndTime}
                           onChange={(event) =>
                             setScheduleEndTime(event.target.value)
                           }
-                          className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                          className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                       </label>
-                      <p className="text-xs leading-5 text-indigo-700 sm:col-span-2">
+                      <p className="text-slate-400">
                         使用北京时间，支持跨午夜；两者同为 05:00 表示完整的
                         05:00 至次日 04:59 周期。
                       </p>
@@ -6898,7 +6902,9 @@ export default function AutoResearch() {
 
               {runMode === 'count' ? (
                 <RunTargetInput
-                  className="mt-4"
+                  compact
+                  embedded
+                  className="mt-3 w-full"
                   prefix={repeatDaily ? '每天完成' : '从现在起完成'}
                   value={runCountTarget}
                   max={100}
@@ -6914,7 +6920,9 @@ export default function AutoResearch() {
 
               {runMode === 'jewel_drops' ? (
                 <RunTargetInput
-                  className="mt-4"
+                  compact
+                  embedded
+                  className="mt-3 w-full"
                   prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
                   value={jewelDropTarget}
                   max={20}
@@ -6936,9 +6944,9 @@ export default function AutoResearch() {
                   setPendingRun(null);
                 }}
                 disabled={Boolean(busy)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
-                取消
+                <span className="text-xs">取消</span>
               </button>
               <button
                 type="button"
@@ -6950,18 +6958,20 @@ export default function AutoResearch() {
                     scheduleTiming === 'scheduled' &&
                     !scheduledDateTimeIsFuture(scheduledStartAt))
                 }
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
               >
-                <Play size={16} />
-                {busy
-                  ? appendingCareerPlan
-                    ? '正在添加…'
-                    : '正在启动…'
-                  : appendingCareerPlan
-                    ? '添加到后续计划'
-                    : !repeatDaily && scheduleTiming === 'scheduled'
-                      ? '预约启动'
-                      : '开始运行'}
+                <Play size={14} />
+                <span className="text-xs">
+                  {busy
+                    ? appendingCareerPlan
+                      ? '正在添加…'
+                      : '正在启动…'
+                    : appendingCareerPlan
+                      ? '添加到后续计划'
+                      : !repeatDaily && scheduleTiming === 'scheduled'
+                        ? '预约启动'
+                        : '开始运行'}
+                </span>
               </button>
             </div>
           </div>
@@ -7490,14 +7500,7 @@ export default function AutoResearch() {
                     ? '正在连接服务器上的托管任务'
                     : '未登录'}
                 </h2>
-                {missingExistingRuntimeAccountId === selectedAccount?.id ? (
-                  <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
-                    <AlertTriangle size={18} className="mt-0.5 flex-none" />
-                    <span>
-                      登录会接管该账号的游戏会话，可能使正在游戏客户端或其他工具中运行的同账号立即掉线。请确认其他地方已停止操作后再继续。
-                    </span>
-                  </div>
-                ) : null}
+
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <button
                     type="button"
