@@ -45,6 +45,7 @@ import SkillSelector, {
 } from 'renderer/components/autoResearch/SkillSelector';
 import {
   horseIconPath,
+  RentalParentBadge,
   supportIconPath,
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
@@ -796,6 +797,7 @@ export default function AutoResearch() {
     useState<OfflineSingleModeSetup | null>(null);
   const [offlineSetupAccountId, setOfflineSetupAccountId] = useState('');
   const [offlineScenarioId, setOfflineScenarioId] = useState(0);
+  const [offlineRunningStyle, setOfflineRunningStyle] = useState(0);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
   const [offlineFactorSelection, setOfflineFactorSelection] =
     useState<OfflineFactorSelection>(() =>
@@ -3004,6 +3006,7 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(0);
+    setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
   }, [selectedAccountId]);
 
@@ -4916,6 +4919,7 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
+    setOfflineRunningStyle(Number(setting.running_style || 0));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
     setOfflineFactorSelection(factorSelectionFromSetting(setting));
     setOfflinePrioritySkillIds(
@@ -4958,6 +4962,7 @@ export default function AutoResearch() {
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
     setOfflineScenarioId(0);
+    setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
     setOfflinePrioritySkillIds([]);
@@ -5065,6 +5070,8 @@ export default function AutoResearch() {
           : undefined,
       offline_scenario_id:
         careerMode === 'offline' ? offlineScenarioId : undefined,
+      running_style:
+        careerMode === 'offline' ? offlineRunningStyle : undefined,
       max_steps: maxSteps,
       burn_clocks: burnClocks,
       recover_tp_with_item: recoverTpWithItem,
@@ -5294,7 +5301,7 @@ export default function AutoResearch() {
         'idle_single_mode',
         {
           ...selectionRequest,
-          running_style: 0,
+          running_style: offlineRunningStyle,
           career_setting_id: selectedCareerSetting?.id || '',
           career_setting_name: selectedCareerSetting?.name || careerSettingName,
           career_config: selectedCareerSetting || {},
@@ -5380,7 +5387,7 @@ export default function AutoResearch() {
         'idle_single_mode',
         {
           ...selectionRequest,
-          running_style: 0,
+          running_style: Number(setting.running_style || 0),
           career_setting_id: setting.id,
           career_setting_name: setting.name,
           career_config: setting,
@@ -5490,7 +5497,7 @@ export default function AutoResearch() {
         preset_name: resolved.preset_name,
         max_steps: resolved.max_steps,
         burn_clocks: resolved.burn_clocks,
-        running_style: 0,
+        running_style: offline ? Number(resolved.running_style || 0) : 0,
         priority_skill_array: buildOfflinePrioritySkillArray(
           resolved.offline_priority_skill_ids || [],
         ),
@@ -6438,9 +6445,23 @@ export default function AutoResearch() {
 
                         <div className="grid gap-2 sm:grid-cols-2">
                           {[
-                            { label: '继承 1', parent: settingParent1 },
-                            { label: '继承 2', parent: settingParent2 },
-                          ].map(({ label, parent }) => {
+                            {
+                              label: '继承 1',
+                              parent: settingParent1,
+                              rental:
+                                parentViewerIdFromSelection(
+                                  setting.parent_key_1,
+                                ) > 0,
+                            },
+                            {
+                              label: '继承 2',
+                              parent: settingParent2,
+                              rental:
+                                parentViewerIdFromSelection(
+                                  setting.parent_key_2,
+                                ) > 0,
+                            },
+                          ].map(({ label, parent, rental }) => {
                             const parentIconPath = parent
                               ? horseIconPath(
                                   parent.card_id,
@@ -6462,15 +6483,18 @@ export default function AutoResearch() {
                                     />
                                   ) : null}
                                 </span>
-                                <span className="min-w-0">
+                                <span className="min-w-0 flex-1">
                                   <span className="block text-[10px] text-slate-400">
                                     {label}
                                   </span>
-                                  <span
-                                    className="block truncate font-medium text-slate-600"
-                                    title={parent?.name || '未选择'}
-                                  >
-                                    {parent?.name || '未选择'}
+                                  <span className="flex min-w-0 items-center gap-1">
+                                    <span
+                                      className="min-w-0 truncate font-medium text-slate-600"
+                                      title={parent?.name || '未选择'}
+                                    >
+                                      {parent?.name || '未选择'}
+                                    </span>
+                                    {rental ? <RentalParentBadge /> : null}
                                   </span>
                                 </span>
                               </div>
@@ -7597,6 +7621,8 @@ export default function AutoResearch() {
                       setOfflineSetupAccountId('');
                       setOfflineRaceDeckNum(0);
                     }}
+                    offlineRunningStyle={offlineRunningStyle}
+                    setOfflineRunningStyle={setOfflineRunningStyle}
                     offlineRaceDeckNum={offlineRaceDeckNum}
                     setOfflineRaceDeckNum={setOfflineRaceDeckNum}
                     resetOfflineCareer={() => {

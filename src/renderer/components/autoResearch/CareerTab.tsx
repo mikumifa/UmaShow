@@ -28,7 +28,9 @@ import AppSideNotch from '../AppSideNotch';
 import {
   characterIconPath,
   DeckChoiceCard,
+  isRentalParent,
   ParentChoiceCard,
+  RentalParentBadge,
   SupportChoiceCard,
 } from './SelectionCards';
 import { careerSettingModeBadgeClass, scrollToSection } from './shared';
@@ -114,6 +116,8 @@ type CareerTabProps = {
   offlineScenarios: Dashboard['offline_scenarios'];
   offlineScenarioId: number;
   changeOfflineScenario: (scenarioId: number) => void;
+  offlineRunningStyle: number;
+  setOfflineRunningStyle: Dispatch<SetStateAction<number>>;
   offlineRaceDeckNum: number;
   setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
   resetOfflineCareer: () => void;
@@ -277,6 +281,8 @@ export default function CareerTab(props: CareerTabProps) {
     offlineScenarios,
     offlineScenarioId,
     changeOfflineScenario,
+    offlineRunningStyle,
+    setOfflineRunningStyle,
     offlineRaceDeckNum,
     setOfflineRaceDeckNum,
     resetOfflineCareer,
@@ -810,7 +816,7 @@ export default function CareerTab(props: CareerTabProps) {
           <nav className="flex h-10 items-center gap-1 px-2">
             {(careerMode === 'offline'
               ? [
-                  ['career-scenario', '剧本'],
+                  ['career-scenario', '基础'],
                   ['career-uma', '马娘'],
                   ['career-support', '支援卡'],
                   ['offline-career-setup', '赛程'],
@@ -912,44 +918,59 @@ export default function CareerTab(props: CareerTabProps) {
                 id="career-scenario"
                 className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
                     1
                   </span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      选择育成剧本
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      先确定离线育成使用的剧本，再配置马娘、继承与赛程。
-                    </p>
-                  </div>
+                  <h3 className="font-semibold text-gray-800">基础设置</h3>
                 </div>
-                <div className="mt-3 max-w-sm">
-                  <select
-                    value={offlineScenarioId}
-                    disabled={Boolean(busy)}
-                    onChange={(event) =>
-                      changeOfflineScenario(Number(event.target.value))
-                    }
-                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900"
-                  >
-                    <option value={0}>自动选择最新可用剧本</option>
-                    {offlineScenarios.map((scenario) => (
-                      <option key={scenario.id} value={scenario.id}>
-                        {scenario.name}
-                      </option>
-                    ))}
-                  </select>
-                  {offlineSetup ? (
-                    <p className="mt-2 text-xs text-slate-500">
-                      当前主剧本：
-                      <strong className="ml-1 text-slate-800">
-                        {offlineSetup.scenario_name ||
-                          `剧本 ${offlineSetup.scenario_id}`}
-                      </strong>
-                    </p>
-                  ) : null}
+                <div className="mt-3 grid max-w-xl gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-sm">
+                      育成剧本
+                      <select
+                        value={offlineScenarioId}
+                        disabled={Boolean(busy)}
+                        onChange={(event) =>
+                          changeOfflineScenario(Number(event.target.value))
+                        }
+                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+                      >
+                        <option value={0}>自动选择最新可用剧本</option>
+                        {offlineScenarios.map((scenario) => (
+                          <option key={scenario.id} value={scenario.id}>
+                            {scenario.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {offlineSetup ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        当前主剧本：
+                        <strong className="ml-1 text-slate-800">
+                          {offlineSetup.scenario_name ||
+                            `剧本 ${offlineSetup.scenario_id}`}
+                        </strong>
+                      </p>
+                    ) : null}
+                  </div>
+                  <label className="text-sm">
+                    跑法
+                    <select
+                      value={offlineRunningStyle}
+                      disabled={Boolean(busy)}
+                      onChange={(event) =>
+                        setOfflineRunningStyle(Number(event.target.value))
+                      }
+                      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+                    >
+                      <option value={0}>默认（使用马娘初始跑法）</option>
+                      <option value={1}>逃</option>
+                      <option value={2}>先行</option>
+                      <option value={3}>差</option>
+                      <option value={4}>追</option>
+                    </select>
+                  </label>
                 </div>
               </section>
             ) : null}
@@ -1111,6 +1132,7 @@ export default function CareerTab(props: CareerTabProps) {
                             successionG1SaddleIds,
                           )
                         : undefined;
+                      const rental = isRentalParent(selectedParent);
                       return (
                         <SuccessionPickerTrigger
                           key={slotNumber}
@@ -1130,6 +1152,9 @@ export default function CareerTab(props: CareerTabProps) {
                           }
                           placeholder={`请选择继承马娘 ${slotNumber}`}
                           onOpen={() => setParentPickerSlot(slotNumber)}
+                          titleActions={
+                            rental ? <RentalParentBadge /> : undefined
+                          }
                           onClear={
                             selectedParent
                               ? () =>
@@ -1143,8 +1168,8 @@ export default function CareerTab(props: CareerTabProps) {
                             <>
                               <strong>{selectedParent.name}</strong>
                               <small className="mt-1 block text-gray-500">
-                                {selectedParent.source === 'rental'
-                                  ? `借用 · ${selectedParent.owner_name || '未知玩家'}`
+                                {rental
+                                  ? selectedParent.owner_name || '未知玩家'
                                   : '自己的马娘'}
                                 {selectedParent.rank_score
                                   ? ` · 评分 ${selectedParent.rank_score}`

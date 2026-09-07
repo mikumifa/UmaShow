@@ -17,6 +17,28 @@ import {
 } from './successionCompatibility';
 import { Dashboard, FactorInfo, FactorSummary, SupportInfo } from './types';
 
+type RentalParentLike = Pick<
+  Dashboard['parents'][number],
+  'source' | 'viewer_id'
+>;
+
+export function isRentalParent(parent?: RentalParentLike | null) {
+  return Boolean(
+    parent && (parent.source === 'rental' || Number(parent.viewer_id) > 0),
+  );
+}
+
+export function RentalParentBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex flex-none items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-violet-700 ring-1 ring-inset ring-violet-200 ${className}`.trim()}
+      title="借用继承马娘"
+    >
+      借用
+    </span>
+  );
+}
+
 export function horseIconPath(cardId: number, rarity: number, raceClothId = 0) {
   if (!cardId) return undefined;
   const charaId = Number(String(cardId).slice(0, 4));
@@ -193,16 +215,21 @@ export function ParentChoiceCard({
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const iconPath = characterIconPath(parent.card_id);
+  const rental = isRentalParent(parent);
   return (
     <>
       <PlannerLineageCard
         member={{
           key: `self:${parent.instance_id}`,
           name: UMDB.cards[parent.card_id]?.name || parent.name,
-          subtitle:
-            parent.source === 'rental'
-              ? `借用 · ${parent.owner_name || '未知玩家'}`
-              : '自己的马娘',
+          subtitle: rental ? (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <RentalParentBadge />
+              <span className="truncate">{parent.owner_name || '未知玩家'}</span>
+            </span>
+          ) : (
+            '自己的马娘'
+          ),
           portrait: (
             <PlannerPortrait path={iconPath} alt={parent.name} size="large" />
           ),
@@ -249,7 +276,7 @@ export function ParentChoiceCard({
           ariaLabel={`${parent.name}全部因子`}
           title={UMDB.cards[parent.card_id]?.name || parent.name}
           description={`${
-            parent.source === 'rental'
+            rental
               ? `借用 · ${parent.owner_name || '未知玩家'}`
               : '自己的马娘'
           } · 完整因子与父辈`}
@@ -258,7 +285,14 @@ export function ParentChoiceCard({
               key: `self:${parent.instance_id}`,
               label: '本体',
               name: UMDB.cards[parent.card_id]?.name || parent.name,
-              subtitle: parent.name,
+              subtitle: rental ? (
+                <span className="inline-flex min-w-0 items-center gap-1">
+                  <RentalParentBadge />
+                  <span className="truncate">{parent.name}</span>
+                </span>
+              ) : (
+                parent.name
+              ),
               portrait: (
                 <PlannerPortrait
                   path={iconPath}

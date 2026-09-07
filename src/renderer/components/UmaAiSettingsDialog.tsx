@@ -6,9 +6,11 @@ import {
   Bot,
   CheckCircle2,
   Cpu,
+  FolderOpen,
   Gauge,
   RotateCcw,
   Target,
+  Trash2,
   X,
 } from 'lucide-react';
 import {
@@ -65,11 +67,16 @@ export default function UmaAiSettingsDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const { status, settings, saveSettings } = useMonteCarloRecommendation();
+  const { status, settings, saveSettings, result } =
+    useMonteCarloRecommendation();
   const [draft, setDraft] = useState<UmaAiSettings>(settings);
+  const [modelSelectError, setModelSelectError] = useState('');
 
   useEffect(() => {
-    if (open) setDraft(settings);
+    if (open) {
+      setDraft(settings);
+      setModelSelectError('');
+    }
   }, [open, settings]);
 
   useEffect(() => {
@@ -83,7 +90,10 @@ export default function UmaAiSettingsDialog({
 
   if (!open) return null;
 
-  const updateOption = (key: keyof UmaAiOptions, value: number) => {
+  const updateOption = (
+    key: Exclude<keyof UmaAiOptions, 'modelPath'>,
+    value: number,
+  ) => {
     setDraft((current) => ({
       ...current,
       options: { ...current.options, [key]: value },
@@ -92,8 +102,29 @@ export default function UmaAiSettingsDialog({
   const restoreDefaults = () => {
     setDraft((current) => ({
       enabled: current.enabled,
-      options: { ...DEFAULT_UMA_AI_SETTINGS.options },
+      options: {
+        ...DEFAULT_UMA_AI_SETTINGS.options,
+        modelPath: current.options.modelPath,
+      },
     }));
+  };
+  const selectModel = async () => {
+    setModelSelectError('');
+    try {
+      const selected = (await window.electron.monteCarlo.selectModel()) as
+        | string
+        | null;
+      if (selected) {
+        setDraft((current) => ({
+          ...current,
+          options: { ...current.options, modelPath: selected },
+        }));
+      }
+    } catch (reason) {
+      setModelSelectError(
+        reason instanceof Error ? reason.message : String(reason),
+      );
+    }
   };
   const save = () => {
     saveSettings(draft);
@@ -175,6 +206,131 @@ export default function UmaAiSettingsDialog({
                 }`}
               />
             </button>
+          </section>
+
+          <section className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                  <Cpu size={16} className="text-indigo-600" />
+                  凯旋门多回合模型
+                </h3>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                  模型由独立 Python 工程训练。UmaShow
+                  只加载导出的 ONNX 文件，不包含训练环境或训练按钮。
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                  draft.options.modelPath
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {draft.options.modelPath
+                  ? '已选择模型'
+                  : '使用内置推荐逻辑'}
+              </span>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                readOnly
+                value={draft.options.modelPath}
+                placeholder="未选择模型文件"
+                title={draft.options.modelPath || '未选择模型文件'}
+                className="h-9 min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 text-xs text-slate-600 outline-none"
+              />
+              <button
+                type="button"
+                onClick={selectModel}
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-700"
+              >
+                <FolderOpen size={14} /> 选择模型
+              </button>
+              {draft.options.modelPath ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      options: { ...current.options, modelPath: '' },
+                    }))
+                  }
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <Trash2 size={14} /> 清除
+                </button>
+              ) : null}
+            </div>
+            {modelSelectError ? (
+              <p className="mt-2 text-xs font-semibold text-rose-600">
+                {modelSelectError}
+              </p>
+            ) : null}
+            {result?.fallbackReason &&
+            result.modelPath === settings.options.modelPath ? (
+              <p className="mt-2 text-xs font-semibold leading-5 text-amber-700">
+                {result.fallbackReason}
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <NumberField
+                label="搜索节点预算"
+                description="每回合最多进行的随机树搜索次数。默认 384，越高越稳定。"
+                value={draft.options.graphSearchNodes}
+                min={16}
+                max={8192}
+                step={16}
+                onChange={(value) => updateOption('graphSearchNodes', value)}
+              />
+              <NumberField
+                label="规划深度"
+                description="显式向后规划的行动回合数；叶子局面由模型估值。"
+                value={draft.options.graphSearchDepth}
+                min={1}
+                max={16}
+                onChange={(value) => updateOption('graphSearchDepth', value)}
+              />
+              <NumberField
+                label="时间预算（毫秒）"
+                description="达到此时间后停止追加搜索，但至少会检查每个当前合法行动一次。"
+                value={draft.options.graphSearchTimeMs}
+                min={50}
+                max={30000}
+                step={50}
+                onChange={(value) => updateOption('graphSearchTimeMs', value)}
+              />
+              <NumberField
+                label="后续行动分支"
+                description="后续回合按模型先验展开的候选数；当前回合仍完整比较全部行动。"
+                value={draft.options.graphSearchTopK}
+                min={1}
+                max={12}
+                onChange={(value) => updateOption('graphSearchTopK', value)}
+              />
+              <NumberField
+                label="随机结果分支"
+                description="同一行动保留的随机结果上限，用于模拟失败、事件和人物分布。"
+                value={draft.options.graphSearchChanceOutcomes}
+                min={1}
+                max={32}
+                onChange={(value) =>
+                  updateOption('graphSearchChanceOutcomes', value)
+                }
+              />
+              <NumberField
+                label="探索系数"
+                description="控制搜索尝试低访问行动的强度；默认 1.5。"
+                value={draft.options.graphSearchCpuct}
+                min={0}
+                max={20}
+                step={0.1}
+                onChange={(value) => updateOption('graphSearchCpuct', value)}
+              />
+            </div>
           </section>
 
           <section>

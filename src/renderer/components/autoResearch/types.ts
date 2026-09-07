@@ -609,6 +609,7 @@ export type CareerSetting = {
   };
   scenario_id?: number;
   offline_scenario_id?: number;
+  running_style?: number;
   max_steps: number;
   burn_clocks: boolean;
   recover_tp_with_item: boolean;

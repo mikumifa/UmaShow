@@ -1,4 +1,5 @@
 export type MonteCarloOptions = {
+  modelPath?: string;
   seed?: number;
   searchSingleMax?: number;
   searchTotalMax?: number;
@@ -15,6 +16,12 @@ export type MonteCarloOptions = {
   targetPower?: number;
   targetGuts?: number;
   targetWisdom?: number;
+  graphSearchNodes?: number;
+  graphSearchDepth?: number;
+  graphSearchTimeMs?: number;
+  graphSearchTopK?: number;
+  graphSearchChanceOutcomes?: number;
+  graphSearchCpuct?: number;
 };
 
 export type MonteCarloActionResult = {
@@ -48,6 +55,15 @@ export type MonteCarloResult = {
   bestAction?: string;
   bestValue?: number;
   predictedScore?: number;
+  backend?: 'builtin' | 'graph';
+  modelLoaded?: boolean;
+  modelPath?: string;
+  fallbackReason?: string;
+  searchStats?: {
+    simulations: number;
+    nodes: number;
+    elapsedMs: number;
+  };
   actions?: MonteCarloActionResult[];
   options?: MonteCarloOptions;
 };

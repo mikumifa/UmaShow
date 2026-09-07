@@ -25,6 +25,7 @@ export type MonteCarloBridgeStatus = {
 export type UmaAiOptions = Required<
   Pick<
     MonteCarloOptions,
+    | 'modelPath'
     | 'seed'
     | 'searchSingleMax'
     | 'searchTotalMax'
@@ -41,6 +42,12 @@ export type UmaAiOptions = Required<
     | 'targetPower'
     | 'targetGuts'
     | 'targetWisdom'
+    | 'graphSearchNodes'
+    | 'graphSearchDepth'
+    | 'graphSearchTimeMs'
+    | 'graphSearchTopK'
+    | 'graphSearchChanceOutcomes'
+    | 'graphSearchCpuct'
   >
 >;
 
@@ -69,6 +76,7 @@ const SETTINGS_KEY = 'recommendation.settings.v2';
 export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
   options: {
+    modelPath: '',
     seed: 0,
     searchSingleMax: 4096,
     searchTotalMax: 0,
@@ -85,6 +93,12 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
     targetPower: 0,
     targetGuts: 0,
     targetWisdom: 0,
+    graphSearchNodes: 384,
+    graphSearchDepth: 5,
+    graphSearchTimeMs: 900,
+    graphSearchTopK: 4,
+    graphSearchChanceOutcomes: 8,
+    graphSearchCpuct: 1.5,
   },
 };
 
@@ -120,6 +134,8 @@ export const normalizeUmaAiSettings = (
   return {
     enabled: Boolean(value?.enabled),
     options: {
+      modelPath:
+        typeof raw.modelPath === 'string' ? raw.modelPath.trim() : '',
       seed: Math.round(boundedNumber(raw.seed, defaults.seed, 0, 2147483647)),
       searchSingleMax: Math.round(
         boundedNumber(raw.searchSingleMax, defaults.searchSingleMax, 16, 65536),
@@ -165,6 +181,47 @@ export const normalizeUmaAiSettings = (
       ),
       targetWisdom: Math.round(
         boundedNumber(raw.targetWisdom, defaults.targetWisdom, 0, 3000),
+      ),
+      graphSearchNodes: Math.round(
+        boundedNumber(
+          raw.graphSearchNodes,
+          defaults.graphSearchNodes,
+          16,
+          8192,
+        ),
+      ),
+      graphSearchDepth: Math.round(
+        boundedNumber(
+          raw.graphSearchDepth,
+          defaults.graphSearchDepth,
+          1,
+          16,
+        ),
+      ),
+      graphSearchTimeMs: Math.round(
+        boundedNumber(
+          raw.graphSearchTimeMs,
+          defaults.graphSearchTimeMs,
+          50,
+          30000,
+        ),
+      ),
+      graphSearchTopK: Math.round(
+        boundedNumber(raw.graphSearchTopK, defaults.graphSearchTopK, 1, 12),
+      ),
+      graphSearchChanceOutcomes: Math.round(
+        boundedNumber(
+          raw.graphSearchChanceOutcomes,
+          defaults.graphSearchChanceOutcomes,
+          1,
+          32,
+        ),
+      ),
+      graphSearchCpuct: boundedNumber(
+        raw.graphSearchCpuct,
+        defaults.graphSearchCpuct,
+        0,
+        20,
       ),
     },
   };

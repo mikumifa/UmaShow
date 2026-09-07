@@ -563,6 +563,7 @@ describe('MonteCarloState', () => {
 
   it('produces state accepted by UmaShowMonteCarloLArc.exe', async () => {
     if (process.platform !== 'win32') return;
+    const graphModelPath = process.env.UMASHOW_TEST_GRAPH_MODEL;
     const state = buildMonteCarloState(makeLArcPacket({ runId: 92003 }));
     expect(state).not.toBeNull();
 
@@ -609,6 +610,16 @@ describe('MonteCarloState', () => {
                   options: {
                     searchSingleMax: 1,
                     threadNum: 1,
+                    modelPath:
+                      graphModelPath ||
+                      path.join(
+                        process.cwd(),
+                        'missing-recommendation-model.onnx',
+                      ),
+                    graphSearchNodes: 32,
+                    graphSearchDepth: 2,
+                    graphSearchTimeMs: 300,
+                    exportGraphFeatures: true,
                   },
                 })}\n`,
               );
@@ -638,6 +649,19 @@ describe('MonteCarloState', () => {
       ok: true,
       id: 'larc-state-smoke',
       scenarioId: 6,
+      backend: graphModelPath ? 'graph' : 'builtin',
+      modelLoaded: Boolean(graphModelPath),
     });
+    if (graphModelPath) {
+      expect(response.fallbackReason).toBe('');
+    } else {
+      expect(String(response.fallbackReason)).toContain('已使用内置推荐逻辑');
+    }
+    expect(response.graphFeatures).toMatchObject({ schemaVersion: 2 });
+    const graphFeatures = response.graphFeatures as Record<string, unknown>;
+    expect(graphFeatures.globalFeatures).toHaveLength(96);
+    expect(graphFeatures.personFeatures).toHaveLength(18);
+    expect(graphFeatures.trainingFeatures).toHaveLength(5);
+    expect(graphFeatures.actionFeatures).toHaveLength(48);
   }, 40000);
 });

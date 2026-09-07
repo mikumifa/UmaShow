@@ -26,7 +26,12 @@ import SkillSelector, {
   AutoResearchSkill,
   skillIconPath,
 } from './SkillSelector';
-import { characterIconPath, ParentChoiceCard } from './SelectionCards';
+import {
+  characterIconPath,
+  isRentalParent,
+  ParentChoiceCard,
+  RentalParentBadge,
+} from './SelectionCards';
 import {
   Dashboard,
   OfflineFactorSelection,
@@ -502,6 +507,7 @@ export default function OfflineCareerSettings({
   const selectedLineageParent = parents.find(
     (parent) => parent.selection_id === factorSelection.lineage.selection_id,
   );
+  const selectedLineageParentRental = isRentalParent(selectedLineageParent);
   const requiredSpecificLineageBlueStars = specificLineageBlueFactors.length
     ? Math.max(1, specificLineageBlueStars)
     : specificLineageBlueStars;
@@ -1124,6 +1130,11 @@ export default function OfflineCareerSettings({
                       }
                       placeholder="点击选择已有马娘"
                       onOpen={() => setSpecificLineagePickerOpen(true)}
+                      titleActions={
+                        selectedLineageParentRental ? (
+                          <RentalParentBadge />
+                        ) : undefined
+                      }
                       onClear={
                         selectedLineageParent
                           ? () =>
@@ -1140,8 +1151,8 @@ export default function OfflineCareerSettings({
                         <>
                           <strong>{selectedLineageParent.name}</strong>
                           <small className="mt-1 block text-gray-500">
-                            {selectedLineageParent.source === 'rental'
-                              ? `借用 · ${selectedLineageParent.owner_name || '未知玩家'}`
+                            {selectedLineageParentRental
+                              ? selectedLineageParent.owner_name || '未知玩家'
                               : '自己的马娘'}
                             {selectedLineageParent.rank_score
                               ? ` · 评分 ${selectedLineageParent.rank_score}`

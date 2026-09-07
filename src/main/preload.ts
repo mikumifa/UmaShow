@@ -65,6 +65,7 @@ const electronHandler = {
   },
   monteCarlo: {
     status: () => ipcRenderer.invoke('monte-carlo:status'),
+    selectModel: () => ipcRenderer.invoke('monte-carlo:select-model'),
     analyze: (
       state: Record<string, unknown>,
       options?: Record<string, unknown>,

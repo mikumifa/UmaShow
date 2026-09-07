@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
-import { app, IpcMain } from 'electron';
+import { app, dialog, IpcMain } from 'electron';
 import type { MonteCarloOptions, MonteCarloResult } from 'types/monteCarlo';
 import { getLatestMonteCarloState } from './MonteCarloState';
 
@@ -178,6 +178,17 @@ export default function handleMonteCarlo(ipcMain: IpcMain) {
         9: mechaAvailable && databaseAvailable,
       },
     };
+  });
+  ipcMain.handle('monte-carlo:select-model', async () => {
+    const selection = await dialog.showOpenDialog({
+      title: '选择凯旋门推荐模型',
+      properties: ['openFile'],
+      filters: [
+        { name: '推荐模型', extensions: ['onnx'] },
+        { name: '所有文件', extensions: ['*'] },
+      ],
+    });
+    return selection.canceled ? null : selection.filePaths[0] || null;
   });
   ipcMain.handle(
     'monte-carlo:analyze',

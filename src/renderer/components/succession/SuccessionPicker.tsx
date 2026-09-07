@@ -138,7 +138,7 @@ export type SuccessionFactorDetailMember = {
   key: string;
   label: string;
   name: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   portrait: ReactNode;
   factors: SuccessionFactorDetailFactor[];
 };

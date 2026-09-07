@@ -6,6 +6,30 @@ if(NOT WIN32)
   message(FATAL_ERROR "UmaShowMonteCarloLArc currently supports Windows only")
 endif()
 
+set(UMASHOW_ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime Windows x64 package root")
+if(NOT UMASHOW_ONNXRUNTIME_ROOT)
+  message(FATAL_ERROR "UMASHOW_ONNXRUNTIME_ROOT is required")
+endif()
+
+find_path(UMASHOW_ONNXRUNTIME_INCLUDE_DIR
+  onnxruntime_cxx_api.h
+  PATHS "${UMASHOW_ONNXRUNTIME_ROOT}/include"
+  NO_DEFAULT_PATH
+  REQUIRED
+)
+find_library(UMASHOW_ONNXRUNTIME_LIBRARY
+  NAMES onnxruntime
+  PATHS "${UMASHOW_ONNXRUNTIME_ROOT}/lib"
+  NO_DEFAULT_PATH
+  REQUIRED
+)
+find_file(UMASHOW_ONNXRUNTIME_DLL
+  NAMES onnxruntime.dll
+  PATHS "${UMASHOW_ONNXRUNTIME_ROOT}/lib"
+  NO_DEFAULT_PATH
+  REQUIRED
+)
+
 add_executable(UmaShowMonteCarloLArc
   External/mathFunctions.cpp
   External/utils.cpp
@@ -14,6 +38,9 @@ add_executable(UmaShowMonteCarloLArc
   GameDatabase/KnownSupportCards.cpp
   GameDatabase/KnownUmas.cpp
   GameDatabase/UmaData.cpp
+  Graph/GraphFeatures.cpp
+  Graph/GraphModel.cpp
+  Graph/GraphSearch.cpp
   Game/Action.cpp
   Game/Game.cpp
   Game/GamePrint.cpp
@@ -38,7 +65,13 @@ target_compile_definitions(UmaShowMonteCarloLArc PRIVATE
   UNICODE
   _UNICODE
 )
-target_include_directories(UmaShowMonteCarloLArc PRIVATE External)
+target_include_directories(UmaShowMonteCarloLArc PRIVATE
+  External
+  "${UMASHOW_ONNXRUNTIME_INCLUDE_DIR}"
+)
+target_link_libraries(UmaShowMonteCarloLArc PRIVATE
+  "${UMASHOW_ONNXRUNTIME_LIBRARY}"
+)
 
 if(MSVC)
   target_compile_options(UmaShowMonteCarloLArc PRIVATE
@@ -62,4 +95,11 @@ set_target_properties(UmaShowMonteCarloLArc PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY_RELEASE "${UMASHOW_NATIVE_OUTPUT}"
   RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${UMASHOW_NATIVE_OUTPUT}"
   RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${UMASHOW_NATIVE_OUTPUT}"
+)
+
+add_custom_command(TARGET UmaShowMonteCarloLArc POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+    "${UMASHOW_ONNXRUNTIME_DLL}"
+    "${UMASHOW_NATIVE_OUTPUT}/onnxruntime.dll"
+  VERBATIM
 )
