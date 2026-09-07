@@ -1,0 +1,35 @@
+[2026-09-07 19:14:24][muzero_evaluator.py:272][WARNING] 'timestep' key is missing in init_obs[0], assigning value -1
+[2026-09-07 19:14:24][muzero_evaluator.py:272][WARNING] 'timestep' key is missing in init_obs[1], assigning value -1
+[2026-09-07 19:14:24][muzero_evaluator.py:272][WARNING] 'timestep' key is missing in init_obs[2], assigning value -1
+[2026-09-07 19:14:24][muzero_evaluator.py:272][WARNING] 'timestep' key is missing in init_obs[3], assigning value -1
+[2026-09-07 19:14:45][muzero_evaluator.py:393][INFO] [EVALUATOR] env 0 finished episode, final reward: 0.10254000127315521, current episode count: 1
+[2026-09-07 19:14:45][muzero_evaluator.py:393][INFO] [EVALUATOR] env 1 finished episode, final reward: 0.14924000203609467, current episode count: 2
+[2026-09-07 19:14:45][muzero_evaluator.py:393][INFO] [EVALUATOR] env 2 finished episode, final reward: 0.1390399932861328, current episode count: 3
+[2026-09-07 19:14:45][muzero_evaluator.py:393][INFO] [EVALUATOR] env 3 finished episode, final reward: 0.11180000007152557, current episode count: 4
+[2026-09-07 19:14:45][muzero_evaluator.py:459][INFO] 
++-------+------------+---------------------+---------------+---------------+
+| Name  | train_iter | ckpt_name           | episode_count | envstep_count |
++-------+------------+---------------------+---------------+---------------+
+| Value | 0.000000   | iteration_0.pth.tar | 4.000000      | 240.000000    |
++-------+------------+---------------------+---------------+---------------+
++-------+-------------------------+---------------+---------------------+----------------------+
+| Name  | avg_envstep_per_episode | evaluate_time | avg_envstep_per_sec | avg_time_per_episode |
++-------+-------------------------+---------------+---------------------+----------------------+
+| Value | 60.000000               | 20.903711     | 11.481215           | 0.191354             |
++-------+-------------------------+---------------+---------------------+----------------------+
++-------+-------------+------------+------------+------------+
+| Name  | reward_mean | reward_std | reward_max | reward_min |
++-------+-------------+------------+------------+------------+
+| Value | 0.125655    | 0.019116   | 0.149240   | 0.102540   |
++-------+-------------+------------+------------+------------+
++-------+------------------+-----------------+---------------------+-------------------------------------------------------------------------------------+
+| Name  | eval/mean_return | eval/max_return | eval/episode_length | eval_episode_return                                                                 |
++-------+------------------+-----------------+---------------------+-------------------------------------------------------------------------------------+
+| Value | 0.125655         | 0.149240        | 60.000000           | [0.10254000127315521, 0.14924000203609467, 0.1390399932861328, 0.11180000007152557] |
++-------+------------------+-----------------+---------------------+-------------------------------------------------------------------------------------+
++-------+--------------------------+
+| Name  | eval_episode_return_mean |
++-------+--------------------------+
+| Value | 0.125655                 |
++-------+--------------------------+
+

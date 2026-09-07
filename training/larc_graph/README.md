@@ -10,6 +10,10 @@ python training/larc_graph/train_lightzero.py \
   --simulations 128 --batch-size 256
 ```
 
+该环境每回合的合法动作集合都会变化；训练入口会按 LightZero 的
+`varied_action_space` 模式把 MCTS 的合法动作访问分布还原成固定 40 维训练目标。
+日志、配置和 checkpoint 都写入 `training/larc_graph/runs/stochastic-muzero/`。
+
 ```bash
 env -u LD_LIBRARY_PATH .venv/bin/python training/larc_graph/train_lightzero.py \
   --games 100000 \
