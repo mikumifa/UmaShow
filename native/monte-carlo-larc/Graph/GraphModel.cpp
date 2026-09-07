@@ -84,6 +84,12 @@ void validateFinite(const float* values, std::size_t count, const char* name)
 
 struct GraphModel::Impl
 {
+  enum class Family
+  {
+    SparseGraph,
+    StochasticMuZero,
+  };
+
   explicit Impl(const std::filesystem::path& modelPath)
     : path(modelPath), session(nullptr)
   {
@@ -96,21 +102,53 @@ struct GraphModel::Impl
     options.SetInterOpNumThreads(1);
     session = Ort::Session(environment(), path.c_str(), options);
 
-    if (session.GetInputCount() != 7 || session.GetOutputCount() != 5)
-      throw std::runtime_error("模型输入输出数量不符合推荐模型协议");
-
-    validateTensorShape(session, true, 0, kInputGlobal, {-1, kGlobalFeatures});
-    validateTensorShape(session, true, 1, kInputPersons, {-1, kMaxPersons, kPersonFeatures});
-    validateTensorShape(session, true, 2, kInputTraining, {-1, kTrainingCount, kTrainingFeatures});
-    validateTensorShape(session, true, 3, kInputPlacement, {-1, kTrainingCount, kMaxPersons});
-    validateTensorShape(session, true, 4, kInputActions, {-1, kMaxActions, kActionFeatures});
-    validateTensorShape(session, true, 5, kInputPersonMask, {-1, kMaxPersons});
-    validateTensorShape(session, true, 6, kInputActionMask, {-1, kMaxActions});
-    validateTensorShape(session, false, 0, kOutputPolicy, {-1, kMaxActions});
-    validateTensorShape(session, false, 1, kOutputQ, {-1, kMaxActions, kQuantiles});
-    validateTensorShape(session, false, 2, kOutputActionScore, {-1, kMaxActions, kQuantiles});
-    validateTensorShape(session, false, 3, kOutputValue, {-1, kQuantiles});
-    validateTensorShape(session, false, 4, kOutputStateScore, {-1, kQuantiles});
+    const std::string modelFamily = metadataValue(session, "umashow.model_family");
+    if (modelFamily == kStochasticModelFamily)
+    {
+      family = Family::StochasticMuZero;
+      if (session.GetInputCount() != 1 || session.GetOutputCount() != 2)
+        throw std::runtime_error("多回合模型输入输出数量不符合推荐模型协议");
+      validateTensorShape(
+        session,
+        true,
+        0,
+        kInputStochasticObservation,
+        {-1, kStochasticObservationFeatures});
+      validateTensorShape(
+        session,
+        false,
+        0,
+        kOutputPolicy,
+        {-1, kStochasticActionSpace});
+      validateTensorShape(
+        session,
+        false,
+        1,
+        kOutputStochasticValue,
+        {-1, 1});
+    }
+    else if (modelFamily.empty() || modelFamily == kSparseGraphModelFamily)
+    {
+      family = Family::SparseGraph;
+      if (session.GetInputCount() != 7 || session.GetOutputCount() != 5)
+        throw std::runtime_error("模型输入输出数量不符合推荐模型协议");
+      validateTensorShape(session, true, 0, kInputGlobal, {-1, kGlobalFeatures});
+      validateTensorShape(session, true, 1, kInputPersons, {-1, kMaxPersons, kPersonFeatures});
+      validateTensorShape(session, true, 2, kInputTraining, {-1, kTrainingCount, kTrainingFeatures});
+      validateTensorShape(session, true, 3, kInputPlacement, {-1, kTrainingCount, kMaxPersons});
+      validateTensorShape(session, true, 4, kInputActions, {-1, kMaxActions, kActionFeatures});
+      validateTensorShape(session, true, 5, kInputPersonMask, {-1, kMaxPersons});
+      validateTensorShape(session, true, 6, kInputActionMask, {-1, kMaxActions});
+      validateTensorShape(session, false, 0, kOutputPolicy, {-1, kMaxActions});
+      validateTensorShape(session, false, 1, kOutputQ, {-1, kMaxActions, kQuantiles});
+      validateTensorShape(session, false, 2, kOutputActionScore, {-1, kMaxActions, kQuantiles});
+      validateTensorShape(session, false, 3, kOutputValue, {-1, kQuantiles});
+      validateTensorShape(session, false, 4, kOutputStateScore, {-1, kQuantiles});
+    }
+    else
+    {
+      throw std::runtime_error("无法识别选择的推荐模型类型");
+    }
 
     const std::string schema = metadataValue(session, "umashow.graph_schema");
     if (schema != std::to_string(kSchemaVersion))
@@ -125,6 +163,7 @@ struct GraphModel::Impl
   std::filesystem::path path;
   Ort::SessionOptions options;
   Ort::Session session;
+  Family family = Family::SparseGraph;
 };
 
 GraphModel::GraphModel(const std::filesystem::path& path)
@@ -143,6 +182,105 @@ const std::filesystem::path& GraphModel::path() const
 
 GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
 {
+  if (impl_->family == Impl::Family::StochasticMuZero)
+  {
+    std::array<float, kStochasticObservationFeatures> observation {};
+    auto destination = observation.begin();
+    destination = std::copy(
+      features.global.begin(),
+      features.global.end(),
+      destination);
+    destination = std::copy(
+      features.persons.begin(),
+      features.persons.end(),
+      destination);
+    destination = std::copy(
+      features.training.begin(),
+      features.training.end(),
+      destination);
+    std::copy(
+      features.placement.begin(),
+      features.placement.end(),
+      destination);
+
+    constexpr std::array<const char*, 1> inputNames = {
+      kInputStochasticObservation,
+    };
+    constexpr std::array<const char*, 2> outputNames = {
+      kOutputPolicy,
+      kOutputStochasticValue,
+    };
+    constexpr std::array<int64_t, 2> observationShape = {
+      1,
+      kStochasticObservationFeatures,
+    };
+    auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    std::array<Ort::Value, 1> inputs = {
+      Ort::Value::CreateTensor<float>(
+        memory,
+        observation.data(),
+        observation.size(),
+        observationShape.data(),
+        observationShape.size()),
+    };
+    auto outputs = impl_->session.Run(
+      Ort::RunOptions {nullptr},
+      inputNames.data(),
+      inputs.data(),
+      inputs.size(),
+      outputNames.data(),
+      outputNames.size());
+    const float* policy = outputs[0].GetTensorData<float>();
+    const float* value = outputs[1].GetTensorData<float>();
+    validateFinite(policy, kStochasticActionSpace, kOutputPolicy);
+    validateFinite(value, 1, kOutputStochasticValue);
+
+    GraphPrediction result;
+    result.valueIsRemainingReturn = true;
+    result.priors.resize(features.actionCount);
+    result.actionValues.resize(features.actionCount);
+    result.actionScores.resize(features.actionCount);
+    if (features.actionCount > 0)
+    {
+      float maximum = -std::numeric_limits<float>::infinity();
+      for (int action = 0; action < features.actionCount; ++action)
+      {
+        const int actionId = features.actionIds[action];
+        if (actionId < 0 || actionId >= kStochasticActionSpace)
+          throw std::runtime_error("当前合法行动超出多回合模型的行动空间");
+        maximum = std::max(maximum, policy[actionId]);
+      }
+      double total = 0.0;
+      for (int action = 0; action < features.actionCount; ++action)
+      {
+        const int actionId = features.actionIds[action];
+        result.priors[action] = std::exp(
+          std::clamp<double>(policy[actionId] - maximum, -80.0, 0.0));
+        total += result.priors[action];
+      }
+      if (!std::isfinite(total) || total <= 0.0)
+      {
+        const double uniform = 1.0 / features.actionCount;
+        std::fill(result.priors.begin(), result.priors.end(), uniform);
+      }
+      else
+      {
+        for (double& prior : result.priors)
+          prior /= total;
+      }
+    }
+
+    const double remainingReturn = value[0] * kScoreScale;
+    result.stateValue.values.fill(remainingReturn);
+    result.stateScore.values.fill(remainingReturn);
+    for (int action = 0; action < features.actionCount; ++action)
+    {
+      result.actionValues[action].values.fill(remainingReturn);
+      result.actionScores[action].values.fill(remainingReturn);
+    }
+    return result;
+  }
+
   constexpr std::array<const char*, 7> inputNames = {
     kInputGlobal,
     kInputPersons,

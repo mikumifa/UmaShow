@@ -21,6 +21,7 @@ struct GraphPrediction
   std::vector<QuantileDistribution> actionScores;
   QuantileDistribution stateValue;
   QuantileDistribution stateScore;
+  bool valueIsRemainingReturn = false;
 };
 
 struct DistributionSummary

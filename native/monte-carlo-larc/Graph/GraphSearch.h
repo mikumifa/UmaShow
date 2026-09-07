@@ -18,6 +18,8 @@ struct GraphSearchConfig
   int maxChanceOutcomes = 8;
   double cpuct = 1.5;
   double radicalFactor = 3.0;
+  double rootDirichletAlpha = 0.0;
+  double rootNoiseFraction = 0.0;
 };
 
 struct GraphSearchActionResult

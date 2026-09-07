@@ -37,6 +37,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--message-layers", type=int, default=2)
     parser.add_argument("--attention-heads", type=int, default=4)
     parser.add_argument("--dropout", type=float, default=0.05)
+    parser.add_argument("--init-checkpoint", type=Path)
+    parser.add_argument("--training-round", type=int, default=-1)
     return parser.parse_args()
 
 
@@ -174,13 +176,24 @@ def main() -> None:
         pin_memory=pin_memory,
     )
 
-    config = ModelConfig(
-        hidden_dim=args.hidden_dim,
-        message_layers=args.message_layers,
-        attention_heads=args.attention_heads,
-        dropout=args.dropout,
-    )
+    initial_checkpoint: dict[str, object] | None = None
+    if args.init_checkpoint is not None:
+        initial_checkpoint = torch.load(
+            args.init_checkpoint, map_location="cpu", weights_only=False
+        )
+        if int(initial_checkpoint.get("schema_version", -1)) != SCHEMA_VERSION:
+            raise ValueError("initial checkpoint schema does not match this trainer")
+        config = ModelConfig(**initial_checkpoint["model_config"])
+    else:
+        config = ModelConfig(
+            hidden_dim=args.hidden_dim,
+            message_layers=args.message_layers,
+            attention_heads=args.attention_heads,
+            dropout=args.dropout,
+        )
     model = LArcGraphNetwork(config).to(device)
+    if initial_checkpoint is not None:
+        model.load_state_dict(initial_checkpoint["model_state"])
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
@@ -197,6 +210,9 @@ def main() -> None:
                 "validation": validation_count,
                 "parameters": model.parameter_count(),
                 "device": str(device),
+                "initializedFrom": str(args.init_checkpoint.resolve())
+                if args.init_checkpoint
+                else None,
             },
             ensure_ascii=False,
         )
@@ -233,8 +249,13 @@ def main() -> None:
                     "schema_version": SCHEMA_VERSION,
                     "model_config": config.to_dict(),
                     "model_state": model.state_dict(),
+                    "optimizer_state": optimizer.state_dict(),
                     "epoch": epoch,
                     "validation_loss": validation,
+                    "training_round": args.training_round,
+                    "parent_checkpoint": str(args.init_checkpoint.resolve())
+                    if args.init_checkpoint
+                    else None,
                 },
                 args.output,
             )

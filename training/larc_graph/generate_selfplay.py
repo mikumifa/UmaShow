@@ -58,11 +58,26 @@ def parse_args() -> argparse.Namespace:
         help="threads used inside each simulated game",
     )
     parser.add_argument("--policy-temperature", type=float, default=80.0)
-    parser.add_argument("--play-temperature", type=float, default=120.0)
-    parser.add_argument("--play-exploration", type=float, default=0.08)
+    parser.add_argument("--teacher-play-temperature", type=float, default=120.0)
+    parser.add_argument("--visit-temperature", type=float, default=1.0)
+    parser.add_argument("--visit-temperature-drop-turn", type=int, default=40)
+    parser.add_argument("--visit-temperature-after", type=float, default=0.15)
+    parser.add_argument("--play-exploration", type=float, default=0.0)
+    parser.add_argument("--search-depth", type=int, default=5)
+    parser.add_argument("--search-time-ms", type=int, default=30_000)
+    parser.add_argument("--search-top-k", type=int, default=4)
+    parser.add_argument("--chance-outcomes", type=int, default=8)
+    parser.add_argument("--cpuct", type=float, default=1.5)
+    parser.add_argument("--root-dirichlet-alpha", type=float, default=0.3)
+    parser.add_argument("--root-noise-fraction", type=float, default=0.25)
     parser.add_argument("--radical-factor", type=float, default=3.0)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--model-path", type=Path)
+    parser.add_argument(
+        "--allow-model-fallback",
+        action="store_true",
+        help="keep samples even if a requested model could not be loaded",
+    )
     parser.add_argument("--no-random-targets", action="store_true")
     parser.add_argument(
         "--executable",
@@ -216,9 +231,20 @@ def main() -> None:
 
     options: dict[str, Any] = {
         "searchSingleMax": args.searches,
+        "graphSearchNodes": args.searches,
+        "graphSearchDepth": args.search_depth,
+        "graphSearchTimeMs": args.search_time_ms,
+        "graphSearchTopK": args.search_top_k,
+        "graphSearchChanceOutcomes": args.chance_outcomes,
+        "graphSearchCpuct": args.cpuct,
+        "rootDirichletAlpha": args.root_dirichlet_alpha,
+        "rootNoiseFraction": args.root_noise_fraction,
         "threadNum": args.threads,
         "radicalFactor": args.radical_factor,
-        "playTemperature": args.play_temperature,
+        "playTemperature": args.teacher_play_temperature,
+        "visitTemperature": args.visit_temperature,
+        "visitTemperatureDropTurn": args.visit_temperature_drop_turn,
+        "visitTemperatureAfter": args.visit_temperature_after,
         "playExploration": args.play_exploration,
         "randomizeTargets": not args.no_random_targets,
     }
@@ -262,6 +288,12 @@ def main() -> None:
                     raise RuntimeError(
                         "self-play returned an unexpected number of games"
                     )
+                fallback_count = int(response.get("fallbackCount", 0))
+                if args.model_path and fallback_count and not args.allow_model_fallback:
+                    raise RuntimeError(
+                        "the requested model fell back to the built-in policy; "
+                        "fix model loading before generating AlphaZero samples"
+                    )
 
                 response_samples = response.get("samples")
                 if not isinstance(response_samples, list) or not response_samples:
@@ -294,7 +326,7 @@ def main() -> None:
                             "workers": worker_count,
                             "threadsPerGame": args.threads,
                             "latestFinalScores": final_scores,
-                            "fallbacks": int(response.get("fallbackCount", 0)),
+                            "fallbacks": fallback_count,
                         },
                         ensure_ascii=False,
                     )

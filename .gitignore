@@ -35,3 +35,5 @@ debug_packets
 # Offline graph-model training outputs
 training/larc_graph/data/
 training/larc_graph/checkpoints/
+training/larc_graph/models/
+training/larc_graph/runs/

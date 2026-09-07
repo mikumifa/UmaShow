@@ -125,29 +125,42 @@ def targets(response: dict[str, Any], temperature: float) -> dict[str, np.ndarra
     index_by_id = {action_id: index for index, action_id in enumerate(action_ids)}
     q_target = np.full(MAX_ACTIONS, np.nan, dtype=np.float32)
     score_target = np.full(MAX_ACTIONS, np.nan, dtype=np.float32)
+    visit_target = np.zeros(MAX_ACTIONS, dtype=np.float32)
     for action in response["actions"]:
         index = index_by_id.get(int(action["id"]))
         if index is None:
             continue
         q_target[index] = float(action["value"])
         score_target[index] = float(action["scoreMean"])
+        visit_target[index] = max(0.0, float(action.get("searches", 0)))
 
     legal = np.isfinite(q_target)
     policy_target = np.zeros(MAX_ACTIONS, dtype=np.float32)
-    if legal.any():
+    use_visits = (
+        response.get("policyTargetType") == "root-visits"
+        and visit_target[legal].sum() > 0
+    )
+    if use_visits:
+        policy_target[legal] = visit_target[legal] / visit_target[legal].sum()
+    elif legal.any():
         logits = (q_target[legal] - np.nanmax(q_target)) / max(1e-3, temperature)
         logits = np.clip(logits, -80.0, 0.0)
         probabilities = np.exp(logits)
         probabilities /= probabilities.sum()
         policy_target[legal] = probabilities
+
+    outcome_value = float(response.get("outcomeValue", response["bestValue"]))
+    outcome_score = float(response.get("outcomeScore", response["predictedScore"]))
+    played_index = index_by_id.get(int(response.get("playedActionId", -1)))
+    if played_index is not None:
+        q_target[played_index] = outcome_value
+        score_target[played_index] = outcome_score
     return {
         "policy_target": policy_target,
         "q_target": q_target,
         "action_score_target": score_target,
-        "value_target": np.asarray(float(response["bestValue"]), dtype=np.float32),
-        "state_score_target": np.asarray(
-            float(response["predictedScore"]), dtype=np.float32
-        ),
+        "value_target": np.asarray(outcome_value, dtype=np.float32),
+        "state_score_target": np.asarray(outcome_score, dtype=np.float32),
     }
 
 

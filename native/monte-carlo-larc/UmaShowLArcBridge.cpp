@@ -1,11 +1,13 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <random>
 #include <string>
 #include <unordered_set>
@@ -84,6 +86,14 @@ bool randomChance(std::mt19937_64& random, double probability)
 {
   return std::generate_canonical<double, 53>(random) <
     std::clamp(probability, 0.0, 1.0);
+}
+
+std::uint64_t mixedSeed(std::uint64_t value)
+{
+  value += 0x9e3779b97f4a7c15ULL;
+  value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+  value = (value ^ (value >> 27U)) * 0x94d049bb133111ebULL;
+  return value ^ (value >> 31U);
 }
 
 struct SelfplayCardPools
@@ -604,6 +614,14 @@ RecommendationComputation runGraphRecommendation(
     0.0,
     20.0);
   config.radicalFactor = radicalFactor;
+  config.rootDirichletAlpha = std::clamp(
+    options.value("rootDirichletAlpha", 0.0),
+    0.0,
+    100.0);
+  config.rootNoiseFraction = std::clamp(
+    options.value("rootNoiseFraction", 0.0),
+    0.0,
+    1.0);
 
   umashow::graph::GraphSearch search(model, config);
   const auto searchResult = search.run(game, random);
@@ -766,6 +784,139 @@ json graphFeaturesJson(
   };
 }
 
+constexpr int kLightZeroActionSpace = 40;
+
+std::vector<float> lightZeroObservation(
+  const umashow::graph::GraphFeatures& features)
+{
+  std::vector<float> observation;
+  observation.reserve(
+    umashow::graph::kGlobalFeatures +
+    umashow::graph::kMaxPersons * umashow::graph::kPersonFeatures +
+    umashow::graph::kTrainingCount * umashow::graph::kTrainingFeatures +
+    umashow::graph::kTrainingCount * umashow::graph::kMaxPersons);
+  observation.insert(
+    observation.end(),
+    features.global.begin(),
+    features.global.end());
+  observation.insert(
+    observation.end(),
+    features.persons.begin(),
+    features.persons.end());
+  observation.insert(
+    observation.end(),
+    features.training.begin(),
+    features.training.end());
+  observation.insert(
+    observation.end(),
+    features.placement.begin(),
+    features.placement.end());
+  return observation;
+}
+
+class LightZeroEnvironmentSession
+{
+public:
+  json reset(const json& request)
+  {
+    const json options = request.value("options", json::object());
+    const auto seed = request.value(
+      "seed",
+      static_cast<std::uint64_t>(std::random_device{}()));
+    const std::uint64_t episodeSeed = mixedSeed(seed);
+    std::mt19937_64 openingRandom(
+      mixedSeed(episodeSeed ^ 0x243f6a8885a308d3ULL));
+    environmentRandom_.seed(
+      mixedSeed(episodeSeed ^ 0x082efa98ec4e6c89ULL));
+    if (!cardPools_)
+      cardPools_ = buildSelfplayCardPools();
+    auto opening = randomSelfplayOpening(openingRandom, *cardPools_, options);
+    game_ = std::move(opening.game);
+    opening.metadata["seed"] = episodeSeed;
+    openingMetadata_ = std::move(opening.metadata);
+    episodeReturn_ = 0.0;
+    active_ = true;
+    json response = stateResponse(0.0);
+    response["opening"] = openingMetadata_;
+    return response;
+  }
+
+  json step(const json& request)
+  {
+    if (!active_)
+      throw std::runtime_error("训练环境尚未 reset");
+    if (game_.isEnd())
+      throw std::runtime_error("训练环境已经结束");
+
+    const int requestedAction = request.at("action").get<int>();
+    const auto legalActions = umashow::graph::enumerateLegalActions(game_);
+    const auto selected = std::find_if(
+      legalActions.begin(),
+      legalActions.end(),
+      [requestedAction](const umashow::graph::GraphAction& action) {
+        return action.id == requestedAction;
+      });
+    if (selected == legalActions.end())
+      throw std::runtime_error("训练环境收到了非法行动");
+
+    const int previousValue = game_.recommendationScore();
+    const std::string selectedLabel = actionLabel(selected->action, game_);
+    game_.applyTrainingAndNextTurn(environmentRandom_, selected->action);
+    const int currentValue = game_.recommendationScore();
+    const double reward = static_cast<double>(currentValue - previousValue) /
+      umashow::graph::kScoreScale;
+    episodeReturn_ += reward;
+
+    json response = stateResponse(reward);
+    response["action"] = requestedAction;
+    response["actionLabel"] = selectedLabel;
+    return response;
+  }
+
+private:
+  json stateResponse(double reward) const
+  {
+    const bool done = game_.isEnd();
+    const auto legalActions = done
+      ? std::vector<umashow::graph::GraphAction> {}
+      : umashow::graph::enumerateLegalActions(game_);
+    const auto features = umashow::graph::buildGraphFeatures(game_, legalActions);
+    std::vector<int> actionMask(kLightZeroActionSpace, 0);
+    std::vector<int> actionIds;
+    actionIds.reserve(legalActions.size());
+    for (const auto& action : legalActions)
+    {
+      if (action.id < 0 || action.id >= kLightZeroActionSpace)
+        throw std::runtime_error("训练环境行动编号超出协议范围");
+      actionMask[action.id] = 1;
+      actionIds.push_back(action.id);
+    }
+    return {
+      {"ok", true},
+      {"type", "environment"},
+      {"scenarioId", 6},
+      {"turn", game_.turn},
+      {"observation", lightZeroObservation(features)},
+      {"actionMask", actionMask},
+      {"actionIds", actionIds},
+      {"toPlay", -1},
+      {"reward", reward},
+      {"episodeReturn", episodeReturn_},
+      {"done", done},
+      {"recommendationScore", game_.recommendationScore()},
+      {"finalScore", game_.finalScore()},
+      {"scoreScale", umashow::graph::kScoreScale},
+    };
+  }
+
+  std::optional<SelfplayCardPools> cardPools_;
+  Game game_;
+  std::mt19937_64 environmentRandom_;
+  json openingMetadata_;
+  double episodeReturn_ = 0.0;
+  bool active_ = false;
+};
+
 const ActionEvaluation& selectSelfplayAction(
   const RecommendationComputation& computation,
   const Game& game,
@@ -780,6 +931,51 @@ const ActionEvaluation& selectSelfplayAction(
     1.0);
   if (randomChance(random, explorationRate))
     return computation.actions[random() % computation.actions.size()];
+
+  if (computation.backend == "graph")
+  {
+    const int temperatureDropTurn = boundedInt(
+      options,
+      "visitTemperatureDropTurn",
+      40,
+      0,
+      TOTAL_TURN + 1);
+    const double temperature = std::max(
+      0.0,
+      game.turn < temperatureDropTurn
+        ? options.value("visitTemperature", 1.0)
+        : options.value("visitTemperatureAfter", 0.15));
+    if (temperature <= 1e-9)
+    {
+      return *std::max_element(
+        computation.actions.begin(),
+        computation.actions.end(),
+        [](const ActionEvaluation& left, const ActionEvaluation& right) {
+          if (left.searches != right.searches)
+            return left.searches < right.searches;
+          return left.value < right.value;
+        });
+    }
+
+    int maximumVisits = 1;
+    for (const auto& action : computation.actions)
+      maximumVisits = std::max(maximumVisits, action.searches);
+    std::vector<double> weights;
+    weights.reserve(computation.actions.size());
+    for (const auto& action : computation.actions)
+    {
+      const double logWeight = std::clamp(
+        (std::log(std::max(1, action.searches)) - std::log(maximumVisits)) /
+          temperature,
+        -60.0,
+        0.0);
+      weights.push_back(std::exp(logWeight));
+    }
+    std::discrete_distribution<std::size_t> selection(
+      weights.begin(),
+      weights.end());
+    return computation.actions[selection(random)];
+  }
 
   const double baseTemperature = std::max(
     0.0,
@@ -836,6 +1032,9 @@ json selfplaySampleJson(
     {"bestValue", computation.bestValue},
     {"predictedScore", computation.predictedScore},
     {"backend", computation.backend},
+    {"policyTargetType", computation.backend == "graph"
+      ? "root-visits"
+      : "teacher-values"},
     {"actions", recommendationActionsJson(computation, game)},
     {"graphFeatures", graphFeaturesJson(
       umashow::graph::buildGraphFeatures(game, legalActions),
@@ -847,8 +1046,9 @@ json generateSelfplay(const json& request)
 {
   const json options = request.value("options", json::object());
   const int gameCount = boundedInt(options, "gameCount", 1, 1, 16);
-  const auto seed = request.value("seed", std::random_device{}());
-  std::mt19937_64 random(seed);
+  const auto seed = request.value(
+    "seed",
+    static_cast<std::uint64_t>(std::random_device{}()));
   const auto cardPools = buildSelfplayCardPools();
   json samples = json::array();
   json games = json::array();
@@ -856,7 +1056,12 @@ json generateSelfplay(const json& request)
 
   for (int gameIndex = 0; gameIndex < gameCount; ++gameIndex)
   {
-    auto opening = randomSelfplayOpening(random, cardPools, options);
+    const std::uint64_t gameSeed = mixedSeed(seed + gameIndex);
+    std::mt19937_64 openingRandom(mixedSeed(gameSeed ^ 0x243f6a8885a308d3ULL));
+    std::mt19937_64 searchRandom(mixedSeed(gameSeed ^ 0x13198a2e03707344ULL));
+    std::mt19937_64 playRandom(mixedSeed(gameSeed ^ 0xa4093822299f31d0ULL));
+    std::mt19937_64 environmentRandom(mixedSeed(gameSeed ^ 0x082efa98ec4e6c89ULL));
+    auto opening = randomSelfplayOpening(openingRandom, cardPools, options);
     Game game = std::move(opening.game);
     const std::size_t firstSample = samples.size();
     int decisions = 0;
@@ -867,7 +1072,7 @@ json generateSelfplay(const json& request)
       std::string fallbackReason;
       const auto computation = computeRecommendation(
         game,
-        random,
+        searchRandom,
         options,
         fallbackReason);
       if (!fallbackReason.empty())
@@ -875,20 +1080,30 @@ json generateSelfplay(const json& request)
       const auto& selected = selectSelfplayAction(
         computation,
         game,
-        random,
+        playRandom,
         options);
       samples.push_back(selfplaySampleJson(
         game,
         computation,
         selected.id,
         gameIndex));
-      game.applyTrainingAndNextTurn(random, selected.action);
+      game.applyTrainingAndNextTurn(environmentRandom, selected.action);
       ++decisions;
     }
+    const int outcomeScore = game.finalScore();
+    const int outcomeValue = game.recommendationScore();
+    for (std::size_t sampleIndex = firstSample;
+         sampleIndex < samples.size();
+         ++sampleIndex)
+    {
+      samples[sampleIndex]["outcomeValue"] = outcomeValue;
+      samples[sampleIndex]["outcomeScore"] = outcomeScore;
+    }
+    opening.metadata["seed"] = gameSeed;
     opening.metadata["decisions"] = decisions;
     opening.metadata["samples"] = samples.size() - firstSample;
-    opening.metadata["finalScore"] = game.finalScore();
-    opening.metadata["recommendationScore"] = game.recommendationScore();
+    opening.metadata["finalScore"] = outcomeScore;
+    opening.metadata["recommendationScore"] = outcomeValue;
     games.push_back(std::move(opening.metadata));
   }
 
@@ -983,13 +1198,19 @@ json analyze(const json& request)
   return response;
 }
 
-json handleRequest(const json& request)
+json handleRequest(
+  const json& request,
+  LightZeroEnvironmentSession& trainingEnvironment)
 {
   const std::string command = request.value("command", "analyze");
   if (command == "analyze")
     return analyze(request);
   if (command == "selfplay")
     return generateSelfplay(request);
+  if (command == "env-reset")
+    return trainingEnvironment.reset(request);
+  if (command == "env-step")
+    return trainingEnvironment.step(request);
   throw std::runtime_error("未知的推荐组件命令: " + command);
 }
 
@@ -1017,6 +1238,7 @@ int main(int argc, char** argv)
     return 1;
   }
 
+  LightZeroEnvironmentSession trainingEnvironment;
   std::string line;
   while (std::getline(std::cin, line))
   {
@@ -1025,7 +1247,9 @@ int main(int argc, char** argv)
     json response;
     try
     {
-      response = handleRequest(json::parse(line, nullptr, true, true));
+      response = handleRequest(
+        json::parse(line, nullptr, true, true),
+        trainingEnvironment);
     }
     catch (const std::exception& error)
     {

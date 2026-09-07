@@ -90,6 +90,13 @@ struct SearchContext
 
     node.stateValue = summarizeDistribution(prediction.stateValue, radicalFactor);
     node.stateScore = summarizeDistribution(prediction.stateScore, 0.0);
+    if (prediction.valueIsRemainingReturn)
+    {
+      node.stateValue.mean += node.game.recommendationScore();
+      node.stateValue.riskAdjusted += node.game.recommendationScore();
+      node.stateScore.mean += node.game.finalScore();
+      node.stateScore.riskAdjusted += node.game.finalScore();
+    }
     node.edges.reserve(actions.size());
     for (std::size_t index = 0; index < actions.size(); ++index)
     {
@@ -100,6 +107,13 @@ struct SearchContext
         prediction.actionValues[index],
         radicalFactor);
       edge.initialScore = summarizeDistribution(prediction.actionScores[index], 0.0);
+      if (prediction.valueIsRemainingReturn)
+      {
+        edge.initialValue.mean += node.game.recommendationScore();
+        edge.initialValue.riskAdjusted += node.game.recommendationScore();
+        edge.initialScore.mean += node.game.finalScore();
+        edge.initialScore.riskAdjusted += node.game.finalScore();
+      }
       node.edges.push_back(std::move(edge));
     }
 
@@ -225,6 +239,14 @@ GraphSearch::GraphSearch(GraphModel& model, GraphSearchConfig config)
   config_.maxChanceOutcomes = std::clamp(config_.maxChanceOutcomes, 1, 32);
   config_.cpuct = std::clamp(config_.cpuct, 0.0, 20.0);
   config_.radicalFactor = std::clamp(config_.radicalFactor, 0.0, 20.0);
+  config_.rootDirichletAlpha = std::clamp(
+    config_.rootDirichletAlpha,
+    0.0,
+    100.0);
+  config_.rootNoiseFraction = std::clamp(
+    config_.rootNoiseFraction,
+    0.0,
+    1.0);
 }
 
 GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
@@ -238,6 +260,36 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
     adjustedRadicalFactor(config_.radicalFactor, game.turn),
   };
   context.expand(root, true);
+  if (config_.rootDirichletAlpha > 0.0 &&
+      config_.rootNoiseFraction > 0.0 &&
+      !root.edges.empty())
+  {
+    std::gamma_distribution<double> noiseDistribution(
+      config_.rootDirichletAlpha,
+      1.0);
+    std::vector<double> noise(root.edges.size());
+    double noiseTotal = 0.0;
+    for (double& value : noise)
+    {
+      value = noiseDistribution(random);
+      noiseTotal += value;
+    }
+    if (noiseTotal <= 0.0 || !std::isfinite(noiseTotal))
+    {
+      std::fill(noise.begin(), noise.end(), 1.0 / noise.size());
+    }
+    else
+    {
+      for (double& value : noise)
+        value /= noiseTotal;
+    }
+    for (std::size_t index = 0; index < root.edges.size(); ++index)
+    {
+      root.edges[index].prior =
+        (1.0 - config_.rootNoiseFraction) * root.edges[index].prior +
+        config_.rootNoiseFraction * noise[index];
+    }
+  }
   const int minimumSimulations = static_cast<int>(root.edges.size());
   const int simulationBudget = std::max(config_.nodeBudget, minimumSimulations);
 
@@ -258,6 +310,7 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
   result.elapsedMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
     std::chrono::steady_clock::now() - startedAt).count());
   result.actions.reserve(root.edges.size());
+  int bestVisits = -1;
   double bestValue = -std::numeric_limits<double>::infinity();
   for (std::size_t index = 0; index < root.edges.size(); ++index)
   {
@@ -280,8 +333,10 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
       actionResult.scoreStdev = edge.initialScore.stdev;
       actionResult.value = edge.initialValue.riskAdjusted;
     }
-    if (actionResult.value > bestValue)
+    if (actionResult.visits > bestVisits ||
+        (actionResult.visits == bestVisits && actionResult.value > bestValue))
     {
+      bestVisits = actionResult.visits;
       bestValue = actionResult.value;
       result.bestActionIndex = static_cast<int>(index);
     }
