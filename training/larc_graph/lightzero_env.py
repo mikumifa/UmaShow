@@ -165,6 +165,7 @@ class UmaShowLArcEnv(gym.Env):
             "action_mask": action_mask,
             "to_play": -1,
             "chance": 0,
+            "timestep": int(response.get("turn", 0)),
         }
 
     def reset(self) -> dict[str, np.ndarray | int]:

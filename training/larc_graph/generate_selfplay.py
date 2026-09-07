@@ -250,6 +250,7 @@ def main() -> None:
     }
     if args.model_path:
         options["modelPath"] = str(args.model_path.resolve())
+        options["requireModel"] = not args.allow_model_fallback
 
     executor = ThreadPoolExecutor(max_workers=worker_count)
     in_flight: dict[

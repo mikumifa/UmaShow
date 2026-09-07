@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import platform
@@ -15,6 +16,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 from easydict import EasyDict
 
 from training.larc_graph.schema import (
+    LEARNED_CHANCE_GRADIENT,
     LIGHTZERO_ACTIONS,
     LIGHTZERO_COMMIT,
     LIGHTZERO_MANIFEST,
@@ -26,7 +28,10 @@ from training.larc_graph.schema import (
 )
 
 
-TOTAL_TURNS = 65
+# The native LightZero environment exposes exactly 60 decision steps per game.
+# Keep both the full-return TD horizon and --games conversion aligned with the
+# observed environment trajectory length.
+TOTAL_TURNS = 60
 RECOMMENDATION_EXECUTABLE = (
     "UmaShowMonteCarloLArc.exe" if os.name == "nt" else "UmaShowMonteCarloLArc"
 )
@@ -112,6 +117,7 @@ def model_manifest(args: argparse.Namespace) -> dict:
         "graphSchema": SCHEMA_VERSION,
         "scenarioId": SCENARIO_ID,
         "scoreScale": SCORE_SCALE,
+        "learnedChanceGradient": LEARNED_CHANCE_GRADIENT,
         "observationFeatures": LIGHTZERO_OBSERVATION,
         "actionSpaceSize": LIGHTZERO_ACTIONS,
         "lightZeroCommit": LIGHTZERO_COMMIT,
@@ -138,9 +144,14 @@ def write_model_manifest(args: argparse.Namespace, experiment_dir: Path) -> Path
 
 def build_config(args: argparse.Namespace) -> tuple[EasyDict, EasyDict]:
     experiment_dir = args.experiment_dir.resolve()
+    # LightZero prefixes log/checkpoint paths with ``./``.  Passing an absolute
+    # path therefore turns ``/root/...`` into the repository-local
+    # ``.//root/...``.  Always give it a path relative to the launch directory;
+    # ``os.path.relpath`` also supports experiment directories outside the repo.
+    lightzero_experiment_dir = os.path.relpath(experiment_dir, Path.cwd())
     main_config = EasyDict(
         dict(
-            exp_name=str(experiment_dir),
+            exp_name=lightzero_experiment_dir,
             env=dict(
                 env_id="umashow_larc",
                 stop_value=10.0,
@@ -158,7 +169,11 @@ def build_config(args: argparse.Namespace) -> tuple[EasyDict, EasyDict]:
                 cuda=not args.cpu,
                 mcts_ctree=not args.no_ctree,
                 env_type="not_board_games",
-                action_type="fixed_action_space",
+                # Every LArc turn exposes a different subset of the 40 actions.
+                # LightZero stores MCTS visits only for legal actions, so these
+                # distributions must be expanded back to the full action space
+                # before they are assembled into a training batch.
+                action_type="varied_action_space",
                 battle_mode="play_with_bot_mode",
                 use_ture_chance_label_in_chance_encoder=False,
                 game_segment_length=80,
@@ -196,7 +211,10 @@ def build_config(args: argparse.Namespace) -> tuple[EasyDict, EasyDict]:
                 fixed_temperature_value=0.25,
                 eval_freq=args.eval_freq,
                 random_collect_episode_num=0,
-                monitor_extra_statistics=False,
+                # The pinned LightZero stochastic policy always reads its
+                # ``td_data`` logging tuple.  That tuple is only constructed
+                # when extra statistics are enabled in this revision.
+                monitor_extra_statistics=True,
                 analyze_chance_distribution=False,
                 use_wandb=False,
                 learn=dict(
@@ -221,6 +239,39 @@ def build_config(args: argparse.Namespace) -> tuple[EasyDict, EasyDict]:
         )
     )
     return main_config, create_config
+
+
+def train_with_stable_experiment_dir(
+    train_muzero: object,
+    configs: list[EasyDict],
+    *,
+    model: object,
+    seed: int,
+    model_path: str | None,
+    max_env_step: int,
+) -> object:
+    """Run LightZero without silently redirecting an existing run directory."""
+    train_module = importlib.import_module("lzero.entry.train_muzero")
+    original_compile_config = train_module.compile_config
+
+    def compile_config_without_renew(*args: object, **kwargs: object) -> EasyDict:
+        # The manifest is intentionally written before training, which means the
+        # experiment directory already exists.  DI-engine otherwise appends a
+        # timestamp and sends logs/checkpoints to a directory unknown to us.
+        kwargs["renew_dir"] = False
+        return original_compile_config(*args, **kwargs)
+
+    train_module.compile_config = compile_config_without_renew
+    try:
+        return train_muzero(
+            configs,
+            seed=seed,
+            model=model,
+            model_path=model_path,
+            max_env_step=max_env_step,
+        )
+    finally:
+        train_module.compile_config = original_compile_config
 
 
 def main() -> None:
@@ -283,6 +334,9 @@ def main() -> None:
 
     try:
         from lzero.entry import train_muzero
+        from training.larc_graph.lightzero_model import (
+            LArcStochasticMuZeroModelMLP,
+        )
     except Exception as exception:
         raise RuntimeError(
             "LightZero failed to import. Run `uv sync --extra larc-graph` after "
@@ -290,10 +344,13 @@ def main() -> None:
         ) from exception
 
     main_config, create_config = build_config(args)
+    model = LArcStochasticMuZeroModelMLP(**model_config(args))
     args.experiment_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = write_model_manifest(args, args.experiment_dir.resolve())
-    policy = train_muzero(
+    policy = train_with_stable_experiment_dir(
+        train_muzero,
         [main_config, create_config],
+        model=model,
         seed=args.seed,
         model_path=str(args.resume.resolve()) if args.resume else None,
         max_env_step=args.games * TOTAL_TURNS,
