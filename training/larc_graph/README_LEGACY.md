@@ -63,7 +63,7 @@ uv run --extra larc-graph python training/larc_graph/train.py \
   "training/larc_graph/data/selfplay-v1/*.npz" \
   --init-checkpoint training/larc_graph/checkpoints/larc_graph-v0.pt \
   --output training/larc_graph/checkpoints/larc_graph-v1.pt \
-  --training-round 1 --batch-size 256 --epochs 30
+  --training-round 1 --batch-size 1024 --epochs 30
 ```
 
 ## 3. 导出 ONNX
@@ -74,11 +74,15 @@ uv run --extra larc-graph python training/larc_graph/export_onnx.py \
   training/larc_graph/models/larc_graph-v0.onnx
 ```
 
+```bash
+uv run --extra larc-graph python training/larc_graph/export_onnx.py \
+  training/larc_graph/checkpoints/larc_graph-v1.pt \
+  training/larc_graph/models/larc_graph-v1.onnx
+```
+
 导出器会写入协议版本、剧本和评分缩放元数据。Python 版 ONNX Runtime 仅用于可选的导出检查，默认训练依赖不再安装它，因此 Python 3.10 也不会被其轮子版本阻塞；之后在 UmaShow 的“推荐设置”中选择该文件即可。
 
 ## 4. 与内置手写策略做整局评估
-
-训练集验证损失只能说明模型拟合了 teacher，不能说明整局育成效果。使用相同的角色、卡组、继承、目标和环境随机种子，分别让旧版图模型与内置手写蒙特卡洛策略完成整局育成：
 
 ```bash
 uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
@@ -88,14 +92,8 @@ uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
   --output training/larc_graph/evaluations/larc_graph-v0.json
 ```
 
-评估时会关闭探索、温度采样和根节点噪声。结果同时报告：
-
 - `finalScore`：不截断目标属性的模拟器终局总分。
 - `recommendationScore`：按用户目标属性截断后的推荐分，设置目标时应优先看这个指标。
-- 成对分差、胜负次数、去除平局后的胜率、均值差 95% 区间与每局耗时。
-- 新版推荐组件还会返回双方平均五维、技能点和估算技能分。
-
-默认会随机生成覆盖不同角色、卡组、继承和部分目标上限的开局。固定目标可使用 `--target-speed/--target-stamina/--target-power/--target-guts/--target-wisdom`；只想测不设目标的总分时加 `--no-random-targets`。这是模拟器内“旧模型 vs 内置手写策略”的 A/B，并不等同于真实玩家手养记录；若要比较真人手养，还需要把真人每回合选择或终局记录作为另一份输入数据。
 
 ## 5. 用旧版数据热启动 LightZero
 

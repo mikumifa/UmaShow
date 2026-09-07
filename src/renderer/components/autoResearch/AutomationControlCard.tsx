@@ -136,12 +136,14 @@ export default function AutomationControlCard({
   const scheduleHasDelayedStart = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(
     String(schedule?.start_time || ''),
   );
+  const scheduleWaitingForDelayedStart =
+    scheduleHasDelayedStart && observation?.phase === 'waiting';
   const scheduledStartChanged =
     !repeatDaily &&
     (scheduleTiming === 'scheduled'
-      ? !scheduleHasDelayedStart ||
+      ? !scheduleWaitingForDelayedStart ||
         String(schedule?.start_time || '').slice(0, 16) !== scheduledStartAt
-      : scheduleHasDelayedStart);
+      : scheduleWaitingForDelayedStart);
   const scheduledStartValid =
     scheduleTiming !== 'scheduled' ||
     (Boolean(scheduledStartAt) &&
@@ -216,17 +218,17 @@ export default function AutomationControlCard({
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            {scheduleHasDelayedStart && observation?.phase === 'waiting'
+            {scheduleWaitingForDelayedStart
               ? `计划于 ${scheduledStartLabel} 启动 · ${activeItem?.career_setting_name || '当前详设'}`
               : activeItem
-              ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
-                  activeItem.goal,
-                  activeItem.target,
-                  daily,
-                )}`
-              : activeSetting?.mode === 'offline'
-                ? '离线技能与因子配置已由服务器接管执行。'
-                : observation?.reason || '等待调度器选择下一次育成。'}
+                ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
+                    activeItem.goal,
+                    activeItem.target,
+                    daily,
+                  )}`
+                : activeSetting?.mode === 'offline'
+                  ? '离线技能与因子配置已由服务器接管执行。'
+                  : observation?.reason || '等待调度器选择下一次育成。'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -287,13 +289,7 @@ export default function AutomationControlCard({
             <button
               type="button"
               onClick={updateRunningAutomation}
-              disabled={
-                Boolean(busy) ||
-                (runMode === 'jewel_drops' &&
-                  !repeatDaily &&
-                  remainingJewelDrops <= 0) ||
-                !scheduledStartValid
-              }
+              disabled={Boolean(busy) || !scheduledStartValid}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
             >
               <Play size={14} />
@@ -307,26 +303,14 @@ export default function AutomationControlCard({
         <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
           {modeOptions.map((option) => {
             const Icon = option.icon;
-            const disabled =
-              option.id === 'jewel_drops' &&
-              !repeatDaily &&
-              remainingJewelDrops <= 0;
             return (
               <button
                 key={option.id}
                 type="button"
-                disabled={disabled}
                 onClick={() => {
                   setRunMode(option.id);
-                  if (option.id === 'jewel_drops') {
-                    setJewelDropTarget(
-                      repeatDaily
-                        ? 20
-                        : Math.max(1, Math.min(remainingJewelDrops, 20)),
-                    );
-                  }
                 }}
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-left text-xs font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-left text-xs font-semibold transition-all duration-150 ${
                   runMode === option.id
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
@@ -430,7 +414,7 @@ export default function AutomationControlCard({
           className="mt-2 w-fit"
           prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
           value={jewelDropTarget}
-          max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
+          max={20}
           suffix="次宝石掉落"
           hint={
             repeatDaily

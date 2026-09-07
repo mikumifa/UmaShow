@@ -1697,6 +1697,7 @@ export default function CareerTab(props: CareerTabProps) {
                     </button>
                     <div className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
                       <input
+                        id="career-burn-clocks"
                         type="checkbox"
                         checked={burnClocks}
                         onChange={(event) =>
@@ -1704,30 +1705,28 @@ export default function CareerTab(props: CareerTabProps) {
                         }
                         className="mt-1"
                       />
-                      <span>
-                        <strong className="block font-medium text-slate-800">
-                          比赛失败时使用闹钟
-                        </strong>
-                        <span className="mt-0.5 block text-xs text-slate-500">
-                          失败后有可用闹钟时自动继续；当前有{' '}
-                          {dashboard.account.clocks || 0} 个
-                        </span>
+                      <div>
+                        <label htmlFor="career-burn-clocks">
+                          <strong className="block font-medium text-slate-800">
+                            比赛失败时使用闹钟
+                          </strong>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            失败后有可用闹钟时自动继续；当前有{' '}
+                            {dashboard.account.clocks || 0} 个
+                          </span>
+                        </label>
                         {burnClocks ? (
                           <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
                             每次育成最多使用
                             <input
                               type="number"
                               min={1}
-                              max={100}
                               value={clockUseLimit}
                               onChange={(event) =>
                                 setClockUseLimit(
-                                  Math.min(
-                                    100,
-                                    Math.max(
-                                      1,
-                                      Number(event.target.value) || 1,
-                                    ),
+                                  Math.max(
+                                    1,
+                                    Number(event.target.value) || 1,
                                   ),
                                 )
                               }
@@ -1736,7 +1735,7 @@ export default function CareerTab(props: CareerTabProps) {
                             次
                           </label>
                         ) : null}
-                      </span>
+                      </div>
                     </div>
                   </>
                 ) : null}

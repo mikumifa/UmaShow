@@ -270,7 +270,7 @@ const isMissingLocalGameSession = (error: unknown) => {
   return (
     message.includes('请先登录') ||
     message.includes('本地游戏会话') ||
-    message.includes('错误码 217')
+    needsRelogin(error)
   );
 };
 
@@ -776,6 +776,16 @@ export default function AutoResearch() {
   const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
   const [scheduleTiming, setScheduleTiming] = useState<ScheduleTiming>('now');
   const [scheduledStartAt, setScheduledStartAt] = useState('');
+  const [controlRunMode, setControlRunMode] = useState<RunMode>('single');
+  const [controlRunCountTarget, setControlRunCountTarget] = useState(3);
+  const [controlJewelDropTarget, setControlJewelDropTarget] = useState(20);
+  const [controlRepeatDaily, setControlRepeatDaily] = useState(false);
+  const [controlScheduleStartTime, setControlScheduleStartTime] =
+    useState('05:00');
+  const [controlScheduleEndTime, setControlScheduleEndTime] = useState('05:00');
+  const [controlScheduleTiming, setControlScheduleTiming] =
+    useState<ScheduleTiming>('now');
+  const [controlScheduledStartAt, setControlScheduledStartAt] = useState('');
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [appendPlanPickerOpen, setAppendPlanPickerOpen] = useState(false);
   const [skillSelections, setSkillSelections] = useState<SkillSelectionEntry[]>(
@@ -1091,32 +1101,30 @@ export default function AutoResearch() {
       schedule?.items[0];
     const syncKey = [
       schedule?.id || '',
-      schedule?.revision || schedule?.updated_at || '',
       observation?.current_index ?? 0,
       item?.id || '',
+      item?.goal || '',
+      item?.target || 0,
+      schedule?.cadence || '',
+      schedule?.start_time || '',
+      schedule?.end_time || '',
     ].join(':');
     if (syncedScheduleKeyRef.current === syncKey) return;
     syncedScheduleKeyRef.current = syncKey;
     if (item?.goal) {
-      setRunMode(item.goal);
+      setControlRunMode(item.goal);
     }
     const scheduleIsDaily = schedule?.cadence === 'daily';
-    setRepeatDaily(scheduleIsDaily);
-    const hasScheduledStart =
-      !scheduleIsDaily && isScheduledDateTime(schedule?.start_time);
-    setScheduleTiming(hasScheduledStart ? 'scheduled' : 'now');
-    setScheduledStartAt(
-      hasScheduledStart ? toDateTimeLocalValue(schedule?.start_time) : '',
-    );
+    setControlRepeatDaily(scheduleIsDaily);
     if (item?.goal === 'count') {
-      setRunCountTarget(item.target);
+      setControlRunCountTarget(item.target);
     }
     if (item?.goal === 'jewel_drops') {
-      setJewelDropTarget(item.target);
+      setControlJewelDropTarget(item.target);
     }
     if (schedule?.cadence === 'daily') {
-      setScheduleStartTime(schedule.start_time || '05:00');
-      setScheduleEndTime(schedule.end_time || '05:00');
+      setControlScheduleStartTime(schedule.start_time || '05:00');
+      setControlScheduleEndTime(schedule.end_time || '05:00');
     }
   }, [
     automationActive,
@@ -1125,9 +1133,36 @@ export default function AutoResearch() {
     schedule?.end_time,
     schedule?.id,
     schedule?.items,
-    schedule?.revision,
     schedule?.start_time,
-    schedule?.updated_at,
+  ]);
+  const syncedScheduleTimingKeyRef = useRef('');
+  useEffect(() => {
+    if (!automationActive) {
+      syncedScheduleTimingKeyRef.current = '';
+      return;
+    }
+    const waitingForScheduledStart = observation?.phase === 'waiting';
+    const timingKey = [
+      schedule?.id || '',
+      waitingForScheduledStart ? 'waiting' : 'started',
+      schedule?.start_time || '',
+    ].join(':');
+    if (syncedScheduleTimingKeyRef.current === timingKey) return;
+    syncedScheduleTimingKeyRef.current = timingKey;
+    const hasScheduledStart =
+      schedule?.cadence !== 'daily' &&
+      waitingForScheduledStart &&
+      isScheduledDateTime(schedule?.start_time);
+    setControlScheduleTiming(hasScheduledStart ? 'scheduled' : 'now');
+    setControlScheduledStartAt(
+      hasScheduledStart ? toDateTimeLocalValue(schedule?.start_time) : '',
+    );
+  }, [
+    automationActive,
+    observation?.phase,
+    schedule?.cadence,
+    schedule?.id,
+    schedule?.start_time,
   ]);
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
@@ -1709,13 +1744,7 @@ export default function AutoResearch() {
           if (selectedAccountIdRef.current === accountId) {
             setSession(null);
             updateRuntime(accountId, null);
-            if (
-              String((caught as Error)?.message || '').includes('错误码 217')
-            ) {
-              setError(
-                '本地游戏会话已失效（217）。请确认游戏客户端或其他工具已停止操作，再重新登录。',
-              );
-            }
+            setError(String((caught as Error)?.message || caught || ''));
           }
           return;
         }
@@ -2204,14 +2233,14 @@ export default function AutoResearch() {
           }));
         }
         if (selectedAccountIdRef.current === accountId) {
+          const message = String((caught as Error)?.message || caught || '');
           setDailyTasksOverview(null);
           if (loginRequired) {
             setDailyTasksLoadError('');
           } else {
-            const { message } = caught as Error;
             setDailyTasksLoadError(message);
-            setError(message);
           }
+          setError(message);
         }
         return false;
       } finally {
@@ -3344,7 +3373,6 @@ export default function AutoResearch() {
         setPendingLocalLoginReady(true);
       }
       setLoginSettingsOpen(false);
-      setActiveTab('career');
     }
   };
 
@@ -3577,10 +3605,7 @@ export default function AutoResearch() {
             target: Math.max(1, target),
             max_steps: Math.max(1, Number(payload.max_steps || 2500)),
             burn_clocks: Boolean(payload.burn_clocks),
-            clock_use_limit: Math.min(
-              100,
-              Math.max(1, Number(payload.clock_use_limit || 1)),
-            ),
+            clock_use_limit: Math.max(1, Number(payload.clock_use_limit || 1)),
             request: careerRequest,
             preset:
               rawPreset && typeof rawPreset === 'object'
@@ -3646,7 +3671,6 @@ export default function AutoResearch() {
     setSession(null);
     setCareerHistory([]);
     setSelectedCareerRecords(null);
-    setActiveTab('career');
   };
 
   const refreshOptionsIndex = async () => {
@@ -3656,11 +3680,7 @@ export default function AutoResearch() {
     try {
       await loadAccountOptions(selectedAccountId, true);
     } catch (caught) {
-      setError(
-        needsRelogin(caught)
-          ? '登录会话已失效，请退出账号后重新连接'
-          : (caught as Error).message,
-      );
+      setError(String((caught as Error)?.message || caught || ''));
     } finally {
       setBusy('');
     }
@@ -3819,7 +3839,6 @@ export default function AutoResearch() {
       return;
     if (resettingLocalSession) {
       await logoutLocalAccount(accountId);
-      setActiveTab('career');
       return;
     }
     if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
@@ -3848,7 +3867,6 @@ export default function AutoResearch() {
       if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
         localStorage.removeItem(LAST_ACCOUNT_KEY);
       }
-      setActiveTab('career');
     } catch (caught) {
       if (needsRelogin(caught)) {
         sessionTokens.current.delete(accountId);
@@ -4320,6 +4338,7 @@ export default function AutoResearch() {
           burnClocks;
         const nextClockUseLimit =
           careerOptions?.clock_use_limit ??
+          item.clock_use_limit ??
           activeAutomationSetting?.clock_use_limit ??
           clockUseLimit;
         const nextRequest: Record<string, unknown> = {
@@ -4364,11 +4383,11 @@ export default function AutoResearch() {
         {
           method: 'PUT',
           body: JSON.stringify({
-            cadence: repeatDaily ? 'daily' : 'once',
-            start_time: repeatDaily
-              ? scheduleStartTime
-              : oneOffStartTime(scheduleTiming, scheduledStartAt),
-            end_time: scheduleEndTime,
+            cadence: controlRepeatDaily ? 'daily' : 'once',
+            start_time: controlRepeatDaily
+              ? controlScheduleStartTime
+              : oneOffStartTime(controlScheduleTiming, controlScheduledStartAt),
+            end_time: controlScheduleEndTime,
             items: nextItems,
             expected_revision: schedule.revision,
           }),
@@ -4386,21 +4405,21 @@ export default function AutoResearch() {
 
   const updateRunningAutomation = async () => {
     if (
-      !repeatDaily &&
-      scheduleTiming === 'scheduled' &&
-      !scheduledDateTimeIsFuture(scheduledStartAt)
+      !controlRepeatDaily &&
+      controlScheduleTiming === 'scheduled' &&
+      !scheduledDateTimeIsFuture(controlScheduledStartAt)
     ) {
       setError('请选择晚于当前时间的定时启动日期和时间');
       return;
     }
     const target =
-      runMode === 'count'
-        ? Math.max(1, runCountTarget)
-        : runMode === 'jewel_drops'
-          ? Math.max(1, jewelDropTarget)
+      controlRunMode === 'count'
+        ? Math.max(1, controlRunCountTarget)
+        : controlRunMode === 'jewel_drops'
+          ? Math.max(1, controlJewelDropTarget)
           : 1;
     if (offlinePlanActive) {
-      await updateRunnerConfiguration(undefined, runMode, target);
+      await updateRunnerConfiguration(undefined, controlRunMode, target);
       return;
     }
     const presetNameForRunner =
@@ -4412,7 +4431,7 @@ export default function AutoResearch() {
       setError('当前自动育成绑定的预设不存在');
       return;
     }
-    await updateRunnerConfiguration(preset, runMode, target);
+    await updateRunnerConfiguration(preset, controlRunMode, target);
   };
 
   const abandonCareer = async () => {
@@ -4556,12 +4575,14 @@ export default function AutoResearch() {
         activeAutomationSetting?.preset_name || String(runner?.preset || '');
       if (automationActive && runnerPresetName === preset.name) {
         const target =
-          runMode === 'count'
-            ? Math.max(1, runCountTarget)
-            : runMode === 'jewel_drops'
-              ? Math.max(1, jewelDropTarget)
+          controlRunMode === 'count'
+            ? Math.max(1, controlRunCountTarget)
+            : controlRunMode === 'jewel_drops'
+              ? Math.max(1, controlJewelDropTarget)
               : 1;
-        if (!(await updateRunnerConfiguration(preset, runMode, target))) {
+        if (
+          !(await updateRunnerConfiguration(preset, controlRunMode, target))
+        ) {
           return false;
         }
       }
@@ -5190,12 +5211,12 @@ export default function AutoResearch() {
       return;
     }
     const target =
-      runMode === 'count'
-        ? Math.max(1, runCountTarget)
-        : runMode === 'jewel_drops'
-          ? Math.max(1, jewelDropTarget)
+      controlRunMode === 'count'
+        ? Math.max(1, controlRunCountTarget)
+        : controlRunMode === 'jewel_drops'
+          ? Math.max(1, controlJewelDropTarget)
           : 1;
-    await updateRunnerConfiguration(preset, runMode, target, {
+    await updateRunnerConfiguration(preset, controlRunMode, target, {
       max_steps: maxSteps,
       burn_clocks: burnClocks,
       clock_use_limit: clockUseLimit,
@@ -6720,26 +6741,14 @@ export default function AutoResearch() {
                     ]
                 ).map((option) => {
                   const IconComponent = option.icon;
-                  const disabled =
-                    option.id === 'jewel_drops' &&
-                    !repeatDaily &&
-                    remainingJewelDrops <= 0;
                   return (
                     <button
                       key={option.id}
                       type="button"
-                      disabled={disabled}
                       onClick={() => {
                         setRunMode(option.id);
-                        if (option.id === 'jewel_drops') {
-                          setJewelDropTarget(
-                            repeatDaily
-                              ? 20
-                              : Math.max(1, Math.min(20, remainingJewelDrops)),
-                          );
-                        }
                       }}
-                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
                         runMode === option.id
                           ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-100'
                           : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30'
@@ -6895,7 +6904,7 @@ export default function AutoResearch() {
                   className="mt-4"
                   prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
                   value={jewelDropTarget}
-                  max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
+                  max={20}
                   suffix="次宝石掉落"
                   hint={
                     repeatDaily
@@ -6923,9 +6932,6 @@ export default function AutoResearch() {
                 onClick={confirmRunPlan}
                 disabled={
                   Boolean(busy) ||
-                  (runMode === 'jewel_drops' &&
-                    !repeatDaily &&
-                    remainingJewelDrops <= 0) ||
                   (!appendingCareerPlan &&
                     !repeatDaily &&
                     scheduleTiming === 'scheduled' &&
@@ -7808,22 +7814,22 @@ export default function AutoResearch() {
                     runnerStopping={runnerStopping}
                     runnerPaused={runnerPaused}
                     busy={busy}
-                    runMode={runMode}
-                    setRunMode={setRunMode}
-                    runCountTarget={runCountTarget}
-                    setRunCountTarget={setRunCountTarget}
-                    jewelDropTarget={jewelDropTarget}
-                    setJewelDropTarget={setJewelDropTarget}
+                    runMode={controlRunMode}
+                    setRunMode={setControlRunMode}
+                    runCountTarget={controlRunCountTarget}
+                    setRunCountTarget={setControlRunCountTarget}
+                    jewelDropTarget={controlJewelDropTarget}
+                    setJewelDropTarget={setControlJewelDropTarget}
                     remainingJewelDrops={remainingJewelDrops}
-                    repeatDaily={repeatDaily}
-                    scheduleStartTime={scheduleStartTime}
-                    setScheduleStartTime={setScheduleStartTime}
-                    scheduleEndTime={scheduleEndTime}
-                    setScheduleEndTime={setScheduleEndTime}
-                    scheduleTiming={scheduleTiming}
-                    setScheduleTiming={setScheduleTiming}
-                    scheduledStartAt={scheduledStartAt}
-                    setScheduledStartAt={setScheduledStartAt}
+                    repeatDaily={controlRepeatDaily}
+                    scheduleStartTime={controlScheduleStartTime}
+                    setScheduleStartTime={setControlScheduleStartTime}
+                    scheduleEndTime={controlScheduleEndTime}
+                    setScheduleEndTime={setControlScheduleEndTime}
+                    scheduleTiming={controlScheduleTiming}
+                    setScheduleTiming={setControlScheduleTiming}
+                    scheduledStartAt={controlScheduledStartAt}
+                    setScheduledStartAt={setControlScheduledStartAt}
                     runDailyTasksWithCareer={Boolean(
                       readCareerDailyTasks(selectedAccount?.uid || '')
                         ?.run_with_career,

@@ -169,6 +169,7 @@ const electronHandler = {
   },
   leaderboardRanking: {
     latest: () => ipcRenderer.invoke('leaderboard-ranking:latest'),
+    clear: () => ipcRenderer.invoke('leaderboard-ranking:clear'),
     onNew(callback: (data: any) => void) {
       const subscription = (_event: IpcRendererEvent, data: any) =>
         callback(data);
