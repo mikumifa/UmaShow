@@ -238,9 +238,26 @@ def main() -> None:
     if not args.database.is_file():
         raise FileNotFoundError(f"recommendation database not found: {args.database}")
 
+    # DI-engine imports its legacy WandB dependency even when use_wandb is false.
+    # WandB 0.12 contains old generated protobuf files, while UmaShow uses
+    # protobuf 6 for its current database definitions. This compatibility mode
+    # is used only for the disabled WandB import, not for model computation or
+    # simulator communication.
+    os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
     try:
         import torch
     except Exception as exception:
+        if sys.platform.startswith("linux") and "libcudnn.so.9" in str(exception):
+            raise RuntimeError(
+                "PyTorch CUDA runtime is incomplete: libcudnn.so.9 is missing. "
+                "A plain `uv sync` can leave a damaged environment unchanged when "
+                "the package metadata still exists. Move `.venv` aside, then run "
+                "`uv venv --python 3.10` and `uv sync --extra larc-graph`; start "
+                "training with `env -u LD_LIBRARY_PATH .venv/bin/python ...`, not "
+                "`uv run`. To repair in place, run `uv sync --extra larc-graph "
+                "--reinstall-package nvidia-cudnn-cu12 --reinstall-package torch`."
+            ) from exception
         raise RuntimeError(
             "PyTorch failed to load. Recreate .venv and run "
             "`uv sync --extra larc-graph`; do not reuse a mixed CUDA environment."
@@ -266,9 +283,10 @@ def main() -> None:
 
     try:
         from lzero.entry import train_muzero
-    except ImportError as exception:
+    except Exception as exception:
         raise RuntimeError(
-            "LightZero is not installed; run `uv sync --extra larc-graph` first"
+            "LightZero failed to import. Run `uv sync --extra larc-graph` after "
+            "updating the repository; do not manually downgrade UmaShow's protobuf."
         ) from exception
 
     main_config, create_config = build_config(args)

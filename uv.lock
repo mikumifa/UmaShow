@@ -4314,6 +4314,7 @@ dependencies = [
 larc-graph = [
     { name = "lightzero" },
     { name = "numpy" },
+    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "onnx", version = "1.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "onnx", version = "1.22.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
@@ -4324,6 +4325,7 @@ larc-graph = [
     { name = "torchaudio", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.21.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
     { name = "torchvision", version = "0.21.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "wandb" },
 ]
 
 [package.metadata]
@@ -4331,6 +4333,7 @@ requires-dist = [
     { name = "icnsutil", specifier = ">=1.1.0" },
     { name = "lightzero", marker = "extra == 'larc-graph'", git = "https://github.com/opendilab/LightZero.git?rev=9ccf29b3c2174f65e06d21c3d0c51dc76853f37f" },
     { name = "numpy", marker = "extra == 'larc-graph'", specifier = ">=1.24.1,<2" },
+    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'larc-graph'", specifier = "==9.1.0.70" },
     { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'larc-graph'", specifier = "==2.21.5" },
     { name = "onnx", marker = "extra == 'larc-graph'", specifier = ">=1.17,<2" },
     { name = "onnxruntime", marker = "extra == 'larc-graph'", specifier = ">=1.22,<1.23" },
@@ -4343,6 +4346,7 @@ requires-dist = [
     { name = "torchaudio", marker = "(platform_machine != 'x86_64' and extra == 'larc-graph') or (sys_platform != 'linux' and extra == 'larc-graph')", specifier = "==2.6.0" },
     { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'larc-graph'", specifier = "==0.21.0", index = "https://download.pytorch.org/whl/cu124" },
     { name = "torchvision", marker = "(platform_machine != 'x86_64' and extra == 'larc-graph') or (sys_platform != 'linux' and extra == 'larc-graph')", specifier = "==0.21.0" },
+    { name = "wandb", marker = "extra == 'larc-graph'", specifier = "==0.12.16" },
 ]
 provides-extras = ["larc-graph"]
 
