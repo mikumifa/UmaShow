@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <cassert>
 #include <iostream>
 #include "Evaluator.h"
@@ -23,7 +25,7 @@ void Evaluator::evaluateSelf(int mode, const SearchParam& param)
         auto& v = valueResults[i];
         v.scoreMean = score;
         v.scoreStdev = 0; //单个已终局的样本，方差必为0
-        v.value = score;
+        v.value = game.recommendationScore();
       }
     }
     else if (mode == 1)//policy，手写逻辑，最优的选择是1，其他的是0
@@ -55,7 +57,7 @@ void Evaluator::evaluateSelf(int mode, const SearchParam& param)
           auto& v = valueResults[i];
           v.scoreMean = score;
           v.scoreStdev = 0; //单个已终局的样本，方差必为0
-          v.value = score;
+          v.value = game.recommendationScore();
         }
         else
         {
@@ -193,6 +195,71 @@ const double restValueFactor = 1.5;//休息估值权重
 const float remainStatusFactorEachTurnAbroad = 40;//控属性时给每回合预留多少（远征后）
 const float remainStatusFactorEachTurnBeforeAbroad = 20;//控属性时给每回合预留多少（远征前）
 const double outgoingBonusIfNotFullMotivation = 30;//掉心情时提高外出分数
+const double friendEventProbability = 0.4;
+const double friendBond60UnlockValue = 60;
+
+constexpr double expectedFriendEventCharge(bool firstClickCompleted, int notFullChargeCount)
+{
+  return firstClickCompleted
+    ? friendEventProbability * std::min(5, notFullChargeCount)
+    : 0.0;
+}
+
+constexpr double friendBond60Potential(double friendship)
+{
+  const double ratio = friendship <= 0 ? 0.0 : friendship >= 60 ? 1.0 : friendship / 60.0;
+  return friendBond60UnlockValue * ratio * ratio;
+}
+
+constexpr double friendBond60ProgressValue(double friendship, double expectedGain)
+{
+  return friendBond60Potential(friendship + expectedGain) - friendBond60Potential(friendship);
+}
+
+static_assert(expectedFriendEventCharge(false, 15) == 0.0);
+static_assert(expectedFriendEventCharge(true, 15) == 2.0);
+static_assert(expectedFriendEventCharge(true, 2) > 0.79 && expectedFriendEventCharge(true, 2) < 0.81);
+static_assert(friendBond60ProgressValue(60, 4) == 0.0);
+static_assert(friendBond60ProgressValue(56, 4) > friendBond60ProgressValue(20, 4));
+
+static int countNotFullChargeAfterTraining(const Game& game, int item)
+{
+  std::array<int, 15> chargeAfterTraining{};
+  for (int i = 0; i < 15; i++)
+    chargeAfterTraining[i] = game.persons[i].larc_charge;
+
+  const int chargeNum = game.trainShiningNum[item] + 1;
+  for (int i = 0; i < 5; i++)
+  {
+    const int personId = game.personDistribution[item][i];
+    if (personId < 0)
+      break;
+    if (personId >= 15)
+      continue;
+    const int personType = game.persons[personId].personType;
+    if (personType == 2 || personType == 3)
+      chargeAfterTraining[personId] = std::min(3, chargeAfterTraining[personId] + chargeNum);
+  }
+
+  return static_cast<int>(std::count_if(
+    chargeAfterTraining.begin(), chargeAfterTraining.end(),
+    [](int charge) { return charge < 3; }));
+}
+
+static double friendBond60ProgressValue(const Game& game)
+{
+  if (game.larc_zuoyueType != 1 || game.persons[17].friendship >= 60)
+    return 0;
+
+  const double affectionBonus = game.isAiJiao ? 2.0 : 0.0;
+  double expectedGain = 4.0 + affectionBonus;
+  if (!game.larc_zuoyueFirstClick)
+    expectedGain += 10.0 + affectionBonus;
+  else
+    expectedGain += friendEventProbability * (7.0 + affectionBonus);
+
+  return friendBond60ProgressValue(game.persons[17].friendship, expectedGain);
+}
 
 
 Action Evaluator::handWrittenStrategy(const Game& game)
@@ -276,7 +343,6 @@ Action Evaluator::handWrittenStrategy(const Game& game)
       bool haveZuoyue = false;
       int chargeN = game.trainShiningNum[item] + 1;
       int totalCharge = 0;
-      int totalChargeFull = 0;
       for (int j = 0; j < 5; j++)
       {
         int p = game.personDistribution[item][j];
@@ -290,18 +356,18 @@ Action Evaluator::handWrittenStrategy(const Game& game)
         else if (personType == 2 || personType == 3)//普通卡,npc
         {
           totalCharge += std::min(chargeN, 3 - game.persons[p].larc_charge);
-          if (game.persons[p].larc_charge < 3 && game.persons[p].larc_charge + chargeN >= 3)
-            totalChargeFull += 1;
         }
       }
       expectChargeNum = totalCharge;
       if (haveZuoyue)
       {
         value += friendValue_nonAbroad;
-        expectChargeNum += 2;
-        if (game.larc_zuoyueType == 1 && game.persons[17].friendship < 60)
-          expectChargeNum += 2;
-          
+        value += friendBond60ProgressValue(game);
+        if (game.larc_zuoyueFirstClick)
+        {
+          const int notFullChargeCount = countNotFullChargeAfterTraining(game, item);
+          expectChargeNum += expectedFriendEventCharge(true, notFullChargeCount);
+        }
       }
       value += chargeValue * expectChargeNum;
 
@@ -318,8 +384,10 @@ Action Evaluator::handWrittenStrategy(const Game& game)
 
         if (personType == 1)//佐岳卡
         {
-          value += shixingPtValueSecondYear * 20;
           value += friendValue_abroad;
+          value += friendBond60ProgressValue(game);
+          if (game.larc_zuoyueFirstClick)
+            value += shixingPtValueSecondYear * 20;
           break;
         }
       }
@@ -374,7 +442,10 @@ Action Evaluator::handWrittenStrategy(const Game& game)
     {
       //不仅要考虑属性加多少，还要考虑是否溢出
       float gain = game.trainValue[item][i];
-      float remain = game.fiveStatusLimit[i] - game.fiveStatus[i] - finalBonus;
+      const int effectiveLimit = game.fiveStatusTarget[i] > 0
+        ? std::min<int>(game.fiveStatusLimit[i], game.fiveStatusTarget[i])
+        : game.fiveStatusLimit[i];
+      float remain = effectiveLimit - game.fiveStatus[i] - finalBonus;
       if (remain < 0)remain = 0;
       if (gain > remain)gain = remain;
       float turnReserve = game.turn >= 60 ?

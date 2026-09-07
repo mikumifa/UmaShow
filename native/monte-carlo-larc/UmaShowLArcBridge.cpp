@@ -65,6 +65,28 @@ int boundedInt(const json& options, const char* key, int fallback, int minimum, 
   return std::clamp(value, minimum, maximum);
 }
 
+constexpr int displayedStatusToInternal(int value)
+{
+  return value > 1200 ? value * 2 - 1200 : value;
+}
+
+static_assert(displayedStatusToInternal(1200) == 1200);
+static_assert(displayedStatusToInternal(1600) == 2000);
+
+void applyStatusTargets(Game& game, const json& options)
+{
+  static const char* keys[5] = {
+    "targetSpeed", "targetStamina", "targetPower", "targetGuts", "targetWisdom"
+  };
+  for (int i = 0; i < 5; i++)
+  {
+    const int displayedTarget = boundedInt(options, keys[i], 0, 0, 3000);
+    game.fiveStatusTarget[i] = displayedTarget == 0
+      ? game.fiveStatusLimit[i]
+      : std::min<int>(game.fiveStatusLimit[i], displayedStatusToInternal(displayedTarget));
+  }
+}
+
 std::string actionLabel(const Action& action, const Game& game)
 {
   static const char* labels[] = {
@@ -127,6 +149,7 @@ json analyze(const json& request)
   const double radicalFactor = std::clamp(options.value("radicalFactor", 3.0), 0.0, 20.0);
 
   game.eventStrength = boundedInt(options, "eventStrength", game.eventStrength, 0, 1000);
+  applyStatusTargets(game, options);
 
   // BACKEND_NONE can only evaluate terminal states, so LArc must always search
   // through the remaining scenario instead of honoring a shallow maxDepth.
@@ -181,6 +204,11 @@ json analyze(const json& request)
       {"threadNum", threadNum},
       {"radicalFactor", radicalFactor},
       {"maxDepth", TOTAL_TURN},
+      {"targetSpeed", options.value("targetSpeed", 0)},
+      {"targetStamina", options.value("targetStamina", 0)},
+      {"targetPower", options.value("targetPower", 0)},
+      {"targetGuts", options.value("targetGuts", 0)},
+      {"targetWisdom", options.value("targetWisdom", 0)},
     }},
   };
 }

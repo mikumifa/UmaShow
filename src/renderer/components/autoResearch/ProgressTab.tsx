@@ -372,66 +372,6 @@ function automationPhaseLabel(automation?: AccountAutomation) {
   }
 }
 
-function WaitingCareerStartCard({
-  currentSettingName,
-  offlineMode,
-}: {
-  currentSettingName: string;
-  offlineMode: boolean;
-}) {
-  return (
-    <section
-      className={panelClass(
-        'relative isolate overflow-hidden border-indigo-100 bg-gradient-to-br from-white via-indigo-50/70 to-violet-50/80 p-6',
-      )}
-    >
-      <div className="pointer-events-none absolute -right-16 -top-20 -z-10 h-48 w-48 rounded-full bg-indigo-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 left-1/3 -z-10 h-44 w-44 rounded-full bg-violet-200/35 blur-3xl" />
-
-      <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-        <div className="relative flex h-16 w-16 flex-none items-center justify-center">
-          <span className="absolute inset-0 animate-ping rounded-full bg-indigo-300/25" />
-          <span className="absolute inset-1 rounded-full border border-indigo-200 bg-white/80 shadow-sm" />
-          <RefreshCw
-            size={28}
-            className="relative animate-spin text-indigo-600"
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-            <h3 className="text-lg font-bold text-slate-900">
-              正在等待育成开始
-            </h3>
-            <span className={statusBadgeClass('violet')}>准备中</span>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            <span className="font-semibold text-indigo-700">
-              {currentSettingName}
-            </span>
-            {offlineMode
-              ? ' 已提交，服务端正在分配离线育成任务。'
-              : ' 已进入执行队列，正在准备游戏会话。'}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            育成开始后将自动切换为实时属性与当前流程，无需手动刷新。
-          </p>
-        </div>
-
-        <div className="flex flex-none items-center gap-1.5" aria-hidden="true">
-          {[0, 1, 2].map((index) => (
-            <span
-              key={index}
-              className="h-2 w-2 animate-pulse rounded-full bg-indigo-400"
-              style={{ animationDelay: `${index * 180}ms` }}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
@@ -739,12 +679,7 @@ export default function ProgressTab({
         ) : null}
       </section>
 
-      {waitingForCareerStart ? (
-        <WaitingCareerStartCard
-          currentSettingName={currentSettingName}
-          offlineMode={offlineMode}
-        />
-      ) : !offlineMode ? (
+      {!waitingForCareerStart && !offlineMode ? (
         <section className="cursor-text select-text">
           {runnerLog
             .slice()

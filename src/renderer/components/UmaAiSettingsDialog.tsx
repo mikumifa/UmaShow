@@ -8,6 +8,7 @@ import {
   Cpu,
   Gauge,
   RotateCcw,
+  Target,
   X,
 } from 'lucide-react';
 import {
@@ -243,6 +244,61 @@ export default function UmaAiSettingsDialog({
                 min={0}
                 max={2147483647}
                 onChange={(value) => updateOption('seed', value)}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+            <div className="mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <Target size={16} className="text-amber-600" />
+                凯旋门属性目标
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                按游戏界面显示的属性值填写。接近目标时会提前降低收益，达到目标后该属性不再增加推荐分；0
+                表示使用本局实际属性上限。
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <NumberField
+                label="速度上限"
+                description="最终速度目标，0 为自动。"
+                value={draft.options.targetSpeed}
+                min={0}
+                max={3000}
+                onChange={(value) => updateOption('targetSpeed', value)}
+              />
+              <NumberField
+                label="耐力上限"
+                description="最终耐力目标，0 为自动。"
+                value={draft.options.targetStamina}
+                min={0}
+                max={3000}
+                onChange={(value) => updateOption('targetStamina', value)}
+              />
+              <NumberField
+                label="力量上限"
+                description="最终力量目标，0 为自动。"
+                value={draft.options.targetPower}
+                min={0}
+                max={3000}
+                onChange={(value) => updateOption('targetPower', value)}
+              />
+              <NumberField
+                label="毅力上限"
+                description="最终毅力目标，0 为自动。"
+                value={draft.options.targetGuts}
+                min={0}
+                max={3000}
+                onChange={(value) => updateOption('targetGuts', value)}
+              />
+              <NumberField
+                label="智力上限"
+                description="最终智力目标，0 为自动。"
+                value={draft.options.targetWisdom}
+                min={0}
+                max={3000}
+                onChange={(value) => updateOption('targetWisdom', value)}
               />
             </div>
           </section>

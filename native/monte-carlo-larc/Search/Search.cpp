@@ -226,10 +226,14 @@ ModelOutputValueV1 Search::evaluateSingleAction(const Game& game, std::mt19937_6
 
   //整合所有结果
   for (int i = 0; i < MAX_SCORE; i++)
+  {
     finalScoreDistribution[i] = 0;
+    recommendationScoreDistribution[i] = 0;
+  }
   for (int i = 0; i < param.samplingNum; i++)
   {
-    addNormDistribution(NNresultBuf[i].scoreMean, NNresultBuf[i].scoreStdev);
+    addNormDistribution(finalScoreDistribution, NNresultBuf[i].scoreMean, NNresultBuf[i].scoreStdev);
+    addNormDistribution(recommendationScoreDistribution, NNresultBuf[i].value, NNresultBuf[i].scoreStdev);
   }
 
   double N = 0;//总样本量
@@ -237,18 +241,23 @@ ModelOutputValueV1 Search::evaluateSingleAction(const Game& game, std::mt19937_6
   double scoreSqrTotal = 0;//score的平方和
   //double winNum = 0;//score>=target的次数期望
 
-  double valueWeightTotal = 0;//sum(n^p*x[n]),x[n] from small to big
-  double valueTotal = 0;//sum(n^p)
   double totalNinv = 1.0 / (param.samplingNum * NormDistributionSampling);
   for (int s = 0; s < MAX_SCORE; s++)
   {
     double n = finalScoreDistribution[s]; //当前分数的次数
-    double r = (N + 0.5 * n) * totalNinv; //当前分数的排名比例
     N += n;
     scoreTotal += n * s;
     scoreSqrTotal += n * s * s;
+  }
 
-    //按排名加权平均
+  double recommendationN = 0;
+  double valueWeightTotal = 0;//sum(n^p*x[n]),x[n] from small to big
+  double valueTotal = 0;//sum(n^p)
+  for (int s = 0; s < MAX_SCORE; s++)
+  {
+    double n = recommendationScoreDistribution[s];
+    double r = (recommendationN + 0.5 * n) * totalNinv; //当前推荐评分的排名比例
+    recommendationN += n;
     double w = pow(r, rf);
     valueWeightTotal += w * n;
     valueTotal += w * n * s;
@@ -303,13 +312,13 @@ void Search::evaluateSingleActionThread(int threadIdx, ModelOutputValueV1* resul
   }
 }
 
-void Search::addNormDistribution(double mean, double stdev)
+void Search::addNormDistribution(int32_t* distribution, double mean, double stdev)
 {
   for (int i = 0; i < NormDistributionSampling; i++)
   {
     int y = int(mean + stdev * normDistributionCdfInv[i] + 0.5);
     if (y < 0)y = 0;
     if (y >= MAX_SCORE)y = MAX_SCORE - 1;
-    finalScoreDistribution[y] += 1;
+    distribution[y] += 1;
   }
 }

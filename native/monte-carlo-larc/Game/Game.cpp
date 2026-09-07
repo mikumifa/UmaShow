@@ -133,7 +133,10 @@ void Game::newGame(mt19937_64& rand, bool enablePlayerPrint, int newUmaId, int u
   for (int i = 0; i < 5; i++)
     fiveStatusLimit[i] = GameConstants::BasicFiveStatusLimit[i]; //原始属性上限
   for (int i = 0; i < 5; i++)
+  {
     fiveStatusLimit[i] += int(zhongMaBlueCount[i] * 5.34 * 2); //属性上限--种马基础值
+    fiveStatusTarget[i] = fiveStatusLimit[i];
+  }
 
   //后两次继承的事情，到时候再说
   //for (int i = 0; i < 5; i++)
@@ -1550,6 +1553,21 @@ int Game::finalScore() const
   for (int i = 0; i < 5; i++)
     total += GameConstants::FiveStatusFinalScore[min(fiveStatus[i],fiveStatusLimit[i])];
   
+  total += getSkillScore();
+  return total;
+}
+
+int Game::recommendationScore() const
+{
+  int total = 0;
+  for (int i = 0; i < 5; i++)
+  {
+    const int target = fiveStatusTarget[i] > 0
+      ? std::min<int>(fiveStatusTarget[i], fiveStatusLimit[i])
+      : fiveStatusLimit[i];
+    total += GameConstants::FiveStatusFinalScore[std::min<int>(fiveStatus[i], target)];
+  }
+
   total += getSkillScore();
   return total;
 }

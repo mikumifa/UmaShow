@@ -10,6 +10,11 @@ export type MonteCarloOptions = {
   eventStrength?: number;
   scorePtRate?: number;
   scoringMode?: number;
+  targetSpeed?: number;
+  targetStamina?: number;
+  targetPower?: number;
+  targetGuts?: number;
+  targetWisdom?: number;
 };
 
 export type MonteCarloActionResult = {

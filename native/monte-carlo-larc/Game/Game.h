@@ -24,6 +24,7 @@ struct Game
   int16_t failureRateBias;//失败率改变量。练习上手=-2，练习下手=2
   int16_t fiveStatus[5];//五维属性，1200以上不减半
   int16_t fiveStatusLimit[5];//五维属性上限，1200以上不减半
+  int16_t fiveStatusTarget[5];//推荐目标上限，0表示未设置；1200以上不减半
   int16_t skillPt;//技能点
   int16_t skillScore;//已买技能的分数
   int16_t motivation;//干劲，从1到5分别是绝不调到绝好调
@@ -141,6 +142,7 @@ struct Game
   bool isLegal(Action action) const;//这个操作是否允许
 
   int finalScore() const;//最终总分
+  int recommendationScore() const;//应用目标属性上限后的推荐评分
   bool isEnd() const;//
 
   //辅助函数

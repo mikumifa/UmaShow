@@ -60,6 +60,7 @@ public:
   TrainingSample exportTrainingSample(float policyDelta = 50);//policyDelta是policy的软化系数
 
   int32_t finalScoreDistribution[MAX_SCORE];//某个action的最终分数分布预测
+  int32_t recommendationScoreDistribution[MAX_SCORE];//应用目标属性后的推荐评分分布
 
 private:
 
@@ -78,6 +79,6 @@ private:
     Action action
   );
 
-  void addNormDistribution(double mean, double stdev);//在finalScoreDistribution中加上平均值为mean，标准差为stdev的正态分布，总权重为NormDistributionSampling
+  void addNormDistribution(int32_t* distribution, double mean, double stdev);//在指定分布中加入正态分布样本
 
 };

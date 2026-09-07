@@ -51,7 +51,10 @@ bool Game::loadGameFromJson(std::string jsonStr)
       fiveStatus[i] = j["fiveStatus"][i];
     eventStrength = GameConstants::EventStrengthDefault;
     for (int i = 0; i < 5; i++)
+    {
       fiveStatusLimit[i] = j["fiveStatusLimit"][i];
+      fiveStatusTarget[i] = fiveStatusLimit[i];
+    }
 
     skillPt = j["skillPt"];
     skillScore = 0;

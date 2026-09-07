@@ -36,12 +36,22 @@ export type UmaAiOptions = Required<
     | 'eventStrength'
     | 'scorePtRate'
     | 'scoringMode'
+    | 'targetSpeed'
+    | 'targetStamina'
+    | 'targetPower'
+    | 'targetGuts'
+    | 'targetWisdom'
   >
 >;
 
 export type UmaAiSettings = {
   enabled: boolean;
   options: UmaAiOptions;
+};
+
+type UmaAiSettingsInput = {
+  enabled?: boolean;
+  options?: Partial<UmaAiOptions>;
 };
 
 type MonteCarloContextValue = {
@@ -70,6 +80,11 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
     eventStrength: 20,
     scorePtRate: 2,
     scoringMode: 0,
+    targetSpeed: 0,
+    targetStamina: 0,
+    targetPower: 0,
+    targetGuts: 0,
+    targetWisdom: 0,
   },
 };
 
@@ -92,7 +107,7 @@ const boundedNumber = (
 };
 
 export const normalizeUmaAiSettings = (
-  value: Partial<UmaAiSettings> | null | undefined,
+  value: UmaAiSettingsInput | null | undefined,
 ): UmaAiSettings => {
   const raw = value?.options ?? {};
   const defaults = DEFAULT_UMA_AI_SETTINGS.options;
@@ -136,6 +151,21 @@ export const normalizeUmaAiSettings = (
       ),
       scorePtRate: boundedNumber(raw.scorePtRate, defaults.scorePtRate, 0, 20),
       scoringMode,
+      targetSpeed: Math.round(
+        boundedNumber(raw.targetSpeed, defaults.targetSpeed, 0, 3000),
+      ),
+      targetStamina: Math.round(
+        boundedNumber(raw.targetStamina, defaults.targetStamina, 0, 3000),
+      ),
+      targetPower: Math.round(
+        boundedNumber(raw.targetPower, defaults.targetPower, 0, 3000),
+      ),
+      targetGuts: Math.round(
+        boundedNumber(raw.targetGuts, defaults.targetGuts, 0, 3000),
+      ),
+      targetWisdom: Math.round(
+        boundedNumber(raw.targetWisdom, defaults.targetWisdom, 0, 3000),
+      ),
     },
   };
 };
@@ -145,7 +175,7 @@ const loadSettings = () => {
     return normalizeUmaAiSettings(
       JSON.parse(
         localStorage.getItem(SETTINGS_KEY) || 'null',
-      ) as Partial<UmaAiSettings>,
+      ) as UmaAiSettingsInput,
     );
   } catch {
     return DEFAULT_UMA_AI_SETTINGS;
