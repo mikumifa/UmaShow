@@ -45,9 +45,11 @@ import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
 import {
+  characterIconPath,
   horseIconPath,
   RentalParentBadge,
   supportIconPath,
+  umaSkinIconPath,
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
   AutoResearchRequestError,
@@ -927,6 +929,16 @@ export default function AutoResearch() {
   const runnerCareerUma = dashboard?.umas.find(
     (uma) => uma.id === Number(runner?.card_id || 0),
   );
+  const currentScheduleCardId = Number(
+    currentScheduleItem?.request?.card_id ||
+      careerSettings.find(
+        (setting) => setting.id === currentScheduleItem?.career_setting_id,
+      )?.card_id ||
+      0,
+  );
+  const scheduledCareerUma = dashboard?.umas.find(
+    (uma) => uma.id === currentScheduleCardId,
+  );
   // The persisted schedule remains authoritative before its disposable
   // attempt has produced a live Runner snapshot.
   const currentCareerActive = Boolean(
@@ -934,19 +946,24 @@ export default function AutoResearch() {
   );
   const currentCareerUma =
     (offlinePlanActive ? runnerCareerUma : activeCareerUma) ||
-    (runner?.running || queuedCareerPlan ? runnerCareerUma : undefined);
+    (runner?.running || queuedCareerPlan ? runnerCareerUma : undefined) ||
+    scheduledCareerUma;
   const currentCareerCardId = Number(
     currentCareerUma?.id ||
       (offlinePlanActive ? 0 : activeCareer?.card_id) ||
       runner?.card_id ||
+      currentScheduleCardId ||
       0,
   );
   const activeCareerIconPath = currentCareerCardId
-    ? horseIconPath(
+    ? umaSkinIconPath(
         currentCareerCardId,
         currentCareerUma?.rarity || 0,
-        currentCareerUma?.race_cloth_id || currentCareerCardId,
+        currentCareerUma?.race_cloth_id || 0,
       )
+    : undefined;
+  const activeCareerFallbackIconPath = currentCareerCardId
+    ? characterIconPath(currentCareerCardId)
     : undefined;
   const currentRunnerStats = offlinePlanActive
     ? {}
@@ -7855,6 +7872,9 @@ export default function AutoResearch() {
                     <ProgressTab
                       currentCareerActive={currentCareerActive}
                       activeCareerIconPath={activeCareerIconPath}
+                      activeCareerFallbackIconPath={
+                        activeCareerFallbackIconPath
+                      }
                       activeCareer={
                         offlinePlanActive ? undefined : activeCareer
                       }

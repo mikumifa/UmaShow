@@ -933,7 +933,7 @@ export default function HistoryTab({
                           }
                         }}
                         className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                        title="删除当天记录"
+                        title="删除"
                       >
                         <Trash2 size={15} />
                       </button>
