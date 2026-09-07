@@ -4,9 +4,11 @@ import argparse
 import os
 import platform
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -23,6 +25,19 @@ PROJECTS = {
         ROOT / "tmp" / "native" / "monte-carlo-larc-cmake",
     ),
 }
+
+CA_BUNDLE_ENVIRONMENT_VARIABLES = (
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+)
+COMMON_CA_BUNDLES = (
+    Path("/etc/ssl/certs/ca-certificates.crt"),
+    Path("/etc/pki/tls/certs/ca-bundle.crt"),
+    Path("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"),
+    Path("/etc/ssl/ca-bundle.pem"),
+    Path("/etc/ssl/cert.pem"),
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,6 +99,58 @@ def find_cmake() -> Path:
     raise FileNotFoundError("未找到 CMake；可通过 CMAKE_PATH 指定")
 
 
+def download_ssl_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    candidates: list[Path] = []
+    for variable in CA_BUNDLE_ENVIRONMENT_VARIABLES:
+        value = os.environ.get(variable)
+        if not value:
+            continue
+        candidate = Path(value).expanduser()
+        if not candidate.is_file():
+            raise FileNotFoundError(f"{variable} 指向的 CA 文件不存在：{candidate}")
+        candidates.append(candidate)
+    candidates.extend(COMMON_CA_BUNDLES)
+    try:
+        import certifi
+
+        candidates.append(Path(certifi.where()))
+    except ImportError:
+        pass
+
+    loaded: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved in loaded or not resolved.is_file():
+            continue
+        context.load_verify_locations(cafile=str(resolved))
+        loaded.add(resolved)
+    return context
+
+
+def download_file(url: str, destination: Path) -> None:
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": f"UmaShow-build/{ONNXRUNTIME_VERSION}"},
+    )
+    try:
+        with urllib.request.urlopen(
+            request,
+            context=download_ssl_context(),
+        ) as response:
+            with destination.open("wb") as output:
+                shutil.copyfileobj(response, output)
+    except urllib.error.URLError as error:
+        raise RuntimeError(
+            "ONNX Runtime 下载失败。请安装或更新系统 CA 证书，也可以通过 "
+            "SSL_CERT_FILE 指定 CA bundle，或通过 ONNXRUNTIME_ARCHIVE "
+            "指定手动下载的官方压缩包。"
+        ) from error
+
+
 def ensure_onnxruntime() -> Path:
     package_name, archive_suffix = onnxruntime_package()
     explicit = os.environ.get("ONNXRUNTIME_ROOT")
@@ -100,7 +167,16 @@ def ensure_onnxruntime() -> Path:
 
     cache_root.mkdir(parents=True, exist_ok=True)
     archive = cache_root / f"{package_name}{archive_suffix}"
-    if not archive.is_file():
+    archive_override = os.environ.get("ONNXRUNTIME_ARCHIVE")
+    if archive_override:
+        source_archive = Path(archive_override).expanduser().resolve()
+        if not source_archive.is_file():
+            raise FileNotFoundError(
+                f"ONNXRUNTIME_ARCHIVE 指向的文件不存在：{source_archive}"
+            )
+        if source_archive != archive.resolve():
+            shutil.copy2(source_archive, archive)
+    elif not archive.is_file():
         print(f"Downloading ONNX Runtime {ONNXRUNTIME_VERSION}...")
         url = (
             "https://github.com/microsoft/onnxruntime/releases/download/"
@@ -111,7 +187,7 @@ def ensure_onnxruntime() -> Path:
         ) as temporary:
             temporary_path = Path(temporary.name)
         try:
-            urllib.request.urlretrieve(url, temporary_path)
+            download_file(url, temporary_path)
             temporary_path.replace(archive)
         finally:
             temporary_path.unlink(missing_ok=True)
