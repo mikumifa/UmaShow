@@ -65,7 +65,7 @@ uv run --extra larc-graph python training/larc_graph/train.py "training/larc_gra
 uv run --extra larc-graph python training/larc_graph/export_onnx.py training/larc_graph/checkpoints/larc_graph-v0.pt training/larc_graph/models/larc_graph-v0.onnx
 ```
 
-导出器会写入协议版本、剧本和评分缩放元数据，并使用 ONNX Runtime 做一次 CPU 烟雾测试。之后在 UmaShow 的“推荐设置”中选择该文件即可。
+导出器会写入协议版本、剧本和评分缩放元数据。Python 版 ONNX Runtime 仅用于可选的导出检查，默认训练依赖不再安装它，因此 Python 3.10 也不会被其轮子版本阻塞；之后在 UmaShow 的“推荐设置”中选择该文件即可。
 
 ## 数据协议
 
