@@ -1,8 +1,11 @@
 #include "utils.h"
-#include "windows.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 using json = nlohmann::json;
 using namespace std;
 
+#ifdef _WIN32
 // https://www.codersrc.com/archives/15399.html
 std::string string_To_UTF8(const std::string& str)
 {
@@ -57,3 +60,14 @@ std::string UTF8_To_string(const std::string& str)
 
     return retStr;
 }
+#else
+std::string string_To_UTF8(const std::string& str)
+{
+    return str;
+}
+
+std::string UTF8_To_string(const std::string& str)
+{
+    return str;
+}
+#endif

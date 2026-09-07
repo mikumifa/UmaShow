@@ -996,7 +996,11 @@ json handleRequest(const json& request)
 
 } // namespace
 
+#ifdef _WIN32
 int wmain(int argc, wchar_t** argv)
+#else
+int main(int argc, char** argv)
+#endif
 {
   std::ios::sync_with_stdio(false);
   std::cin.tie(nullptr);

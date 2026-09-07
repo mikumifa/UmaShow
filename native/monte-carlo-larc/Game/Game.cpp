@@ -1584,7 +1584,7 @@ int Game::getTrainingLevel(int item) const
     level = 5;
   else
   {
-    assert(trainLevelCount[item] <= 16, "训练等级计数超过16");
+    assert((trainLevelCount[item] <= 16) && "训练等级计数超过16");
     level = trainLevelCount[item] / 4;
     if (level > 4)level = 4;
   }

@@ -80,8 +80,9 @@ struct UmaData
 		  {
 				me.races[TOTAL_TURN - 1] = true;//Grand Master（最后一战）
 
-				for (auto turn : j["races"])
+				for (const auto& turnValue : j["races"])
 				{
+					const int turn = turnValue.get<int>();
 					static_assert(TOTAL_TURN < 1000);
 					if(turn<TOTAL_TURN)
 						me.races[turn] |= TURN_RACE;
@@ -96,10 +97,18 @@ struct UmaData
 					}
 				}
 		  }
-		  for (auto turn : j["preferRaces"])
-			  me.races[turn] |= TURN_PREFER_RACE;
-		  for (auto turn : j["preferReds"])
-			  me.races[turn] |= TURN_RED;
+		  for (const auto& turnValue : j["preferRaces"])
+		  {
+			  const int turn = turnValue.get<int>();
+			  if (turn >= 0 && turn < TOTAL_TURN)
+				  me.races[turn] |= TURN_PREFER_RACE;
+		  }
+		  for (const auto& turnValue : j["preferReds"])
+		  {
+			  const int turn = turnValue.get<int>();
+			  if (turn >= 0 && turn < TOTAL_TURN)
+				  me.races[turn] |= TURN_RED;
+		  }
 	  }
 };
 
