@@ -38,6 +38,16 @@ uv run --extra larc-graph python training/larc_graph/generate_selfplay.py \
 
 `collect_teacher.py` 仍保留为以后使用真实回合状态校准模拟器的可选工具，但首版训练不依赖它。
 
+### 一键收集 v2 手写数据并训练不同规模
+
+下面的脚本先追加收集 32768 局手写策略数据（每项模拟 128 次），成功后使用完全相同的训练参数，依次训练 small、base 和 medium 三档模型，并自动导出 ONNX：
+
+```bash
+bash training/larc_graph/collect_and_train_v2_scales.sh
+```
+
+三档网络约为 100 万、180 万和 550 万参数。训练使用流式分片读取，避免一次性把全部 v2 数据解压进内存。数据收集或某档训练被中断时，不会继续执行后续阶段；成功阶段会写入完成标记，重新运行脚本时自动跳过。
+
 ## 2. 训练
 
 ```bash

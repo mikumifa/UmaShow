@@ -10,12 +10,12 @@ import torch
 from torch.utils.data import DataLoader, random_split
 
 try:
-    from .dataset import GraphDataset
+    from .dataset import GraphDataset, ShardedGraphDataset
     from .losses import policy_cross_entropy, quantile_huber_loss
     from .model import LArcGraphNetwork, ModelConfig
     from .schema import SCORE_SCALE, SCHEMA_VERSION
 except ImportError:
-    from dataset import GraphDataset  # type: ignore
+    from dataset import GraphDataset, ShardedGraphDataset  # type: ignore
     from losses import policy_cross_entropy, quantile_huber_loss  # type: ignore
     from model import LArcGraphNetwork, ModelConfig  # type: ignore
     from schema import SCORE_SCALE, SCHEMA_VERSION  # type: ignore
@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--validation-ratio", type=float, default=0.05)
     parser.add_argument("--workers", type=int, default=0)
+    parser.add_argument(
+        "--streaming",
+        action="store_true",
+        help="load one compressed shard at a time instead of all samples into RAM",
+    )
     parser.add_argument("--seed", type=int, default=20260907)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--hidden-dim", type=int, default=128)
@@ -61,6 +66,26 @@ def choose_device(requested: str) -> torch.device:
     if requested != "auto":
         return torch.device(requested)
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def split_shards(
+    files: list[Path], validation_ratio: float, seed: int
+) -> tuple[list[Path], list[Path]]:
+    if len(files) < 2:
+        raise ValueError("streaming training requires at least two NPZ shards")
+    generator = np.random.default_rng(seed)
+    indices = generator.permutation(len(files))
+    validation_count = min(
+        max(1, round(len(files) * validation_ratio)), len(files) - 1
+    )
+    validation_indices = set(int(index) for index in indices[:validation_count])
+    training_files = [
+        path for index, path in enumerate(files) if index not in validation_indices
+    ]
+    validation_files = [
+        path for index, path in enumerate(files) if index in validation_indices
+    ]
+    return training_files, validation_files
 
 
 def move(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
@@ -148,23 +173,41 @@ def main() -> None:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     files = resolve_data(args.data)
-    dataset = GraphDataset(files)
-    if len(dataset) < 2:
-        raise ValueError("training requires at least two samples")
-    validation_count = min(
-        max(1, round(len(dataset) * args.validation_ratio)), max(1, len(dataset) - 1)
-    )
-    training_count = len(dataset) - validation_count
-    generator = torch.Generator().manual_seed(args.seed)
-    training_set, validation_set = random_split(
-        dataset, [training_count, validation_count], generator=generator
-    )
+    if not 0.0 < args.validation_ratio < 1.0:
+        raise ValueError("--validation-ratio must be between 0 and 1")
+    if args.streaming:
+        training_files, validation_files = split_shards(
+            files, args.validation_ratio, args.seed
+        )
+        training_set = ShardedGraphDataset(
+            training_files, shuffle=True, seed=args.seed
+        )
+        validation_set = ShardedGraphDataset(
+            validation_files, shuffle=False, seed=args.seed
+        )
+        training_count = len(training_set)
+        validation_count = len(validation_set)
+        dataset_count = training_count + validation_count
+    else:
+        dataset = GraphDataset(files)
+        if len(dataset) < 2:
+            raise ValueError("training requires at least two samples")
+        validation_count = min(
+            max(1, round(len(dataset) * args.validation_ratio)),
+            max(1, len(dataset) - 1),
+        )
+        training_count = len(dataset) - validation_count
+        generator = torch.Generator().manual_seed(args.seed)
+        training_set, validation_set = random_split(
+            dataset, [training_count, validation_count], generator=generator
+        )
+        dataset_count = len(dataset)
     device = choose_device(args.device)
     pin_memory = device.type == "cuda"
     train_loader = DataLoader(
         training_set,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=not args.streaming,
         num_workers=args.workers,
         pin_memory=pin_memory,
     )
@@ -205,7 +248,7 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "samples": len(dataset),
+                "samples": dataset_count,
                 "training": training_count,
                 "validation": validation_count,
                 "parameters": model.parameter_count(),
@@ -219,6 +262,8 @@ def main() -> None:
     )
 
     for epoch in range(1, args.epochs + 1):
+        if args.streaming:
+            training_set.set_epoch(epoch)
         model.train()
         running: list[float] = []
         for batch in train_loader:
