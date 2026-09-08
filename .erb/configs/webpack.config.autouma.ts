@@ -73,6 +73,10 @@ const configuration: webpack.Configuration = {
         type: 'asset/resource',
       },
       {
+        test: /\.wasm$/i,
+        type: 'asset/inline',
+      },
+      {
         test: /\.svg$/,
         use: [
           {
@@ -130,10 +134,6 @@ const configuration: webpack.Configuration = {
     new CopyWebpackPlugin({
       patterns: [
         { from: path.join(root, 'master.mdb'), to: 'master.mdb' },
-        {
-          from: path.join(root, 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
-          to: 'sql-wasm.wasm',
-        },
         { from: path.join(root, 'assets', 'data'), to: 'data' },
         { from: path.join(root, 'assets', 'chr_icon'), to: 'chr_icon' },
         { from: path.join(root, 'assets', 'skill_icons'), to: 'skill_icons' },

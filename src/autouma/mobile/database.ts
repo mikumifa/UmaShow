@@ -1,4 +1,5 @@
 import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic } from 'sql.js';
+import sqlWasmDataUrl from 'sql.js/dist/sql-wasm.wasm';
 
 type SqlValue = string | number | Uint8Array | null;
 
@@ -55,8 +56,11 @@ function assetUrl(name: string) {
 
 export function initializeSqlRuntime() {
   if (!sqlRuntime) {
+    const encoded = sqlWasmDataUrl.slice(sqlWasmDataUrl.indexOf(',') + 1);
+    const decoded = window.atob(encoded);
+    const wasmBinary = Uint8Array.from(decoded, (value) => value.charCodeAt(0));
     sqlRuntime = initSqlJs({
-      locateFile: (file) => assetUrl(file),
+      wasmBinary,
     });
   }
   return sqlRuntime;
