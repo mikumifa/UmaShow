@@ -15,6 +15,7 @@ import {
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
   SuccessionPickerDialog,
+  SuccessionPickerFilterSheet,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
 import {
@@ -49,6 +50,7 @@ import {
 } from './types';
 
 type CareerTabProps = {
+  readOnly?: boolean;
   dashboard: Dashboard;
   careerSaveOpen: boolean;
   accountCareerSettings: CareerSetting[];
@@ -216,6 +218,7 @@ function parentPickerFactorStars(
 
 export default function CareerTab(props: CareerTabProps) {
   const {
+    readOnly = false,
     dashboard,
     careerSaveOpen,
     accountCareerSettings,
@@ -323,10 +326,12 @@ export default function CareerTab(props: CareerTabProps) {
     [],
   );
   useEffect(() => {
+    if (readOnly) return undefined;
     loadUMDB()
       .then(() => setSuccessionG1SaddleIds([...UMDB.successionG1SaddleIds]))
       .catch(() => setSuccessionG1SaddleIds([]));
-  }, []);
+    return undefined;
+  }, [readOnly]);
   useEffect(() => {
     if (!newCareerDialogOpen) return undefined;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -645,22 +650,31 @@ export default function CareerTab(props: CareerTabProps) {
                     )}
                   </span>
                   <div className="min-w-0 flex-1 pr-14">
-                    <label className="block text-xs text-gray-500">
-                      详设名称
-                      <input
-                        key={`${setting.id}-${setting.name}`}
-                        defaultValue={setting.name}
-                        onBlur={(event) =>
-                          renameCareerSetting(setting.id, event.target.value)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.currentTarget.blur();
+                    {readOnly ? (
+                      <div className="block text-xs text-gray-500">
+                        详设名称
+                        <strong className="mt-1 block truncate py-1.5 text-sm text-gray-800">
+                          {setting.name}
+                        </strong>
+                      </div>
+                    ) : (
+                      <label className="block text-xs text-gray-500">
+                        详设名称
+                        <input
+                          key={`${setting.id}-${setting.name}`}
+                          defaultValue={setting.name}
+                          onBlur={(event) =>
+                            renameCareerSetting(setting.id, event.target.value)
                           }
-                        }}
-                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
-                      />
-                    </label>
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.currentTarget.blur();
+                            }
+                          }}
+                          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-800"
+                        />
+                      </label>
+                    )}
                     <p className="mt-1 truncate text-xs text-gray-500">
                       {uma?.name || '尚未选择育成马娘'} ·{' '}
                       {offline
@@ -677,56 +691,68 @@ export default function CareerTab(props: CareerTabProps) {
                 <div className="mt-auto flex gap-2 pt-3">
                   <button
                     type="button"
-                    onClick={() => applyCareerSetting(setting.id)}
+                    onClick={() =>
+                      readOnly
+                        ? continueWithSetting(setting.id)
+                        : applyCareerSetting(setting.id)
+                    }
                     disabled={!presetExists}
                     className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    进入详设
+                    {readOnly ? '选择并设置运行方式' : '进入详设'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => uploadCareerSetting(setting.id)}
-                    disabled={busy === `career-cloud-upload:${setting.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-                    title={
-                      cloudCareerConfigIds.has(setting.id)
-                        ? '更新云端详设'
-                        : '上传到云端详设库'
-                    }
-                  >
-                    <CloudUpload size={15} />
-                    {cloudCareerConfigIds.has(setting.id) ? '更新' : '上传'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteCareerSetting(setting.id)}
-                    className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    aria-label={`删除详设${setting.name}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  {!readOnly ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => uploadCareerSetting(setting.id)}
+                        disabled={busy === `career-cloud-upload:${setting.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                        title={
+                          cloudCareerConfigIds.has(setting.id)
+                            ? '更新云端详设'
+                            : '上传到云端详设库'
+                        }
+                      >
+                        <CloudUpload size={15} />
+                        {cloudCareerConfigIds.has(setting.id)
+                          ? '更新'
+                          : '上传'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteCareerSetting(setting.id)}
+                        className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                        aria-label={`删除详设${setting.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </article>
             );
           })}
 
-          <button
-            type="button"
-            onClick={() => setNewCareerDialogOpen(true)}
-            className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-center text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
-              <Plus size={22} />
-            </span>
-            <strong className="mt-3 text-sm text-indigo-950">
-              新建养马详设
-            </strong>
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={() => setNewCareerDialogOpen(true)}
+              className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-center text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
+                <Plus size={22} />
+              </span>
+              <strong className="mt-3 text-sm text-indigo-950">
+                新建养马详设
+              </strong>
+            </button>
+          ) : null}
         </div>
       </section>
 
-      {newCareerDialogOpen ? (
-        <div className="successionPickerTheme successionPickerOverlay">
+      {!readOnly && newCareerDialogOpen ? (
+        <div className="autoResearchCreateDialogOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay">
           <button
             type="button"
             aria-label="关闭新建养马详设"
@@ -737,7 +763,7 @@ export default function CareerTab(props: CareerTabProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-career-dialog-title"
-            className="successionPickerDialog relative max-h-[90vh] w-full max-w-lg"
+            className="autoResearchCreateDialog successionPickerDialog relative max-h-[90vh] w-full max-w-lg"
           >
             <div className="space-y-4 overflow-y-auto p-5">
               <div className="grid grid-cols-2 gap-2">
@@ -820,7 +846,7 @@ export default function CareerTab(props: CareerTabProps) {
     <>
       <AppMenuPortal targetId="app-page-secondary-tabs">
         <AppSideNotch side="left">
-          <nav className="flex h-10 items-center gap-1 px-2">
+          <nav className="autoResearchEditorTabs flex h-10 items-center gap-1 px-2">
             {(careerMode === 'offline'
               ? [
                   ['career-scenario', '基础'],
@@ -853,7 +879,7 @@ export default function CareerTab(props: CareerTabProps) {
 
       <AppMenuPortal targetId="app-page-context-actions">
         <AppSideNotch side="right">
-          <div className="flex h-10 items-center gap-1.5 px-2">
+          <div className="autoResearchEditorActions flex h-10 items-center gap-1.5 px-2">
             <button
               type="button"
               onClick={closeCareerEditor}
@@ -1220,26 +1246,23 @@ export default function CareerTab(props: CareerTabProps) {
                   searchPlaceholder="搜索马娘、因子、玩家或 ID"
                   searchAriaLabel="搜索已有马娘"
                   onSearchChange={setParentPickerSearch}
-                  meta={
-                    parentPickerHasFilters ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setParentPickerSource('all');
-                          setParentPickerBlueFactors([]);
-                          setParentPickerBlueStars(0);
-                          setParentPickerAptitudeFactors([]);
-                          setParentPickerAptitudeStars(0);
-                          setParentPickerSort('score');
-                          setParentPickerSortDirection('desc');
-                        }}
-                      >
-                        清空筛选
-                      </button>
-                    ) : null
-                  }
                 >
-                  <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <SuccessionPickerFilterSheet
+                    title="筛选继承马娘"
+                    summary={
+                      parentPickerHasFilters ? '已启用筛选' : '全部继承马娘'
+                    }
+                    onClear={() => {
+                      setParentPickerSource('all');
+                      setParentPickerBlueFactors([]);
+                      setParentPickerBlueStars(0);
+                      setParentPickerAptitudeFactors([]);
+                      setParentPickerAptitudeStars(0);
+                      setParentPickerSort('score');
+                      setParentPickerSortDirection('desc');
+                    }}
+                  >
+                    <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-3 py-2">
                     <div className="grid gap-2 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
                       <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
                         <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -1486,8 +1509,9 @@ export default function CareerTab(props: CareerTabProps) {
                           </button>
                         ))}
                       </div>
-                    </section>
-                  </div>
+                      </section>
+                    </div>
+                  </SuccessionPickerFilterSheet>
                   {pickerParents.length ? (
                     <div className="successionCapturedPickerGrid">
                       {pickerParents.map((parent) => {

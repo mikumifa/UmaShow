@@ -4,6 +4,7 @@ module.exports = {
   // eslint-disable-next-line prettier/prettier
   content: [
     './src/renderer/**/*.{js,jsx,ts,tsx,ejs}',
+    './src/autouma/**/*.{js,jsx,ts,tsx,ejs}',
     './src/main/**/*.{js,jsx,ts,tsx,ejs}',
   ],
   safelist: [

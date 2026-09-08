@@ -480,6 +480,199 @@
   gap: 8px;
 }
 
+.successionPickerFilterTrigger {
+  display: flex;
+  min-height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--planner-border);
+  background: #f8fafc;
+  color: var(--planner-muted);
+  font-size: 11px;
+}
+
+.successionPickerFilterTrigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.successionPickerFilterTrigger > button {
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.successionPickerFilterSheetOverlay {
+  position: fixed;
+  z-index: 10100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgb(15 23 42 / 58%);
+  backdrop-filter: blur(3px);
+}
+
+.successionPickerFilterSheet {
+  display: flex;
+  width: min(720px, 100%);
+  max-height: min(82vh, 760px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 32%);
+}
+
+.successionPickerFilterSheet > header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.successionPickerFilterSheet > header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.successionPickerFilterSheet > header button {
+  width: 30px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+.successionPickerFilterSheetBody {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.successionPickerFilterSheetBody .plannerSkillFilters,
+.successionPickerFilterSheetBody .successionCapturedPickerFilters,
+.successionPickerFilterSheetBody .plannerDailyHorseFilters {
+  max-height: none;
+  overflow: visible;
+  border-bottom: 0;
+}
+
+.successionPickerFilterSheet > footer {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 9px 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.successionPickerFilterSheet > footer button {
+  min-width: 84px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successionPickerFilterSheet > footer button.secondary {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .plannerDialogHeaderBlock {
+    padding: 8px 10px;
+  }
+
+  .plannerDialogHeaderBlock h3 {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .plannerDialogHeaderBlock p {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .successionPickerFilterSheetOverlay {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .successionPickerFilterSheet {
+    width: 100%;
+    min-height: 100%;
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .successionPickerFilterSheet > header {
+    padding: 8px 10px;
+  }
+
+  .successionPickerFilterSheet > header h3 {
+    font-size: 14px;
+  }
+
+  .successionPickerFilterSheet > header button {
+    width: 28px;
+    min-height: 28px;
+    font-size: 18px;
+  }
+
+  .successionPickerFilterSheetBody {
+    min-height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .successionPickerFilterSheet > footer {
+    position: sticky;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin-top: auto;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: #fff;
+    box-shadow: 0 -8px 22px rgb(15 23 42 / 10%);
+  }
+}
+
 .plannerDailyHorseDialog {
   width: min(1180px, 100%);
   max-height: min(92vh, 940px);

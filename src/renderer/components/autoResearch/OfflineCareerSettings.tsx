@@ -14,6 +14,7 @@ import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import successionData from 'renderer/data/succession_data.json';
 import {
   SuccessionPickerDialog,
+  SuccessionPickerFilterSheet,
   SuccessionPickerTrigger,
 } from 'renderer/components/succession/SuccessionPicker';
 import {
@@ -1903,28 +1904,25 @@ export default function OfflineCareerSettings({
           searchAriaLabel="搜索已有马娘"
           onSearchChange={setSpecificLineageSearch}
           meta={
-            <>
-              <span>找到 {filteredLineageParents.length} 个已有实例</span>
-              {specificLineageHasFilters ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSpecificLineageSource('all');
-                    setSpecificLineageBlueFactors([]);
-                    setSpecificLineageBlueStars(0);
-                    setSpecificLineageAptitudeFactors([]);
-                    setSpecificLineageAptitudeStars(0);
-                    setSpecificLineageSort('score');
-                    setSpecificLineageSortDirection('desc');
-                  }}
-                >
-                  清空筛选
-                </button>
-              ) : null}
-            </>
+            <span>找到 {filteredLineageParents.length} 个已有实例</span>
           }
         >
-          <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+          <SuccessionPickerFilterSheet
+            title="筛选已有马娘"
+            summary={
+              specificLineageHasFilters ? '已启用筛选' : '全部已有马娘'
+            }
+            onClear={() => {
+              setSpecificLineageSource('all');
+              setSpecificLineageBlueFactors([]);
+              setSpecificLineageBlueStars(0);
+              setSpecificLineageAptitudeFactors([]);
+              setSpecificLineageAptitudeStars(0);
+              setSpecificLineageSort('score');
+              setSpecificLineageSortDirection('desc');
+            }}
+          >
+            <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-4 py-3">
             <div className="grid gap-3 xl:grid-cols-[minmax(280px,0.85fr)_minmax(440px,1.35fr)]">
               <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -2151,8 +2149,9 @@ export default function OfflineCareerSettings({
                   </button>
                 ))}
               </div>
-            </section>
-          </div>
+              </section>
+            </div>
+          </SuccessionPickerFilterSheet>
           {filteredLineageParents.length ? (
             <div className="successionCapturedPickerGrid">
               {filteredLineageParents.map((parent) => (

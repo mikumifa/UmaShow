@@ -330,7 +330,7 @@ export default function PresetsTab(props: PresetsTabProps) {
     <>
       <AppMenuPortal targetId="app-page-secondary-tabs">
         <AppSideNotch side="left">
-          <nav className="flex h-10 items-center gap-1 px-2">
+          <nav className="autoResearchEditorTabs flex h-10 items-center gap-1 px-2">
             {[
               ['preset-basic', '基础'],
               ['preset-skills', '技能'],
@@ -351,7 +351,7 @@ export default function PresetsTab(props: PresetsTabProps) {
       </AppMenuPortal>
       <AppMenuPortal targetId="app-page-context-actions">
         <AppSideNotch side="right">
-          <div className="flex h-10 items-center gap-1.5 px-2">
+          <div className="autoResearchEditorActions flex h-10 items-center gap-1.5 px-2">
             <button
               type="button"
               onClick={() => setPresetEditorOpen(false)}

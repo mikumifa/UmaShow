@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, jsx-a11y/no-autofocus, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-static-element-interactions */
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -30,6 +30,78 @@ type SuccessionPickerDialogProps = {
   escapePriority?: boolean;
   children: ReactNode;
 };
+
+type SuccessionPickerFilterSheetProps = {
+  title?: string;
+  summary?: ReactNode;
+  onClear?: () => void;
+  children: ReactNode;
+};
+
+export function SuccessionPickerFilterSheet({
+  title = '筛选条件',
+  summary,
+  onClear,
+  children,
+}: SuccessionPickerFilterSheetProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <div className="successionPickerFilterTrigger">
+        <span>{summary || '全部结果'}</span>
+        <button type="button" onClick={() => setOpen(true)}>
+          筛选
+        </button>
+      </div>
+      {open
+        ? createPortal(
+            <div
+              className="successionPickerFilterSheetOverlay"
+              onMouseDown={() => setOpen(false)}
+            >
+              <section
+                className="successionPickerFilterSheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <header>
+                  <h3>{title}</h3>
+                  <button
+                    type="button"
+                    aria-label="关闭筛选设置"
+                    onClick={() => setOpen(false)}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className="successionPickerFilterSheetBody">
+                  {children}
+                </div>
+                <footer>
+                  {onClear ? (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={onClear}
+                    >
+                      清空筛选
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => setOpen(false)}>
+                    完成
+                  </button>
+                </footer>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
 
 export function SuccessionPickerDialog({
   ariaLabel,

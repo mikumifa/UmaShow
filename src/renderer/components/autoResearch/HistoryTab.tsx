@@ -1,5 +1,12 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  TouchEvent as ReactTouchEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   ArrowLeft,
   Download,
@@ -31,6 +38,7 @@ import {
 } from './types';
 
 type HistoryTabProps = {
+  readOnly?: boolean;
   selectedCareerRecords: CareerSessionRecord[] | null;
   setSelectedCareerRecords: Dispatch<
     SetStateAction<CareerSessionRecord[] | null>
@@ -424,6 +432,7 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
 };
 
 export default function HistoryTab({
+  readOnly = false,
   selectedCareerRecords,
   setSelectedCareerRecords,
   busy,
@@ -439,8 +448,61 @@ export default function HistoryTab({
   races,
 }: HistoryTabProps) {
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartY = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
+  const mobilePullToRefresh =
+    document.documentElement.hasAttribute('data-autouma') &&
+    window.matchMedia('(max-width: 639px)').matches;
+
+  const updatePullDistance = (distance: number) => {
+    pullDistanceRef.current = distance;
+    setPullDistance(distance);
+  };
+
+  const beginPull = (event: ReactTouchEvent<HTMLElement>) => {
+    if (!mobilePullToRefresh || busy === 'history') return;
+    const scrollContainer = event.currentTarget.closest(
+      '.autoResearchContentGrid',
+    ) as HTMLElement | null;
+    if ((scrollContainer?.scrollTop || 0) > 0) return;
+    pullStartY.current = event.touches[0]?.clientY ?? null;
+  };
+
+  const continuePull = (event: ReactTouchEvent<HTMLElement>) => {
+    if (pullStartY.current === null) return;
+    const scrollContainer = event.currentTarget.closest(
+      '.autoResearchContentGrid',
+    ) as HTMLElement | null;
+    if ((scrollContainer?.scrollTop || 0) > 0) {
+      pullStartY.current = null;
+      updatePullDistance(0);
+      return;
+    }
+    const distance = (event.touches[0]?.clientY || 0) - pullStartY.current;
+    if (distance <= 0) {
+      updatePullDistance(0);
+      return;
+    }
+    event.preventDefault();
+    updatePullDistance(Math.min(96, distance * 0.55));
+  };
+
+  const finishPull = () => {
+    const shouldRefresh =
+      mobilePullToRefresh &&
+      pullDistanceRef.current >= 56 &&
+      busy !== 'history' &&
+      Boolean(selectedAccountId);
+    pullStartY.current = null;
+    updatePullDistance(0);
+    if (shouldRefresh) {
+      void loadCareerHistory(selectedAccountId);
+    }
+  };
 
   useEffect(() => {
+    if (readOnly) return undefined;
     let active = true;
     loadUMDB()
       .then((database) => {
@@ -451,7 +513,7 @@ export default function HistoryTab({
     return () => {
       active = false;
     };
-  }, []);
+  }, [readOnly]);
 
   const resolveRecordUma = (cardId: number) => {
     if (!cardId) return undefined;
@@ -497,22 +559,24 @@ export default function HistoryTab({
     const canDownloadSetting = hasCareerSettingSnapshot(selectedCareerRecords);
 
     return (
-      <div className="space-y-4">
-        <section className={panelClass('p-5')}>
-          <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="autoResearchHistoryDetail space-y-4">
+        <section className={panelClass('p-3 sm:p-5')}>
+          <div className="mb-3 flex items-center justify-between gap-2 sm:gap-3">
             <PlannerButton
               variant="secondary"
               size="small"
+              className="autoResearchHistoryAction"
               onClick={() => setSelectedCareerRecords(null)}
             >
               <ArrowLeft size={14} />
-              返回记录
+              返回
             </PlannerButton>
             <div className="flex items-center gap-2">
-              {canDownloadSetting ? (
+              {!readOnly && canDownloadSetting ? (
                 <PlannerButton
                   variant="secondary"
                   size="small"
+                  className="autoResearchHistoryAction"
                   disabled={
                     settingDownloaded ||
                     busy.startsWith('history-setting-download:')
@@ -523,30 +587,33 @@ export default function HistoryTab({
                   {settingDownloaded ? '详设已保存' : '下载详设'}
                 </PlannerButton>
               ) : null}
-              <PlannerButton
-                variant="danger"
-                size="small"
-                disabled={busy === 'history-delete'}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
-                    )
-                  ) {
-                    deleteCareerHistory(
-                      selectedCareerRecords.map((record) => record.id),
-                    );
-                  }
-                }}
-              >
-                <Trash2 size={14} />
-                删除当天记录
-              </PlannerButton>
+              {!readOnly ? (
+                <PlannerButton
+                  variant="danger"
+                  size="small"
+                  className="autoResearchHistoryAction"
+                  disabled={busy === 'history-delete'}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                      )
+                    ) {
+                      deleteCareerHistory(
+                        selectedCareerRecords.map((record) => record.id),
+                      );
+                    }
+                  }}
+                >
+                  <Trash2 size={14} />
+                  删除
+                </PlannerButton>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="h-16 w-16 flex-none">
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+              <span className="h-12 w-12 flex-none sm:h-16 sm:w-16">
                 {recordUma ? (
                   <AssetIcon
                     path={
@@ -564,15 +631,15 @@ export default function HistoryTab({
                 )}
               </span>
               <div className="min-w-0">
-                <h2 className="truncate text-xl font-bold text-slate-900">
+                <h2 className="truncate text-base font-bold text-slate-900 sm:text-xl">
                   {settingName} · {formatRecordDate(dateKey)}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
                   {offlineHistory
                     ? '离线详设'
                     : `在线详设 · 预设：${selectedCareerRecords[0]?.preset_name || '未命名'}`}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-0.5 truncate text-[10px] text-slate-400 sm:mt-1 sm:text-xs">
                   {formatReportTime(aggregate.startedAt)} 至{' '}
                   {formatReportTime(aggregate.endedAt)} · 合并{' '}
                   {selectedCareerRecords.length} 次托管
@@ -594,41 +661,47 @@ export default function HistoryTab({
               offlineHistory ? 'xl:grid-cols-7' : 'xl:grid-cols-8'
             }`}
           >
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">完成次数</p>
-              <strong className="mt-1 block text-xl text-slate-900">
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 sm:p-3">
+              <p className="text-[11px] text-slate-500 sm:text-xs">完成次数</p>
+              <strong className="mt-1 block text-lg text-slate-900 sm:text-xl">
                 {aggregate.count}
               </strong>
             </div>
             {!offlineHistory ? (
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">比赛大差</p>
-                <strong className="mt-1 block text-xl text-amber-700">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 sm:p-3">
+                <p className="text-[11px] text-slate-500 sm:text-xs">
+                  比赛大差
+                </p>
+                <strong className="mt-1 block text-lg text-amber-700 sm:text-xl">
                   {aggregate.largeMarginCount} / {aggregate.g123RaceCount} 场
                 </strong>
               </div>
             ) : null}
             {!offlineHistory ? (
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">使用闹钟</p>
-                <strong className="mt-1 block text-xl text-sky-700">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 sm:p-3">
+                <p className="text-[11px] text-slate-500 sm:text-xs">
+                  使用闹钟
+                </p>
+                <strong className="mt-1 block text-lg text-sky-700 sm:text-xl">
                   {aggregate.clocksUsed} 次
                 </strong>
               </div>
             ) : null}
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">宝石掉落</p>
-              <strong className="mt-1 block text-xl text-violet-700">
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 sm:p-3">
+              <p className="text-[11px] text-slate-500 sm:text-xs">宝石掉落</p>
+              <strong className="mt-1 block text-lg text-violet-700 sm:text-xl">
                 {aggregate.jewelDropCount} 次 / {aggregate.jewelsEarned} 个
               </strong>
             </div>
             {attributeItems.map(([key, label]) => (
               <div
                 key={key}
-                className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 sm:p-3"
               >
-                <p className="text-xs text-slate-500">平均{label}</p>
-                <strong className="mt-1 block text-xl text-slate-900">
+                <p className="text-[11px] text-slate-500 sm:text-xs">
+                  平均{label}
+                </p>
+                <strong className="mt-1 block text-lg text-slate-900 sm:text-xl">
                   {formatMetric(aggregate.attributesAverage[key])}
                 </strong>
               </div>
@@ -659,7 +732,7 @@ export default function HistoryTab({
                     <th className="px-3 py-3 font-medium">开始</th>
                     <th className="px-3 py-3 font-medium">结束</th>
                     <th className="px-3 py-3 font-medium">持续</th>
-                    {!offlineHistory ? (
+                    {!readOnly && !offlineHistory ? (
                       <th className="px-3 py-3 text-right font-medium">
                         Training History
                       </th>
@@ -719,7 +792,7 @@ export default function HistoryTab({
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500">
                             {duration || (current ? '暂停时记录' : '未知')}
                           </td>
-                          {!offlineHistory ? (
+                          {!readOnly && !offlineHistory ? (
                             <td className="px-3 py-3 text-right">
                               {trainingHistoryId ? (
                                 <button
@@ -851,25 +924,54 @@ export default function HistoryTab({
 
   return (
     <>
-      <AppMenuPortal targetId="app-page-context-actions">
-        <AppSideNotch side="right">
-          <div className="flex h-10 items-center px-2">
-            <button
-              type="button"
-              onClick={() => loadCareerHistory(selectedAccountId)}
-              disabled={busy === 'history'}
-              className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-gray-700 hover:bg-slate-100 disabled:opacity-50"
-            >
-              <RefreshCw
-                size={14}
-                className={busy === 'history' ? 'animate-spin' : ''}
-              />
-              刷新记录
-            </button>
+      {!mobilePullToRefresh ? (
+        <AppMenuPortal targetId="app-page-context-actions">
+          <AppSideNotch side="right">
+            <div className="flex h-10 items-center px-2">
+              <button
+                type="button"
+                onClick={() => loadCareerHistory(selectedAccountId)}
+                disabled={busy === 'history'}
+                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-gray-700 hover:bg-slate-100 disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={14}
+                  className={busy === 'history' ? 'animate-spin' : ''}
+                />
+                刷新记录
+              </button>
+            </div>
+          </AppSideNotch>
+        </AppMenuPortal>
+      ) : null}
+      <section
+        onTouchStart={beginPull}
+        onTouchMove={continuePull}
+        onTouchEnd={finishPull}
+        onTouchCancel={finishPull}
+      >
+        {mobilePullToRefresh && (pullDistance > 0 || busy === 'history') ? (
+          <div
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-slate-500 transition-[height] duration-150"
+            style={{ height: busy === 'history' ? 40 : pullDistance }}
+          >
+            <RefreshCw
+              size={15}
+              className={busy === 'history' ? 'mr-2 animate-spin' : 'mr-2'}
+              style={{
+                transform:
+                  busy === 'history'
+                    ? undefined
+                    : `rotate(${Math.min(180, pullDistance * 3)}deg)`,
+              }}
+            />
+            {busy === 'history'
+              ? '正在刷新记录…'
+              : pullDistance >= 56
+                ? '松开刷新'
+                : '下拉刷新'}
           </div>
-        </AppSideNotch>
-      </AppMenuPortal>
-      <section>
+        ) : null}
         <div className="mt-5 space-y-4">
           {groupRecordsBySettingAndDate(careerHistory).map(
             ({ key, settingName, dateKey, records }) => {
@@ -899,7 +1001,7 @@ export default function HistoryTab({
                       <span className="text-xs text-slate-500">
                         {aggregate.count} 次育成 · {records.length} 次托管
                       </span>
-                      {canDownloadSetting ? (
+                      {!readOnly && canDownloadSetting ? (
                         <button
                           type="button"
                           disabled={
@@ -918,25 +1020,27 @@ export default function HistoryTab({
                           {settingDownloaded ? '详设已保存' : '下载详设'}
                         </button>
                       ) : null}
-                      <button
-                        type="button"
-                        disabled={busy === 'history-delete'}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
-                            )
-                          ) {
-                            deleteCareerHistory(
-                              records.map((record) => record.id),
-                            );
-                          }
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                        title="删除"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {!readOnly ? (
+                        <button
+                          type="button"
+                          disabled={busy === 'history-delete'}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                              )
+                            ) {
+                              deleteCareerHistory(
+                                records.map((record) => record.id),
+                              );
+                            }
+                          }}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          title="删除"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : null}
                     </span>
                   </div>
                   <button

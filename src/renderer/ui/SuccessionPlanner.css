@@ -7500,13 +7500,73 @@
     width: 100%;
   }
 
-  .successionPickerOverlay {
-    align-items: stretch;
-    padding: 8px;
+  .successionPickerOverlay:not(.successionPickerCompactOverlay) {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .successionPickerDialog {
-    max-height: none;
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog {
+    width: 100%;
+    min-height: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0;
+  }
+
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog
+    > .overflow-y-auto,
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog
+    > .successionPickerGrid,
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog
+    > .successionCapturedPickerGrid,
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog
+    > .plannerSkillGridBody,
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    > .successionPickerDialog
+    > .plannerDailyHorseBody {
+    min-height: auto;
+    flex: 0 0 auto;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .successionPickerOverlay:not(.successionPickerCompactOverlay)
+    .successionPickerFooter {
+    position: sticky;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.1);
+  }
+
+  .successionPickerCompactOverlay {
+    align-items: center;
+    padding: 8px;
+    overflow-y: auto;
+  }
+
+  .successionPickerCompactOverlay > .successionPickerDialog {
+    height: auto !important;
+    min-height: 0;
+    max-height: calc(100vh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    overflow-x: hidden;
+    overflow-y: auto;
     border-radius: 9px;
   }
 

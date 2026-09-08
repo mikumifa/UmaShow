@@ -5,7 +5,10 @@ import {
   PlannerButton,
   PlannerSkillCard,
 } from 'renderer/components/succession/PlannerComponents';
-import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
+import {
+  SuccessionPickerDialog,
+  SuccessionPickerFilterSheet,
+} from 'renderer/components/succession/SuccessionPicker';
 
 export type AutoResearchSkill = {
   id: number;
@@ -404,9 +407,10 @@ export default function SkillSelector({
         </>
       }
     >
-      <div className="plannerSkillFilters">
-        <div className="space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
+      <SuccessionPickerFilterSheet title="筛选技能" summary={groupLabel}>
+        <div className="plannerSkillFilters">
+          <div className="space-y-2.5">
+          <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
             <span className="w-10 flex-none text-xs font-medium text-slate-500">
               类型
             </span>
@@ -427,7 +431,7 @@ export default function SkillSelector({
             ))}
           </div>
           {showRarityFilter ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
               <span className="w-10 flex-none text-xs font-medium text-slate-500">
                 稀有度
               </span>
@@ -448,7 +452,7 @@ export default function SkillSelector({
               ))}
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
             <span className="w-10 flex-none text-xs font-medium text-slate-500">
               效果
             </span>
@@ -475,7 +479,7 @@ export default function SkillSelector({
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
             <span className="w-10 flex-none text-xs font-medium text-slate-500">
               跑法
             </span>
@@ -497,7 +501,7 @@ export default function SkillSelector({
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
             <span className="w-10 flex-none text-xs font-medium text-slate-500">
               距离
             </span>
@@ -537,8 +541,9 @@ export default function SkillSelector({
               </PlannerButton>
             )}
           </div>
+          </div>
         </div>
-      </div>
+      </SuccessionPickerFilterSheet>
 
       <div className="plannerSkillGridBody">
         <div className="plannerSkillGrid">

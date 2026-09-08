@@ -2306,7 +2306,7 @@ export default function RaceStats() {
             className={raceHeaderButtonClass}
           >
             <ArrowLeft size={16} />
-            返回记录
+            返回
           </button>
         </>
       }

@@ -133,6 +133,13 @@ const localCatalog = autoResearchCatalog as {
   races: RaceOption[];
 };
 
+const autoResearchTabs = [
+  { id: 'daily' as const, label: '日常', icon: CalendarCheck },
+  { id: 'presets' as const, label: '预设', icon: Settings2 },
+  { id: 'career' as const, label: '详设', icon: ListChecks },
+  { id: 'history' as const, label: '记录', icon: History },
+];
+
 const isScheduledDateTime = (value?: string) =>
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(value || ''));
 
@@ -2085,6 +2092,10 @@ export default function AutoResearch() {
             : current,
         );
       }
+      return {
+        careerConfigCount: cloudSettings.length,
+        hasDailyConfig: Boolean(dailyConfig?.payload.daily_tasks),
+      };
     },
     [accounts, request, server],
   );
@@ -2098,8 +2109,16 @@ export default function AutoResearch() {
     setError('');
     setSuccessMessage('');
     try {
-      await loadCloudConfiguration(selectedAccountId);
-      setSuccessMessage('云端详设、预设和每日配置已拉取');
+      const result = await loadCloudConfiguration(selectedAccountId);
+      if (result?.careerConfigCount) {
+        setSuccessMessage(
+          `已拉取 ${result.careerConfigCount} 条云端详设、绑定预设和每日配置`,
+        );
+      } else if (result?.hasDailyConfig) {
+        setSuccessMessage('云端暂无详设，已拉取每日配置');
+      } else {
+        setSuccessMessage('云端暂无可拉取的详设或每日配置');
+      }
     } catch (caught) {
       setError(`拉取云端详设失败：${(caught as Error).message}`);
     } finally {
@@ -5771,7 +5790,7 @@ export default function AutoResearch() {
   );
 
   return (
-    <div className="h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6">
+    <div className="autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6">
       <style>
         {`
           .autoResearchTabScroll {
@@ -5817,26 +5836,537 @@ export default function AutoResearch() {
             font-size: 11px;
             line-height: 1.25;
           }
+          .autoResearchMobileTabs {
+            display: none;
+          }
+          .autoResearchHeaderCompactLabel {
+            display: none;
+          }
+
+          @media (max-width: 639px) {
+            html[data-autouma] .autoResearchPage {
+              padding-right: 0.75rem;
+              padding-left: 0.75rem;
+            }
+            html[data-autouma] .autoResearchDesktopTabs {
+              display: none;
+            }
+            html[data-autouma] .autoResearchContentGrid {
+              margin-top: 0;
+              gap: 0.75rem;
+              padding-top: 0.75rem;
+              padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+            }
+            html[data-autouma]:has(#app-page-secondary-tabs > *)
+              .autoResearchContentGrid,
+            html[data-autouma]:has(#app-page-context-actions > *)
+              .autoResearchContentGrid {
+              margin-top: 2.75rem;
+            }
+            html[data-autouma] .autoResearchMain {
+              margin-right: 0;
+              gap: 0.75rem;
+              padding-right: 0;
+              scrollbar-gutter: auto;
+            }
+            html[data-autouma] .autoResearchHeaderActions {
+              gap: 0.125rem;
+            }
+            html[data-autouma] .autoResearchHeaderServer,
+            html[data-autouma] .autoResearchHeaderAccountName,
+            html[data-autouma] .autoResearchHeaderActionLabel,
+            html[data-autouma] .autoResearchHeaderFullLabel {
+              display: none;
+            }
+            html[data-autouma] .autoResearchHeaderCompactLabel {
+              display: inline;
+            }
+            html[data-autouma] .autoResearchHeaderAction {
+              width: 2rem;
+              padding-right: 0;
+              padding-left: 0;
+              justify-content: center;
+            }
+            html[data-autouma] .autoResearchHeaderAction svg {
+              margin-right: 0;
+            }
+            html[data-autouma] .autoResearchMobileTabs {
+              position: fixed;
+              right: 0;
+              bottom: 0;
+              left: 0;
+              z-index: 120;
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+              min-height: calc(4rem + env(safe-area-inset-bottom));
+              padding: 0.375rem 0.5rem calc(0.375rem + env(safe-area-inset-bottom));
+              border-top: 1px solid rgba(226, 232, 240, 0.96);
+              background: rgba(255, 255, 255, 0.96);
+              box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+              backdrop-filter: blur(18px);
+            }
+            html[data-autouma] .autoResearchMobileTab {
+              display: flex;
+              min-width: 0;
+              min-height: 3.25rem;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 0.1875rem;
+              border-radius: 0.75rem;
+              color: #64748b;
+              font-size: 0.6875rem;
+              font-weight: 600;
+              transition: color 150ms ease, background-color 150ms ease,
+                transform 150ms ease;
+            }
+            html[data-autouma] .autoResearchMobileTab[aria-current='page'] {
+              background: #eef2ff;
+              color: #4f46e5;
+            }
+            html[data-autouma] .autoResearchMobileTab:active {
+              transform: scale(0.96);
+            }
+            html[data-autouma] .automationControlCard {
+              padding: 0.75rem;
+              border-radius: 1rem;
+            }
+            html[data-autouma] .automationControlCardHeader {
+              align-items: stretch;
+              gap: 0.625rem;
+            }
+            html[data-autouma] .automationControlCardHeader > :first-child {
+              width: 100%;
+            }
+            html[data-autouma] .automationControlCardActions {
+              display: grid;
+              width: 100%;
+              grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+              gap: 0.25rem;
+              padding: 0.5rem 0 0;
+              border-top: 1px solid #e2e8f0;
+              border-radius: 0;
+              background: transparent;
+              box-shadow: none;
+            }
+            html[data-autouma] .automationControlCardActions button {
+              min-width: 0;
+              justify-content: center;
+              padding-right: 0.5rem;
+              padding-left: 0.5rem;
+            }
+            html[data-autouma] .automationControlCardEditor {
+              display: grid;
+              width: 100%;
+              gap: 0;
+              padding: 0.625rem 0 0;
+              border-top: 1px solid #e2e8f0;
+              border-radius: 0;
+              background: transparent;
+            }
+            html[data-autouma] .automationControlCardModes {
+              display: grid;
+              width: 100%;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              border-radius: 0.75rem;
+              background: #f1f5f9;
+              box-shadow: none;
+            }
+            html[data-autouma] .automationControlCardModes button {
+              min-width: 0;
+              justify-content: center;
+              padding-right: 0.5rem;
+              padding-left: 0.5rem;
+            }
+            html[data-autouma] .automationControlCardTarget {
+              display: grid;
+              width: 100%;
+              margin-top: 0.625rem;
+              grid-template-columns: max-content 4rem minmax(0, 1fr);
+              gap: 0.375rem;
+              padding: 0.75rem 0 0;
+              border-top: 1px solid #e2e8f0;
+              border-radius: 0;
+              background: transparent;
+              box-shadow: none;
+            }
+            html[data-autouma] .automationControlCardTarget > span:nth-child(4) {
+              grid-column: 1 / -1;
+              line-height: 1.4;
+            }
+            html[data-autouma] .automationControlCardTiming,
+            html[data-autouma] .automationControlCardDaily {
+              width: 100%;
+              margin: 0.625rem 0 0;
+              justify-content: stretch;
+            }
+            html[data-autouma] .automationControlCardTiming {
+              display: grid;
+            }
+            html[data-autouma] .automationControlCardTiming > input {
+              width: 100%;
+            }
+            html[data-autouma] .automationControlCardTiming > div {
+              display: grid;
+              width: 100%;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              background: #f1f5f9;
+              box-shadow: none;
+            }
+            html[data-autouma] .automationControlCardTiming button {
+              justify-content: center;
+            }
+            html[data-autouma] .automationControlCardDaily {
+              display: grid;
+              grid-template-columns: 1fr;
+            }
+            html[data-autouma] .automationControlCardTime {
+              width: 100%;
+              padding-right: 0;
+              padding-left: 0;
+              border-top: 1px solid #e2e8f0;
+              border-radius: 0;
+              background: transparent;
+              box-shadow: none;
+            }
+            html[data-autouma] .automationControlCardTime input {
+              min-width: 0;
+              flex: 1;
+            }
+            html[data-autouma] .automationControlCardHint {
+              padding: 0.25rem 0.25rem 0;
+              text-align: center;
+              line-height: 1.5;
+            }
+            html[data-autouma] .autoResearchAccountOverlay {
+              align-items: center;
+              padding: 0.75rem;
+            }
+            html[data-autouma] .autoResearchAccountDialog {
+              align-self: center;
+              flex: 0 1 auto;
+              height: auto !important;
+              max-height: calc(100dvh - 1.5rem) !important;
+              border-radius: 1rem !important;
+            }
+            html[data-autouma] .autoResearchAccountDialogBody {
+              padding: 1rem;
+            }
+            html[data-autouma]
+              .autoResearchAccountDialog
+              .successionPickerHeader {
+              padding: 0.875rem 1rem;
+            }
+            html[data-autouma]
+              .autoResearchAccountDialog
+              .successionPickerHeader
+              h3 {
+              font-size: 0.9375rem;
+            }
+            html[data-autouma]
+              .autoResearchAccountDialog
+              .successionPickerHeader
+              p {
+              font-size: 0.6875rem;
+            }
+            html[data-autouma]
+              .autoResearchAccountDialog
+              .successionPickerFooter {
+              padding: 0.75rem 1rem;
+            }
+            html[data-autouma]
+              .autoResearchAccountDialog
+              .autoResearchAccountDialogButton {
+              min-width: 4.5rem;
+              min-height: 2rem;
+              font-size: 0.6875rem;
+            }
+            html[data-autouma] .autoResearchLoginPromptTitle {
+              font-size: 0.9375rem;
+              line-height: 1.4;
+            }
+            html[data-autouma] .autoResearchLoginPromptDescription {
+              margin-top: 0.375rem;
+              font-size: 0.75rem;
+              line-height: 1.5;
+            }
+            html[data-autouma] .autoResearchLoginSettingsBody {
+              flex: 0 1 auto;
+              max-height: calc(100dvh - 5.75rem);
+              overflow-y: auto;
+            }
+            html[data-autouma] .autoResearchLoginAccountList {
+              flex: none;
+              max-height: 38dvh;
+            }
+            html[data-autouma] .autoResearchHistoryAction {
+              min-height: 1.75rem;
+              padding: 0.25rem 0.5rem;
+              gap: 0.25rem;
+              font-size: 0.625rem;
+            }
+            html[data-autouma]
+              .successionPickerOverlay:not(.successionPickerCompactOverlay) {
+              display: block;
+              overflow-x: hidden;
+              overflow-y: auto;
+              padding: 0;
+              overscroll-behavior: contain;
+              touch-action: pan-y;
+              -webkit-overflow-scrolling: touch;
+            }
+            html[data-autouma]
+              .successionPickerOverlay:not(.successionPickerCompactOverlay)
+              > .successionPickerDialog {
+              width: 100%;
+              height: auto !important;
+              min-height: 100%;
+              max-height: none !important;
+              overflow: visible !important;
+              border-radius: 0 !important;
+            }
+            html[data-autouma] .successionPickerHeader {
+              gap: 0.5rem;
+              padding: 0.5rem 0.625rem;
+            }
+            html[data-autouma] .successionPickerHeader h3,
+            html[data-autouma]
+              .successionCapturedPickerDialog
+              > .successionPickerHeader
+              h3 {
+              margin-top: 0;
+              font-size: 0.875rem;
+              line-height: 1.35;
+            }
+            html[data-autouma] .successionPickerHeader p,
+            html[data-autouma]
+              .successionCapturedPickerDialog
+              > .successionPickerHeader
+              p {
+              margin-top: 0.125rem;
+              font-size: 0.625rem;
+              line-height: 1.4;
+            }
+            html[data-autouma] .successionPickerClose {
+              width: 1.75rem;
+              min-height: 1.75rem;
+              font-size: 1.125rem;
+            }
+            html[data-autouma] .successionPickerToolbar {
+              flex: 0 0 auto;
+              gap: 0.375rem;
+              padding: 0.375rem 0.5rem;
+            }
+            html[data-autouma] .successionPickerSearch input {
+              min-height: 2rem;
+              padding: 0.375rem 0.625rem;
+              border-radius: 0.625rem;
+              font-size: 0.75rem;
+            }
+            html[data-autouma] .successionPickerMeta {
+              min-height: 1.5rem;
+            }
+            html[data-autouma] .successionPickerMeta span {
+              font-size: 0.625rem;
+            }
+            html[data-autouma] .plannerSkillFilters,
+            html[data-autouma] .successionCapturedPickerFilters,
+            html[data-autouma] .plannerDailyHorseFilters {
+              flex: 0 0 auto;
+              max-height: none;
+              overflow: visible;
+            }
+            html[data-autouma] .plannerSkillFilters {
+              padding: 0.5rem;
+            }
+            html[data-autouma] .plannerSkillFilterRow {
+              flex-wrap: nowrap;
+              gap: 0.375rem;
+              overflow-x: auto;
+              padding-bottom: 0.125rem;
+              overscroll-behavior-x: contain;
+              scrollbar-width: none;
+              -webkit-overflow-scrolling: touch;
+            }
+            html[data-autouma] .plannerSkillFilterRow::-webkit-scrollbar {
+              display: none;
+            }
+            html[data-autouma] .plannerSkillFilterRow > span:first-child {
+              position: sticky;
+              left: 0;
+              z-index: 1;
+              width: 2.25rem;
+              background: #f8fafc;
+              font-size: 0.6875rem;
+            }
+            html[data-autouma] .plannerSkillFilterRow .plannerButton.filter {
+              min-height: 1.75rem;
+              flex: 0 0 auto;
+              padding: 0.25rem 0.5rem;
+              font-size: 0.6875rem;
+            }
+            html[data-autouma] .plannerSkillFilterRow .plannerButton.filter span {
+              width: 1rem;
+              height: 1rem;
+            }
+            html[data-autouma] .successionPickerGrid,
+            html[data-autouma] .successionCapturedPickerGrid,
+            html[data-autouma] .plannerSkillGridBody,
+            html[data-autouma] .plannerDailyHorseBody,
+            html[data-autouma]
+              .successionPickerOverlay:not(.successionPickerCompactOverlay)
+              > .successionPickerDialog
+              > .overflow-y-auto {
+              min-height: auto;
+              flex: 0 0 auto;
+              max-height: none;
+              overflow: visible !important;
+            }
+            html[data-autouma] .successionPickerFooter {
+              position: sticky;
+              z-index: 20;
+              right: 0;
+              bottom: 0;
+              left: 0;
+              flex: 0 0 auto;
+              margin-top: auto;
+              padding: 0.5rem 0.625rem;
+              padding-bottom: calc(
+                0.5rem + env(safe-area-inset-bottom)
+              );
+              box-shadow: 0 -0.5rem 1.375rem rgba(15, 23, 42, 0.1);
+            }
+            html[data-autouma]
+              .successionPickerCompactOverlay
+              .successionPickerFooter {
+              position: static;
+              margin-top: 0;
+              box-shadow: none;
+            }
+            html[data-autouma] .plannerSkillDialog .successionPickerFooter > span {
+              display: none;
+            }
+            html[data-autouma] .plannerSkillFooterActions {
+              display: grid;
+              width: 100%;
+              grid-template-columns: minmax(0, 1fr) auto;
+              gap: 0.375rem;
+            }
+            html[data-autouma] .plannerSkillFooterActions .plannerButton {
+              min-height: 2rem;
+              padding: 0.375rem 0.625rem;
+              font-size: 0.625rem;
+            }
+            html[data-autouma] .autoResearchCreateDialogOverlay {
+              align-items: center !important;
+              padding: 0.75rem !important;
+            }
+            html[data-autouma]
+              .autoResearchCreateDialogOverlay
+              .autoResearchCreateDialog {
+              width: 100%;
+              height: auto !important;
+              min-height: 0;
+              max-height: calc(100dvh - 1.5rem) !important;
+              overflow: hidden;
+              border-radius: 1rem !important;
+            }
+            html[data-autouma] #app-page-secondary-tabs:has(.autoResearchEditorTabs) {
+              right: 0;
+              width: 100vw;
+              overflow: hidden;
+            }
+            html[data-autouma]
+              #app-page-secondary-tabs:has(.autoResearchEditorTabs)
+              > div {
+              width: calc(100% - 1rem);
+              margin-right: 0.5rem;
+              margin-left: 0.5rem;
+            }
+            html[data-autouma] .autoResearchEditorTabs {
+              width: 100%;
+              overflow-x: auto;
+              overscroll-behavior-x: contain;
+              scrollbar-width: none;
+              -webkit-overflow-scrolling: touch;
+            }
+            html[data-autouma] .autoResearchEditorTabs::-webkit-scrollbar {
+              display: none;
+            }
+            html[data-autouma] #app-page-context-actions:has(.autoResearchEditorActions) {
+              position: fixed;
+              top: auto;
+              right: 0;
+              bottom: 0;
+              left: 0;
+              z-index: 130;
+            }
+            html[data-autouma]
+              #app-page-context-actions:has(.autoResearchEditorActions)
+              > div {
+              width: 100%;
+              height: auto;
+              margin: 0;
+              padding-bottom: env(safe-area-inset-bottom);
+              border-right: 0;
+              border-bottom: 0;
+              border-left: 0;
+              border-radius: 0;
+            }
+            html[data-autouma] .autoResearchEditorActions {
+              width: 100%;
+              height: 3.5rem;
+              justify-content: flex-end;
+              overflow-x: auto;
+              padding-right: 0.75rem;
+              padding-left: 0.75rem;
+            }
+            html[data-autouma]:has(.autoResearchEditorActions)
+              .autoResearchMobileTabs {
+              display: none;
+            }
+            html[data-autouma]:has(.autoResearchEditorActions)
+              .autoResearchContentGrid {
+              padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+            }
+            html[data-autouma] .autoResearchPage,
+            html[data-autouma] .autoResearchContentGrid,
+            html[data-autouma] .autoResearchMain {
+              max-width: 100vw;
+              overflow-x: hidden;
+            }
+            html[data-autouma] .autoResearchMain > *,
+            html[data-autouma] .autoResearchMain section,
+            html[data-autouma] .autoResearchMain form {
+              min-width: 0;
+              max-width: 100%;
+            }
+            html[data-autouma] .autoResearchMain input,
+            html[data-autouma] .autoResearchMain select,
+            html[data-autouma] .autoResearchMain textarea {
+              max-width: 100%;
+            }
+          }
         `}
       </style>
       <ErrorToast message={error} onClose={dismissError} />
       <SuccessToast message={successMessage} onClose={dismissSuccess} />
       {editingAccountAlias ? (
         <div
-          className="successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1800 }}
         >
           <form
             role="dialog"
             aria-modal="true"
             aria-labelledby="auto-research-account-alias-title"
-            className="successionPickerDialog w-full max-w-md"
+            className="autoResearchAccountDialog successionPickerDialog w-full max-w-md"
             onSubmit={(event) => {
               event.preventDefault();
               saveAccountAlias().catch(() => undefined);
             }}
           >
-            <div className="p-5">
+            <div className="autoResearchAccountDialogBody p-5">
               <label
                 className="block text-sm font-semibold text-slate-700"
                 htmlFor="auto-research-account-alias"
@@ -5894,7 +6424,7 @@ export default function AutoResearch() {
       ) : null}
       {deletingAccount ? (
         <div
-          className="successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1800 }}
         >
           <div
@@ -5902,7 +6432,7 @@ export default function AutoResearch() {
             aria-modal="true"
             aria-labelledby="auto-research-delete-account-title"
             aria-describedby="auto-research-delete-account-description"
-            className="successionPickerDialog w-full max-w-md"
+            className="autoResearchAccountDialog successionPickerDialog w-full max-w-md"
           >
             <header className="successionPickerHeader">
               <div>
@@ -5910,7 +6440,7 @@ export default function AutoResearch() {
                 <p>此操作只删除 UmaShow 中保存的本地账号信息</p>
               </div>
             </header>
-            <div className="p-5">
+            <div className="autoResearchAccountDialogBody p-5">
               <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50/70 p-4">
                 <div className="rounded-full bg-red-100 p-2 text-red-600">
                   <AlertTriangle size={20} />
@@ -5960,7 +6490,7 @@ export default function AutoResearch() {
       ) : null}
       {localLoginConfirmationAccountId ? (
         <div
-          className="successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1600 }}
         >
           <div
@@ -5968,9 +6498,9 @@ export default function AutoResearch() {
             aria-modal="true"
             aria-labelledby="auto-research-local-login-title"
             aria-describedby="auto-research-local-login-description"
-            className="successionPickerDialog w-full max-w-md"
+            className="autoResearchAccountDialog successionPickerDialog w-full max-w-md"
           >
-            <div className="p-5">
+            <div className="autoResearchAccountDialogBody p-5">
               <div className="flex items-start gap-3">
                 <div className="rounded-full bg-amber-100 p-2 text-amber-700">
                   <AlertTriangle size={20} />
@@ -5978,13 +6508,13 @@ export default function AutoResearch() {
                 <div className="min-w-0">
                   <h2
                     id="auto-research-local-login-title"
-                    className="font-bold text-slate-900"
+                    className="autoResearchLoginPromptTitle font-bold text-slate-900"
                   >
                     确定在 UmaShow 本地登录吗？
                   </h2>
                   <p
                     id="auto-research-local-login-description"
-                    className="mt-2 text-sm leading-6 text-slate-600"
+                    className="autoResearchLoginPromptDescription mt-2 text-sm leading-6 text-slate-600"
                   >
                     会使其他在线的设备掉线。
                   </p>
@@ -6014,62 +6544,68 @@ export default function AutoResearch() {
       ) : null}
       {loginSettingsOpen ? (
         <div
-          className="successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1200 }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="自动育成登录设置"
-            className="successionPickerDialog !max-h-[94vh] w-full max-w-3xl"
-            style={{ height: 'min(92vh, 880px)', maxHeight: '92vh' }}
+            className="autoResearchAccountDialog autoResearchLoginSettingsDialog successionPickerDialog w-full !max-w-3xl sm:!h-[92vh] sm:!max-h-[880px] sm:!rounded-xl"
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
-              <section>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="flex min-h-0 flex-col">
-                    <p className="text-sm font-semibold text-slate-700">
-                      导入 users.db
-                    </p>
-                    <div
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setDragging(true);
-                      }}
-                      onDragLeave={() => setDragging(false)}
-                      onDrop={onDrop}
-                      className={`mt-2 flex flex-1 flex-col items-center justify-center rounded-md border-2 border-dashed p-2 text-center text-xs ${
-                        dragging
-                          ? 'border-indigo-500 bg-indigo-50'
-                          : 'border-slate-200 bg-white'
-                      }`}
-                    >
-                      <Database className="mx-auto text-slate-400" size={16} />
-                      <p>拖入手机导出的 users.db</p>
-                      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">
-                        /data/user/0/com.bilibili.umamusu/databases/
-                      </p>
-                      <label className="mt-1 inline-flex min-h-6 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50">
-                        <Upload className="mr-1" size={10} />
-                        选择文件
-                        <input
-                          type="file"
-                          accept=".db,application/x-sqlite3"
-                          className="hidden"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) importUsersDb(file);
-                            event.target.value = '';
-                          }}
-                        />
-                      </label>
-                    </div>
+            <div className="autoResearchLoginSettingsBody flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
+              <section className="shrink-0 space-y-2">
+                <div
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={onDrop}
+                  className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                    dragging
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="rounded-lg bg-slate-100 p-2 text-slate-500">
+                    <Database size={17} />
                   </div>
-                  <div className="border-t border-slate-200 pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-                    <p className="text-sm font-semibold text-slate-700">
-                      手动填写
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800">
+                      读入 users.db
                     </p>
-                    <div className="mt-2 grid gap-1.5">
+                    <p className="truncate text-[10px] text-slate-400 sm:text-xs">
+                      可点击导入或拖放手机导出的数据库文件
+                    </p>
+                  </div>
+                  <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500">
+                    <Upload className="mr-1.5" size={13} />
+                    {busy === 'users-db' ? '导入中…' : '导入'}
+                    <input
+                      type="file"
+                      accept=".db,application/x-sqlite3"
+                      className="hidden"
+                      disabled={Boolean(busy)}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) importUsersDb(file);
+                        event.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+                <details className="group rounded-lg border border-slate-200 bg-white">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium text-slate-700 marker:content-none">
+                    <span>手动添加账号</span>
+                    <span className="text-[10px] font-normal text-slate-400 group-open:hidden">
+                      UID + access_key
+                    </span>
+                    <span className="hidden text-[10px] font-normal text-slate-400 group-open:inline">
+                      收起
+                    </span>
+                  </summary>
+                  <div className="grid gap-1.5 border-t border-slate-100 p-2.5 sm:grid-cols-[1fr_1fr_auto]">
                       <input
                         value={manualUid}
                         onChange={(event) => setManualUid(event.target.value)}
@@ -6093,20 +6629,24 @@ export default function AutoResearch() {
                       >
                         添加账号
                       </button>
-                    </div>
                   </div>
-                </div>
+                </details>
                 {captured.length ? (
-                  <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
+                  <p className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
                     UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
                   </p>
                 ) : null}
               </section>
-              <section className="flex min-h-40 flex-1 flex-col">
-                <label className="text-sm font-semibold text-slate-800">
-                  游戏账号
-                </label>
-                <div className="mt-2 grid min-h-32 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(150px,1fr))] content-start gap-2 overflow-y-auto">
+              <section className="flex min-h-0 flex-1 flex-col">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-800">
+                    游戏账号
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {accounts.length} 个
+                  </span>
+                </div>
+                <div className="autoResearchLoginAccountList mt-2 grid min-h-0 flex-1 auto-rows-min grid-cols-1 content-start gap-2 overflow-y-auto overscroll-contain pr-0.5 sm:grid-cols-2">
                   {accounts.map((account) => (
                     <div
                       key={account.id}
@@ -6116,30 +6656,34 @@ export default function AutoResearch() {
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => selectLoginSettingsAccount(account.id)}
-                        className="w-full text-left"
-                      >
-                        <p className="truncate text-xs font-semibold text-slate-800">
-                          {account.label || `UID ${account.uid}`}
-                        </p>
-                        <p className="mt-0.5 truncate text-[10px] text-slate-400">
-                          {account.uid} · {account.accessKeyPreview}
-                        </p>
-                      </button>
-                      <AccountManagementActions
-                        accountName={account.label || `UID ${account.uid}`}
-                        onRename={() => openAccountAliasEditor(account)}
-                        onDelete={() => openDeleteAccountDialog(account)}
-                        deleteDisabledReason={accountDeleteBlockedReason(
-                          account,
-                        )}
-                        busy={Boolean(
-                          busy || loginProgress || disconnectingAccountId,
-                        )}
-                        className="mt-1 justify-end"
-                      />
+                      <div className="flex min-w-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectLoginSettingsAccount(account.id)
+                          }
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="truncate text-xs font-semibold text-slate-800">
+                            {account.label || `UID ${account.uid}`}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                            {account.uid} · {account.accessKeyPreview}
+                          </p>
+                        </button>
+                        <AccountManagementActions
+                          accountName={account.label || `UID ${account.uid}`}
+                          onRename={() => openAccountAliasEditor(account)}
+                          onDelete={() => openDeleteAccountDialog(account)}
+                          deleteDisabledReason={accountDeleteBlockedReason(
+                            account,
+                          )}
+                          busy={Boolean(
+                            busy || loginProgress || disconnectingAccountId,
+                          )}
+                          className="shrink-0 justify-end"
+                        />
+                      </div>
                     </div>
                   ))}
                   {!accounts.length ? (
@@ -6151,10 +6695,10 @@ export default function AutoResearch() {
                 </div>
               </section>
               <label
-                className="block text-sm font-semibold text-slate-800"
+                className="flex shrink-0 items-center gap-2 text-xs font-semibold text-slate-700 sm:text-sm"
                 htmlFor="auto-research-login-server"
               >
-                自动育成服务器网址
+                <span className="shrink-0">服务器</span>
                 <input
                   id="auto-research-login-server"
                   value={serverAddress}
@@ -6165,7 +6709,7 @@ export default function AutoResearch() {
                     }
                   }}
                   placeholder={DEFAULT_SERVER}
-                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-indigo-400"
                 />
               </label>
             </div>
@@ -6446,6 +6990,14 @@ export default function AutoResearch() {
                     .filter(Boolean)
                     .join(' · ');
                   const umaName = databaseUmaName || '未知马娘';
+                  const settingUma = dashboard?.umas.find(
+                    (uma) => uma.id === setting.card_id,
+                  );
+                  const settingUmaIconPath = horseIconPath(
+                    setting.card_id,
+                    settingUma?.rarity || 0,
+                    settingUma?.race_cloth_id || 0,
+                  );
                   const deckSupportIds = (
                     setting.support_card_ids || []
                   ).filter(Boolean);
@@ -6531,11 +7083,24 @@ export default function AutoResearch() {
                           </div>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-2 sm:grid-cols-3">
                           {[
                             {
+                              label: '育成马娘',
+                              name: umaName,
+                              iconPath: settingUmaIconPath,
+                              rental: false,
+                            },
+                            {
                               label: '继承 1',
-                              parent: settingParent1,
+                              name: settingParent1?.name || '未选择',
+                              iconPath: settingParent1
+                                ? horseIconPath(
+                                    settingParent1.card_id,
+                                    settingParent1.rarity,
+                                    settingParent1.race_cloth_id,
+                                  )
+                                : undefined,
                               rental:
                                 parentViewerIdFromSelection(
                                   setting.parent_key_1,
@@ -6543,30 +7108,30 @@ export default function AutoResearch() {
                             },
                             {
                               label: '继承 2',
-                              parent: settingParent2,
+                              name: settingParent2?.name || '未选择',
+                              iconPath: settingParent2
+                                ? horseIconPath(
+                                    settingParent2.card_id,
+                                    settingParent2.rarity,
+                                    settingParent2.race_cloth_id,
+                                  )
+                                : undefined,
                               rental:
                                 parentViewerIdFromSelection(
                                   setting.parent_key_2,
                                 ) > 0,
                             },
-                          ].map(({ label, parent, rental }) => {
-                            const parentIconPath = parent
-                              ? horseIconPath(
-                                  parent.card_id,
-                                  parent.rarity,
-                                  parent.race_cloth_id,
-                                )
-                              : undefined;
+                          ].map(({ label, name, iconPath, rental }) => {
                             return (
                               <div
                                 key={label}
                                 className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
                               >
                                 <span className="h-10 w-10 flex-none">
-                                  {parentIconPath ? (
+                                  {iconPath ? (
                                     <AssetIcon
-                                      path={parentIconPath}
-                                      alt={parent?.name || label}
+                                      path={iconPath}
+                                      alt={name}
                                       className="h-full w-full object-contain"
                                     />
                                   ) : null}
@@ -6578,9 +7143,9 @@ export default function AutoResearch() {
                                   <span className="flex min-w-0 items-center gap-1">
                                     <span
                                       className="min-w-0 truncate font-medium text-slate-600"
-                                      title={parent?.name || '未选择'}
+                                      title={name}
                                     >
-                                      {parent?.name || '未选择'}
+                                      {name}
                                     </span>
                                     {rental ? <RentalParentBadge /> : null}
                                   </span>
@@ -6945,16 +7510,16 @@ export default function AutoResearch() {
       />
       <div className="mx-auto flex h-full min-h-0 max-w-none flex-col">
         <AppMenuPortal>
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="autoResearchHeaderActions flex min-w-0 items-center gap-1.5">
             <span
-              className="max-w-44 truncate text-[11px] text-slate-400"
+              className="autoResearchHeaderServer max-w-44 truncate text-[11px] text-slate-400"
               title={server || '未连接服务器'}
             >
               {server || '未选择服务器'}
             </span>
             {selectedAccount ? (
               <span
-                className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                className={`autoResearchHeaderStatus inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                   serverHostedMode
                     ? 'bg-violet-100 text-violet-700'
                     : localSessionMode || localAccountSessionState === 'ready'
@@ -6962,11 +7527,20 @@ export default function AutoResearch() {
                       : 'bg-slate-100 text-slate-500'
                 }`}
               >
-                {serverHostedMode
-                  ? '服务器托管'
-                  : localSessionMode || localAccountSessionState === 'ready'
-                    ? '本地'
-                    : '未登录'}
+                <span className="autoResearchHeaderFullLabel">
+                  {serverHostedMode
+                    ? '服务器托管'
+                    : localSessionMode || localAccountSessionState === 'ready'
+                      ? '本地'
+                      : '未登录'}
+                </span>
+                <span className="autoResearchHeaderCompactLabel">
+                  {serverHostedMode
+                    ? '托管'
+                    : localSessionMode || localAccountSessionState === 'ready'
+                      ? '本地'
+                      : '离线'}
+                </span>
               </span>
             ) : null}
             {selectedAccount ? (
@@ -6974,11 +7548,12 @@ export default function AutoResearch() {
                 <button
                   type="button"
                   onClick={() => openLoginSettings()}
-                  className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100"
+                  className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100"
                   title={`账号：${selectedAccountName}`}
+                  aria-label={`账号：${selectedAccountName}`}
                 >
                   <Users className="mr-1 inline" size={15} />
-                  <span className="max-w-32 truncate">
+                  <span className="autoResearchHeaderAccountName max-w-32 truncate">
                     {selectedAccountName}
                   </span>
                 </button>
@@ -7000,23 +7575,26 @@ export default function AutoResearch() {
                     busy === `refresh-${selectedAccountId}` ||
                     busy === `login-${selectedAccountId}`
                   }
-                  className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={serverHostedMode ? '刷新账号' : '重新登录账号'}
                 >
                   <RefreshCw
                     className={`mr-1 inline ${busy === `refresh-${selectedAccountId}` ? 'animate-spin' : ''}`}
                     size={15}
                   />
-                  {busy === `refresh-${selectedAccountId}`
-                    ? serverHostedMode
-                      ? '正在读取服务器…'
-                      : '重新登录中…'
-                    : busy === `login-${selectedAccountId}`
-                      ? '登录中…'
-                      : serverHostedMode
-                        ? '刷新'
-                        : localAccountSessionState === 'ready'
-                          ? '重新登录'
-                          : '登录'}
+                  <span className="autoResearchHeaderActionLabel">
+                    {busy === `refresh-${selectedAccountId}`
+                      ? serverHostedMode
+                        ? '正在读取服务器…'
+                        : '重新登录中…'
+                      : busy === `login-${selectedAccountId}`
+                        ? '登录中…'
+                        : serverHostedMode
+                          ? '刷新'
+                          : localAccountSessionState === 'ready'
+                            ? '重新登录'
+                            : '登录'}
+                  </span>
                 </button>
                 {serverHostedMode ||
                 localSessionMode ||
@@ -7035,10 +7613,13 @@ export default function AutoResearch() {
                       }
                     }}
                     disabled={Boolean(loginProgress || disconnectingAccountId)}
-                    className="flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                    className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                    aria-label="退出登录"
                   >
                     <LogOut className="mr-1 inline" size={15} />
-                    退出登录
+                    <span className="autoResearchHeaderActionLabel">
+                      退出登录
+                    </span>
                   </button>
                 ) : null}
               </>
@@ -7046,11 +7627,14 @@ export default function AutoResearch() {
               <button
                 type="button"
                 onClick={() => openLoginSettings()}
-                className="flex h-7 items-center gap-1 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                className="autoResearchHeaderAction flex h-7 items-center gap-1 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white hover:bg-indigo-700"
                 title="选择账号与服务器"
+                aria-label="选择账号与服务器"
               >
                 <Users size={15} />
-                未选择账号
+                <span className="autoResearchHeaderActionLabel">
+                  未选择账号
+                </span>
               </button>
             )}
           </div>
@@ -7058,16 +7642,11 @@ export default function AutoResearch() {
 
         <AppMenuPortal targetId="app-page-tabs">
           <nav
-            className="pointer-events-none px-3 pb-2.5 pt-1.5"
+            className="autoResearchDesktopTabs pointer-events-none px-3 pb-2.5 pt-1.5"
             aria-label="自动育成设置"
           >
             <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-sm backdrop-blur-xl">
-              {[
-                { id: 'daily' as const, label: '日常', icon: CalendarCheck },
-                { id: 'presets' as const, label: '预设', icon: Settings2 },
-                { id: 'career' as const, label: '详设', icon: ListChecks },
-                { id: 'history' as const, label: '记录', icon: History },
-              ].map((tab) => {
+              {autoResearchTabs.map((tab) => {
                 const IconComponent = tab.icon;
                 return (
                   <button
@@ -7091,7 +7670,7 @@ export default function AutoResearch() {
         </AppMenuPortal>
 
         <div
-          className={`mt-14 grid min-h-0 flex-1 gap-4 bg-transparent pb-5 ${
+          className={`autoResearchContentGrid mt-14 grid min-h-0 flex-1 gap-4 bg-transparent pb-5 ${
             activeTab === 'presets' || activeTab === 'career'
               ? 'overflow-hidden'
               : 'overflow-y-auto overscroll-contain'
@@ -7386,7 +7965,7 @@ export default function AutoResearch() {
           </aside>
 
           <main
-            className={`flex min-h-0 min-w-0 flex-col gap-4 ${
+            className={`autoResearchMain flex min-h-0 min-w-0 flex-col gap-4 ${
               activeTab === 'presets' || activeTab === 'career'
                 ? 'autoResearchTabScroll -mr-4 overflow-y-auto overscroll-contain pr-4 xl:-mr-6 xl:pr-6'
                 : ''
@@ -7915,6 +8494,23 @@ export default function AutoResearch() {
             )}
           </main>
         </div>
+        <nav className="autoResearchMobileTabs" aria-label="自动育成设置">
+          {autoResearchTabs.map((tab) => {
+            const IconComponent = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => navigateToTab(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                className="autoResearchMobileTab"
+              >
+                <IconComponent size={20} strokeWidth={2} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

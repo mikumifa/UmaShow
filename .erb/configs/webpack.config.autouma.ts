@@ -21,7 +21,7 @@ const configuration: webpack.Configuration = {
   output: {
     path: autoUmaPath,
     publicPath: './',
-    filename: 'autouma.js',
+    filename: 'autouma.[contenthash].js',
     clean: true,
   },
   module: {
@@ -95,13 +95,10 @@ const configuration: webpack.Configuration = {
     plugins: [new TsconfigPathsPlugin()],
     alias: {
       'better-sqlite3$': path.join(mobilePath, 'database.ts'),
+      'crypto$': path.join(mobilePath, 'cryptoShim.ts'),
       'electron$': path.join(mobilePath, 'electronShim.ts'),
       'electron-log$': path.join(mobilePath, 'logShim.ts'),
       'fs$': path.join(mobilePath, 'fsShim.ts'),
-      'main/handle/AutoResearchLocalGameClient$': path.join(
-        mobilePath,
-        'localGame.ts',
-      ),
     },
     fallback: {
       buffer: require.resolve('buffer/'),
@@ -119,6 +116,10 @@ const configuration: webpack.Configuration = {
   },
   plugins: [
     new webpack.EnvironmentPlugin({ NODE_ENV: 'production' }),
+    new webpack.NormalModuleReplacementPlugin(
+      /AutoResearchLocalGameClient$/,
+      path.join(mobilePath, 'localGame.ts'),
+    ),
     new webpack.DefinePlugin({
       __AUTOUMA_ANDROID__: JSON.stringify(includeAndroidAssets),
     }),
@@ -126,7 +127,7 @@ const configuration: webpack.Configuration = {
       Buffer: ['buffer', 'Buffer'],
       process: 'process/browser',
     }),
-    new MiniCssExtractPlugin({ filename: 'style.css' }),
+    new MiniCssExtractPlugin({ filename: 'style.[contenthash].css' }),
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: path.join(root, 'src', 'autouma', 'index.ejs'),
@@ -150,6 +151,7 @@ const configuration: webpack.Configuration = {
           to: 'data/umdb.binarypb.gz.bin',
         },
         { from: path.join(root, 'assets', 'chr_icon'), to: 'chr_icon' },
+        { from: path.join(root, 'assets', 'race_thumb'), to: 'race_thumb' },
         { from: path.join(root, 'assets', 'skill_icons'), to: 'skill_icons' },
         {
           from: path.join(root, 'assets', 'support_card_s'),

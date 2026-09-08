@@ -1,0 +1,102 @@
+name: AutoUma Android
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autouma-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 34
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Read release version
+        id: release
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./release/app/package.json').version")"
+          VERSION_CODE="$(node -e "const v=require('./release/app/package.json').version; const [major=0,minor=0,patch=0]=v.split(/[.-]/).map((part)=>Number.parseInt(part,10)||0); process.stdout.write(String(major*1000000+minor*1000+patch));")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Use official Gradle distribution in CI
+        run: |
+          sed -i 's#mirrors.cloud.tencent.com/gradle/gradle-8.11.1-bin.zip#services.gradle.org/distributions/gradle-8.11.1-bin.zip#' android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Build and sync AutoUma Android
+        run: npm run android:sync
+
+      - name: Prepare Android signing key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "::error::Android signing secrets are incomplete. Configure ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/autouma-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PautoumaVersionName="${{ steps.release.outputs.version }}" \
+            -PautoumaVersionCode="${{ steps.release.outputs.version_code }}"
+
+      - name: Prepare release APK
+        shell: bash
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "AutoUma-v${{ steps.release.outputs.version }}-Android.apk"
+
+      - name: Publish APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: UmaShow ${{ steps.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: AutoUma-v${{ steps.release.outputs.version }}-Android.apk
+          fail_on_unmatched_files: true
+          overwrite_files: true

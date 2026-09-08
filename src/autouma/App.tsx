@@ -1,13 +1,13 @@
 import { AliveScope } from 'react-activation';
-import {
-  HashRouter,
-  Navigate,
-  Route,
-  Routes,
-} from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import 'tailwindcss/tailwind.css';
 import AutoResearch from 'renderer/ui/AutoResearch';
 import TrainingHistory from 'renderer/ui/TrainingHistory';
+import WebAutoUma from './WebAutoUma';
+
+function WebAutoUmaRoute() {
+  return <WebAutoUma />;
+}
 
 export default function AutoUmaApp() {
   return (
@@ -23,17 +23,35 @@ export default function AutoUmaApp() {
           }
           .autouma-content .min-h-screen { min-height: calc(100vh - 2.5rem); }
           .autouma-content .h-screen { height: calc(100vh - 2.5rem); }
+
+          @media (max-width: 639px) {
+            .autouma-header {
+              height: 3.25rem;
+              padding-right: 0.5rem;
+              padding-left: 0.75rem;
+            }
+            .autouma-brand {
+              font-size: 0.9375rem;
+              letter-spacing: -0.01em;
+            }
+            .autouma-actions {
+              gap: 0.25rem;
+              overflow: hidden;
+            }
+            .autouma-content .min-h-screen { min-height: calc(100dvh - 3.25rem); }
+            .autouma-content .h-screen { height: calc(100dvh - 3.25rem); }
+          }
         `}
       </style>
       <HashRouter>
         <AliveScope>
-          <header className="relative z-30 flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
-            <div className="shrink-0 text-sm font-semibold text-slate-800">
+          <header className="autouma-header relative z-30 flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
+            <div className="autouma-brand shrink-0 text-sm font-semibold text-slate-800">
               AutoUma
             </div>
             <div
               id="app-page-actions"
-              className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto"
+              className="autouma-actions flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto"
             />
             <div
               id="app-page-secondary-tabs"
@@ -50,9 +68,28 @@ export default function AutoUmaApp() {
           </header>
           <main className="autouma-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             <Routes>
-              <Route path="/" element={<AutoResearch />} />
-              <Route path="/auto-research" element={<AutoResearch />} />
-              <Route path="/training-history" element={<TrainingHistory />} />
+              <Route
+                path="/"
+                element={
+                  __AUTOUMA_ANDROID__ ? <AutoResearch /> : <WebAutoUmaRoute />
+                }
+              />
+              <Route
+                path="/auto-research"
+                element={
+                  __AUTOUMA_ANDROID__ ? <AutoResearch /> : <WebAutoUmaRoute />
+                }
+              />
+              <Route
+                path="/training-history"
+                element={
+                  __AUTOUMA_ANDROID__ ? (
+                    <TrainingHistory />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

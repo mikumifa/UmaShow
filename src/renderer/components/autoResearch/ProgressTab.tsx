@@ -337,7 +337,7 @@ function scheduleGoalLabel(automation?: AccountAutomation) {
   const itemIndex = Math.max(0, observation?.current_index ?? 0);
   const item = schedule.items[itemIndex] || schedule.items[0];
   if (!item) return '等待计划';
-  const progress = observation?.item_progress.find(
+  const progress = observation?.item_progress?.find(
     (candidate) => candidate.id === item.id,
   );
   const dailyPrefix = schedule.cadence === 'daily' ? '每天' : '';
@@ -446,9 +446,9 @@ export default function ProgressTab({
   return currentCareerActive ? (
     <div className="space-y-4">
       <section>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="h-20 w-20 flex-none">
+        <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+          <div className="flex w-full min-w-0 flex-1 items-center gap-3 sm:w-auto sm:gap-4">
+            <span className="h-14 w-14 flex-none sm:h-20 sm:w-20">
               {activeCareerIconPath ? (
                 <AssetIcon
                   path={activeCareerIconPath}
@@ -493,9 +493,9 @@ export default function ProgressTab({
                 <Database size={28} className="m-6 text-gray-300" />
               )}
             </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-xl font-bold text-slate-900">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 className="max-w-full min-w-0 truncate text-base font-bold text-slate-900 sm:text-xl">
                   {currentSettingName} · {scheduleGoalLabel(automation)}
                 </h2>
                 <span
@@ -518,7 +518,7 @@ export default function ProgressTab({
                         : automationPhaseLabel(automation)}
                 </span>
               </div>
-              <p className="mt-1 text-sm font-medium text-indigo-600">
+              <p className="mt-1 truncate text-xs font-medium text-indigo-600 sm:text-sm">
                 {offlineMode
                   ? idleSingleMode?.active
                     ? idleSingleMode.ends_at
@@ -527,7 +527,7 @@ export default function ProgressTab({
                     : '离线育成启动队列'
                   : turnDateLabel(currentCareerTurn)}
               </p>
-              <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-5 text-slate-600 sm:mt-2 sm:items-center sm:gap-2 sm:text-sm">
                 {runnerStopping || runnerPaused ? (
                   <RefreshCw
                     size={15}
@@ -583,7 +583,7 @@ export default function ProgressTab({
             </div>
           </div>
           {!serverHostedMode && !runnerPaused ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               <button
                 type="button"
                 onClick={abandonCareer}
@@ -592,7 +592,7 @@ export default function ProgressTab({
                   'stop',
                   'idle-single-mode-abandon',
                 ].includes(busy)}
-                className="flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 sm:w-auto"
               >
                 <Trash2 size={16} />
                 {['abandon', 'stop', 'idle-single-mode-abandon'].includes(busy)

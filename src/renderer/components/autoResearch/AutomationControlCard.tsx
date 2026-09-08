@@ -21,6 +21,7 @@ import {
 import RunTargetInput from './RunTargetInput';
 
 type AutomationControlCardProps = {
+  readOnly?: boolean;
   automation?: AccountAutomation;
   runnerStopping: boolean;
   runnerPaused: boolean;
@@ -80,6 +81,7 @@ const itemGoalLabel = (
 };
 
 export default function AutomationControlCard({
+  readOnly = false,
   automation,
   runnerStopping,
   runnerPaused,
@@ -121,7 +123,7 @@ export default function AutomationControlCard({
         : 1;
   const activeItemIndex = Math.max(0, observation?.current_index ?? 0);
   const activeItem = schedule?.items[activeItemIndex] || schedule?.items[0];
-  const activeProgress = observation?.item_progress.find(
+  const activeProgress = observation?.item_progress?.find(
     (progress) => progress.id === activeItem?.id,
   );
   const daily = schedule?.cadence === 'daily';
@@ -171,8 +173,8 @@ export default function AutomationControlCard({
   );
 
   return (
-    <section className="rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-xl">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="automationControlCard rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-xl">
+      <div className="automationControlCardHeader flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -217,39 +219,32 @@ export default function AutomationControlCard({
               <span className={statusBadgeClass('sky')}>日常</span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {scheduleWaitingForDelayedStart
-              ? `计划于 ${scheduledStartLabel} 启动 · ${activeItem?.career_setting_name || '当前详设'}`
-              : activeItem
-                ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
-                    activeItem.goal,
-                    activeItem.target,
-                    daily,
-                  )}`
-                : activeSetting?.mode === 'offline'
-                  ? '离线技能与因子配置已由服务器接管执行。'
-                  : observation?.reason || '等待调度器选择下一次育成。'}
-          </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1 rounded-lg bg-slate-50/90 p-1 ring-1 ring-slate-200/70">
-          <button
-            type="button"
-            onClick={openAppendCareerPlan}
-            disabled={!canAppendCareerPlan || runnerStopping || runnerPaused}
-            className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40"
-          >
-            <Plus size={14} />
-            添加后续
-          </button>
-          {activeSetting && activeSetting.mode !== 'offline' ? (
-            <button
-              type="button"
-              onClick={() => editPreset(activeSetting.id)}
-              className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm"
-            >
-              <Settings2 size={14} />
-              编辑预设
-            </button>
+        <div className="automationControlCardActions flex flex-wrap items-center justify-end gap-1 rounded-lg bg-slate-50/90 p-1 ring-1 ring-slate-200/70">
+          {!readOnly ? (
+            <>
+              <button
+                type="button"
+                onClick={openAppendCareerPlan}
+                disabled={
+                  !canAppendCareerPlan || runnerStopping || runnerPaused
+                }
+                className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40"
+              >
+                <Plus size={14} />
+                添加后续
+              </button>
+              {activeSetting && activeSetting.mode !== 'offline' ? (
+                <button
+                  type="button"
+                  onClick={() => editPreset(activeSetting.id)}
+                  className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm"
+                >
+                  <Settings2 size={14} />
+                  编辑预设
+                </button>
+              ) : null}
+            </>
           ) : null}
           {runnerPaused ? (
             <button
@@ -300,8 +295,8 @@ export default function AutomationControlCard({
       </div>
 
       {editableSingleItem ? (
-        <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-xl bg-slate-50/80 p-2">
-          <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+        <div className="automationControlCardEditor mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-xl bg-slate-50/80 p-2">
+          <div className="automationControlCardModes flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
             {modeOptions.map((option) => {
               const Icon = option.icon;
               return (
@@ -328,7 +323,7 @@ export default function AutomationControlCard({
             <RunTargetInput
               compact
               embedded
-              className="w-fit"
+              className="automationControlCardTarget w-fit"
               prefix={repeatDaily ? '每天完成' : '从现在起完成'}
               value={runCountTarget}
               max={100}
@@ -341,7 +336,7 @@ export default function AutomationControlCard({
             <RunTargetInput
               compact
               embedded
-              className="w-fit"
+              className="automationControlCardTarget w-fit"
               prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
               value={jewelDropTarget}
               max={20}
@@ -356,7 +351,7 @@ export default function AutomationControlCard({
           ) : null}
 
           {!repeatDaily ? (
-            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+            <div className="automationControlCardTiming ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
               {scheduleTiming === 'scheduled' ? (
                 <input
                   type="datetime-local"
@@ -397,8 +392,8 @@ export default function AutomationControlCard({
               </div>
             </div>
           ) : (
-            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 text-xs text-slate-600">
-              <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+            <div className="automationControlCardDaily ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 text-xs text-slate-600">
+              <label className="automationControlCardTime flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
                 <span className="whitespace-nowrap text-slate-500">
                   每日启动
                 </span>
@@ -409,7 +404,7 @@ export default function AutomationControlCard({
                   className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
-              <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+              <label className="automationControlCardTime flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
                 <span className="whitespace-nowrap text-slate-500">
                   每日结束
                 </span>
@@ -420,7 +415,7 @@ export default function AutomationControlCard({
                   className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
-              <span className="text-slate-400">
+              <span className="automationControlCardHint text-slate-400">
                 时段外等待；相同时间表示完整的一天周期
               </span>
             </div>
@@ -431,7 +426,7 @@ export default function AutomationControlCard({
       {schedule && schedule.items.length > 1 ? (
         <ol className="mt-3 grid gap-1.5 sm:grid-cols-2">
           {schedule.items.map((item, index) => {
-            const progress = observation?.item_progress.find(
+            const progress = observation?.item_progress?.find(
               (candidate) => candidate.id === item.id,
             );
             return (

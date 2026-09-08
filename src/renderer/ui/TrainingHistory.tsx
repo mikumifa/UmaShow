@@ -1163,7 +1163,7 @@ export default function TrainingHistory() {
             className={raceHeaderButtonClass}
           >
             <ArrowLeft size={16} />
-            {returnTo ? '返回记录' : '返回'}
+            返回
           </button>
         }
       >
@@ -1226,7 +1226,7 @@ export default function TrainingHistory() {
               className={raceHeaderButtonClass}
             >
               <ArrowLeft size={16} />
-              {returnTo ? '返回记录' : '返回'}
+              返回
             </button>
             <button
               type="button"

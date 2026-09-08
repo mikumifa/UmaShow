@@ -4,7 +4,10 @@ import {
   PlannerPortrait,
   PlannerSelectionCard,
 } from 'renderer/components/succession/PlannerComponents';
-import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
+import {
+  SuccessionPickerDialog,
+  SuccessionPickerFilterSheet,
+} from 'renderer/components/succession/SuccessionPicker';
 import { umaSkinIconPath } from './SelectionCards';
 import { DailyTasksOptions } from './types';
 
@@ -172,8 +175,17 @@ export default function DailyHorsePicker({
         </span>
       }
     >
-      <div className="plannerDailyHorseFilters">
-        <div className="grid gap-3 md:grid-cols-3">
+      <SuccessionPickerFilterSheet
+        title="筛选参赛马娘"
+        summary="适应性与排序"
+        onClear={() => {
+          setDistanceMinimum('auto');
+          setGroundMinimum('auto');
+          setSortKey('suitability');
+        }}
+      >
+        <div className="plannerDailyHorseFilters">
+          <div className="grid gap-3 md:grid-cols-3">
           <label className="block" htmlFor="daily-horse-distance-filter">
             <span className="sr-only">距离适应性</span>
             <select
@@ -243,8 +255,9 @@ export default function DailyHorsePicker({
           自动筛选优先要求 A 适应性；没有 A
           时会放宽到当前账号能够达到的最高等级。当前显示 {visibleHorses.length}/
           {horses.length} 匹。
-        </p>
-      </div>
+          </p>
+        </div>
+      </SuccessionPickerFilterSheet>
 
       <div className="plannerDailyHorseBody">
         <div className="plannerDailyHorseGrid">
