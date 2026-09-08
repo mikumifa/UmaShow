@@ -860,9 +860,6 @@ export default function HistoryTab({
         {!offlineHistory ? (
           <section className={panelClass('p-5')}>
             <h3 className="font-bold text-slate-900">大差情况</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              仅统计 G1、G2、G3、EX；大差场次 / 总参加场次。
-            </p>
             {aggregate.g123Races.length ? (
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {aggregate.g123Races.map((raceRow) => {
@@ -1076,9 +1073,6 @@ export default function HistoryTab({
                         <span className="mt-1 block text-xs text-slate-500">
                           {formatReportTime(aggregate.startedAt)} 至{' '}
                           {formatReportTime(aggregate.endedAt)}
-                        </span>
-                        <span className="mt-1 block text-xs text-slate-400">
-                          点击查看当天每一次育成结果
                         </span>
                       </span>
                     </span>

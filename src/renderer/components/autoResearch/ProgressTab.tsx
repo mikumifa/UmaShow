@@ -550,11 +550,11 @@ export default function ProgressTab({
                     ? '正在等待服务端关闭计划'
                     : '正在等待服务端保存暂停状态'
                   : runnerPaused
-                    ? '计划进度已保存，恢复时会重新创建育成执行器'
+                    ? '计划进度已保存并暂停执行'
                     : offlineMode
                       ? idleSingleMode?.active
-                        ? '任务由服务端跟踪，完成后会处理结果并推进下一次计划'
-                        : '计划已提交，正在等待服务端开始离线育成'
+                        ? '离线育成中'
+                        : '等待服务端开启育成'
                       : queuedPlan
                         ? liveActivityLabel || '计划已提交，等待服务端推进'
                         : observation?.phase === 'blocked' ||
@@ -700,9 +700,7 @@ export default function ProgressTab({
         {schedule?.cadence === 'daily' ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 pt-4 text-sm">
             <div>
-              <span className="font-semibold text-violet-800">
-                每日运行计划
-              </span>
+              <span className="font-semibold text-violet-800">每日计划</span>
               <span className="ml-2 text-xs text-violet-600">
                 {`${formatDailyJewelScheduleWindow(
                   schedule.start_time,
@@ -710,9 +708,6 @@ export default function ProgressTab({
                 )} · ${scheduleGoalLabel(automation)}`}
               </span>
             </div>
-            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
-              {automationPhaseLabel(automation)}
-            </span>
           </div>
         ) : null}
       </section>
@@ -760,8 +755,8 @@ export default function ProgressTab({
         <h2 className="mt-4 font-bold text-slate-700">
           {schedule?.cadence === 'daily'
             ? observation?.phase === 'completed'
-              ? '今日运行计划已完成'
-              : `每日运行计划：${automationPhaseLabel(automation)}`
+              ? '今日计划已完成'
+              : `每日计划：${automationPhaseLabel(automation)}`
             : schedule
               ? '正在准备下一次育成'
               : '当前没有进行中的养马'}

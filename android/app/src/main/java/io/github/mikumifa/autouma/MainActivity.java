@@ -15,7 +15,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-        int systemBarColor = Color.rgb(248, 250, 252);
+        int systemBarColor = Color.WHITE;
         getWindow().setStatusBarColor(systemBarColor);
         getWindow().setNavigationBarColor(systemBarColor);
 

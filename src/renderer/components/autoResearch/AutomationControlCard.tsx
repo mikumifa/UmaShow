@@ -341,11 +341,6 @@ export default function AutomationControlCard({
               value={jewelDropTarget}
               max={20}
               suffix="次宝石掉落"
-              hint={
-                repeatDaily
-                  ? '当天已有的宝石掉落会计入目标'
-                  : `本周期剩余 ${remainingJewelDrops} 次`
-              }
               onValueChange={setJewelDropTarget}
             />
           ) : null}
@@ -415,9 +410,6 @@ export default function AutomationControlCard({
                   className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
-              <span className="automationControlCardHint text-slate-400">
-                时段外等待；相同时间表示完整的一天周期
-              </span>
             </div>
           )}
         </div>
