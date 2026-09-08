@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'AutoUma',
   webDir: 'release/app/dist/autouma',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
     cleartext: true,
   },
 };

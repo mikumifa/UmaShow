@@ -283,7 +283,7 @@ function installBridge() {
 
 export async function initializeAutoUmaBridge() {
   installBridge();
-  if (Capacitor.isNativePlatform()) {
+  if (__AUTOUMA_ANDROID__) {
     await initializeMobileMasterDatabase();
   }
 }

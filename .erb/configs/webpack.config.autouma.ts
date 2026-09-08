@@ -119,6 +119,9 @@ const configuration: webpack.Configuration = {
   },
   plugins: [
     new webpack.EnvironmentPlugin({ NODE_ENV: 'production' }),
+    new webpack.DefinePlugin({
+      __AUTOUMA_ANDROID__: JSON.stringify(includeAndroidAssets),
+    }),
     new webpack.ProvidePlugin({
       Buffer: ['buffer', 'Buffer'],
       process: 'process/browser',
