@@ -516,7 +516,7 @@ export default function TrainingCard({
           )}
           {arcData ? (
             <div
-              className={`grid overflow-hidden rounded-md text-sm ${
+              className={`grid overflow-visible rounded-md text-sm ${
                 (arcCommand?.addGlobalExp ?? 0) > 0
                   ? 'grid-cols-3'
                   : 'grid-cols-2'
@@ -546,7 +546,7 @@ export default function TrainingCard({
                 <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 text-[#3CA2FF]">
                   <span className="text-xs font-semibold">适性</span>
                   <span
-                    className={`font-black tabular-nums text-[#FD763C] ${arcGainFontSize(
+                    className={`relative z-20 whitespace-nowrap font-black tabular-nums text-[#FD763C] ${arcGainFontSize(
                       arcCommand?.addGlobalExp ?? 0,
                     )}`}
                   >

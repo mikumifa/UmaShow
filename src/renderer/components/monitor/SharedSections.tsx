@@ -36,8 +36,9 @@ import {
 import {
   buildArcPotentialPurchases,
   recommendedArcPotentialIds,
-  requiredFirstExpeditionPurchases,
+  requiredArcPotentialPurchaseReminders,
   type ArcPotentialPurchase,
+  type ArcPotentialPurchaseReminder,
 } from 'renderer/utils/arcRecommendation';
 import { getArcPotentialIconPath } from 'constant/arc';
 import autoResearchCatalog from '../../../../assets/data/auto_research_catalog.json';
@@ -93,11 +94,11 @@ const recommendationActivityTextColor = (label: string) => {
 
 function RecommendationActivitiesCard({
   recommendations,
-  requiredPurchases,
+  requiredPurchaseReminders,
   recommendedPurchases,
 }: {
   recommendations: RankedRecommendation[];
-  requiredPurchases: ArcPotentialPurchase[];
+  requiredPurchaseReminders: ArcPotentialPurchaseReminder[];
   recommendedPurchases: ArcPotentialPurchase[];
 }) {
   const {
@@ -178,14 +179,17 @@ function RecommendationActivitiesCard({
         </div>
       ) : null}
       <div className="flex flex-1 flex-col gap-1.5 p-2">
-        {requiredPurchases.length > 0 ? (
-          <div className="rounded-lg border-2 border-rose-400 bg-rose-50 p-1.5 text-rose-950 ring-2 ring-rose-100">
+        {requiredPurchaseReminders.map((reminder) => (
+          <div
+            key={reminder.label}
+            className="rounded-lg border-2 border-rose-400 bg-rose-50 p-1.5 text-rose-950 ring-2 ring-rose-100"
+          >
             <div className="flex items-center gap-1 text-xs font-black">
               <ClockAlert size={14} strokeWidth={2.5} />
-              经典级 6月后半提醒
+              {reminder.label}
             </div>
             <div className="mt-1 flex flex-wrap gap-1">
-              {requiredPurchases.map((purchase) => (
+              {reminder.purchases.map((purchase) => (
                 <span
                   key={purchase.id}
                   className="rounded-md border border-rose-300 bg-white/85 px-1.5 py-1 text-[10px] font-black"
@@ -196,7 +200,7 @@ function RecommendationActivitiesCard({
               ))}
             </div>
           </div>
-        ) : null}
+        ))}
         {recommendedPurchases.length > 0 ? (
           <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-1.5 text-amber-950 ring-2 ring-amber-100">
             <div className="flex items-center gap-1 text-xs font-black">
@@ -710,9 +714,9 @@ export function TrainingEventsSection({
       ({ action }) => action.train >= 5,
     );
   }, [capturedState, result, settings.enabled]);
-  const requiredArcPurchases = useMemo(() => {
+  const requiredArcPurchaseReminders = useMemo(() => {
     if (!charInfo.arcData) return [];
-    return requiredFirstExpeditionPurchases(
+    return requiredArcPotentialPurchaseReminders(
       charInfo.arcData,
       charInfo.gameStats.turn,
     );
@@ -737,7 +741,7 @@ export function TrainingEventsSection({
   }, [capturedState?.scenarioId, charInfo.arcData, result, settings.enabled]);
   const showActivitiesCard =
     activityRecommendations.length > 0 ||
-    requiredArcPurchases.length > 0 ||
+    requiredArcPurchaseReminders.length > 0 ||
     recommendedArcPurchases.length > 0 ||
     Boolean(settings.enabled && capturedState?.scenarioId === 6);
   const eventDetailRows = buildEventDetailRows(
@@ -779,7 +783,7 @@ export function TrainingEventsSection({
           {showActivitiesCard ? (
             <RecommendationActivitiesCard
               recommendations={activityRecommendations}
-              requiredPurchases={requiredArcPurchases}
+              requiredPurchaseReminders={requiredArcPurchaseReminders}
               recommendedPurchases={recommendedArcPurchases}
             />
           ) : null}

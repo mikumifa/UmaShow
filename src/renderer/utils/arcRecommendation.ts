@@ -6,6 +6,8 @@ const LARC_TRAIN_POTENTIAL_IDS = [4, 5, 1, 2, 6];
 
 export const LARC_FIRST_EXPEDITION_PREP_TURN = 36;
 export const LARC_REQUIRED_FIRST_EXPEDITION_POTENTIAL_IDS = [1, 2];
+export const LARC_JUNIOR_YEAR_END_PREP_TURN = 24;
+export const LARC_REQUIRED_JUNIOR_YEAR_END_POTENTIAL_IDS = [2, 5];
 
 export type ArcPotentialPurchase = {
   id: number;
@@ -14,6 +16,11 @@ export type ArcPotentialPurchase = {
   targetLevel: number;
   cost: number;
   effect: string;
+};
+
+export type ArcPotentialPurchaseReminder = {
+  label: string;
+  purchases: ArcPotentialPurchase[];
 };
 
 export const compactArcPotentialEffect = (effect: string) =>
@@ -99,4 +106,46 @@ export const requiredFirstExpeditionPurchases = (
     LARC_REQUIRED_FIRST_EXPEDITION_POTENTIAL_IDS,
     2,
   );
+};
+
+export const requiredJuniorYearEndPurchases = (
+  arcData: ArcData,
+  turn: number,
+) => {
+  if (turn < LARC_JUNIOR_YEAR_END_PREP_TURN) return [];
+  return buildArcPotentialPurchases(
+    arcData,
+    LARC_REQUIRED_JUNIOR_YEAR_END_POTENTIAL_IDS,
+    2,
+  );
+};
+
+export const requiredArcPotentialPurchaseReminders = (
+  arcData: ArcData,
+  turn: number,
+): ArcPotentialPurchaseReminder[] => {
+  const reminders = [
+    {
+      label: '初级 12月后半提醒',
+      purchases: requiredJuniorYearEndPurchases(arcData, turn),
+    },
+    {
+      label: '经典级 6月后半提醒',
+      purchases: requiredFirstExpeditionPurchases(arcData, turn),
+    },
+  ];
+  const claimedPotentialIds = new Set<number>();
+
+  return reminders
+    .reverse()
+    .map((reminder) => {
+      const purchases = reminder.purchases.filter((purchase) => {
+        if (claimedPotentialIds.has(purchase.id)) return false;
+        claimedPotentialIds.add(purchase.id);
+        return true;
+      });
+      return { ...reminder, purchases };
+    })
+    .reverse()
+    .filter((reminder) => reminder.purchases.length > 0);
 };

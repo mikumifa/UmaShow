@@ -3,7 +3,9 @@ import type { MonteCarloActionResult } from 'types/monteCarlo';
 import {
   buildArcPotentialPurchases,
   recommendedArcPotentialIds,
+  requiredArcPotentialPurchaseReminders,
   requiredFirstExpeditionPurchases,
+  requiredJuniorYearEndPurchases,
 } from './arcRecommendation';
 
 const makeArcData = (levels: Record<number, number>): ArcData =>
@@ -61,6 +63,47 @@ describe('arc recommendation purchases', () => {
 
     expect(purchases.map((item) => item.id)).toEqual([2]);
     expect(purchases[0].cost).toBe(50);
+  });
+
+  it('starts the aptitude reminder at junior December late', () => {
+    const arcData = makeArcData({ 2: 1, 5: 1 });
+
+    expect(requiredJuniorYearEndPurchases(arcData, 23)).toEqual([]);
+    expect(
+      requiredJuniorYearEndPurchases(arcData, 24).map((item) => item.id),
+    ).toEqual([2, 5]);
+  });
+
+  it('only reminds about junior year-end aptitudes that are not purchased', () => {
+    const purchases = requiredJuniorYearEndPurchases(
+      makeArcData({ 2: 2, 5: 1 }),
+      24,
+    );
+
+    expect(purchases).toEqual([
+      expect.objectContaining({ id: 5, name: '隆尚适应性', targetLevel: 2 }),
+    ]);
+  });
+
+  it('assigns overlapping purchases to the latest reminder', () => {
+    const reminders = requiredArcPotentialPurchaseReminders(
+      makeArcData({ 1: 1, 2: 1, 5: 1 }),
+      36,
+    );
+
+    expect(reminders).toEqual([
+      expect.objectContaining({
+        label: '初级 12月后半提醒',
+        purchases: [expect.objectContaining({ id: 5 })],
+      }),
+      expect.objectContaining({
+        label: '经典级 6月后半提醒',
+        purchases: [
+          expect.objectContaining({ id: 1 }),
+          expect.objectContaining({ id: 2 }),
+        ],
+      }),
+    ]);
   });
 
   it('maps the best action purchase flags to their aptitude ids', () => {
