@@ -38,20 +38,39 @@ export const rankRecommendationActions = (
   result: MonteCarloResult | null,
 ): RankedRecommendation[] => {
   if (!result?.ok) return [];
+  const compareActions = (
+    left: MonteCarloActionResult,
+    right: MonteCarloActionResult,
+  ) => {
+    if (result.backend === 'graph' && left.searches !== right.searches) {
+      return right.searches - left.searches;
+    }
+    return right.value - left.value;
+  };
+  const isBestAction = (action: MonteCarloActionResult) =>
+    action.id === result.bestActionId;
   const bestByActionType = new Map<number, MonteCarloActionResult>();
   result.actions?.forEach((action) => {
     if (action.train < 0) return;
     const current = bestByActionType.get(action.train);
-    if (!current || action.value > current.value) {
+    if (
+      !current ||
+      isBestAction(action) ||
+      (!isBestAction(current) && compareActions(action, current) < 0)
+    ) {
       bestByActionType.set(action.train, action);
     }
   });
   return [...bestByActionType.values()]
-    .sort((left, right) => right.value - left.value)
+    .sort((left, right) => {
+      if (isBestAction(left)) return -1;
+      if (isBestAction(right)) return 1;
+      return compareActions(left, right);
+    })
     .map((action, index) => ({
       action,
       rank: index + 1,
-      isBest: action.id === result.bestActionId,
+      isBest: isBestAction(action),
     }));
 };
 

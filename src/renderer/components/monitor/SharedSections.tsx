@@ -256,10 +256,10 @@ function UmaAiCommonHint() {
     useMonteCarloRecommendation();
   if (!settings.enabled) return null;
 
-  const alternatives = (result?.actions ?? [])
-    .filter((action) => action.id !== result?.bestActionId)
+  const alternatives = rankRecommendationActions(result)
+    .filter(({ isBest }) => !isBest)
     .slice(0, 3)
-    .map((action) => `${action.label} -${Math.round(action.deltaFromBest)}`)
+    .map(({ action }) => `${action.label} ${recommendationDeltaLabel(action)}`)
     .join(' / ');
   let label = capturedState ? '等待计算' : '等待育成数据';
   let title = '推荐已开启，等待可计算的行动选择回合。';

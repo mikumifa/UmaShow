@@ -750,7 +750,6 @@ export default function AutoResearch() {
     new Map<string, AccountOptionsResponse['options']>(),
   );
   const accountOptionsRequests = useRef(new Map<string, Promise<void>>());
-  const loadedCareerHistoryKeyRef = useRef('');
   const [cardId, setCardId] = useState(0);
   const [deckId, setDeckId] = useState(0);
   const [supportCardIds, setSupportCardIds] = useState<number[]>([]);
@@ -3112,22 +3111,6 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
-    if (activeTab !== 'history' || !selectedAccountId || !server) {
-      return;
-    }
-    const historyKey = `${server}\u0000${selectedAccountId}`;
-    if (loadedCareerHistoryKeyRef.current === historyKey) return;
-    loadedCareerHistoryKeyRef.current = historyKey;
-    loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [
-    activeTab,
-    loadCareerHistory,
-    selectedAccountId,
-    server,
-    serverConnectionRevision,
-  ]);
-
-  useEffect(() => {
     if (
       activeTab !== 'daily' ||
       !selectedAccountId ||
@@ -4696,6 +4679,9 @@ export default function AutoResearch() {
       } else {
         setPresetEditorOpen(false);
       }
+    }
+    if (tab === 'history' && selectedAccountId && busy !== 'history') {
+      loadCareerHistory(selectedAccountId).catch(() => undefined);
     }
     setActiveTab(tab);
     if (target) {
