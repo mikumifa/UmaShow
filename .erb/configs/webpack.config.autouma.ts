@@ -11,6 +11,7 @@ import webpackPaths from './webpack.paths';
 const root = webpackPaths.rootPath;
 const autoUmaPath = path.join(webpackPaths.distPath, 'autouma');
 const mobilePath = path.join(root, 'src', 'autouma', 'mobile');
+const includeAndroidAssets = process.env.AUTOUMA_TARGET === 'android';
 
 const configuration: webpack.Configuration = {
   mode: 'production',
@@ -133,7 +134,9 @@ const configuration: webpack.Configuration = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: path.join(root, 'master.mdb'), to: 'master.mdb' },
+        ...(includeAndroidAssets
+          ? [{ from: path.join(root, 'master.mdb'), to: 'master.mdb' }]
+          : []),
         { from: path.join(root, 'assets', 'data'), to: 'data' },
         { from: path.join(root, 'assets', 'chr_icon'), to: 'chr_icon' },
         { from: path.join(root, 'assets', 'skill_icons'), to: 'skill_icons' },

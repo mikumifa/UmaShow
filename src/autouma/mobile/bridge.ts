@@ -283,8 +283,7 @@ function installBridge() {
 
 export async function initializeAutoUmaBridge() {
   installBridge();
-  await Promise.all([
-    initializeMobileMasterDatabase(),
-    loadMobileUmaDatabase(),
-  ]);
+  if (Capacitor.isNativePlatform()) {
+    await initializeMobileMasterDatabase();
+  }
 }
