@@ -173,8 +173,8 @@ export default function AutomationControlCard({
   );
 
   return (
-    <section className="automationControlCard rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-xl">
-      <div className="automationControlCardHeader flex flex-wrap items-center justify-between gap-2">
+    <section className="automationControlCard rounded-xl border border-slate-200/80 bg-white/90 p-2.5 shadow-sm backdrop-blur-xl">
+      <div className="automationControlCardHeader flex flex-wrap items-center justify-between gap-1.5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -220,7 +220,7 @@ export default function AutomationControlCard({
             ) : null}
           </div>
         </div>
-        <div className="automationControlCardActions flex flex-wrap items-center justify-end gap-1 rounded-lg bg-slate-50/90 p-1 ring-1 ring-slate-200/70">
+        <div className="automationControlCardActions flex flex-wrap items-center justify-end gap-0.5 rounded-lg bg-slate-50/90 p-0.5 ring-1 ring-slate-200/70">
           {!readOnly ? (
             <>
               <button
@@ -229,7 +229,7 @@ export default function AutomationControlCard({
                 disabled={
                   !canAppendCareerPlan || runnerStopping || runnerPaused
                 }
-                className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40"
+                className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40 sm:h-7"
               >
                 <Plus size={14} />
                 添加后续
@@ -238,7 +238,7 @@ export default function AutomationControlCard({
                 <button
                   type="button"
                   onClick={() => editPreset(activeSetting.id)}
-                  className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm"
+                  className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm sm:h-7"
                 >
                   <Settings2 size={14} />
                   编辑预设
@@ -251,7 +251,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={resumeCareer}
               disabled={Boolean(busy)}
-              className="flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:h-7"
             >
               <Play size={14} />
               {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
@@ -261,7 +261,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={pauseCareer}
               disabled={runnerStopping || busy === 'pause'}
-              className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-amber-700 hover:shadow-sm disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-amber-700 hover:shadow-sm disabled:opacity-50 sm:h-7"
             >
               {runnerStopping ? (
                 <RefreshCw size={14} className="animate-spin" />
@@ -275,7 +275,7 @@ export default function AutomationControlCard({
             type="button"
             onClick={closeCareerPlan}
             disabled={runnerStopping || Boolean(busy)}
-            className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-red-600 hover:shadow-sm disabled:opacity-50"
+            className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-red-600 hover:shadow-sm disabled:opacity-50 sm:h-7"
           >
             <CircleStop size={14} />
             {runnerClosing ? '正在关闭…' : '关闭'}
@@ -285,7 +285,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={updateRunningAutomation}
               disabled={Boolean(busy) || !scheduledStartValid}
-              className="flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50 sm:h-7"
             >
               <Play size={14} />
               {busy === 'update-schedule' ? '正在应用…' : '应用计划'}
@@ -295,8 +295,8 @@ export default function AutomationControlCard({
       </div>
 
       {editableSingleItem ? (
-        <div className="automationControlCardEditor mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-xl bg-slate-50/80 p-2">
-          <div className="automationControlCardModes flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+        <div className="automationControlCardEditor mt-2 flex max-w-full flex-wrap items-center gap-1.5 rounded-lg bg-slate-50/80 p-1.5">
+          <div className="automationControlCardModes flex w-fit max-w-full flex-wrap items-center gap-0.5 rounded-lg bg-white/90 p-0.5 shadow-sm ring-1 ring-slate-200/70">
             {modeOptions.map((option) => {
               const Icon = option.icon;
               return (
@@ -306,7 +306,7 @@ export default function AutomationControlCard({
                   onClick={() => {
                     setRunMode(option.id);
                   }}
-                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-left text-xs font-semibold transition-all duration-150 ${
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-left text-xs font-semibold transition-all duration-150 sm:h-7 ${
                     runMode === option.id
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
@@ -358,14 +358,14 @@ export default function AutomationControlCard({
                   value={scheduledStartAt}
                   onChange={(event) => setScheduledStartAt(event.target.value)}
                   aria-label="定时启动日期和时间"
-                  className="h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 sm:h-8"
                 />
               ) : null}
-              <div className="flex w-fit max-w-full items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+              <div className="flex w-fit max-w-full items-center gap-0.5 rounded-lg bg-white/90 p-0.5 shadow-sm ring-1 ring-slate-200/70">
                 <button
                   type="button"
                   onClick={() => setScheduleTiming('now')}
-                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-all duration-150 ${
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-semibold transition-all duration-150 sm:h-7 ${
                     scheduleTiming === 'now'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -381,7 +381,7 @@ export default function AutomationControlCard({
                       setScheduledStartAt(defaultScheduledDateTime());
                     }
                   }}
-                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-all duration-150 ${
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-semibold transition-all duration-150 sm:h-7 ${
                     scheduleTiming === 'scheduled'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -393,7 +393,7 @@ export default function AutomationControlCard({
             </div>
           ) : (
             <div className="automationControlCardDaily ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 text-xs text-slate-600">
-              <label className="automationControlCardTime flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+              <label className="automationControlCardTime flex h-9 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70 sm:h-8">
                 <span className="whitespace-nowrap text-slate-500">
                   每日启动
                 </span>
@@ -404,7 +404,7 @@ export default function AutomationControlCard({
                   className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
-              <label className="automationControlCardTime flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+              <label className="automationControlCardTime flex h-9 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70 sm:h-8">
                 <span className="whitespace-nowrap text-slate-500">
                   每日结束
                 </span>

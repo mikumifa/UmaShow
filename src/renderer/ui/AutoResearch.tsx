@@ -3130,6 +3130,11 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
+    if (activeTab !== 'history' || !selectedAccountId || !server) return;
+    loadCareerHistory(selectedAccountId).catch(() => undefined);
+  }, [activeTab, loadCareerHistory, selectedAccountId, server]);
+
+  useEffect(() => {
     if (
       activeTab !== 'daily' ||
       !selectedAccountId ||
@@ -4706,9 +4711,6 @@ export default function AutoResearch() {
       } else {
         setPresetEditorOpen(false);
       }
-    }
-    if (tab === 'history' && selectedAccountId && busy !== 'history') {
-      loadCareerHistory(selectedAccountId).catch(() => undefined);
     }
     setActiveTab(tab);
     if (target) {
