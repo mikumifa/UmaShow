@@ -24,7 +24,7 @@ async function fetchRequired(path: string) {
 export function loadMobileUmaDatabase() {
   if (loadPromise) return loadPromise;
   loadPromise = Promise.all([
-    fetchRequired('data/umdb.binarypb.gz').then((response) =>
+    fetchRequired('data/umdb.binarypb.gz.bin').then((response) =>
       response.arrayBuffer(),
     ),
     fetchRequired('data/umdb.json').then((response) => response.json()),

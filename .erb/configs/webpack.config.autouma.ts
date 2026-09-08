@@ -140,7 +140,15 @@ const configuration: webpack.Configuration = {
         ...(includeAndroidAssets
           ? [{ from: path.join(root, 'master.mdb'), to: 'master.mdb' }]
           : []),
-        { from: path.join(root, 'assets', 'data'), to: 'data' },
+        {
+          from: path.join(root, 'assets', 'data'),
+          to: 'data',
+          globOptions: { ignore: ['**/umdb.binarypb.gz'] },
+        },
+        {
+          from: path.join(root, 'assets', 'data', 'umdb.binarypb.gz'),
+          to: 'data/umdb.binarypb.gz.bin',
+        },
         { from: path.join(root, 'assets', 'chr_icon'), to: 'chr_icon' },
         { from: path.join(root, 'assets', 'skill_icons'), to: 'skill_icons' },
         {

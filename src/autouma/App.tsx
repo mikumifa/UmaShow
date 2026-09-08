@@ -27,13 +27,25 @@ export default function AutoUmaApp() {
       </style>
       <HashRouter>
         <AliveScope>
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
+          <header className="relative z-30 flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
             <div className="shrink-0 text-sm font-semibold text-slate-800">
               AutoUma
             </div>
             <div
               id="app-page-actions"
               className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto"
+            />
+            <div
+              id="app-page-secondary-tabs"
+              className="pointer-events-none absolute left-0 top-[calc(100%-1px)] z-20"
+            />
+            <div
+              id="app-page-tabs"
+              className="pointer-events-none absolute left-1/2 top-[calc(100%-1px)] z-20 -translate-x-1/2"
+            />
+            <div
+              id="app-page-context-actions"
+              className="pointer-events-none absolute right-0 top-[calc(100%-1px)] z-20"
             />
           </header>
           <main className="autouma-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
