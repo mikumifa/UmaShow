@@ -711,12 +711,12 @@ export default function OfflineCareerSettings({
           }}
           className="mt-2 flex w-full items-center gap-3 rounded-lg border border-white/80 bg-white p-2 text-left hover:border-indigo-200"
         >
-          <span className="flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-2xl text-slate-300">
+          <span className="flex h-14 w-14 flex-none items-center justify-center text-2xl text-slate-300">
             {iconPath && uma ? (
               <AssetIcon
                 path={iconPath}
                 alt={uma.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             ) : (
               '+'

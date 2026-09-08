@@ -171,12 +171,12 @@ export default function VenusSpiritTree({
                   key={goddess?.charaId ?? `empty-goddess-${index}`}
                   className="flex w-[46px] shrink-0 flex-col items-center"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-sm ring-2 ring-rose-100">
+                  <div className="flex h-8 w-8 items-center justify-center">
                     {iconUrl && goddess ? (
                       <img
                         src={iconUrl}
                         alt={UMDB.charaName(goddess.charaId)}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     ) : (
                       <div className="text-[8px] font-bold text-gray-400">

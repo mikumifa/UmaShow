@@ -547,7 +547,7 @@ GraphSearch::GraphSearch(GraphModel& model, GraphSearchConfig config)
   config_.nodeBudget = std::clamp(config_.nodeBudget, 16, 8192);
   config_.maxDepth = std::clamp(config_.maxDepth, 1, 16);
   config_.timeBudgetMs = std::clamp(config_.timeBudgetMs, 50, 30000);
-  config_.inferenceBatchSize = std::clamp(config_.inferenceBatchSize, 1, 32);
+  config_.inferenceBatchSize = std::clamp(config_.inferenceBatchSize, 1, 64);
   config_.topK = std::clamp(config_.topK, 1, 12);
   config_.maxChanceOutcomes = std::clamp(config_.maxChanceOutcomes, 1, 32);
   config_.cpuct = std::clamp(config_.cpuct, 0.0, 20.0);

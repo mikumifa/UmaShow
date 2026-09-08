@@ -444,12 +444,12 @@ function sortRankingEntries(
 function MemberAvatar({ member }: { member: LineupMember }) {
   const iconPath = memberIconPath(member);
   return (
-    <div className="h-9 w-9 flex-none overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200">
+    <div className="h-9 w-9 flex-none">
       {iconPath ? (
         <AssetIcon
           path={iconPath}
           alt={memberName(member)}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
         />
       ) : (
         <div className="h-full w-full rounded-full bg-gray-200" />
@@ -1165,8 +1165,7 @@ export default function LeaderboardAnalysis() {
         </div>
       ) : !snapshot || entries.length === 0 ? (
         <div className="rounded border border-gray-200 bg-white p-6 text-sm text-gray-600">
-          还没有排行榜数据。打开游戏排行榜后，debug 模式会保留最近 50
-          个包，页面会自动读取最新榜单。
+          还没有排行榜数据。打开游戏排行榜后，页面会自动读取最新榜单。
         </div>
       ) : (
         <div className="grid min-h-[520px] flex-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,1fr)_420px]">

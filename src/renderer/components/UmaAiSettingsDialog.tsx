@@ -124,16 +124,9 @@ export default function UmaAiSettingsDialog({
         | string
         | null;
       if (selected) {
-        const gpuModel = selected.toLowerCase().endsWith('.fp16.onnx');
         setDraft((current) => ({
           ...current,
-          options: {
-            ...current.options,
-            modelPath: selected,
-            graphInferenceBatchSize: gpuModel
-              ? 32
-              : current.options.graphInferenceBatchSize,
-          },
+          options: { ...current.options, modelPath: selected },
         }));
       }
     } catch (reason) {
@@ -282,8 +275,8 @@ export default function UmaAiSettingsDialog({
                       </>
                     ) : null}
                     <NumberField
-                      label="搜索节点预算"
-                      description="每回合最多搜索的节点数；越高越稳定，也越耗时。"
+                      label="搜索局数"
+                      description="每回合最多搜索的局数。"
                       value={draft.options.graphSearchNodes}
                       min={16}
                       max={8192}
@@ -303,7 +296,7 @@ export default function UmaAiSettingsDialog({
                       }
                     />
                     <NumberField
-                      label="时间预算（毫秒）"
+                      label="timeout (ms)"
                       description="达到时间预算后停止追加搜索。"
                       value={draft.options.graphSearchTimeMs}
                       min={50}
@@ -314,8 +307,8 @@ export default function UmaAiSettingsDialog({
                       }
                     />
                     <NumberField
-                      label="模型推理批量"
-                      description="PUCT 同时评估的搜索路径数；CPU 建议 4～8，GPU 建议 32～64。"
+                      label="batchsize"
+                      description="批量计算的局数。"
                       value={draft.options.graphInferenceBatchSize}
                       min={1}
                       max={64}

@@ -1365,13 +1365,7 @@ function HorseIcon({ path, name }: { path?: string; name: string }) {
     );
   }
 
-  return (
-    <img
-      src={url}
-      alt={name}
-      className="h-14 w-14 shrink-0 rounded-md border border-gray-200 bg-gray-100 object-cover"
-    />
-  );
+  return <img src={url} alt={name} className="h-14 w-14 shrink-0 object-contain" />;
 }
 
 function StatPill({ item }: { item: HorseStatusItem }) {

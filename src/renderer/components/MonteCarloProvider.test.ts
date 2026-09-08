@@ -16,7 +16,7 @@ describe('recommendation settings', () => {
       modelPath: '',
       graphSearchNodes: 384,
       graphSearchDepth: 5,
-      graphInferenceBatchSize: 8,
+      graphInferenceBatchSize: 32,
       graphRootSelection: 'puct',
       graphRootGumbelMaxActions: 16,
       graphRootGumbelScale: 1,

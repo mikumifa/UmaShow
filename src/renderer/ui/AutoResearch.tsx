@@ -6562,12 +6562,12 @@ export default function AutoResearch() {
                                 key={label}
                                 className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
                               >
-                                <span className="h-10 w-10 flex-none overflow-hidden rounded bg-slate-100">
+                                <span className="h-10 w-10 flex-none">
                                   {parentIconPath ? (
                                     <AssetIcon
                                       path={parentIconPath}
                                       alt={parent?.name || label}
-                                      className="h-full w-full object-cover"
+                                      className="h-full w-full object-contain"
                                     />
                                   ) : null}
                                 </span>

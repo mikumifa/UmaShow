@@ -480,12 +480,12 @@ export default function CareerTab(props: CareerTabProps) {
     <section>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
+          <span className="h-20 w-20 flex-none">
             {activeCareerIconPath ? (
               <AssetIcon
                 path={activeCareerIconPath}
                 alt={activeCareer.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
                 loading="eager"
               />
             ) : (
@@ -632,12 +632,12 @@ export default function CareerTab(props: CareerTabProps) {
                   {offline ? '离线' : '在线'}
                 </span>
                 <div className="flex items-start gap-3">
-                  <span className="h-16 w-16 flex-none overflow-hidden rounded-md bg-gray-100">
+                  <span className="h-16 w-16 flex-none">
                     {iconPath ? (
                       <AssetIcon
                         path={iconPath}
                         alt={uma?.name || setting.name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                         loading="eager"
                       />
                     ) : (

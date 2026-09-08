@@ -138,11 +138,11 @@ function HorseSelectButton({
       className={`${fieldClass} flex min-h-[42px] items-center gap-2 text-left disabled:cursor-not-allowed`}
     >
       {horse && iconPath ? (
-        <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-slate-100">
+        <span className="h-8 w-8 shrink-0">
           <AssetIcon
             path={iconPath}
             alt={horse.name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         </span>
       ) : null}

@@ -1196,12 +1196,12 @@ class RaceDataPresenter extends React.PureComponent<
                   <td className="px-3 py-2 text-gray-900">
                     {row.chara ? (
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="h-10 w-10 flex-none overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-10 w-10 flex-none">
                           {row.iconPath ? (
                             <AssetIcon
                               path={row.iconPath}
                               alt={row.chara.name}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain"
                             />
                           ) : (
                             <div className="h-full w-full rounded-full bg-gray-200" />

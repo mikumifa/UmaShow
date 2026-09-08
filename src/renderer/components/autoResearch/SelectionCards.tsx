@@ -83,17 +83,13 @@ export function UmaChoiceCard({
       title={uma.name}
       aria-label={`选择${uma.name}`}
       aria-pressed={selected}
-      className={`relative h-16 w-16 flex-none overflow-hidden rounded-md border bg-gray-100 transition-all ${
-        selected
-          ? 'border-indigo-500 ring-2 ring-indigo-200'
-          : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
-      }`}
+      className={`relative h-16 w-16 flex-none transition-transform ${selected ? 'scale-105' : 'hover:scale-105'}`}
     >
       {iconPath ? (
         <AssetIcon
           path={iconPath}
           alt={uma.name}
-          className="h-full w-full object-contain mix-blend-multiply"
+          className="h-full w-full object-contain"
         />
       ) : null}
       {selected ? (

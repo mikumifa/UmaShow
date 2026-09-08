@@ -3273,7 +3273,7 @@ function FixedDressPickerModal({
                     <AssetIcon
                       path={iconPath}
                       alt={dress.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                     />
                   ) : (
                     <UmaPortrait uma={uma} />
@@ -4057,7 +4057,7 @@ function LineageUmaSetting({
             <AssetIcon
               path={displayedDressIconPath}
               alt={uma?.name || ''}
-              className="successionPortrait object-cover"
+              className="successionPortrait object-contain"
             />
           ) : undefined
         }

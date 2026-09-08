@@ -448,14 +448,14 @@ export default function ProgressTab({
       <section>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="h-20 w-20 flex-none overflow-hidden rounded-lg bg-gray-100">
+            <span className="h-20 w-20 flex-none">
               {activeCareerIconPath ? (
                 <AssetIcon
                   path={activeCareerIconPath}
                   alt={
                     activeCareer?.name || currentCareerUma?.name || '当前育成'
                   }
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                   loading="eager"
                   fallback={
                     activeCareerFallbackIconPath ? (

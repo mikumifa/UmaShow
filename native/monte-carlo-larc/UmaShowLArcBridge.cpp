@@ -614,7 +614,7 @@ RecommendationComputation runGraphRecommendation(
   config.inferenceBatchSize = boundedInt(
     options,
     "graphInferenceBatchSize",
-    8,
+    32,
     1,
     64);
   config.topK = boundedInt(options, "graphSearchTopK", 4, 1, 12);
@@ -1262,7 +1262,7 @@ json analyze(const json& request)
       {"graphInferenceBatchSize", boundedInt(
         options,
         "graphInferenceBatchSize",
-        8,
+        32,
         1,
         64)},
       {"graphSearchTopK", boundedInt(options, "graphSearchTopK", 4, 1, 12)},

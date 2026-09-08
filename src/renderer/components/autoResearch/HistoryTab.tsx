@@ -546,7 +546,7 @@ export default function HistoryTab({
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="h-16 w-16 flex-none overflow-hidden rounded-lg bg-slate-100">
+              <span className="h-16 w-16 flex-none">
                 {recordUma ? (
                   <AssetIcon
                     path={
@@ -557,7 +557,7 @@ export default function HistoryTab({
                       ) || ''
                     }
                     alt={recordUma.name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   <Trophy size={22} className="m-5 text-slate-300" />
@@ -945,7 +945,7 @@ export default function HistoryTab({
                     className="grid w-full gap-4 px-4 py-3 text-left transition hover:bg-indigo-50/40 lg:grid-cols-[minmax(220px,1.2fr)_minmax(300px,1.6fr)_minmax(300px,1.5fr)] lg:items-center"
                   >
                     <span className="flex min-w-0 items-center gap-3">
-                      <span className="h-14 w-14 flex-none overflow-hidden rounded-lg bg-slate-100">
+                      <span className="h-14 w-14 flex-none">
                         {recordUma ? (
                           <AssetIcon
                             path={
@@ -956,7 +956,7 @@ export default function HistoryTab({
                               ) || ''
                             }
                             alt={settingName}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         ) : (
                           <Trophy

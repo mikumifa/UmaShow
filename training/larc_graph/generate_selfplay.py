@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--play-exploration", type=float, default=0.0)
     parser.add_argument("--search-depth", type=int, default=5)
     parser.add_argument("--search-time-ms", type=int, default=30_000)
-    parser.add_argument("--inference-batch-size", type=int, default=8)
+    parser.add_argument("--inference-batch-size", type=int, default=32)
     parser.add_argument("--search-top-k", type=int, default=4)
     parser.add_argument("--chance-outcomes", type=int, default=8)
     parser.add_argument("--cpuct", type=float, default=1.5)

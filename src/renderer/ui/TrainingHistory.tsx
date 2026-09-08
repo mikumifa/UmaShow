@@ -1174,7 +1174,7 @@ export default function TrainingHistory() {
                 <AssetIcon
                   path={horseIconPath}
                   alt={horseName}
-                  className="h-16 w-16 rounded-md object-cover ring-1 ring-gray-100"
+                  className="h-16 w-16 object-contain"
                 />
               )}
               <div className="min-w-0">
@@ -1265,7 +1265,7 @@ export default function TrainingHistory() {
             <AssetIcon
               path={horseIconPath}
               alt={horseName}
-              className="h-16 w-16 rounded-md object-cover ring-1 ring-gray-100"
+              className="h-16 w-16 object-contain"
             />
           )}
           <div className="min-w-0">
@@ -1582,7 +1582,7 @@ export default function TrainingHistory() {
                   <AssetIcon
                     path={horseIconPath}
                     alt={horseName}
-                    className="h-16 w-16 rounded-md object-cover ring-1 ring-gray-100"
+                    className="h-16 w-16 object-contain"
                   />
                 )}
                 <div className="min-w-0 flex-1">

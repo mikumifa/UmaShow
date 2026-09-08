@@ -27,7 +27,6 @@ import { useMonteCarloRecommendation } from './MonteCarloProvider';
 import {
   RecommendationScoreFooter,
   rankRecommendationActions,
-  recommendationRankTone,
 } from './RecommendationRank';
 
 const UMA_AI_TRAIN_INDEX = new Map<number, number>([
@@ -160,6 +159,14 @@ const ARC_STAR_GAUGE_MAX = 3;
 const clampArcStarGauge = (value: number) =>
   Math.min(ARC_STAR_GAUGE_MAX, Math.max(0, value));
 
+const arcGainFontSize = (value: number) => {
+  if (value >= 10) return 'text-2xl';
+  if (value >= 8) return 'text-xl';
+  if (value >= 6) return 'text-lg';
+  if (value >= 4) return 'text-base';
+  return 'text-sm';
+};
+
 function ArcStarGauge({
   current,
   preview,
@@ -182,13 +189,18 @@ function ArcStarGauge({
       title={title}
     >
       {Array.from({ length: ARC_STAR_GAUGE_MAX }, (_, index) => {
-        let fill = 'border-slate-300 bg-transparent';
+        const previewStyles = [
+          'border-[#FFD53C] bg-[#FFD53C]',
+          'border-[#FFAB30] bg-[#FFAB30]',
+          'border-[#FF852C] bg-[#FF852C]',
+        ];
+        let fill = 'border-[#EBEAEF] bg-[#EBEAEF]';
         if (index < safeCurrent) {
-          fill = 'border-violet-600 bg-violet-600';
+          fill = previewStyles[index];
         } else if (index < safePreview) {
           fill = blocked
-            ? 'border-slate-300 bg-transparent'
-            : 'border-cyan-400 bg-cyan-300';
+            ? 'border-[#EBEAEF] bg-[#EBEAEF]'
+            : 'border-[#33F116] bg-[#33F116]';
         }
         return (
           <span
@@ -358,6 +370,7 @@ export default function TrainingCard({
   };
   const tagTrainingPartnerCount =
     command.trainingPartners.filter(isTagTrainingPartner).length;
+  const hasRainbowSupport = !isDisabled && tagTrainingPartnerCount > 0;
   const getArcGaugeState = (position: number) => {
     const arcCharaId = getArcCharaId(position);
     const arcRival = arcCharaId ? arcRivalByCharaId.get(arcCharaId) : undefined;
@@ -423,18 +436,16 @@ export default function TrainingCard({
   if (isDisabled) {
     cardStateClass =
       'border-gray-300 bg-gray-100 grayscale cursor-not-allowed opacity-60';
-  } else if (recommendation) {
-    cardStateClass = `${recommendationRankTone(recommendation.rank).card} hover:-translate-y-1`;
   }
 
-  return (
+  const card = (
     <button
       disabled={isDisabled}
       type="button"
       onMouseEnter={() => onHoverChange?.(command, true)}
       onMouseLeave={() => onHoverChange?.(command, false)}
       className={`
-        relative group flex flex-col items-stretch text-left
+        relative z-10 group flex h-full w-full flex-col items-stretch text-left
         border-4 rounded-xl transition-all duration-150 transform active:scale-95
         ${cardStateClass}
       `}
@@ -505,28 +516,40 @@ export default function TrainingCard({
           )}
           {arcData ? (
             <div
-              className={`grid divide-x divide-violet-200 rounded-md border border-violet-100 bg-violet-50/70 py-1 text-sm ${
+              className={`grid overflow-hidden rounded-md text-sm ${
                 (arcCommand?.addGlobalExp ?? 0) > 0
                   ? 'grid-cols-3'
                   : 'grid-cols-2'
               }`}
             >
-              <div className="flex items-center justify-between gap-1 px-2 text-violet-700">
+              <div className="flex items-center justify-between gap-1 bg-[#B1EE16] px-2 py-1 text-[#3CA2FF]">
                 <span className="text-xs font-semibold">充电</span>
-                <span className="text-base font-black tabular-nums">
+                <span
+                  className={`font-black tabular-nums text-[#FD763C] ${arcGainFontSize(
+                    arcChargeGain,
+                  )}`}
+                >
                   +{arcChargeGain}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-1 px-2 text-fuchsia-700">
+              <div className="flex items-center justify-between gap-1 bg-[#FBD8E3] px-2 py-1 text-[#3CA2FF]">
                 <span className="text-xs font-semibold">充满</span>
-                <span className="text-base font-black tabular-nums">
+                <span
+                  className={`font-black tabular-nums text-[#FD763C] ${arcGainFontSize(
+                    arcFullCount,
+                  )}`}
+                >
                   +{arcFullCount}
                 </span>
               </div>
               {(arcCommand?.addGlobalExp ?? 0) > 0 ? (
-                <div className="flex items-center justify-between gap-1 px-2 text-amber-700">
+                <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 text-[#3CA2FF]">
                   <span className="text-xs font-semibold">适性</span>
-                  <span className="text-base font-black tabular-nums">
+                  <span
+                    className={`font-black tabular-nums text-[#FD763C] ${arcGainFontSize(
+                      arcCommand?.addGlobalExp ?? 0,
+                    )}`}
+                  >
                     +{arcCommand?.addGlobalExp ?? 0}
                   </span>
                 </div>
@@ -691,13 +714,16 @@ export default function TrainingCard({
                   : 'bg-[#2AC0FF]');
             const arcGaugeBlocked = arcGaugeState?.blocked ?? false;
             const arcGaugePreview = arcGaugeState?.preview ?? 0;
-            const fallbackCharaPath =
-              arcCharaId != null ? UMDB.charaIconPath(arcCharaId) : '';
-            const arcRivalCharaPath = arcRival
-              ? UMDB.arcRivalIconPath(arcRival.charaId)
-              : '';
+            const trainingCharaId =
+              arcRival?.charaId ??
+              arcCharaId ??
+              supportCard?.charaId ??
+              (p >= 1000 ? p : undefined);
+            const fallbackCharaPath = partner?.charaPath || '';
             const charaPath =
-              arcRivalCharaPath || partner?.charaPath || fallbackCharaPath;
+              (trainingCharaId != null
+                ? UMDB.charaIconPath(trainingCharaId)
+                : '') || fallbackCharaPath;
             const currentArcReward = arcRival?.selectionEffects
               .slice()
               .sort((left, right) => left.effectNum - right.effectNum)[0];
@@ -715,8 +741,12 @@ export default function TrainingCard({
                 key={p}
                 className={`relative group/partner ${
                   arcData
-                    ? `box-border flex h-[54px] w-[68px] items-start gap-1 rounded-lg border border-slate-300 p-1 ${
+                    ? `box-border flex h-[54px] w-[68px] items-start gap-1 rounded-lg p-1 ${
                         arcRival ? 'justify-start' : 'justify-center'
+                      } ${
+                        (arcRival?.rivalBoost ?? 0) >= ARC_STAR_GAUGE_MAX
+                          ? 'border-0 bg-gradient-to-r from-[#FFC2D3] via-[#FFE8EF] to-white ring-0'
+                          : 'border border-slate-300 bg-white'
                       }`
                     : 'flex flex-col items-center'
                 }`}
@@ -736,12 +766,11 @@ export default function TrainingCard({
                     </div>
                   )}
 
-                  {/* --- (Circle Container) --- */}
-                  <div className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-orange-100 text-[10px] shadow-sm transition-transform hover:scale-110">
+                  <div className="relative z-10 flex h-10 w-10 items-center justify-center text-[10px] transition-transform hover:scale-110">
                     {charaPath ? (
                       <img
                         src={assetUrl(charaPath)}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                         alt="support card"
                         onError={(event) => {
                           event.currentTarget.onerror = null;
@@ -751,7 +780,7 @@ export default function TrainingCard({
                         }}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-orange-300 font-bold text-orange-800">
+                      <div className="flex h-full w-full items-center justify-center rounded-full bg-orange-300 font-bold text-orange-800">
                         P
                       </div>
                     )}
@@ -811,5 +840,16 @@ export default function TrainingCard({
         <RecommendationScoreFooter recommendation={recommendation} />
       ) : null}
     </button>
+  );
+
+  if (!hasRainbowSupport) return card;
+
+  return (
+    <div className="relative min-w-0 rounded-xl p-[3px] shadow-[0_0_10px_rgba(217,70,239,0.65)]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+        <div className="absolute -inset-[120%] animate-spin bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] [animation-duration:2.5s]" />
+      </div>
+      {card}
+    </div>
   );
 }

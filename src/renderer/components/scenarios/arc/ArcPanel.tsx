@@ -34,6 +34,35 @@ import {
 } from 'renderer/utils/arcRecommendation';
 
 const TRAINING_ORDER = [101, 105, 102, 103, 106];
+type ArcStatusPanel = 'potential' | 'rivals' | null;
+const ARC_STATUS_PANEL_STORAGE_KEY = 'arcStatusBar.openPanel';
+
+function readArcStatusPanel(): ArcStatusPanel {
+  if (typeof window === 'undefined') return 'rivals';
+
+  try {
+    const stored = window.localStorage.getItem(ARC_STATUS_PANEL_STORAGE_KEY);
+    if (stored === 'potential' || stored === 'rivals') return stored;
+    if (stored === 'closed') return null;
+  } catch {
+    // Keep the default when storage is unavailable.
+  }
+  return 'rivals';
+}
+
+function saveArcStatusPanel(panel: ArcStatusPanel) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(
+      ARC_STATUS_PANEL_STORAGE_KEY,
+      panel ?? 'closed',
+    );
+  } catch {
+    // The panel still works for the current session when storage is unavailable.
+  }
+}
+
 const PARAM_LABELS: Record<number, string> = {
   [TARGET_TYPE.SPEED]: '速',
   [TARGET_TYPE.STAMINA]: '耐',
@@ -118,7 +147,7 @@ const getPotentialCardStyle = (canUpgrade: boolean, unlocked: boolean) => {
   if (canUpgrade) {
     return 'border-amber-300 bg-amber-50 shadow-[0_0_0_2px_rgba(251,191,36,.12)]';
   }
-  if (unlocked) return 'border-cyan-200 bg-cyan-50/50';
+  if (unlocked) return 'border-[#71BCFF] bg-[#71BCFF]/10';
   return 'border-gray-200 bg-gray-50';
 };
 
@@ -157,12 +186,10 @@ function ParamChips({ params }: { params: CommandParam[] }) {
 
 function RivalAvatar({
   rival,
-  ring = 'ring-sky-200',
   large = false,
   showLevel = true,
 }: {
   rival: ArcRivalInfo;
-  ring?: string;
   large?: boolean;
   showLevel?: boolean;
 }) {
@@ -174,14 +201,12 @@ function RivalAvatar({
       className="group relative shrink-0"
       title={`${name} / 排名 ${rival.rank || '-'} / 协助者积分 ${rival.approvalPoint}`}
     >
-      <div
-        className={`${large ? 'h-12 w-12' : 'h-9 w-9'} overflow-hidden rounded-full border-2 border-white bg-white shadow-sm ring-2 ${ring}`}
-      >
+      <div className={large ? 'h-12 w-12' : 'h-9 w-9'}>
         {iconUrl ? (
           <img
             src={assetUrl(iconUrl)}
             alt={name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             onError={(event) => {
               event.currentTarget.onerror = null;
               event.currentTarget.src = assetUrl(fallbackIconUrl);
@@ -216,11 +241,14 @@ function RivalBoostGauge({
       title={`群星槽 ${current}/3${blocked ? '（本回合锁定）' : ''}`}
     >
       {Array.from({ length: 3 }, (_, index) => {
-        let fill = 'border-slate-300 bg-slate-100';
+        const filledStyles = [
+          'border-[#FFD53C] bg-[#FFD53C]',
+          'border-[#FFAB30] bg-[#FFAB30]',
+          'border-[#FF852C] bg-[#FF852C]',
+        ];
+        let fill = 'border-[#EBEAEF] bg-[#EBEAEF]';
         if (index < current) {
-          fill = 'border-violet-600 bg-violet-600';
-        } else if (blocked) {
-          fill = 'border-rose-300 bg-rose-100';
+          fill = filledStyles[index];
         }
         return (
           <span key={index} className={`flex-1 rounded-[2px] border ${fill}`} />
@@ -258,11 +286,18 @@ function RivalBondGauge({ value }: { value: number }) {
   );
 }
 
-function RivalSelectionEffects({ rival }: { rival: ArcRivalInfo }) {
-  const effects = rival.selectionEffects
+function RivalSelectionEffects({
+  rival,
+  currentOnly = false,
+}: {
+  rival: ArcRivalInfo;
+  currentOnly?: boolean;
+}) {
+  const sortedEffects = rival.selectionEffects
     .slice()
     .sort((left, right) => left.effectNum - right.effectNum)
     .slice(0, 3);
+  const effects = currentOnly ? sortedEffects.slice(0, 1) : sortedEffects;
   const activeEffectNum = effects[0]?.effectNum;
 
   return (
@@ -277,12 +312,16 @@ function RivalSelectionEffects({ rival }: { rival: ArcRivalInfo }) {
         return (
           <div
             key={effect.effectNum}
-            className={`flex min-w-0 items-center gap-0.5 rounded border px-1 py-0.5 text-[9px] font-bold leading-3 ${
+            className={`flex min-w-0 items-center gap-0.5 rounded border font-bold ${
+              currentOnly
+                ? 'px-1.5 py-1 text-[11px]'
+                : 'px-1 py-0.5 text-[9px] leading-3'
+            } ${
               isActive
-                ? 'border-amber-400 bg-amber-50 text-amber-800 ring-1 ring-amber-300'
-                : 'border-transparent bg-white text-indigo-700'
+                ? 'border-[#FF9741] bg-[#FF9741] text-[#875632]'
+                : 'border-[#FF9741]/30 bg-white text-[#875632]'
             }`}
-            title={isActive ? `当前轮转：${label}` : label}
+            title={isActive ? `当前词条：${label}` : label}
           >
             {iconPath ? (
               <img
@@ -313,15 +352,20 @@ function ArcStatusBar({
   const ssRecommendation = rankedRecommendations.find(
     ({ action }) => action.train === 5,
   );
-  const isSsRecommended = ssRecommendation?.isBest ?? false;
   const recommendedPotentialPurchases = buildArcPotentialPurchases(
     arcData,
     umaAiPotentialIds,
     3,
   );
-  const [openPanel, setOpenPanel] = useState<'potential' | 'rivals' | null>(
-    null,
-  );
+  const [openPanel, setOpenPanel] =
+    useState<ArcStatusPanel>(readArcStatusPanel);
+  const togglePanel = (panel: Exclude<ArcStatusPanel, null>) => {
+    setOpenPanel((current) => {
+      const next = current === panel ? null : panel;
+      saveArcStatusPanel(next);
+      return next;
+    });
+  };
   const trainingEffect = getArcTrainingEffect(arcData.approvalRate);
   const upgradeable = ARC_POTENTIALS.filter((meta) => {
     const current = arcData.potentials.find(
@@ -351,31 +395,45 @@ function ArcStatusBar({
       return charaId != null ? [[charaId, partner.evaluation] as const] : [];
     }),
   );
-  const visibleSelection = selection?.rivals.length ? selection : null;
+  const rivalByCharaId = new Map(
+    arcData.rivals.map((rival) => [rival.charaId, rival]),
+  );
+  const chargedSelectionRivals =
+    selection?.rivals.filter(
+      (selectionRival) =>
+        (rivalByCharaId.get(selectionRival.charaId)?.rivalBoost ?? 0) > 0,
+    ) ?? [];
+  const visibleSelection =
+    selection && chargedSelectionRivals.length > 0
+      ? { ...selection, rivals: chargedSelectionRivals }
+      : null;
   const hasExpandedContent =
     recommendedPotentialPurchases.length > 0 ||
     visibleSelection !== null ||
     openPanel !== null;
   return (
     <section
-      className={`h-fit flex-none rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-indigo-50 shadow-sm ${
+      className={`relative h-fit flex-none rounded-xl bg-white shadow-sm ${
         hasExpandedContent ? 'px-3 py-2' : 'px-2 py-1'
       }`}
     >
+      {visibleSelection?.isSpecialMatch ? (
+        <div className="pointer-events-none absolute -inset-[3px] z-20 animate-pulse rounded-[14px] border-2 border-[#FB689D] shadow-[0_0_14px_4px_rgba(251,104,157,0.75)] [animation-duration:0.5s]" />
+      ) : null}
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <div className="mr-1 flex items-center gap-1 font-black text-slate-800">
-          <Globe2 className="text-cyan-600" size={16} />
+          <Globe2 className="text-[#3CA2FF]" size={16} />
           凯旋门
         </div>
-        <span className="rounded-md border border-cyan-200 bg-white/80 px-2 py-1 font-bold text-cyan-700">
+        <span className="rounded-md border border-[#71BCFF] bg-white/80 px-2 py-1 font-bold text-[#3CA2FF]">
           期待 {formatArcApprovalRate(arcData.approvalRate)} · 训练 +
           {trainingEffect}%
         </span>
-        <span className="rounded-md border border-blue-200 bg-white/80 px-2 py-1 font-bold text-blue-700">
+        <span className="rounded-md border border-[#71BCFF] bg-white/80 px-2 py-1 font-bold text-[#3CA2FF]">
           适性Pt {arcData.globalExp}
           {upgradeable > 0 ? ` · ${upgradeable}项可升` : ''}
         </span>
-        <span className="rounded-md border border-violet-200 bg-white/80 px-2 py-1 font-bold text-violet-700">
+        <span className="rounded-md border border-[#71BCFF] bg-white/80 px-2 py-1 font-bold text-[#3CA2FF]">
           SS {arcData.ssMatchWinCount}胜 · SSS {arcData.specialSsMatchWinCount}
           胜
         </span>
@@ -393,14 +451,10 @@ function ArcStatusBar({
             type="button"
             className={`flex items-center gap-1 rounded-md border px-2 py-1 font-black transition-colors ${
               openPanel === 'potential'
-                ? 'border-cyan-400 bg-cyan-600 text-white'
-                : 'border-cyan-200 bg-white/80 text-cyan-700 hover:bg-cyan-100'
+                ? 'border-[#3CA2FF] bg-gradient-to-r from-[#71BCFF] to-[#3CA2FF] text-white'
+                : 'border-[#71BCFF] bg-white/80 text-[#3CA2FF] hover:bg-[#71BCFF]/10'
             }`}
-            onClick={() =>
-              setOpenPanel((current) =>
-                current === 'potential' ? null : 'potential',
-              )
-            }
+            onClick={() => togglePanel('potential')}
           >
             <BadgeCheck size={13} /> 海外适应性
             {umaAiPotentialIds.size > 0
@@ -411,14 +465,10 @@ function ArcStatusBar({
             type="button"
             className={`flex items-center gap-1 rounded-md border px-2 py-1 font-black transition-colors ${
               openPanel === 'rivals'
-                ? 'border-indigo-400 bg-indigo-600 text-white'
-                : 'border-indigo-200 bg-white/80 text-indigo-700 hover:bg-indigo-100'
+                ? 'border-[#3CA2FF] bg-gradient-to-r from-[#71BCFF] to-[#3CA2FF] text-white'
+                : 'border-[#71BCFF] bg-white/80 text-[#3CA2FF] hover:bg-[#71BCFF]/10'
             }`}
-            onClick={() =>
-              setOpenPanel((current) =>
-                current === 'rivals' ? null : 'rivals',
-              )
-            }
+            onClick={() => togglePanel('rivals')}
           >
             <Users size={13} /> 凯旋门计划成员
           </button>
@@ -443,100 +493,115 @@ function ArcStatusBar({
       {visibleSelection ? (
         <div className="mt-1.5">
           <div
-            className={`inline-flex max-w-full flex-wrap items-stretch gap-1 rounded-lg ${
-              isSsRecommended
-                ? 'border-2 border-amber-400 bg-amber-100/60 p-1 ring-2 ring-amber-200'
-                : ''
-            }`}
+            className="inline-flex max-w-full flex-wrap items-stretch gap-1 rounded-lg"
             title={
               ssRecommendation
                 ? `第 ${ssRecommendation.rank} 名 · ${ssRecommendation.action.label}`
                 : ''
             }
           >
-            {visibleSelection.rivals.map((selectionRival) => {
-              const rival = arcData.rivals.find(
-                (item) => item.charaId === selectionRival.charaId,
-              );
-              const name = UMDB.charaName(selectionRival.charaId);
-              const evaluation = evaluationByCharaId.get(
-                selectionRival.charaId,
-              );
-              const matchMark =
-                SS_MATCH_MARKS[selectionRival.mark] ?? UNKNOWN_SS_MATCH_MARK;
-              return (
-                <article
-                  key={selectionRival.charaId}
-                  className={`relative min-w-0 overflow-hidden rounded-lg ${
-                    visibleSelection.isSpecialMatch
-                      ? 'p-[2px] shadow-[0_0_8px_rgba(217,70,239,0.65)]'
-                      : 'border border-indigo-400 bg-indigo-50 p-1 ring-1 ring-indigo-300'
-                  }`}
-                  title={`${name} · 胜算${matchMark.label}${visibleSelection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
-                >
-                  {visibleSelection.isSpecialMatch ? (
-                    <div className="pointer-events-none absolute -inset-[120%] animate-spin bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] [animation-duration:2.5s]" />
-                  ) : null}
-                  <div
-                    className={
-                      visibleSelection.isSpecialMatch
-                        ? 'relative z-10 h-full rounded-[6px] bg-indigo-50 p-1'
-                        : ''
-                    }
-                  >
-                    <div className="flex items-center gap-1">
-                      {rival ? (
-                        <div className="flex shrink-0 flex-col items-center">
-                          <div className="relative">
-                            <RivalAvatar
-                              rival={rival}
-                              ring="ring-indigo-200"
-                              large
-                              showLevel={false}
-                            />
+            {openPanel === 'rivals'
+              ? visibleSelection.rivals.map((selectionRival) => {
+                  const rival = arcData.rivals.find(
+                    (item) => item.charaId === selectionRival.charaId,
+                  );
+                  const isFullyCharged = (rival?.rivalBoost ?? 0) >= 3;
+                  let compactSelectionStyle =
+                    'border border-[#3CA2FF] bg-[#71BCFF]/10 p-1';
+                  if (isFullyCharged) {
+                    compactSelectionStyle =
+                      'border-0 bg-gradient-to-r from-[#FFC2D3] via-[#FFE8EF] to-white p-1 ring-0';
+                  }
+                  return rival ? (
+                    <div
+                      key={selectionRival.charaId}
+                      className={`relative min-w-28 overflow-hidden rounded-lg ${compactSelectionStyle}`}
+                    >
+                      <div>
+                        <RivalSelectionEffects rival={rival} currentOnly />
+                      </div>
+                    </div>
+                  ) : null;
+                })
+              : visibleSelection.rivals.map((selectionRival) => {
+                  const rival = arcData.rivals.find(
+                    (item) => item.charaId === selectionRival.charaId,
+                  );
+                  const name = UMDB.charaName(selectionRival.charaId);
+                  const evaluation = evaluationByCharaId.get(
+                    selectionRival.charaId,
+                  );
+                  const matchMark =
+                    SS_MATCH_MARKS[selectionRival.mark] ??
+                    UNKNOWN_SS_MATCH_MARK;
+                  const isFullyCharged = (rival?.rivalBoost ?? 0) >= 3;
+                  let selectionCardStyle =
+                    'border border-[#3CA2FF] bg-[#71BCFF]/10 p-1';
+                  if (isFullyCharged) {
+                    selectionCardStyle =
+                      'border-0 bg-gradient-to-r from-[#FFC2D3] via-[#FFE8EF] to-white p-1 ring-0';
+                  }
+                  return (
+                    <article
+                      key={selectionRival.charaId}
+                      className={`relative min-w-0 overflow-hidden rounded-lg ${selectionCardStyle}`}
+                      title={`${name} · 胜算${matchMark.label}${visibleSelection.isSpecialMatch ? ' · SSS超星赛' : ''}`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1">
+                          {rival ? (
+                            <div className="flex shrink-0 flex-col items-center">
+                              <div className="relative">
+                                <RivalAvatar
+                                  rival={rival}
+                                  large
+                                  showLevel={false}
+                                />
+                                {matchMark.iconPath ? (
+                                  <img
+                                    src={matchMark.iconPath}
+                                    alt={`胜算：${matchMark.label}`}
+                                    title={`胜算：${matchMark.label}`}
+                                    className="absolute -right-1 -top-1 z-30 h-[18px] w-[18px] object-contain drop-shadow-sm"
+                                  />
+                                ) : (
+                                  <span className="absolute -right-1 -top-1 z-30 text-2xl font-black text-slate-500">
+                                    ?
+                                  </span>
+                                )}
+                              </div>
+                              {evaluation !== undefined ? (
+                                <RivalBondGauge value={evaluation} />
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {rival ? (
+                            <RivalSelectionEffects rival={rival} currentOnly />
+                          ) : null}
+                        </div>
+                        {!rival ? (
+                          <div className="flex h-12 items-center justify-between gap-2 px-1 text-xs font-bold text-slate-500">
+                            <span className="truncate">{name}</span>
                             {matchMark.iconPath ? (
                               <img
                                 src={matchMark.iconPath}
                                 alt={`胜算：${matchMark.label}`}
-                                title={`胜算：${matchMark.label}`}
-                                className="absolute -right-1 -top-1 z-30 h-[18px] w-[18px] object-contain drop-shadow-sm"
+                                className="h-[18px] w-[18px] object-contain"
                               />
                             ) : (
-                              <span className="absolute -right-1 -top-1 z-30 text-2xl font-black text-slate-500">
-                                ?
-                              </span>
+                              <span>?</span>
                             )}
                           </div>
-                          {evaluation !== undefined ? (
-                            <RivalBondGauge value={evaluation} />
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {rival ? <RivalSelectionEffects rival={rival} /> : null}
-                    </div>
-                    {!rival ? (
-                      <div className="flex h-12 items-center justify-between gap-2 px-1 text-xs font-bold text-slate-500">
-                        <span className="truncate">{name}</span>
-                        {matchMark.iconPath ? (
-                          <img
-                            src={matchMark.iconPath}
-                            alt={`胜算：${matchMark.label}`}
-                            className="h-[18px] w-[18px] object-contain"
-                          />
-                        ) : (
-                          <span>?</span>
-                        )}
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
+                    </article>
+                  );
+                })}
           </div>
         </div>
       ) : null}
       {openPanel ? (
-        <div className="mt-2 border-t border-sky-200 pt-2">
+        <div className="mt-2 border-t border-[#71BCFF]/40 pt-2">
           {openPanel === 'potential' ? (
             <ArcPotentialPanel arcData={arcData} />
           ) : (
@@ -677,7 +742,7 @@ function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
                         </div>
                         <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-200">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                        className="h-full rounded-full bg-gradient-to-r from-[#71BCFF] to-[#3CA2FF]"
                             style={{ width: `${rate}%` }}
                           />
                         </div>
@@ -698,12 +763,34 @@ function ArcPotentialPanel({ arcData }: { arcData: ArcData }) {
 
 function ArcRivalPanel({ arcData }: { arcData: ArcData }) {
   const blockedRivalIds = new Set(arcData.rivalBoostBlockedCharaIds);
-  const currentRivalIds = new Set(
-    arcData.selectionInfo?.rivals.map((rival) => rival.charaId) ?? [],
+  const currentRivalOrder = new Map(
+    (arcData.selectionInfo?.rivals ?? []).map((rival, index) => [
+      rival.charaId,
+      index,
+    ]),
   );
+  const currentRivalIds = new Set(currentRivalOrder.keys());
   const sorted = arcData.rivals
     .filter((rival) => rival.selectionEffects.length > 0)
     .sort((left, right) => {
+      const leftCurrentOrder = currentRivalOrder.get(left.charaId);
+      const rightCurrentOrder = currentRivalOrder.get(right.charaId);
+      const leftIsCurrent = leftCurrentOrder !== undefined;
+      const rightIsCurrent = rightCurrentOrder !== undefined;
+      if (leftIsCurrent !== rightIsCurrent) return leftIsCurrent ? -1 : 1;
+      if (leftIsCurrent && rightIsCurrent) {
+        return (leftCurrentOrder ?? 0) - (rightCurrentOrder ?? 0);
+      }
+
+      const leftIsFullyCharged = left.rivalBoost >= 3;
+      const rightIsFullyCharged = right.rivalBoost >= 3;
+      if (leftIsFullyCharged !== rightIsFullyCharged) {
+        return leftIsFullyCharged ? -1 : 1;
+      }
+      if (left.rivalBoost !== right.rivalBoost) {
+        return right.rivalBoost - left.rivalBoost;
+      }
+
       const leftOrder = TRAINING_ORDER.indexOf(left.commandId);
       const rightOrder = TRAINING_ORDER.indexOf(right.commandId);
       return (
@@ -719,24 +806,24 @@ function ArcRivalPanel({ arcData }: { arcData: ArcData }) {
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {sorted.map((rival) => {
           const isCurrent = currentRivalIds.has(rival.charaId);
+          const isFullyCharged = rival.rivalBoost >= 3;
           const isBlocked =
             arcData.allRivalBoostBlocked || blockedRivalIds.has(rival.charaId);
+          let rivalCardStyle = 'border border-[#515055]/40 bg-[#515055]/5';
+          if (isFullyCharged) {
+            rivalCardStyle =
+              'border-0 bg-gradient-to-r from-[#FFC2D3] via-[#FFE8EF] to-white ring-0';
+          } else if (isCurrent) {
+            rivalCardStyle =
+              'border border-[#3CA2FF] bg-[#71BCFF]/10 ring-1 ring-[#3CA2FF]/30';
+          }
           return (
             <article
               key={rival.charaId}
-              className={`relative min-w-0 rounded-lg border p-1.5 ${
-                isCurrent
-                  ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300'
-                  : 'border-slate-200 bg-slate-50'
-              }`}
+              className={`relative min-w-0 rounded-lg p-1.5 ${rivalCardStyle}`}
             >
               <div className="flex items-center gap-1.5">
-                <RivalAvatar
-                  rival={rival}
-                  ring="ring-indigo-200"
-                  large
-                  showLevel={false}
-                />
+                <RivalAvatar rival={rival} large showLevel={false} />
                 <RivalSelectionEffects rival={rival} />
                 <RivalBoostGauge value={rival.rivalBoost} blocked={isBlocked} />
               </div>
@@ -754,8 +841,8 @@ export default function ArcPanel({ charInfo }: { charInfo: CharInfo }) {
     return (
       <>
         <VitalPanel charInfo={charInfo} />
-        <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-center shadow-sm">
-          <Globe2 className="mx-auto text-sky-500" size={30} />
+        <section className="rounded-2xl border border-[#71BCFF] bg-gradient-to-r from-[#71BCFF]/20 to-[#3CA2FF]/20 p-5 text-center shadow-sm">
+          <Globe2 className="mx-auto text-[#3CA2FF]" size={30} />
           <h2 className="mt-2 font-black text-slate-800">已识别凯旋门剧本</h2>
           <p className="mt-1 text-xs text-slate-500">
             等待下一份包含 arc_data_set 的游戏数据包。

@@ -83,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--nodes", type=int, default=64)
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--time-ms", type=int, default=30_000)
-    parser.add_argument("--inference-batch-size", type=int, default=8)
+    parser.add_argument("--inference-batch-size", type=int, default=32)
     parser.add_argument("--top-k", type=int, default=8)
     parser.add_argument("--chance-outcomes", type=int, default=8)
     parser.add_argument("--cpuct", type=float, default=1.5)

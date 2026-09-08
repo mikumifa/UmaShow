@@ -723,15 +723,15 @@ export default function VenusCupTrainingCard({
                   <div className="h-full w-full rounded-full bg-[conic-gradient(from_0deg,theme(colors.blue.400),theme(colors.green.400),theme(colors.yellow.400),theme(colors.red.400),theme(colors.pink.500),theme(colors.blue.400))] opacity-90 blur-[1px]" />
                 </div>
               ) : null}
-              <div className="relative z-10 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-orange-100 text-[10px] shadow-sm transition-transform hover:scale-110">
+              <div className="relative z-10 flex h-8 w-8 items-center justify-center text-[10px] transition-transform hover:scale-110">
                 {partner?.charaPath ? (
                   <img
                     src={partner.charaPath}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                     alt={UMDB.charaName(position)}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-orange-300 font-bold text-orange-800">
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-orange-300 font-bold text-orange-800">
                     P
                   </div>
                 )}

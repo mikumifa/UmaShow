@@ -240,12 +240,12 @@ function HorseHoverCard({
   return (
     <div className="w-[320px] rounded-md border border-gray-200 bg-white p-2 text-left shadow-xl">
       <div className="flex gap-2">
-        <div className="h-11 w-11 flex-none overflow-hidden rounded-full bg-gray-100">
+        <div className="h-11 w-11 flex-none">
           {iconPath ? (
             <AssetIcon
               path={iconPath}
               alt={title}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           ) : (
             <div className="h-full w-full rounded-full bg-gray-200" />
@@ -770,7 +770,7 @@ export default function RaceList() {
                               </div>
                             )}
                           </div>
-                          <div className="h-6 w-6 flex-none overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-6 w-6 flex-none">
                             {getHorseIconPath(horse) ? (
                               <AssetIcon
                                 path={getHorseIconPath(horse)!}
@@ -779,7 +779,7 @@ export default function RaceList() {
                                     ? getHorseDisplayName(horse)
                                     : getHorseOwnerName(horse)
                                 }
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-contain"
                               />
                             ) : (
                               <div className="h-full w-full rounded-full bg-gray-200" />

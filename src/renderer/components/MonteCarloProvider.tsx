@@ -58,7 +58,7 @@ export type RecommendationRefinementStatus = {
   passes: number;
   totalSearches: number;
   stablePasses: number;
-  stopReason?: 'stable' | 'manual' | 'limit';
+  stopReason?: 'stable' | 'manual';
 };
 
 type UmaAiSettingsInput = {
@@ -74,6 +74,7 @@ type MonteCarloContextValue = {
   result: MonteCarloResult | null;
   busy: boolean;
   refining: boolean;
+  suspended: boolean;
   autoRefine: boolean;
   refinementStatus: RecommendationRefinementStatus | null;
   setAutoRefine: (enabled: boolean) => void;
@@ -99,7 +100,7 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
     graphSearchNodes: 384,
     graphSearchDepth: 5,
     graphSearchTimeMs: 900,
-    graphInferenceBatchSize: 8,
+    graphInferenceBatchSize: 32,
     graphSearchTopK: 4,
     graphSearchChanceOutcomes: 8,
     graphSearchCpuct: 1.5,
@@ -370,6 +371,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [refining, setRefining] = useState(false);
+  const [suspended, setSuspended] = useState(false);
   const [autoRefine, setAutoRefineState] = useState(loadAutoRefine);
   const [refinementStatus, setRefinementStatus] =
     useState<RecommendationRefinementStatus | null>(null);
@@ -464,6 +466,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     // Preserve the displayed recommendation while result/event packets keep
     // every analysis backend paused.
     suspendedRef.current = true;
+    setSuspended(true);
     refinementRunRef.current += 1;
     refiningRef.current = false;
     pendingStateRef.current = null;
@@ -480,6 +483,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       }
       if (nextState.sequence <= lastSequenceRef.current) return;
       suspendedRef.current = false;
+      setSuspended(false);
       lastSequenceRef.current = nextState.sequence;
       capturedStateRef.current = nextState;
       setCapturedState(nextState);
@@ -578,7 +582,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      while (refiningRef.current && passes < 32) {
+      while (refiningRef.current) {
         // Refinement batches must run serially so each result can be merged
         // before stability is evaluated.
         // eslint-disable-next-line no-await-in-loop
@@ -613,9 +617,6 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
           stopReason = 'stable';
           break;
         }
-      }
-      if (!stopReason && refiningRef.current && passes >= 32) {
-        stopReason = 'limit';
       }
     } catch (reason) {
       if (
@@ -738,6 +739,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       result,
       busy,
       refining,
+      suspended,
       autoRefine,
       refinementStatus,
       setAutoRefine,
@@ -751,6 +753,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       result,
       busy,
       refining,
+      suspended,
       autoRefine,
       refinementStatus,
       setAutoRefine,

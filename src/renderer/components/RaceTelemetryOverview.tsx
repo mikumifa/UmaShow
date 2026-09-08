@@ -1735,12 +1735,12 @@ export default function RaceTelemetryOverview({
                         className="min-w-0 flex-1 text-left"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="relative h-9 w-9 flex-none overflow-hidden rounded-full">
+                          <div className="relative h-9 w-9 flex-none">
                             {iconPathByFrameOrder[row.frameOrder] ? (
                               <AssetIcon
                                 path={iconPathByFrameOrder[row.frameOrder]!}
                                 alt={row.name}
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-contain"
                               />
                             ) : (
                               <div
@@ -2457,9 +2457,9 @@ export default function RaceTelemetryOverview({
                           <button
                             type="button"
                             onClick={() => setSelectedHorse(horse.frameOrder)}
-                            className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-lg ${
+                            className={`relative flex h-10 w-10 items-center justify-center ${
                               selected
-                                ? 'z-10 scale-110 bg-red-500 ring-4 ring-red-200/80'
+                                ? 'z-10 scale-110 drop-shadow-lg'
                                 : 'cursor-pointer'
                             }`}
                             title={`${buildHorseName(
@@ -2468,18 +2468,14 @@ export default function RaceTelemetryOverview({
                             )} | lane ${horse.lanePosition.toFixed(0)} | ${horse.distance.toFixed(1)}m`}
                           >
                             {iconPathByFrameOrder[horse.frameOrder] ? (
-                              <div
-                                className={`h-full w-full overflow-hidden rounded-full ${
-                                  selected ? 'border-2 border-red-500' : ''
-                                }`}
-                              >
+                              <div className="h-full w-full">
                                 <AssetIcon
                                   path={iconPathByFrameOrder[horse.frameOrder]!}
                                   alt={buildHorseName(
                                     displayNames[horse.frameOrder] ?? '',
                                     horse.frameOrder,
                                   )}
-                                  className="h-full w-full object-cover"
+                                  className="h-full w-full object-contain"
                                 />
                               </div>
                             ) : (

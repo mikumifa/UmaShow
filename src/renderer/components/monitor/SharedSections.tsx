@@ -63,6 +63,7 @@ type HintSkillCatalogEntry = {
 };
 
 const HINT_DISCOUNT_PERCENT = [0, 10, 20, 30, 35, 40];
+const NEGATIVE_CHARA_EFFECT_IDS = new Set([1, 2, 3, 4, 5, 6]);
 
 const recommendationActivityIcon = (label: string) => {
   if (label.includes('SS')) return Users;
@@ -70,7 +71,24 @@ const recommendationActivityIcon = (label: string) => {
   if (label.includes('休息')) return BedDouble;
   if (label.includes('外出')) return Footprints;
   if (label.includes('比赛')) return Flag;
+  if (label.includes('技能')) return Lightbulb;
   return CircleEllipsis;
+};
+
+const recommendationActivityTextColor = (label: string) => {
+  if (label.includes('休息')) {
+    return 'text-[#94D43C]';
+  }
+  if (label.includes('外出')) {
+    return 'text-[#FCBA1C]';
+  }
+  if (label.includes('比赛')) {
+    return 'text-[#FB689D]';
+  }
+  if (label.includes('技能')) {
+    return 'text-[#44BBCB]';
+  }
+  return null;
 };
 
 function RecommendationActivitiesCard({
@@ -88,28 +106,55 @@ function RecommendationActivitiesCard({
     result,
     busy,
     refining,
+    suspended,
     autoRefine,
     refinementStatus,
     setAutoRefine,
+    error,
   } = useMonteCarloRecommendation();
   const canAutoRefine = Boolean(
     settings.enabled && capturedState?.scenarioId === 6,
   );
+  const showRecommendationHeader = canAutoRefine;
+  const alternatives = rankRecommendationActions(result)
+    .filter(({ isBest }) => !isBest)
+    .slice(0, 3)
+    .map(({ action }) => `${action.label} ${recommendationDeltaLabel(action)}`)
+    .join(' / ');
+  let recommendationLabel = '等待计算';
+  let recommendationTitle = '等待计算当前行动选择。';
+  let recommendationTone = 'border-indigo-200 bg-indigo-50 text-indigo-700';
+  let RecommendationIcon = Bot;
+  if (busy) {
+    recommendationLabel = '正在计算';
+    recommendationTitle = '正在更新当前回合推荐。';
+    RecommendationIcon = Loader2;
+  } else if (error) {
+    recommendationLabel = '计算失败';
+    recommendationTitle = error;
+    recommendationTone = 'border-rose-200 bg-rose-50 text-rose-700';
+    RecommendationIcon = AlertCircle;
+  } else if (result?.ok && result.bestAction) {
+    recommendationLabel = result.bestAction;
+    recommendationTitle = `${result.bestAction}。预测养成分 ${Math.round(
+      result.predictedScore ?? 0,
+    )}${alternatives ? `。备选：${alternatives}` : ''}`;
+  }
   let refinementLabel = canAutoRefine
     ? '开启后会持续计算'
     : '请先开启凯旋门推荐';
-  if (autoRefine && !capturedState) {
+  if (suspended) {
+    refinementLabel = '当前不需要计算，等待下一回合';
+  } else if (autoRefine && !capturedState) {
     refinementLabel = '已开启，等待训练数据';
   } else if (autoRefine && busy && !refining) {
     refinementLabel = '正在计算当前训练数据';
   } else if (autoRefine && refinementStatus) {
     const total = refinementStatus.totalSearches.toLocaleString('zh-CN');
     if (refining) {
-      refinementLabel = `正在追加第 ${refinementStatus.passes + 1} 轮 · 累计 ${total} 次`;
+      refinementLabel = `第 ${refinementStatus.passes + 1} 轮 · 累计 ${total} 次`;
     } else if (refinementStatus.stopReason === 'stable') {
       refinementLabel = `本回合分数已稳定 · 累计 ${total} 次`;
-    } else if (refinementStatus.stopReason === 'limit') {
-      refinementLabel = `本回合已达到计算上限 · 累计 ${total} 次`;
     }
   } else if (autoRefine && result?.ok) {
     refinementLabel = '已开启，等待追加计算';
@@ -117,9 +162,21 @@ function RecommendationActivitiesCard({
 
   return (
     <article className="flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border-4 border-slate-200 bg-white shadow-md">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-3 py-2">
-        <span className="text-sm font-black text-slate-800">其他活动</span>
-      </div>
+      {showRecommendationHeader ? (
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-3 py-2">
+          <div
+            title={recommendationTitle}
+            className={`flex h-6 min-w-0 items-center gap-1 rounded-md border px-2 text-[11px] font-bold ${recommendationTone}`}
+          >
+            <RecommendationIcon
+              size={12}
+              strokeWidth={2.5}
+              className={busy ? 'animate-spin' : undefined}
+            />
+            <span className="truncate font-black">{recommendationLabel}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-1 flex-col gap-1.5 p-2">
         {requiredPurchases.length > 0 ? (
           <div className="rounded-lg border-2 border-rose-400 bg-rose-50 p-1.5 text-rose-950 ring-2 ring-rose-100">
@@ -177,6 +234,7 @@ function RecommendationActivitiesCard({
           const [label, ...modifiers] = action.label.split(' + ');
           const Icon = recommendationActivityIcon(label);
           const tone = recommendationRankTone(rank);
+          const activityTextColor = recommendationActivityTextColor(label);
           const deltaLabel = recommendationDeltaLabel(action);
           return (
             <div
@@ -192,7 +250,9 @@ function RecommendationActivitiesCard({
                 #{rank}
               </span>
               <Icon size={16} className="shrink-0 opacity-75" />
-              <span className="min-w-0 flex-1">
+              <span
+                className={`min-w-0 flex-1 ${activityTextColor ?? ''}`}
+              >
                 <span className="block truncate text-xs font-black">
                   {label}
                 </span>
@@ -248,48 +308,6 @@ function RecommendationActivitiesCard({
         </button>
       </div>
     </article>
-  );
-}
-
-function UmaAiCommonHint() {
-  const { settings, capturedState, result, busy, error } =
-    useMonteCarloRecommendation();
-  if (!settings.enabled) return null;
-
-  const alternatives = rankRecommendationActions(result)
-    .filter(({ isBest }) => !isBest)
-    .slice(0, 3)
-    .map(({ action }) => `${action.label} ${recommendationDeltaLabel(action)}`)
-    .join(' / ');
-  let label = capturedState ? '等待计算' : '等待育成数据';
-  let title = '推荐已开启，等待可计算的行动选择回合。';
-  let tone = 'border-indigo-200 bg-indigo-50 text-indigo-700';
-  let icon = <Bot size={12} strokeWidth={2.5} />;
-  if (busy) {
-    label = '正在计算';
-    title = '正在更新当前回合推荐。';
-    icon = <Loader2 size={12} className="animate-spin" />;
-  } else if (error) {
-    label = '计算失败';
-    title = error;
-    tone = 'border-rose-200 bg-rose-50 text-rose-700';
-    icon = <AlertCircle size={12} />;
-  } else if (result?.ok && result.bestAction) {
-    label = result.bestAction;
-    title = `推荐：${result.bestAction}。预测养成分 ${Math.round(
-      result.predictedScore ?? 0,
-    )}${alternatives ? `。备选：${alternatives}` : ''}`;
-  }
-
-  return (
-    <div
-      title={title}
-      className={`flex h-6 min-w-0 max-w-[360px] shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-bold ${tone}`}
-    >
-      {icon}
-      <span className="shrink-0">推荐</span>
-      <span className="truncate font-black">{label}</span>
-    </div>
   );
 }
 
@@ -556,14 +574,17 @@ export function VitalPanel({
                   <span
                     key={effect.id}
                     title={`effect_id: ${effect.id}`}
-                    className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
+                    className={`rounded-full border px-2 py-0.5 text-xs font-bold text-white ${
+                      NEGATIVE_CHARA_EFFECT_IDS.has(effect.id)
+                        ? 'border-[#AB8ADC] bg-[#AB8ADC]'
+                        : 'border-[#FF9741] bg-[#FF9741]'
+                    }`}
                   >
                     {effect.text}
                   </span>
                 ))
               : null}
           </div>
-          <UmaAiCommonHint />
           <button
             type="button"
             title="展开可学习技能"
