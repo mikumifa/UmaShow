@@ -963,13 +963,15 @@ export default function WebAutoUma() {
             html[data-autouma] .autoResearchHeaderActionLabel { display: none; }
             html[data-autouma] .autoResearchContentGrid {
               margin-top: 0; padding-top: .75rem;
-              padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+              padding-bottom: 4.5rem;
             }
             html[data-autouma] .autoResearchMobileTabs {
               position: fixed; right: 0; bottom: 0; left: 0; z-index: 120;
               display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
-              min-height: calc(4rem + env(safe-area-inset-bottom));
-              padding: .375rem .5rem calc(.375rem + env(safe-area-inset-bottom));
+              min-height: calc(4rem + var(--autouma-safe-bottom));
+              padding: .375rem calc(.5rem + var(--autouma-safe-right))
+                calc(.375rem + var(--autouma-safe-bottom))
+                calc(.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226,232,240,.96);
               background: rgba(255,255,255,.96);
               box-shadow: 0 -8px 24px rgba(15,23,42,.08);

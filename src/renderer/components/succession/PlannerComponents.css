@@ -667,7 +667,8 @@
     bottom: 0;
     left: 0;
     margin-top: auto;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    padding: 8px 10px
+      calc(8px + var(--autouma-safe-bottom, env(safe-area-inset-bottom)));
     background: #fff;
     box-shadow: 0 -8px 22px rgb(15 23 42 / 10%);
   }

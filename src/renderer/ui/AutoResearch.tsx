@@ -738,6 +738,7 @@ export default function AutoResearch() {
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
   const serverTaskHandoffAccountIdRef = useRef('');
+  const historyAutoLoadKeyRef = useRef('');
   const pendingLocalLoginRef = useRef(false);
   const pendingLocalLoginAccountIdRef = useRef('');
   const localLoginConfirmationRef = useRef<{
@@ -3130,7 +3131,14 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
-    if (activeTab !== 'history' || !selectedAccountId || !server) return;
+    if (activeTab !== 'history') {
+      historyAutoLoadKeyRef.current = '';
+      return;
+    }
+    if (!selectedAccountId || !server) return;
+    const loadKey = `${server}|${selectedAccountId}`;
+    if (historyAutoLoadKeyRef.current === loadKey) return;
+    historyAutoLoadKeyRef.current = loadKey;
     loadCareerHistory(selectedAccountId).catch(() => undefined);
   }, [activeTab, loadCareerHistory, selectedAccountId, server]);
 
@@ -4961,6 +4969,92 @@ export default function AutoResearch() {
     setError('');
   };
 
+  useEffect(() => {
+    const handleAndroidBack = (rawEvent: Event) => {
+      const event = rawEvent;
+      const handled = () => event.preventDefault();
+
+      if (skillPickerOpen) {
+        setSkillPickerOpen(false);
+        handled();
+        return;
+      }
+      if (editingSkillSelectionId) {
+        setEditingSkillSelectionId('');
+        handled();
+        return;
+      }
+      if (runDialogOpen) {
+        setRunDialogOpen(false);
+        setPendingRun(null);
+        handled();
+        return;
+      }
+      if (appendPlanPickerOpen) {
+        setAppendPlanPickerOpen(false);
+        handled();
+        return;
+      }
+      if (localLoginConfirmationAccountId) {
+        finishLocalLoginConfirmation(false);
+        handled();
+        return;
+      }
+      if (editingAccountAliasId) {
+        setEditingAccountAliasId('');
+        handled();
+        return;
+      }
+      if (deletingAccountId) {
+        setDeletingAccountId('');
+        handled();
+        return;
+      }
+      if (loginSettingsOpen) {
+        closeLoginSettings();
+        handled();
+        return;
+      }
+      if (selectedCareerRecords?.length) {
+        setSelectedCareerRecords(null);
+        handled();
+        return;
+      }
+      if (careerSaveOpen) {
+        closeCareerEditor();
+        handled();
+        return;
+      }
+      if (presetEditorOpen) {
+        setPresetEditorOpen(false);
+        handled();
+        return;
+      }
+      if (activeTab !== 'career') {
+        setActiveTab('career');
+        handled();
+      }
+    };
+
+    window.addEventListener('autouma:back', handleAndroidBack);
+    return () => window.removeEventListener('autouma:back', handleAndroidBack);
+  }, [
+    activeTab,
+    appendPlanPickerOpen,
+    careerSaveOpen,
+    closeLoginSettings,
+    deletingAccountId,
+    editingAccountAliasId,
+    editingSkillSelectionId,
+    finishLocalLoginConfirmation,
+    localLoginConfirmationAccountId,
+    loginSettingsOpen,
+    presetEditorOpen,
+    runDialogOpen,
+    selectedCareerRecords,
+    skillPickerOpen,
+  ]);
+
   const editCareerPreset = () => {
     if (careerMode === 'offline') {
       setError('离线详设不使用本地预设');
@@ -5857,7 +5951,7 @@ export default function AutoResearch() {
               margin-top: 0;
               gap: 0.75rem;
               padding-top: 0.75rem;
-              padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+              padding-bottom: 4.5rem;
             }
             html[data-autouma]:has(#app-page-secondary-tabs > *)
               .autoResearchContentGrid,
@@ -5872,7 +5966,7 @@ export default function AutoResearch() {
               scrollbar-gutter: auto;
             }
             html[data-autouma] .autoResearchHeaderActions {
-              gap: 0.125rem;
+              gap: 0.375rem;
             }
             html[data-autouma] .autoResearchHeaderServer,
             html[data-autouma] .autoResearchHeaderAccountName,
@@ -5884,13 +5978,19 @@ export default function AutoResearch() {
               display: inline;
             }
             html[data-autouma] .autoResearchHeaderAction {
-              width: 2rem;
+              width: 2.75rem;
+              min-width: 2.75rem;
+              height: 2.75rem;
               padding-right: 0;
               padding-left: 0;
               justify-content: center;
+              border-radius: 0.75rem;
+              touch-action: manipulation;
             }
             html[data-autouma] .autoResearchHeaderAction svg {
               margin-right: 0;
+              width: 1.25rem;
+              height: 1.25rem;
             }
             html[data-autouma] .autoResearchMobileTabs {
               position: fixed;
@@ -5900,8 +6000,10 @@ export default function AutoResearch() {
               z-index: 120;
               display: grid;
               grid-template-columns: repeat(4, minmax(0, 1fr));
-              min-height: calc(4rem + env(safe-area-inset-bottom));
-              padding: 0.375rem 0.5rem calc(0.375rem + env(safe-area-inset-bottom));
+              min-height: calc(4rem + var(--autouma-safe-bottom));
+              padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
+                calc(0.375rem + var(--autouma-safe-bottom))
+                calc(0.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226, 232, 240, 0.96);
               background: rgba(255, 255, 255, 0.96);
               box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
@@ -6042,13 +6144,18 @@ export default function AutoResearch() {
             }
             html[data-autouma] .autoResearchAccountOverlay {
               align-items: center;
-              padding: 0.75rem;
+              padding: calc(0.75rem + var(--autouma-safe-top))
+                calc(0.75rem + var(--autouma-safe-right))
+                calc(0.75rem + var(--autouma-safe-bottom))
+                calc(0.75rem + var(--autouma-safe-left));
             }
             html[data-autouma] .autoResearchAccountDialog {
               align-self: center;
               flex: 0 1 auto;
               height: auto !important;
-              max-height: calc(100dvh - 1.5rem) !important;
+              max-height: calc(
+                100dvh - 1.5rem - var(--autouma-safe-top) - var(--autouma-safe-bottom)
+              ) !important;
               border-radius: 1rem !important;
             }
             html[data-autouma] .autoResearchAccountDialogBody {
@@ -6112,7 +6219,8 @@ export default function AutoResearch() {
               display: block;
               overflow-x: hidden;
               overflow-y: auto;
-              padding: 0;
+              padding: var(--autouma-safe-top) var(--autouma-safe-right)
+                var(--autouma-safe-bottom) var(--autouma-safe-left);
               overscroll-behavior: contain;
               touch-action: pan-y;
               -webkit-overflow-scrolling: touch;
@@ -6234,7 +6342,7 @@ export default function AutoResearch() {
               margin-top: auto;
               padding: 0.5rem 0.625rem;
               padding-bottom: calc(
-                0.5rem + env(safe-area-inset-bottom)
+                0.5rem + var(--autouma-safe-bottom)
               );
               box-shadow: 0 -0.5rem 1.375rem rgba(15, 23, 42, 0.1);
             }
@@ -6309,7 +6417,7 @@ export default function AutoResearch() {
               width: 100%;
               height: auto;
               margin: 0;
-              padding-bottom: env(safe-area-inset-bottom);
+              padding-bottom: var(--autouma-safe-bottom);
               border-right: 0;
               border-bottom: 0;
               border-left: 0;
@@ -6329,7 +6437,7 @@ export default function AutoResearch() {
             }
             html[data-autouma]:has(.autoResearchEditorActions)
               .autoResearchContentGrid {
-              padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+              padding-bottom: 4.25rem;
             }
             html[data-autouma] .autoResearchPage,
             html[data-autouma] .autoResearchContentGrid,
