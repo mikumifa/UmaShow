@@ -309,6 +309,7 @@ export interface CharInfo {
   scenarioType: ScenarioType;
   partnerStats: PartnerStats;
   gameEvents: GameEvents;
+  eventStateIncluded?: boolean;
   gameStats: GameStats;
   stats: CharStats;
   charaEffects?: CharaEffect[];
@@ -543,8 +544,10 @@ export function isEmptyField(field: any): boolean {
 }
 
 export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
+  const incomingScenarioKnown =
+    incoming.scenarioType != null && incoming.scenarioType !== 'unknown';
   const scenarioChanged =
-    incoming.scenarioType != null &&
+    incomingScenarioKnown &&
     incoming.scenarioType !== prev.scenarioType;
   const pickScenarioScopedValue = <T>(
     incomingValue: T | undefined,
@@ -567,7 +570,9 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
 
   return {
     ...incoming,
-    scenarioType: incoming.scenarioType ?? prev.scenarioType,
+    scenarioType: incomingScenarioKnown
+      ? incoming.scenarioType
+      : prev.scenarioType,
     stats: isEmptyField(incoming.stats) ? prev.stats : incoming.stats,
     partnerStats: isEmptyField(incoming.partnerStats)
       ? prev.partnerStats
@@ -575,6 +580,14 @@ export function mergeCharInfo(prev: CharInfo, incoming: CharInfo): CharInfo {
     commands: isEmptyField(incoming.commands)
       ? prev.commands
       : incoming.commands,
+    gameEvents:
+      incoming.eventStateIncluded || scenarioChanged
+        ? incoming.gameEvents
+        : prev.gameEvents,
+    eventDetails:
+      incoming.eventStateIncluded || scenarioChanged
+        ? incoming.eventDetails
+        : prev.eventDetails,
     liveCommands: pickScenarioScopedValue(
       incoming.liveCommands,
       prev.liveCommands,

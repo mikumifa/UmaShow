@@ -25,7 +25,6 @@ export type EventGainEffect = {
 };
 
 export type EventOptionEffectGroup = {
-  commonEffects: EventGainEffect[];
   options: Array<
     EventDetailOption & {
       branches: EventGainEffect[][];
@@ -290,26 +289,20 @@ export function parseEventGainEffects(gain: string): EventGainEffect[] {
   });
 }
 
-const eventGainEffectKey = (effect: EventGainEffect) =>
-  JSON.stringify([
-    effect.context ?? '',
-    effect.label,
-    effect.accent,
-    effect.values.map((value) => [value.text, value.tone]),
-  ]);
-
 const uniqueEventGainEffects = (effects: EventGainEffect[]) => {
   const seen = new Set<string>();
   return effects.filter((effect) => {
-    const key = eventGainEffectKey(effect);
+    const key = JSON.stringify([
+      effect.context ?? '',
+      effect.label,
+      effect.accent,
+      effect.values.map((value) => [value.text, value.tone]),
+    ]);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 };
-
-const hasAlternativeValues = (effect: EventGainEffect) =>
-  effect.values.some((value) => value.text === '/');
 
 export function groupEventOptionEffects(
   options: EventDetailOption[],
@@ -319,46 +312,11 @@ export function groupEventOptionEffects(
       uniqueEventGainEffects(parseEventGainEffects(gain)),
     ),
   );
-  const allBranches = optionBranches.flat();
-  const canExtractCommonEffects =
-    allBranches.length >= 2 &&
-    optionBranches.every((branches) => branches.length);
-  if (!canExtractCommonEffects) {
-    return {
-      commonEffects: [],
-      options: options.map((option, index) => ({
-        ...option,
-        branches: optionBranches[index],
-      })),
-    };
-  }
-
-  const commonKeys = new Set(
-    allBranches[0]
-      .filter((effect) => !hasAlternativeValues(effect))
-      .map(eventGainEffectKey),
-  );
-  allBranches.slice(1).forEach((effects) => {
-    const keys = new Set(
-      effects
-        .filter((effect) => !hasAlternativeValues(effect))
-        .map(eventGainEffectKey),
-    );
-    [...commonKeys].forEach((key) => {
-      if (!keys.has(key)) commonKeys.delete(key);
-    });
-  });
-  const commonEffects = allBranches[0].filter((effect) =>
-    commonKeys.has(eventGainEffectKey(effect)),
-  );
 
   return {
-    commonEffects,
     options: options.map((option, index) => ({
       ...option,
-      branches: optionBranches[index].map((branch) =>
-        branch.filter((effect) => !commonKeys.has(eventGainEffectKey(effect))),
-      ),
+      branches: optionBranches[index],
     })),
   };
 }
@@ -368,14 +326,19 @@ export const shouldShowEventOptionLabel = (label: string) => {
   return Boolean(normalizedLabel && normalizedLabel !== '无选项');
 };
 
+const hasEventOptionEffects = (options: EventOptionEffectGroup['options']) =>
+  options.some((option) => option.branches.some((branch) => branch.length > 0));
+
 export function buildEventDetailRows(
   gameEvents: GameEvent[] | undefined,
   eventDetails: Record<number, StoryDetail> | undefined,
 ): EventDetailData[] {
   return (gameEvents ?? []).flatMap((event) => {
     const localOptions = event.options ?? [];
+    if (localOptions.length === 0) return [];
+
     const networkOptions = eventDetails?.[event.eventId]?.optionList ?? [];
-    const optionCount = Math.max(localOptions.length, networkOptions.length, 1);
+    const optionCount = Math.max(localOptions.length, networkOptions.length);
 
     const options = Array.from({ length: optionCount }, (_, index) => {
       const localOption = localOptions[index];
@@ -390,13 +353,17 @@ export function buildEventDetailRows(
       const gainList = aggregateEventGains(rawGainList);
 
       return {
-        option: networkOption?.option?.trim() || localOption?.desp?.trim() || '',
+        option:
+          networkOption?.option?.trim() || localOption?.desp?.trim() || '',
         gainList,
         resultIndex: localOption?.selectIndex,
       };
     });
 
     if (!options.some((option) => shouldShowEventOptionLabel(option.option))) {
+      return [];
+    }
+    if (!hasEventOptionEffects(groupEventOptionEffects(options).options)) {
       return [];
     }
 
@@ -445,31 +412,21 @@ export default function EventDetailRow({
   eventName,
   options,
 }: EventDetailRowProps) {
+  if (!options.some((option) => shouldShowEventOptionLabel(option.option))) {
+    return null;
+  }
+
   const effectGroup = groupEventOptionEffects(options);
-  const hasOptionDifferences = effectGroup.options.some(
-    (option) =>
-      option.branches.length > 1 ||
-      option.branches.some((branch) => branch.length > 0),
-  );
-  const visibleOptions = hasOptionDifferences ? effectGroup.options : [];
+  if (!hasEventOptionEffects(effectGroup.options)) return null;
+
   return (
     <div className="w-full overflow-hidden rounded-xl border border-[#7DCB0C] bg-white shadow-sm">
       <div className="border-b border-[#7DCB0C]/30 bg-[#7DCB0C]/10 px-4 py-2.5 text-sm font-black text-[#794016]">
         {eventName}
       </div>
-      {effectGroup.commonEffects.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-white px-4 py-2.5">
-          <span className="mr-1 text-[11px] font-bold text-[#794016]">
-            共同效果
-          </span>
-          {effectGroup.commonEffects.map((effect, effectIndex) => (
-            <EventGainEffectChip key={effectIndex} effect={effect} />
-          ))}
-        </div>
-      ) : null}
-      {visibleOptions.length > 0 ? (
+      {effectGroup.options.length > 0 ? (
         <div className="divide-y divide-slate-100">
-          {visibleOptions.map((option, optionIndex) => (
+          {effectGroup.options.map((option, optionIndex) => (
             <div
               key={optionIndex}
               className="flex min-w-0 flex-wrap items-center gap-1.5 bg-white px-4 py-3"
@@ -491,10 +448,7 @@ export default function EventDetailRow({
                       </span>
                     ) : null}
                     {branch.map((effect, effectIndex) => (
-                      <EventGainEffectChip
-                        key={effectIndex}
-                        effect={effect}
-                      />
+                      <EventGainEffectChip key={effectIndex} effect={effect} />
                     ))}
                     {branch.length === 0 ? (
                       <span className="text-[11px] text-[#794016] opacity-60">

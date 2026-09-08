@@ -279,21 +279,22 @@ export async function extractCoreInfo(
   const normalizedData = normalizeSingleModeData(rawData);
   const chara = normalizedData.chara_info;
   if (!chara) return;
-  const commandResult = normalizedData.command_result ?? rawData.command_result;
-  // The command result is an intermediate snapshot. Keep the monitor on the
-  // previous turn until the next home/event packet provides a stable state.
-  if (
-    commandResult != null &&
-    typeof commandResult === 'object' &&
-    !Array.isArray(commandResult) &&
-    Object.keys(commandResult).length > 0
-  ) {
-    return;
-  }
+  const eventArrayIncluded =
+    Object.prototype.hasOwnProperty.call(
+      normalizedData,
+      'unchecked_event_array',
+    ) ||
+    Object.prototype.hasOwnProperty.call(rawData, 'unchecked_event_array');
+  const homeStateIncluded = Boolean(
+    normalizedData.home_info ?? rawData.home_info,
+  );
+  // Event display has its own lifecycle. Calculation/result packets must not
+  // clear it; only an explicit event state or the next home state may do so.
+  const eventStateIncluded = eventArrayIncluded || homeStateIncluded;
   const scenarioType = resolveScenarioType(
     normalizedData as Record<string, unknown>,
   );
-  const home = normalizedData.home_info;
+  const home = normalizedData.home_info ?? rawData.home_info;
   const stats: CharStats = {
     speed: { value: chara.speed, max: chara.max_speed },
     stamina: { value: chara.stamina, max: chara.max_stamina },
@@ -477,7 +478,8 @@ export async function extractCoreInfo(
     return result;
   });
 
-  const rawEvents = normalizedData?.unchecked_event_array || [];
+  const rawEvents =
+    normalizedData?.unchecked_event_array ?? rawData.unchecked_event_array ?? [];
   const gameEvents = rawEvents.flatMap((ev: any) => {
     const storyId = ev.story_id;
     const choiceArray = ev.event_contents_info?.choice_array || [];
@@ -535,6 +537,7 @@ export async function extractCoreInfo(
     partnerStats,
     gameEvents,
     eventDetails,
+    eventStateIncluded,
     cardId: Number(chara.card_id ?? 0),
     talentLevel: Number(chara.talent_level ?? 0),
     skills,

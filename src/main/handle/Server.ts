@@ -68,6 +68,20 @@ export async function startExpressServer(
                 : undefined;
             persistDebugPacket(decoded, packetType, requestMetadata);
           }
+          // Start monitor/event extraction before optional consumers. A
+          // failure in recommendation-state capture must never prevent the
+          // same packet's event state from reaching the renderer.
+          const coreInfoTask = extractCoreInfo(decoded, _mainWindow).catch(
+            (error: unknown) => {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.error(error);
+              _mainWindow.webContents.send('server-log', {
+                type: 'Error',
+                message: `核心信息处理失败: ${message}`,
+              });
+            },
+          );
           if (packetType === 'request') {
             captureAutoResearchCredentials(decoded, _mainWindow, {
               sid: req.get('X-Umamusume-Sid') || req.get('SID'),
@@ -84,10 +98,20 @@ export async function startExpressServer(
             captureAutoResearchSessionResponse(decoded);
             captureSuccessionIndex(decoded, _mainWindow);
           }
-          captureMonteCarloPacket(decoded, packetType, _mainWindow);
+          try {
+            captureMonteCarloPacket(decoded, packetType, _mainWindow);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            console.error(error);
+            _mainWindow.webContents.send('server-log', {
+              type: 'Error',
+              message: `AI 状态捕获失败: ${message}`,
+            });
+          }
           persistLeaderboardSnapshotFromPacket(decoded, _mainWindow);
           handleTrainingHistoryInfo(decoded, _mainWindow);
-          await extractCoreInfo(decoded, _mainWindow);
+          await coreInfoTask;
           // handleUncheckedEventInfo(decoded, mainWindow);
           handleRaceInfo(decoded, _mainWindow);
         }

@@ -118,7 +118,7 @@ describe('event detail gain formatting', () => {
     ]);
   });
 
-  it('moves effects shared by every option into a common group', () => {
+  it('keeps shared effects under each option', () => {
     expect(
       groupEventOptionEffects([
         {
@@ -135,19 +135,6 @@ describe('event detail gain formatting', () => {
         },
       ]),
     ).toEqual({
-      commonEffects: [
-        {
-          label: '干劲',
-          values: [{ text: '+1', tone: 'positive' }],
-          accent: 'default',
-        },
-        {
-          label: '友情槽',
-          context: '丸善斯基',
-          values: [{ text: '+5', tone: 'positive' }],
-          accent: 'default',
-        },
-      ],
       options: [
         {
           option: '选项1',
@@ -157,7 +144,18 @@ describe('event detail gain formatting', () => {
           branches: [
             [
               {
+                label: '干劲',
+                values: [{ text: '+1', tone: 'positive' }],
+                accent: 'default',
+              },
+              {
                 label: '速度',
+                values: [{ text: '+5', tone: 'positive' }],
+                accent: 'default',
+              },
+              {
+                label: '友情槽',
+                context: '丸善斯基',
                 values: [{ text: '+5', tone: 'positive' }],
                 accent: 'default',
               },
@@ -172,7 +170,18 @@ describe('event detail gain formatting', () => {
           branches: [
             [
               {
+                label: '干劲',
+                values: [{ text: '+1', tone: 'positive' }],
+                accent: 'default',
+              },
+              {
                 label: '智力',
+                values: [{ text: '+5', tone: 'positive' }],
+                accent: 'default',
+              },
+              {
+                label: '友情槽',
+                context: '丸善斯基',
                 values: [{ text: '+5', tone: 'positive' }],
                 accent: 'default',
               },
@@ -200,6 +209,52 @@ describe('event detail gain formatting', () => {
             options: [
               {
                 desp: '无选项',
+                detail: '',
+                type: 'unknown',
+              },
+            ],
+          },
+        ],
+        {},
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not use fetched detail options when the event packet has none', () => {
+    expect(
+      buildEventDetailRows(
+        [
+          {
+            eventId: 101,
+            eventName: '无选项事件',
+            options: [],
+          },
+        ],
+        {
+          101: {
+            storyId: 101,
+            optionList: [
+              {
+                option: '详情接口选项',
+                gainList: ['速度提升[5]'],
+              },
+            ],
+          },
+        },
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not build an event card when its options have no effects', () => {
+    expect(
+      buildEventDetailRows(
+        [
+          {
+            eventId: 102,
+            eventName: '“代表交流赛”第1战开幕',
+            options: [
+              {
+                desp: '事件选项',
                 detail: '',
                 type: 'unknown',
               },

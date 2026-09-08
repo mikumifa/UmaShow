@@ -291,6 +291,9 @@ type CompleteDesignPosition = {
   code: string;
   generation: 1 | 2 | 3 | 4;
   uma?: SuccessionUma;
+  cardId?: number;
+  rarity?: number;
+  raceClothId?: number;
   factor: FactorAssignment;
   compatibility?: number;
   compatibilityTitle?: string;
@@ -957,6 +960,13 @@ function plannedDressIconPath(cardId: number) {
     Object.values(rarityMap).map(Number).find(Boolean) ||
     cardId;
   return horseIconPath(cardId, 0, raceDressId);
+}
+
+function defaultDressCardIdForUma(umaId: number) {
+  return Object.keys(UMDB.cardRarityData)
+    .map(Number)
+    .filter((cardId) => Math.floor(cardId / 100) === umaId)
+    .sort((left, right) => left - right)[0];
 }
 
 function normalizedSaddleIds(value: unknown) {
@@ -3336,6 +3346,31 @@ function CapturedMemberPortrait({ member }: { member: CapturedLineageMember }) {
   );
 }
 
+function CompleteDesignPositionPortrait({
+  position,
+}: {
+  position: CompleteDesignPosition;
+}) {
+  const defaultCardId = position.uma
+    ? defaultDressCardIdForUma(position.uma.id)
+    : undefined;
+  const path = position.cardId
+    ? umaSkinIconPath(position.cardId, position.rarity, position.raceClothId)
+    : defaultCardId
+      ? plannedDressIconPath(defaultCardId)
+      : undefined;
+  return path ? (
+    <PlannerPortrait
+      path={path}
+      alt={position.uma?.name || '未知马娘'}
+      className="successionPortrait"
+      fallback={<UmaPortrait uma={position.uma} />}
+    />
+  ) : (
+    <UmaPortrait uma={position.uma} />
+  );
+}
+
 function capturedMemberSummaryFactors(
   member: CapturedLineageMember,
 ): PlannerFactor[] {
@@ -5164,6 +5199,8 @@ function CompleteDesignCandidateIdentity({
         (candidate) => candidate.selectionId === position.capturedSelectionId,
       )
     : undefined;
+  const portraitCandidate =
+    capturedCandidate || matchingCapturedUmas[0]?.candidate;
   const blacklistButton = (
     <button
       type="button"
@@ -5216,7 +5253,11 @@ function CompleteDesignCandidateIdentity({
         }}
       >
         <div className="successionCandidateOptionIdentity">
-          <UmaPortrait uma={position.uma} />
+          {portraitCandidate ? (
+            <CapturedMemberPortrait member={portraitCandidate} />
+          ) : (
+            <CompleteDesignPositionPortrait position={position} />
+          )}
           <span className="successionCandidateIdentity">
             <strong>{position.uma?.name || '没有可用马娘'}</strong>
             {position.capturedSelectionId && (
@@ -6706,6 +6747,9 @@ function SuccessionPlanner({
       code,
       generation: 2,
       uma: umaById.get(member.umaId),
+      cardId: member.cardId,
+      rarity: member.rarity,
+      raceClothId: member.raceClothId,
       factor: { type: member.factor.type, stars: member.factor.stars },
       fixed,
       requiresUma: true,
@@ -6887,6 +6931,12 @@ function SuccessionPlanner({
               code: SLOT_CODES[parent],
               generation: 1,
               uma: plannedParent,
+              cardId:
+                trainedMemberForSlot(parent, plannedParent.id)?.cardId ||
+                fixedDressSlots[parent],
+              rarity: trainedMemberForSlot(parent, plannedParent.id)?.rarity,
+              raceClothId: trainedMemberForSlot(parent, plannedParent.id)
+                ?.raceClothId,
               factor: { ...best.value.factor },
               fixed: true,
               requiresUma: true,
@@ -7073,6 +7123,9 @@ function SuccessionPlanner({
       code,
       generation,
       uma: umaById.get(member.umaId),
+      cardId: member.cardId,
+      rarity: member.rarity,
+      raceClothId: member.raceClothId,
       factor: { type: member.factor.type, stars: member.factor.stars },
       fixed,
       requiresUma: true,
@@ -7363,6 +7416,12 @@ function SuccessionPlanner({
             code: SLOT_CODES[parent],
             generation: 1 as const,
             uma: plannedParent,
+            cardId:
+              trainedMemberForSlot(parent, plannedParent.id)?.cardId ||
+              fixedDressSlots[parent],
+            rarity: trainedMemberForSlot(parent, plannedParent.id)?.rarity,
+            raceClothId: trainedMemberForSlot(parent, plannedParent.id)
+              ?.raceClothId,
             factor: { ...best.factor },
             fixed: true,
             requiresUma: true,
@@ -7910,10 +7969,20 @@ function SuccessionPlanner({
                 index === 0
                   ? parentAssignment
                   : resolvedGrandparentAssignments![index - 1];
+              const directUma = directUmas[index];
+              const trainedMember = trainedMemberForSlot(slot, directUma.id);
+              const cardId =
+                trainedMember?.cardId ||
+                (lineage[slot] === directUma.id
+                  ? fixedDressSlots[slot]
+                  : undefined);
               return {
                 code: SLOT_CODES[slot],
                 generation: index === 0 ? 1 : 2,
-                uma: directUmas[index],
+                uma: directUma,
+                cardId,
+                rarity: trainedMember?.rarity,
+                raceClothId: trainedMember?.raceClothId,
                 factor,
                 fixed:
                   index === 0
@@ -8415,6 +8484,8 @@ function SuccessionPlanner({
       const resolvedOptionKey = (position: CompleteDesignPosition) =>
         [
           position.uma?.id || 0,
+          position.cardId || 0,
+          position.raceClothId || 0,
           position.capturedSelectionId || '',
           factorAssignmentKey(position.factor),
           demandKey(position.minimumDemand || {}),

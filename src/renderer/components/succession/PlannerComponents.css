@@ -10,7 +10,7 @@
   font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
 }
 
-.plannerElevatedOverlay {
+.successionPickerOverlay.plannerElevatedOverlay {
   z-index: 1450;
 }
 
