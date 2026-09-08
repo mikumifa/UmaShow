@@ -3595,6 +3595,10 @@ export default function AutoResearch() {
           ? scheduleStartTime
           : oneOffStartTime(scheduleTiming, scheduledStartAt),
         end_time: scheduleEndTime,
+        daily_tasks: readLocalDailyTasks(
+          accounts.find((account) => account.id === accountId)?.uid || '',
+          defaultDailyTasksConfig(),
+        ),
         items: [
           {
             id: `schedule-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -4388,6 +4392,10 @@ export default function AutoResearch() {
               ? controlScheduleStartTime
               : oneOffStartTime(controlScheduleTiming, controlScheduledStartAt),
             end_time: controlScheduleEndTime,
+            daily_tasks: readLocalDailyTasks(
+              selectedAccount?.uid || '',
+              defaultDailyTasksConfig(),
+            ),
             items: nextItems,
             expected_revision: schedule.revision,
           }),
@@ -5250,37 +5258,6 @@ export default function AutoResearch() {
     recover_tp_with_jewels: recoverTpWithJewels,
   });
 
-  const loadOfflineRaceArray = async (
-    accountId: string,
-    selectionRequest: Parameters<
-      typeof window.electron.autoResearch.prepareIdleSingleMode
-    >[1],
-    raceDeckNum: number,
-  ) => {
-    const result = (await window.electron.autoResearch.prepareIdleSingleMode(
-      accountId,
-      selectionRequest,
-    )) as LocalOfflineSetupResponse;
-    if (!isOfflineSingleModeSetup(result?.offline_setup)) {
-      throw new Error('游戏没有返回有效的离线育成赛程信息');
-    }
-    const setup = result.offline_setup;
-    const raceDeck = setup.race_decks.find(
-      (item) => item.deck_num === raceDeckNum,
-    );
-    if (!raceDeck) {
-      throw new Error(`游戏中不存在离线赛程槽位 ${raceDeckNum}`);
-    }
-    if (selectedAccountIdRef.current === accountId) {
-      setOfflineSetup(setup);
-      setOfflineSetupAccountId(accountId);
-    }
-    return raceDeck.race_array.map((item) => ({
-      year: item.year,
-      program_id: item.program_id,
-    }));
-  };
-
   const prepareOfflineCareer =
     async (): Promise<OfflineSingleModeSetup | null> => {
       if (!selectedAccountId) return null;
@@ -5398,11 +5375,6 @@ export default function AutoResearch() {
     setBusy('idle-start');
     setError('');
     try {
-      const raceArray = await loadOfflineRaceArray(
-        accountId,
-        selectionRequest,
-        offlineRaceDeckNum,
-      );
       if (!(await prepareServerTaskSubmission(accountId))) return false;
       const result = await submitServerTask(
         accountId,
@@ -5422,7 +5394,6 @@ export default function AutoResearch() {
             offlineFactorSelection,
           ),
           race_deck_num: offlineRaceDeckNum,
-          race_array: raceArray,
         },
         mode === 'queue' ? 'single' : mode,
         target,
@@ -5484,11 +5455,6 @@ export default function AutoResearch() {
     setBusy(`idle-start-${setting.id}`);
     setError('');
     try {
-      const raceArray = await loadOfflineRaceArray(
-        accountId,
-        selectionRequest,
-        setting.offline_race_deck_num,
-      );
       if (!(await prepareServerTaskSubmission(accountId))) return false;
       const result = await submitServerTask(
         accountId,
@@ -5509,7 +5475,6 @@ export default function AutoResearch() {
             setting.factor_selection || setting.offline_factor_selection,
           ),
           race_deck_num: setting.offline_race_deck_num,
-          race_array: raceArray,
         },
         mode === 'queue' ? 'single' : mode,
         target,
@@ -5665,6 +5630,10 @@ export default function AutoResearch() {
             cadence: schedule.cadence,
             start_time: schedule.start_time,
             end_time: schedule.end_time,
+            daily_tasks: readLocalDailyTasks(
+              selectedAccount?.uid || '',
+              defaultDailyTasksConfig(),
+            ),
             items: [...schedule.items, payload],
             expected_revision: schedule.revision,
           }),

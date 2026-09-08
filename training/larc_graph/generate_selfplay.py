@@ -353,6 +353,7 @@ def main() -> None:
     print(f"generated {total_samples} samples from {completed_games} games")
     if interrupted:
         print("run the same command again to append more shards")
+        raise SystemExit(130)
 
 
 if __name__ == "__main__":

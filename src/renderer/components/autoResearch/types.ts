@@ -54,6 +54,7 @@ export type ScheduleIntent = {
   end_time: string;
   submitted_at?: string;
   updated_at?: string;
+  daily_tasks?: DailyTasksConfig;
   items: ScheduleItem[];
 };
 
