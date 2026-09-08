@@ -1,0 +1,51 @@
+import { AliveScope } from 'react-activation';
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
+import 'tailwindcss/tailwind.css';
+import AutoResearch from 'renderer/ui/AutoResearch';
+import TrainingHistory from 'renderer/ui/TrainingHistory';
+
+export default function AutoUmaApp() {
+  return (
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-50 font-sans">
+      <style>
+        {`
+          html, body, #root { height: 100%; min-height: 0; overflow: hidden; }
+          img { -webkit-user-drag: none; }
+          input, select, textarea, [contenteditable='true'] {
+            pointer-events: auto;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+          }
+          .autouma-content .min-h-screen { min-height: calc(100vh - 2.5rem); }
+          .autouma-content .h-screen { height: calc(100vh - 2.5rem); }
+        `}
+      </style>
+      <HashRouter>
+        <AliveScope>
+          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
+            <div className="shrink-0 text-sm font-semibold text-slate-800">
+              AutoUma
+            </div>
+            <div
+              id="app-page-actions"
+              className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto"
+            />
+          </header>
+          <main className="autouma-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+            <Routes>
+              <Route path="/" element={<AutoResearch />} />
+              <Route path="/auto-research" element={<AutoResearch />} />
+              <Route path="/training-history" element={<TrainingHistory />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </AliveScope>
+      </HashRouter>
+    </div>
+  );
+}

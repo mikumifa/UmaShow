@@ -6,7 +6,7 @@ import {
   findActiveIdleSingleMode,
   hasActiveSingleModeCareer,
 } from './AutoResearchGameState';
-import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
+import { withAutoResearchLocalGameClient } from 'main/handle/AutoResearchLocalGameClient';
 
 type IdleRace = { year: number; program_id: number };
 
@@ -344,7 +344,7 @@ export function ensureNoActiveCareer(data: Record<string, unknown>) {
   }
 }
 
-async function prepare(accountId: string, request: IdlePrepareRequest) {
+export async function prepare(accountId: string, request: IdlePrepareRequest) {
   return withAutoResearchLocalGameClient(accountId, async (client) => {
     const index = await client.loadIndex();
     ensureNoActiveCareer(index.data || {});
@@ -362,7 +362,10 @@ async function prepare(accountId: string, request: IdlePrepareRequest) {
   });
 }
 
-async function saveRaceDeck(accountId: string, request: IdleRaceDeckRequest) {
+export async function saveRaceDeck(
+  accountId: string,
+  request: IdleRaceDeckRequest,
+) {
   const deckNum = numberValue(request.deck_num);
   if (deckNum < 1 || deckNum > 8) {
     throw new Error('离线赛程槽位必须在 1 到 8 之间');

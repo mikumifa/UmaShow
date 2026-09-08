@@ -175,7 +175,7 @@ function readRecord(file: string): TrainingHistoryRecord | null {
       record.analysis?.version !== ANALYSIS_VERSION
       && Array.isArray(record.packets)
     ) {
-      record.analysis = buildAnalysis(record);
+      record.analysis = buildTrainingHistoryAnalysis(record);
       record.summary = {
         ...record.analysis.summary,
         updatedAt: record.updatedAt,
@@ -330,7 +330,7 @@ function materializeRecord(id: string): TrainingHistoryRecord | null {
     fullPath: recordPath(id),
     packets,
   };
-  record.analysis = buildAnalysis(record);
+  record.analysis = buildTrainingHistoryAnalysis(record);
   record.summary = {
     ...record.analysis.summary,
     updatedAt: record.updatedAt,
@@ -527,7 +527,7 @@ function hasMeaningfulDelta(delta: TrainingHistoryTurnDelta | null) {
   );
 }
 
-function buildAnalysis(
+export function buildTrainingHistoryAnalysis(
   record: Pick<TrainingHistoryRecord, 'packets' | 'updatedAt'>,
 ): TrainingHistoryAnalysis {
   let viewerId = 0;
@@ -658,7 +658,7 @@ function buildAnalysis(
 }
 
 function recomputeRecord(record: TrainingHistoryRecord) {
-  record.analysis = buildAnalysis(record);
+  record.analysis = buildTrainingHistoryAnalysis(record);
   record.summary = {
     ...record.analysis.summary,
     updatedAt: record.updatedAt,
@@ -795,7 +795,7 @@ export function importRemoteTrainingHistory(
       },
     packets: mergedPackets,
   };
-  record.analysis = buildAnalysis(record);
+  record.analysis = buildTrainingHistoryAnalysis(record);
   record.summary = {
     ...record.analysis.summary,
     updatedAt,
@@ -873,7 +873,7 @@ export function handleTrainingHistoryInfo(
   packet.sequence = record.packets.length;
   record.updatedAt = now;
   record.packets.push(packet);
-  record.analysis = buildAnalysis(record);
+  record.analysis = buildTrainingHistoryAnalysis(record);
   record.summary = {
     ...record.analysis.summary,
     updatedAt: now,

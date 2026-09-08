@@ -58,6 +58,24 @@ export type SuccessionGameSession = {
   captured_at?: string;
 };
 
+export type SuccessionGameHttpRequest = {
+  method: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+};
+
+export type SuccessionGameHttpResponse = {
+  ok: boolean;
+  status: number;
+  text: string;
+};
+
+export type SuccessionGameHttpTransport = (
+  url: string,
+  request: SuccessionGameHttpRequest,
+) => Promise<SuccessionGameHttpResponse>;
+
 const UNCERTAIN_GAME_REQUEST = Symbol('uncertain-game-request');
 
 type SuccessionGameUncertainRequestError = Error & {
@@ -212,35 +230,28 @@ function bumaClientTime() {
   return `${now.toISOString().replace('Z', '')}+08:00`;
 }
 
-async function fetchWithTimeout(
-  url: string,
-  init: Parameters<typeof fetch>[1],
-  timeout = 30_000,
-) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function fetchTextWithTimeout(
-  url: string,
-  init: Parameters<typeof fetch>[1],
-  timeout = 30_000,
-) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    const responseText = await response.text();
-    return { response, responseText };
-  } finally {
-    clearTimeout(timer);
-  }
-}
+export const defaultSuccessionGameHttpTransport: SuccessionGameHttpTransport =
+  async (url, request) => {
+    const timeout = request.timeoutMs ?? 30_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        signal: controller.signal,
+      });
+      const responseText = await response.text();
+      return {
+        ok: response.ok,
+        status: response.status,
+        text: responseText,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
 function gameError(endpoint: string, result: Record<string, any>) {
   const headers = result.data_headers || {};
@@ -335,6 +346,8 @@ export class SuccessionGameClient {
     accessKey: string,
     private readonly onProgress?: (progress: SuccessionGameProgress) => void,
     session?: Partial<SuccessionGameSession> | null,
+    private readonly httpTransport: SuccessionGameHttpTransport =
+      defaultSuccessionGameHttpTransport,
   ) {
     const deviceId = session?.device_id || randomUUID().toUpperCase();
     this.user = {
@@ -431,7 +444,7 @@ export class SuccessionGameClient {
       ['version', '3'],
     ];
     pairs.push(['sign', loginSign(pairs)]);
-    const response = await fetchWithTimeout(`${LOGIN_HOST}${path}`, {
+    const response = await this.httpTransport(`${LOGIN_HOST}${path}`, {
       method: 'POST',
       headers: {
         Accept: '*/*',
@@ -439,10 +452,16 @@ export class SuccessionGameClient {
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Mozilla/5.0 BSGameSDK',
       },
-      body: new URLSearchParams(pairs),
+      body: new URLSearchParams(pairs).toString(),
+      timeoutMs: 30_000,
     });
     if (!response.ok) throw new Error(`B站登录失败：HTTP ${response.status}`);
-    const result = (await response.json()) as Record<string, any>;
+    let result: Record<string, any>;
+    try {
+      result = JSON.parse(response.text) as Record<string, any>;
+    } catch {
+      throw new Error('B站登录返回了无法识别的数据');
+    }
     if (Number(result.code) !== 0) {
       const code = String(result.code ?? '');
       if (['200007', '200000', '-500'].includes(code)) {
@@ -483,35 +502,32 @@ export class SuccessionGameClient {
   private async postGame(endpoint: string, payload: Record<string, unknown>) {
     this.ensureSessionCertain();
     const body = encryptSuccessionGameRequest(this.user, payload);
-    let response: Response;
-    let responseText: string;
+    let response: SuccessionGameHttpResponse;
     try {
-      ({ response, responseText } = await fetchTextWithTimeout(
-        `${GAME_HOST}/${endpoint}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: '*/*',
-            'APP-VER': this.user.appVer,
-            'APP-VER-CODE': this.user.appVerCode,
-            'BUMA-OPEN-ID': this.user.bumaOpenId,
-            'BUMA-RID': md5HexBytes(randomUUID()),
-            'BX-Accept-Language': 'zh',
-            'Content-Type': 'application/x-msgpack',
-            Device: '2',
-            'Device-SubType': '1',
-            'RES-VER': this.user.resVer,
-            SID: this.user.sid,
-            'User-Agent':
-              'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
-            ViewerID: this.user.viewerId,
-            'X-Ba-Catch-Control': 'no-cache',
-            'X-Ba-Charset': 'utf8',
-            'X-Unity-Version': '2020.3.49f1',
-          },
-          body,
+      response = await this.httpTransport(`${GAME_HOST}/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Accept: '*/*',
+          'APP-VER': this.user.appVer,
+          'APP-VER-CODE': this.user.appVerCode,
+          'BUMA-OPEN-ID': this.user.bumaOpenId,
+          'BUMA-RID': md5HexBytes(randomUUID()),
+          'BX-Accept-Language': 'zh',
+          'Content-Type': 'application/x-msgpack',
+          Device: '2',
+          'Device-SubType': '1',
+          'RES-VER': this.user.resVer,
+          SID: this.user.sid,
+          'User-Agent':
+            'UnityPlayer/2020.3.49f1 (UnityWebRequest/1.0, libcurl/7.84.0-DEV)',
+          ViewerID: this.user.viewerId,
+          'X-Ba-Catch-Control': 'no-cache',
+          'X-Ba-Charset': 'utf8',
+          'X-Unity-Version': '2020.3.49f1',
         },
-      ));
+        body,
+        timeoutMs: 30_000,
+      });
     } catch (error) {
       throw this.markSessionUncertain(
         endpoint,
@@ -526,7 +542,7 @@ export class SuccessionGameClient {
     }
     let result: Record<string, any>;
     try {
-      result = decryptSuccessionGameResponse(this.user, responseText);
+      result = decryptSuccessionGameResponse(this.user, response.text);
     } catch (error) {
       throw this.markSessionUncertain(
         endpoint,

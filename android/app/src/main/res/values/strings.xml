@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AutoUma</string>
+    <string name="title_activity_main">AutoUma</string>
+    <string name="package_name">io.github.mikumifa.autouma</string>
+    <string name="custom_url_scheme">io.github.mikumifa.autouma</string>
+</resources>

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { app, IpcMain } from 'electron';
-import { withAutoResearchLocalGameClient } from './AutoResearchLocalGameClient';
+import { withAutoResearchLocalGameClient } from 'main/handle/AutoResearchLocalGameClient';
 
 type DailyConfig = Record<string, any>;
 type TaskResult = Record<string, any>;
@@ -237,7 +237,7 @@ function buildOptions(data: Record<string, any>) {
   }
 }
 
-async function overview(id: string, config: DailyConfig) {
+export async function overview(id: string, config: DailyConfig) {
   return withAutoResearchLocalGameClient(id, async (client) => {
     const loaded = await client.loadIndex();
     return {
@@ -248,7 +248,7 @@ async function overview(id: string, config: DailyConfig) {
   });
 }
 
-async function run(id: string, config: DailyConfig) {
+export async function run(id: string, config: DailyConfig) {
   return withAutoResearchLocalGameClient(id, async (client) => {
     const results: Record<string, TaskResult> = {};
     const errors: string[] = [];
