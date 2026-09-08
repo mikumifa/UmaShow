@@ -3567,6 +3567,10 @@ export default function AutoResearch() {
           ? scheduleStartTime
           : oneOffStartTime(scheduleTiming, scheduledStartAt),
         end_time: scheduleEndTime,
+        daily_tasks: readLocalDailyTasks(
+          accounts.find((account) => account.id === accountId)?.uid || '',
+          defaultDailyTasksConfig(),
+        ),
         items: [
           {
             id: `schedule-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -4369,6 +4373,10 @@ export default function AutoResearch() {
               ? scheduleStartTime
               : oneOffStartTime(scheduleTiming, scheduledStartAt),
             end_time: scheduleEndTime,
+            daily_tasks: readLocalDailyTasks(
+              selectedAccount?.uid || '',
+              defaultDailyTasksConfig(),
+            ),
             items: nextItems,
             expected_revision: schedule.revision,
           }),
@@ -5641,6 +5649,10 @@ export default function AutoResearch() {
             cadence: schedule.cadence,
             start_time: schedule.start_time,
             end_time: schedule.end_time,
+            daily_tasks: readLocalDailyTasks(
+              selectedAccount?.uid || '',
+              defaultDailyTasksConfig(),
+            ),
             items: [...schedule.items, payload],
             expected_revision: schedule.revision,
           }),
