@@ -162,11 +162,8 @@ export default function UmaAiSettingsDialog({
               id="recommendation-settings-title"
               className="text-base font-bold text-slate-900"
             >
-              凯旋门推荐设置
+              推荐设置
             </h2>
-            <p className="mt-0.5 text-xs leading-5 text-slate-500">
-              内置算法会从当前回合模拟到育成结束。
-            </p>
           </div>
           <button
             type="button"
@@ -224,11 +221,6 @@ export default function UmaAiSettingsDialog({
                 <h3 className="text-sm font-semibold text-slate-800">
                   计算设置
                 </h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  {usingModel
-                    ? '当前使用 ONNX 模型进行多回合搜索。'
-                    : '控制内置算法的计算量和并行性能。'}
-                </p>
               </div>
               {usingModel ? (
                 <details>

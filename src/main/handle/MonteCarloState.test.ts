@@ -187,11 +187,13 @@ const makeLArcPacket = ({
   turn = 10,
   uncheckedEvents = [],
   isSpecial = 1,
+  trainingEnabled = true,
 }: {
   runId: number;
   turn?: number;
   uncheckedEvents?: unknown[];
   isSpecial?: number;
+  trainingEnabled?: boolean;
 }) => {
   const trainIds = [101, 105, 102, 103, 106];
   return {
@@ -247,7 +249,7 @@ const makeLArcPacket = ({
       home_info: {
         command_info_array: trainIds.map((commandId, index) => ({
           command_id: commandId,
-          is_enable: 1,
+          is_enable: trainingEnabled ? 1 : 0,
           failure_rate: index,
           training_partner_array:
             index === 0 ? [1, 3, 1001] : [larcNpcTargets[index + 1].target_id],
@@ -498,6 +500,14 @@ describe('MonteCarloState', () => {
       cardIdInGame: 2,
     });
     expect(persons[1].isHint).toBe(true);
+  });
+
+  it('does not build a LArc recommendation on a fixed race turn', () => {
+    expect(
+      buildMonteCarloState(
+        makeLArcPacket({ runId: 92005, turn: 41, trainingEnabled: false }),
+      ),
+    ).toBeNull();
   });
 
   it('accepts the LArc single_mode_start_common response shape', () => {

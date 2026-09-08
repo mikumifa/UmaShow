@@ -601,6 +601,15 @@ const buildLArcState = (
   if (turnNumber >= 3 && Object.keys(arc).length === 0) return null;
 
   const home = asObject(data.home_info);
+  const hasPlayableTraining = asArray(home?.command_info_array).some((item) => {
+    const command = asObject(item);
+    return (
+      command != null &&
+      TRAIN_INDEX.has(numberValue(command.command_id)) &&
+      numberValue(command.is_enable) === 1
+    );
+  });
+  if (!hasPlayableTraining) return null;
   const cardIds = supportCards(chara);
   if (
     numberValue(chara.card_id) <= 0 ||

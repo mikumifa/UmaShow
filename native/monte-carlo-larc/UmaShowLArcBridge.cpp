@@ -1204,6 +1204,8 @@ json analyze(const json& request)
   Game game;
   if (!game.loadGameFromJson(state.dump()))
     throw std::runtime_error("凯旋门蒙特卡洛核心无法解析当前回合数据");
+  if (game.isRacing || Search::buyBuffChoiceNum(game.turn) <= 0)
+    throw std::runtime_error("当前为固定比赛或事件回合，不进行推荐计算");
 
   game.eventStrength = boundedInt(options, "eventStrength", game.eventStrength, 0, 1000);
   applyStatusTargets(game, options);

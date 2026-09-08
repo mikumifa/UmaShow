@@ -49,7 +49,7 @@ int Search::buyBuffChoiceNum(int turn)
 
 Action Search::buyBuffAction(int idx, int turn)
 {
-  Action action;
+  Action action {};
   action.train = -1;
   action.buy50p = false;
   action.buyFriend20 = false;
@@ -147,7 +147,7 @@ Action Search::runSearch(const Game& game,
 
   }
 
-  Action action;
+  Action action {};
   double bestValue = -5e4;
   for (int i = 0; i < 4; i++)
     for (int j = 0; j < 10; j++)
