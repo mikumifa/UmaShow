@@ -116,7 +116,7 @@ class SparseGraphBlock(nn.Module):
             attention_logits.masked_fill(edge_mask < 0.5, -10_000.0), dim=-1
         )
         attention = attention * edge_mask
-        attention = attention / attention.sum(dim=-1, keepdim=True).clamp_min(1e-6)
+        attention = attention / attention.sum(dim=-1, keepdim=True).clamp_min(1e-4)
         person_messages = torch.matmul(attention, values)
         person_messages = person_messages.permute(0, 2, 1, 3).reshape(
             batch, TRAINING_COUNT, -1

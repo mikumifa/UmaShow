@@ -28,6 +28,7 @@ struct SearchEdge
   DistributionSummary initialValue;
   DistributionSummary initialScore;
   int visits = 0;
+  int virtualVisits = 0;
   double valueRiskTotal = 0.0;
   double valueMeanTotal = 0.0;
   double valueSecondMomentTotal = 0.0;
@@ -58,7 +59,9 @@ struct SearchNode
   Game game;
   int depth = 0;
   int visits = 0;
+  int virtualVisits = 0;
   bool expanded = false;
+  bool evaluationPending = false;
   DistributionSummary stateValue;
   DistributionSummary stateScore;
   std::vector<SearchEdge> edges;
@@ -69,6 +72,21 @@ struct GumbelRootState
 {
   std::vector<double> noise;
   std::vector<int> consideredVisits;
+};
+
+struct SimulationPathStep
+{
+  SearchNode* node = nullptr;
+  SearchEdge* edge = nullptr;
+};
+
+struct BatchedSimulation
+{
+  SearchNode* node = nullptr;
+  std::vector<SimulationPathStep> path;
+  SearchSample sample;
+  bool complete = false;
+  bool committed = false;
 };
 
 std::vector<int> consideredVisitSequence(int actionCount, int simulations)
@@ -142,15 +160,12 @@ struct SearchContext
   int nodes = 1;
   const GumbelRootState* gumbelRoot = nullptr;
 
-  void expand(SearchNode& node, bool root)
+  void applyPrediction(
+    SearchNode& node,
+    bool root,
+    const std::vector<GraphAction>& actions,
+    const GraphPrediction& prediction)
   {
-    if (node.expanded || node.game.isEnd())
-      return;
-    const auto actions = enumerateLegalActions(node.game);
-    if (actions.empty())
-      throw std::runtime_error("模型搜索没有找到合法行动");
-    const GraphFeatures features = buildGraphFeatures(node.game, actions);
-    const GraphPrediction prediction = model.evaluate(features);
     if (prediction.priors.size() != actions.size() ||
         prediction.actionValues.size() != actions.size() ||
         prediction.actionScores.size() != actions.size())
@@ -202,6 +217,50 @@ struct SearchContext
     if (!root && static_cast<int>(node.selectableEdges.size()) > config.topK)
       node.selectableEdges.resize(config.topK);
     node.expanded = true;
+    node.evaluationPending = false;
+  }
+
+  void expand(SearchNode& node, bool root)
+  {
+    if (node.expanded || node.game.isEnd())
+      return;
+    const auto actions = enumerateLegalActions(node.game);
+    if (actions.empty())
+      throw std::runtime_error("模型搜索没有找到合法行动");
+    const GraphFeatures features = buildGraphFeatures(node.game, actions);
+    applyPrediction(node, root, actions, model.evaluate(features));
+  }
+
+  void expandBatch(const std::vector<SearchNode*>& nodes)
+  {
+    if (nodes.empty())
+      return;
+    std::vector<std::vector<GraphAction>> actionsBatch;
+    std::vector<GraphFeatures> featuresBatch;
+    actionsBatch.reserve(nodes.size());
+    featuresBatch.reserve(nodes.size());
+    for (SearchNode* node : nodes)
+    {
+      if (!node || node->expanded || node->game.isEnd())
+        throw std::runtime_error("模型批量展开收到了无效节点");
+      actionsBatch.push_back(enumerateLegalActions(node->game));
+      if (actionsBatch.back().empty())
+        throw std::runtime_error("模型搜索没有找到合法行动");
+      featuresBatch.push_back(buildGraphFeatures(
+        node->game,
+        actionsBatch.back()));
+    }
+    auto predictions = model.evaluateBatch(featuresBatch);
+    if (predictions.size() != nodes.size())
+      throw std::runtime_error("模型批量推理返回数量不正确");
+    for (std::size_t index = 0; index < nodes.size(); ++index)
+    {
+      applyPrediction(
+        *nodes[index],
+        nodes[index]->depth == 0,
+        actionsBatch[index],
+        predictions[index]);
+    }
   }
 
   double gumbelRootScore(const SearchNode& node, int edgeIndex) const
@@ -275,7 +334,7 @@ struct SearchContext
       SearchEdge* bestUnvisited = nullptr;
       for (auto& edge : node.edges)
       {
-        if (edge.visits == 0 &&
+        if (edge.visits + edge.virtualVisits == 0 &&
             (!bestUnvisited || edge.initialValue.riskAdjusted > bestUnvisited->initialValue.riskAdjusted))
         {
           bestUnvisited = &edge;
@@ -287,12 +346,13 @@ struct SearchContext
 
     SearchEdge* best = nullptr;
     double bestScore = -std::numeric_limits<double>::infinity();
-    const double parentVisits = std::sqrt(static_cast<double>(node.visits) + 1.0);
+    const double parentVisits = std::sqrt(
+      static_cast<double>(node.visits + node.virtualVisits) + 1.0);
     for (const int index : node.selectableEdges)
     {
       auto& edge = node.edges[index];
       const double exploration = config.cpuct * 1000.0 * edge.prior *
-        parentVisits / (1.0 + edge.visits);
+        parentVisits / (1.0 + edge.visits + edge.virtualVisits);
       const double score = edge.searchValue() + exploration;
       if (score > bestScore)
       {
@@ -313,6 +373,124 @@ struct SearchContext
       {recommendation, 0.0, recommendation},
       {score, 0.0, score},
     };
+  }
+
+  void advanceBatchedSimulation(
+    BatchedSimulation& simulation,
+    std::mt19937_64& random,
+    std::vector<SearchNode*>& pendingNodes)
+  {
+    while (!simulation.complete)
+    {
+      SearchNode& node = *simulation.node;
+      if (node.game.isEnd())
+      {
+        simulation.sample = terminalSample(node.game);
+        simulation.complete = true;
+        return;
+      }
+      if (!node.expanded)
+      {
+        if (!node.evaluationPending)
+        {
+          node.evaluationPending = true;
+          pendingNodes.push_back(&node);
+        }
+        return;
+      }
+      if (node.depth >= config.maxDepth)
+      {
+        simulation.sample = {node.stateValue, node.stateScore};
+        simulation.complete = true;
+        return;
+      }
+
+      SearchEdge& edge = selectEdge(node);
+      ++node.virtualVisits;
+      ++edge.virtualVisits;
+      simulation.path.push_back({&node, &edge});
+      const int effectiveVisits = edge.visits + edge.virtualVisits;
+      const int allowedOutcomes = std::min(
+        config.maxChanceOutcomes,
+        1 + static_cast<int>(std::sqrt(
+          static_cast<double>(effectiveVisits) + 1.0)));
+
+      SearchNode* child = nullptr;
+      if (static_cast<int>(edge.outcomes.size()) < allowedOutcomes)
+      {
+        Game next = node.game;
+        next.applyTrainingAndNextTurn(random, edge.graphAction.action);
+        auto outcome = std::make_unique<SearchNode>();
+        outcome->game = std::move(next);
+        outcome->depth = node.depth + 1;
+        child = outcome.get();
+        edge.outcomes.push_back(std::move(outcome));
+        ++nodes;
+      }
+      else
+      {
+        child = edge.outcomes[random() % edge.outcomes.size()].get();
+      }
+      simulation.node = child;
+    }
+  }
+
+  void commitBatchedSimulation(BatchedSimulation& simulation)
+  {
+    if (!simulation.complete || simulation.committed)
+      return;
+    for (auto step = simulation.path.rbegin();
+         step != simulation.path.rend();
+         ++step)
+    {
+      if (step->node->virtualVisits <= 0 || step->edge->virtualVisits <= 0)
+        throw std::runtime_error("模型批量搜索的虚拟访问计数失配");
+      --step->node->virtualVisits;
+      --step->edge->virtualVisits;
+      step->edge->add(simulation.sample);
+      ++step->node->visits;
+    }
+    simulation.committed = true;
+  }
+
+  int simulateBatch(
+    SearchNode& root,
+    std::mt19937_64& random,
+    int simulationCount)
+  {
+    std::vector<BatchedSimulation> simulations(simulationCount);
+    std::vector<SearchNode*> pendingNodes;
+    pendingNodes.reserve(simulationCount);
+    for (auto& simulation : simulations)
+    {
+      simulation.node = &root;
+      advanceBatchedSimulation(simulation, random, pendingNodes);
+      commitBatchedSimulation(simulation);
+    }
+
+    while (true)
+    {
+      const bool finished = std::all_of(
+        simulations.begin(),
+        simulations.end(),
+        [](const BatchedSimulation& simulation) {
+          return simulation.committed;
+        });
+      if (finished)
+        return simulationCount;
+      if (pendingNodes.empty())
+        throw std::runtime_error("模型批量搜索无法继续展开节点");
+
+      expandBatch(pendingNodes);
+      pendingNodes.clear();
+      for (auto& simulation : simulations)
+      {
+        if (simulation.complete)
+          continue;
+        advanceBatchedSimulation(simulation, random, pendingNodes);
+        commitBatchedSimulation(simulation);
+      }
+    }
   }
 
   SearchSample simulate(SearchNode& node, std::mt19937_64& random)
@@ -369,6 +547,7 @@ GraphSearch::GraphSearch(GraphModel& model, GraphSearchConfig config)
   config_.nodeBudget = std::clamp(config_.nodeBudget, 16, 8192);
   config_.maxDepth = std::clamp(config_.maxDepth, 1, 16);
   config_.timeBudgetMs = std::clamp(config_.timeBudgetMs, 50, 30000);
+  config_.inferenceBatchSize = std::clamp(config_.inferenceBatchSize, 1, 32);
   config_.topK = std::clamp(config_.topK, 1, 12);
   config_.maxChanceOutcomes = std::clamp(config_.maxChanceOutcomes, 1, 32);
   config_.cpuct = std::clamp(config_.cpuct, 0.0, 20.0);
@@ -456,8 +635,19 @@ GraphSearchResult GraphSearch::run(const Game& game, std::mt19937_64& random)
       std::chrono::steady_clock::now() - startedAt).count();
     if (simulations >= minimumSimulations && elapsed >= config_.timeBudgetMs)
       break;
-    context.simulate(root, random);
-    ++simulations;
+    const int remaining = simulationBudget - simulations;
+    const int batchSize = config_.rootSelection == GraphRootSelection::Puct
+      ? std::min(config_.inferenceBatchSize, remaining)
+      : 1;
+    if (batchSize > 1)
+    {
+      simulations += context.simulateBatch(root, random, batchSize);
+    }
+    else
+    {
+      context.simulate(root, random);
+      ++simulations;
+    }
   }
 
   GraphSearchResult result;

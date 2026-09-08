@@ -19,6 +19,7 @@ export type MonteCarloOptions = {
   graphSearchNodes?: number;
   graphSearchDepth?: number;
   graphSearchTimeMs?: number;
+  graphInferenceBatchSize?: number;
   graphSearchTopK?: number;
   graphSearchChanceOutcomes?: number;
   graphSearchCpuct?: number;
@@ -61,6 +62,8 @@ export type MonteCarloResult = {
   backend?: 'builtin' | 'graph';
   modelLoaded?: boolean;
   modelPath?: string;
+  resolvedModelPath?: string;
+  inferenceProvider?: 'cpu' | 'directml';
   fallbackReason?: string;
   searchStats?: {
     simulations: number;

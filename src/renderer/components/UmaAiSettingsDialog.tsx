@@ -99,9 +99,7 @@ export default function UmaAiSettingsDialog({
 
   if (!open) return null;
 
-  const updateOption = <
-    Key extends Exclude<keyof UmaAiOptions, 'modelPath'>,
-  >(
+  const updateOption = <Key extends Exclude<keyof UmaAiOptions, 'modelPath'>>(
     key: Key,
     value: UmaAiOptions[Key],
   ) => {
@@ -126,9 +124,16 @@ export default function UmaAiSettingsDialog({
         | string
         | null;
       if (selected) {
+        const gpuModel = selected.toLowerCase().endsWith('.fp16.onnx');
         setDraft((current) => ({
           ...current,
-          options: { ...current.options, modelPath: selected },
+          options: {
+            ...current.options,
+            modelPath: selected,
+            graphInferenceBatchSize: gpuModel
+              ? 32
+              : current.options.graphInferenceBatchSize,
+          },
         }));
       }
     } catch (reason) {
@@ -243,7 +248,8 @@ export default function UmaAiSettingsDialog({
                         onChange={(event) =>
                           updateOption(
                             'graphRootSelection',
-                            event.target.value as UmaAiOptions['graphRootSelection'],
+                            event.target
+                              .value as UmaAiOptions['graphRootSelection'],
                           )
                         }
                         className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
@@ -254,7 +260,8 @@ export default function UmaAiSettingsDialog({
                         </option>
                       </select>
                       <span className="mt-1 block text-[11px] leading-4 text-slate-400">
-                        Gumbel 会先覆盖更多当前回合行动，再把预算集中到较优候选。
+                        Gumbel 会先覆盖更多当前回合行动，再把预算集中到较优
+                        候选。
                       </span>
                     </label>
                     {draft.options.graphRootSelection === 'gumbel' ? (
@@ -312,6 +319,16 @@ export default function UmaAiSettingsDialog({
                       step={50}
                       onChange={(value) =>
                         updateOption('graphSearchTimeMs', value)
+                      }
+                    />
+                    <NumberField
+                      label="模型推理批量"
+                      description="PUCT 同时评估的搜索路径数；CPU 建议 4～8，GPU 建议 32～64。"
+                      value={draft.options.graphInferenceBatchSize}
+                      min={1}
+                      max={64}
+                      onChange={(value) =>
+                        updateOption('graphInferenceBatchSize', value)
                       }
                     />
                     <NumberField
@@ -447,7 +464,7 @@ export default function UmaAiSettingsDialog({
                 ONNX 模型（可选）
               </h3>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                未选择模型时使用内置凯旋门推荐算法。
+                选择 .onnx 使用 CPU；选择 .fp16.onnx 自动使用 GPU。
               </p>
             </div>
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
@@ -484,6 +501,18 @@ export default function UmaAiSettingsDialog({
             {modelSelectError ? (
               <p className="mt-2 text-xs font-semibold text-rose-600">
                 {modelSelectError}
+              </p>
+            ) : null}
+            {result?.modelLoaded &&
+            result.modelPath === settings.options.modelPath ? (
+              <p className="mt-2 text-xs font-semibold leading-5 text-emerald-700">
+                推理设备：
+                {result.inferenceProvider === 'directml'
+                  ? 'DirectML（GPU）'
+                  : 'CPU'}
+                {result.resolvedModelPath?.toLowerCase().endsWith('.fp16.onnx')
+                  ? ' · FP16'
+                  : ' · FP32'}
               </p>
             ) : null}
             {result?.fallbackReason &&

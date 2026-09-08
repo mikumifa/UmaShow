@@ -67,6 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-nodes", type=int, default=128)
     parser.add_argument("--model-depth", type=int, default=5)
     parser.add_argument("--model-time-ms", type=int, default=30_000)
+    parser.add_argument("--inference-batch-size", type=int, default=8)
     parser.add_argument("--model-top-k", type=int, default=4)
     parser.add_argument("--chance-outcomes", type=int, default=8)
     parser.add_argument("--cpuct", type=float, default=1.5)
@@ -107,6 +108,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--model-depth must be between 1 and 16")
     if not 50 <= args.model_time_ms <= 30_000:
         raise ValueError("--model-time-ms must be between 50 and 30000")
+    if not 1 <= args.inference_batch_size <= 64:
+        raise ValueError("--inference-batch-size must be between 1 and 64")
     if not 1 <= args.model_top_k <= 12:
         raise ValueError("--model-top-k must be between 1 and 12")
     if not 1 <= args.chance_outcomes <= 32:
@@ -255,6 +258,7 @@ def evaluate_pair(
         "graphSearchNodes": args.model_nodes,
         "graphSearchDepth": args.model_depth,
         "graphSearchTimeMs": args.model_time_ms,
+        "graphInferenceBatchSize": args.inference_batch_size,
         "graphSearchTopK": args.model_top_k,
         "graphSearchChanceOutcomes": args.chance_outcomes,
         "graphSearchCpuct": args.cpuct,
@@ -433,6 +437,7 @@ def output_payload(
             "modelNodes": args.model_nodes,
             "modelDepth": args.model_depth,
             "modelTimeMs": args.model_time_ms,
+            "inferenceBatchSize": args.inference_batch_size,
             "modelTopK": args.model_top_k,
             "chanceOutcomes": args.chance_outcomes,
             "cpuct": args.cpuct,

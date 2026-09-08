@@ -10,6 +10,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 
@@ -54,13 +55,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def onnxruntime_package() -> tuple[str, str]:
+def onnxruntime_package() -> tuple[str, str, str]:
     machine = platform.machine().lower()
     if os.name == "nt":
         if machine not in {"amd64", "x86_64"}:
             raise RuntimeError(f"不支持的 Windows 架构：{machine}")
-        package = f"onnxruntime-win-x64-{ONNXRUNTIME_VERSION}"
-        return package, ".zip"
+        package = f"onnxruntime-directml-win-x64-{ONNXRUNTIME_VERSION}"
+        archive = f"microsoft.ml.onnxruntime.directml.{ONNXRUNTIME_VERSION}.nupkg"
+        url = (
+            "https://api.nuget.org/v3-flatcontainer/"
+            f"microsoft.ml.onnxruntime.directml/{ONNXRUNTIME_VERSION}/{archive}"
+        )
+        return package, archive, url
     if sys.platform.startswith("linux"):
         architecture = {
             "amd64": "x64",
@@ -71,7 +77,12 @@ def onnxruntime_package() -> tuple[str, str]:
         if architecture is None:
             raise RuntimeError(f"不支持的 Linux 架构：{machine}")
         package = f"onnxruntime-linux-{architecture}-{ONNXRUNTIME_VERSION}"
-        return package, ".tgz"
+        archive = f"{package}.tgz"
+        url = (
+            "https://github.com/microsoft/onnxruntime/releases/download/"
+            f"v{ONNXRUNTIME_VERSION}/{archive}"
+        )
+        return package, archive, url
     raise RuntimeError(f"当前系统不支持构建凯旋门推荐组件：{sys.platform}")
 
 
@@ -79,14 +90,42 @@ def runtime_files(root: Path) -> list[Path]:
     if os.name == "nt":
         library = root / "lib" / "onnxruntime.lib"
         runtime = root / "lib" / "onnxruntime.dll"
-        return [library, runtime] if library.is_file() and runtime.is_file() else []
+        runtimes = sorted((root / "lib").glob("*.dll"))
+        return (
+            [library, *runtimes]
+            if library.is_file() and runtime.is_file()
+            else []
+        )
     return sorted((root / "lib").glob("libonnxruntime.so*"))
 
 
 def valid_onnxruntime_root(root: Path) -> bool:
-    return (root / "include" / "onnxruntime_cxx_api.h").is_file() and bool(
-        runtime_files(root)
-    )
+    headers = [(root / "include" / "onnxruntime_cxx_api.h").is_file()]
+    if os.name == "nt":
+        headers.append((root / "include" / "dml_provider_factory.h").is_file())
+    return all(headers) and bool(runtime_files(root))
+
+
+def extract_onnxruntime(archive: Path, package_root: Path) -> None:
+    if os.name != "nt":
+        shutil.unpack_archive(archive, package_root.parent)
+        return
+
+    extracted = package_root.parent / f"{package_root.name}-nuget"
+    if extracted.is_dir():
+        shutil.rmtree(extracted)
+    with zipfile.ZipFile(archive) as package:
+        package.extractall(extracted)
+
+    include = extracted / "build" / "native" / "include"
+    runtime = extracted / "runtimes" / "win-x64" / "native"
+    if package_root.is_dir():
+        shutil.rmtree(package_root)
+    shutil.copytree(include, package_root / "include")
+    (package_root / "lib").mkdir(parents=True)
+    for source in runtime.iterdir():
+        if source.suffix.lower() in {".dll", ".lib"}:
+            shutil.copy2(source, package_root / "lib" / source.name)
 
 
 def find_cmake() -> Path:
@@ -156,7 +195,7 @@ def download_file(url: str, destination: Path) -> None:
 
 
 def ensure_onnxruntime() -> Path:
-    package_name, archive_suffix = onnxruntime_package()
+    package_name, archive_name, download_url = onnxruntime_package()
     explicit = os.environ.get("ONNXRUNTIME_ROOT")
     if explicit:
         root = Path(explicit).resolve()
@@ -170,7 +209,7 @@ def ensure_onnxruntime() -> Path:
         return package_root
 
     cache_root.mkdir(parents=True, exist_ok=True)
-    archive = cache_root / f"{package_name}{archive_suffix}"
+    archive = cache_root / archive_name
     archive_override = os.environ.get("ONNXRUNTIME_ARCHIVE")
     if archive_override:
         source_archive = Path(archive_override).expanduser().resolve()
@@ -182,22 +221,18 @@ def ensure_onnxruntime() -> Path:
             shutil.copy2(source_archive, archive)
     elif not archive.is_file():
         print(f"Downloading ONNX Runtime {ONNXRUNTIME_VERSION}...")
-        url = (
-            "https://github.com/microsoft/onnxruntime/releases/download/"
-            f"v{ONNXRUNTIME_VERSION}/{archive.name}"
-        )
         with tempfile.NamedTemporaryFile(
             dir=cache_root, suffix=".download", delete=False
         ) as temporary:
             temporary_path = Path(temporary.name)
         try:
-            download_file(url, temporary_path)
+            download_file(download_url, temporary_path)
             temporary_path.replace(archive)
         finally:
             temporary_path.unlink(missing_ok=True)
 
     print(f"Extracting {archive.name}...")
-    shutil.unpack_archive(archive, cache_root)
+    extract_onnxruntime(archive, package_root)
     if not valid_onnxruntime_root(package_root):
         raise FileNotFoundError(f"ONNX Runtime 解压结果不完整：{package_root}")
     return package_root

@@ -356,30 +356,50 @@ describe('MonteCarloState', () => {
 
   it('tracks a successful friend-card training without using a state file', () => {
     const runId = 91002;
-    buildMonteCarloState(
-      makePacket({
-        runId,
-        trainingLevels: [1, 1, 1, 1, 1],
-        friendOuting: 0,
-        friendStoryStep: 0,
-      }),
-    );
-
     const send = jest.fn();
     const mainWindow = {
       isDestroyed: () => false,
       webContents: { isDestroyed: () => false, send },
     } as unknown as BrowserWindow;
     captureMonteCarloPacket(
+      makePacket({
+        runId,
+        trainingLevels: [1, 1, 1, 1, 1],
+        friendOuting: 0,
+        friendStoryStep: 0,
+      }),
+      'response',
+      mainWindow,
+    );
+    send.mockClear();
+
+    captureMonteCarloPacket(
       { current_turn: 10, command_id: 901 },
       'request',
       mainWindow,
     );
+    expect(
+      captureMonteCarloPacket(
+        makePacket({
+          runId,
+          turn: 11,
+          commandResult: { command_id: 901, result_state: 0 },
+          trainingLevels: [1, 1, 1, 1, 1],
+          friendOuting: 0,
+          friendStoryStep: 0,
+        }),
+        'response',
+        mainWindow,
+      ),
+    ).toBeNull();
+    expect(getLatestMonteCarloState()).toBeNull();
+    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
+    send.mockClear();
+
     captureMonteCarloPacket(
       makePacket({
         runId,
         turn: 11,
-        commandResult: { command_id: 901, result_state: 0 },
         trainingLevels: [1, 1, 1, 1, 1],
         friendOuting: 0,
         friendStoryStep: 0,
@@ -400,11 +420,33 @@ describe('MonteCarloState', () => {
   });
 
   it('does not recommend while an event is waiting for user input', () => {
+    const runId = 91003;
+    const send = jest.fn();
+    const mainWindow = {
+      isDestroyed: () => false,
+      webContents: { isDestroyed: () => false, send },
+    } as unknown as BrowserWindow;
+    captureMonteCarloPacket(makePacket({ runId }), 'response', mainWindow);
+    send.mockClear();
+
     expect(
-      buildMonteCarloState(
-        makePacket({ runId: 91003, uncheckedEvents: [{ event_id: 1 }] }),
+      captureMonteCarloPacket(
+        makePacket({ runId, uncheckedEvents: [{ event_id: 1 }] }),
+        'response',
+        mainWindow,
       ),
     ).toBeNull();
+    expect(getLatestMonteCarloState()).toBeNull();
+    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
+
+    send.mockClear();
+    expect(
+      captureMonteCarloPacket(makePacket({ runId }), 'response', mainWindow),
+    ).not.toBeNull();
+    expect(send).toHaveBeenCalledWith(
+      'monte-carlo:state-captured',
+      expect.objectContaining({ turn: 9, gameStage: 1 }),
+    );
   });
 
   it('converts a captured LArc response into the UmaAi LArc protocol', () => {
@@ -645,12 +687,25 @@ describe('MonteCarloState', () => {
 
     if (!response.ok)
       throw new Error(`${String(response.error)}\n${diagnostic}`);
+    if (graphModelPath && response.backend !== 'graph') {
+      throw new Error(`${String(response.fallbackReason)}\n${diagnostic}`);
+    }
     expect(response).toMatchObject({
       ok: true,
       id: 'larc-state-smoke',
       scenarioId: 6,
       backend: graphModelPath ? 'graph' : 'builtin',
       modelLoaded: Boolean(graphModelPath),
+      ...(graphModelPath
+        ? {
+            inferenceProvider: graphModelPath
+              .toLowerCase()
+              .endsWith('.fp16.onnx')
+              ? 'directml'
+              : 'cpu',
+            resolvedModelPath: path.resolve(graphModelPath),
+          }
+        : {}),
     });
     const fallbackMatches = graphModelPath
       ? response.fallbackReason === ''

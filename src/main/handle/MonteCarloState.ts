@@ -19,6 +19,8 @@ type RunTracker = {
   friendPersonId: number;
   personDistribution: number[][];
   pendingChoice: PendingChoice | null;
+  awaitingNextTurnAfterTraining: boolean;
+  nextPlayableTurn: number;
   lastProcessedAction: string;
   lastProcessedSsEvent: string;
   larcNonSssWins: number;
@@ -154,6 +156,8 @@ const createTracker = (
     Array.from({ length: 5 }, () => -1),
   ),
   pendingChoice: null,
+  awaitingNextTurnAfterTraining: false,
+  nextPlayableTurn: 0,
   lastProcessedAction: '',
   lastProcessedSsEvent: '',
   larcNonSssWins: 0,
@@ -173,21 +177,18 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
     turn < tracker.lastTurn
   ) {
     tracker = createTracker(runKey, scenarioId, turn, trainingLevels);
-    return tracker;
-  }
-
-  if (turn > tracker.lastTurn + 1) {
+  } else if (turn > tracker.lastTurn + 1) {
     tracker.trainingLevelRemainders.fill(0);
   }
 
   const commandResult = asObject(data.command_result);
   if (commandResult && Object.keys(commandResult).length > 0) {
+    const pendingActionTurn = tracker.pendingChoice?.currentTurn;
     const commandId = numberValue(
       commandResult.command_id,
       tracker.pendingChoice?.commandId ?? 0,
     );
-    const actionTurn =
-      tracker.pendingChoice?.currentTurn ?? Math.max(1, tracker.lastTurn);
+    const actionTurn = pendingActionTurn ?? Math.max(1, tracker.lastTurn);
     const actionKey = `${runKey}:${actionTurn}:${commandId}`;
     if (commandId > 0 && actionKey !== tracker.lastProcessedAction) {
       const trainIndex = TRAIN_INDEX.get(commandId);
@@ -217,7 +218,30 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
       }
       tracker.lastProcessedAction = actionKey;
     }
+    if (TRAIN_INDEX.has(commandId)) {
+      tracker.awaitingNextTurnAfterTraining = true;
+      tracker.nextPlayableTurn =
+        pendingActionTurn == null ? turn : Math.max(turn, actionTurn + 1);
+    }
     tracker.pendingChoice = null;
+  } else if (tracker.awaitingNextTurnAfterTraining) {
+    const home = asObject(data.home_info);
+    const hasPlayableCommands = asArray(home?.command_info_array).some(
+      (item) => {
+        const command = asObject(item);
+        return command != null && numberValue(command.command_id) > 0;
+      },
+    );
+    const hasPendingEvent = asArray(data.unchecked_event_array).length > 0;
+    if (
+      turn >= tracker.nextPlayableTurn &&
+      hasPlayableCommands &&
+      !hasPendingEvent &&
+      data.race_start_info == null
+    ) {
+      tracker.awaitingNextTurnAfterTraining = false;
+      tracker.nextPlayableTurn = 0;
+    }
   }
 
   trainingLevels.forEach((level, index) => {
@@ -838,6 +862,7 @@ export const buildMonteCarloState = (
   const currentTracker = syncTracker(data, chara);
   updateLArcHistory(data, chara, currentTracker);
   if (
+    currentTracker.awaitingNextTurnAfterTraining ||
     asArray(data.unchecked_event_array).length > 0 ||
     data.race_start_info != null
   ) {
@@ -984,7 +1009,23 @@ export const captureMonteCarloState = (
   mainWindow: BrowserWindow,
 ) => {
   const state = buildMonteCarloState(decoded);
-  if (!state) return null;
+  if (!state) {
+    const data = normalizedSingleModeData(decoded);
+    const shouldSuspend =
+      tracker?.awaitingNextTurnAfterTraining === true ||
+      asArray(data?.unchecked_event_array).length > 0 ||
+      data?.race_start_info != null;
+    // Null pauses active/refinement work without replacing the monitor's
+    // currently displayed turn snapshot.
+    if (shouldSuspend && latestState != null) {
+      latestState = null;
+      latestStateSignature = '';
+      if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('monte-carlo:state-captured', null);
+      }
+    }
+    return null;
+  }
   const signature = `${tracker?.runKey ?? ''}:${JSON.stringify(state)}`;
   if (signature === latestStateSignature) return null;
   latestStateSignature = signature;

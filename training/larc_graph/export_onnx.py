@@ -8,6 +8,7 @@ import torch
 
 try:
     from .model import LArcGraphNetwork, ModelConfig
+    from .onnx_export import default_fp16_path, save_model_variants
     from .schema import (
         ACTION_FEATURES,
         GLOBAL_FEATURES,
@@ -24,6 +25,7 @@ try:
     )
 except ImportError:
     from model import LArcGraphNetwork, ModelConfig  # type: ignore
+    from onnx_export import default_fp16_path, save_model_variants  # type: ignore
     from schema import (  # type: ignore
         ACTION_FEATURES,
         GLOBAL_FEATURES,
@@ -45,6 +47,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--opset", type=int, default=18)
+    parser.add_argument(
+        "--fp16-output",
+        type=Path,
+        help="GPU FP16 output path; defaults to <output stem>.fp16.onnx",
+    )
+    parser.add_argument(
+        "--no-fp16",
+        action="store_true",
+        help="only export the general FP32 model",
+    )
     return parser.parse_args()
 
 
@@ -81,7 +93,10 @@ def main() -> None:
     )
 
     exported = onnx.load(args.output)
-    onnx.helper.set_model_props(
+    fp16_output = None if args.no_fp16 else (
+        args.fp16_output or default_fp16_path(args.output)
+    )
+    saved_fp16 = save_model_variants(
         exported,
         {
             "umashow.graph_schema": str(SCHEMA_VERSION),
@@ -89,9 +104,9 @@ def main() -> None:
             "umashow.score_scale": str(SCORE_SCALE),
             "umashow.model_family": "larc_sparse_graph_v2",
         },
+        args.output,
+        fp16_output,
     )
-    onnx.checker.check_model(exported)
-    onnx.save(exported, args.output)
 
     try:
         import onnxruntime as ort
@@ -103,11 +118,13 @@ def main() -> None:
         outputs = session.run(list(OUTPUT_NAMES), values)
         print(
             f"exported {args.output} ({model.parameter_count():,} parameters); "
-            f"smoke outputs={[tuple(value.shape) for value in outputs]}"
+            f"smoke outputs={[tuple(value.shape) for value in outputs]}; "
+            f"GPU FP16={saved_fp16 or 'disabled'}"
         )
     except ImportError:
         print(
             f"exported {args.output} ({model.parameter_count():,} parameters); "
+            f"GPU FP16={saved_fp16 or 'disabled'}; "
             "onnxruntime smoke test skipped"
         )
 

@@ -88,6 +88,16 @@ uv run --extra larc-graph python training/larc_graph/export_onnx.py \
   training/larc_graph/models/larc_graph-v0.onnx
 ```
 
+导出命令默认同时生成：
+
+- `larc_graph-v0.onnx`：FP32 通用模型，可用于 CPU，也可直接用于 GPU。
+- `larc_graph-v0.fp16.onnx`：FP16 GPU 优先模型。
+
+UmaShow 会根据选择的文件自动切换：选择 `.onnx` 使用 CPU；选择
+`.fp16.onnx` 使用 Windows DirectML GPU。FP16 模型无法使用 GPU 时，会显示
+模型不可用并继续使用内置推荐逻辑。如只需要 FP32，可在导出命令后增加
+`--no-fp16`。
+
 ```bash
 uv run --extra larc-graph python training/larc_graph/export_onnx.py \
   training/larc_graph/checkpoints/larc_graph-v1.pt \

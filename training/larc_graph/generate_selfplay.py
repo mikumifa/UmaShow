@@ -65,6 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--play-exploration", type=float, default=0.0)
     parser.add_argument("--search-depth", type=int, default=5)
     parser.add_argument("--search-time-ms", type=int, default=30_000)
+    parser.add_argument("--inference-batch-size", type=int, default=8)
     parser.add_argument("--search-top-k", type=int, default=4)
     parser.add_argument("--chance-outcomes", type=int, default=8)
     parser.add_argument("--cpuct", type=float, default=1.5)
@@ -194,6 +195,8 @@ def main() -> None:
         raise ValueError("--workers must be between 1 and 32")
     if not 1 <= args.threads <= 32:
         raise ValueError("--threads must be between 1 and 32")
+    if not 1 <= args.inference_batch_size <= 64:
+        raise ValueError("--inference-batch-size must be between 1 and 64")
     if args.shard_size <= 0:
         raise ValueError("--shard-size must be positive")
     executable = args.executable.resolve()
@@ -234,6 +237,7 @@ def main() -> None:
         "graphSearchNodes": args.searches,
         "graphSearchDepth": args.search_depth,
         "graphSearchTimeMs": args.search_time_ms,
+        "graphInferenceBatchSize": args.inference_batch_size,
         "graphSearchTopK": args.search_top_k,
         "graphSearchChanceOutcomes": args.chance_outcomes,
         "graphSearchCpuct": args.cpuct,

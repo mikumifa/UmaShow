@@ -1,6 +1,7 @@
 #include "GraphModel.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -8,6 +9,9 @@
 #include <string>
 
 #include <onnxruntime_cxx_api.h>
+#ifdef _WIN32
+#include <dml_provider_factory.h>
+#endif
 
 #include "../GameDatabase/GameConstants.h"
 
@@ -18,6 +22,54 @@ Ort::Env& environment()
 {
   static Ort::Env value(ORT_LOGGING_LEVEL_WARNING, "UmaShowRecommendation");
   return value;
+}
+
+std::string lowercase(std::string value)
+{
+  std::transform(
+    value.begin(),
+    value.end(),
+    value.begin(),
+    [](unsigned char character) {
+      return static_cast<char>(std::tolower(character));
+    });
+  return value;
+}
+
+bool isFp16ModelPath(const std::filesystem::path& path)
+{
+  return lowercase(path.stem().extension().string()) == ".fp16";
+}
+
+Ort::Session createSession(
+  const std::filesystem::path& path,
+  bool useDirectMl)
+{
+  Ort::SessionOptions options;
+  options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+  options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+  options.SetIntraOpNumThreads(1);
+  options.SetInterOpNumThreads(1);
+#ifdef _WIN32
+  if (useDirectMl)
+  {
+    options.DisableMemPattern();
+    const void* providerApi = nullptr;
+    Ort::ThrowOnError(Ort::GetApi().GetExecutionProviderApi(
+      "DML",
+      ORT_API_VERSION,
+      &providerApi));
+    const auto* directMlApi = static_cast<const OrtDmlApi*>(providerApi);
+    OrtDmlDeviceOptions deviceOptions {HighPerformance, Gpu};
+    Ort::ThrowOnError(directMlApi->SessionOptionsAppendExecutionProvider_DML2(
+      options,
+      &deviceOptions));
+  }
+#else
+  if (useDirectMl)
+    throw std::runtime_error("DirectML is only available on Windows");
+#endif
+  return Ort::Session(environment(), path.c_str(), options);
 }
 
 std::string metadataValue(Ort::Session& session, const char* key)
@@ -91,16 +143,36 @@ struct GraphModel::Impl
   };
 
   explicit Impl(const std::filesystem::path& modelPath)
-    : path(modelPath), session(nullptr)
+    : requestedPath(modelPath), path(modelPath), session(nullptr)
   {
-    if (!std::filesystem::is_regular_file(path))
+    if (!std::filesystem::is_regular_file(requestedPath))
       throw std::runtime_error("找不到模型文件");
 
-    options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
-    options.SetIntraOpNumThreads(1);
-    options.SetInterOpNumThreads(1);
-    session = Ort::Session(environment(), path.c_str(), options);
+    if (isFp16ModelPath(requestedPath))
+    {
+#ifdef _WIN32
+      try
+      {
+        session = createSession(requestedPath, true);
+        path = requestedPath;
+        executionProvider = "directml";
+      }
+      catch (const Ort::Exception& exception)
+      {
+        throw std::runtime_error(
+          std::string("FP16 模型需要可用的 DirectML GPU：") +
+          exception.what());
+      }
+#else
+      throw std::runtime_error("FP16 模型仅支持 Windows DirectML GPU");
+#endif
+    }
+    else
+    {
+      session = createSession(requestedPath, false);
+      path = requestedPath;
+      executionProvider = "cpu";
+    }
 
     const std::string modelFamily = metadataValue(session, "umashow.model_family");
     if (modelFamily == kStochasticModelFamily)
@@ -160,8 +232,9 @@ struct GraphModel::Impl
       throw std::runtime_error("模型评分缩放参数不兼容");
   }
 
+  std::filesystem::path requestedPath;
   std::filesystem::path path;
-  Ort::SessionOptions options;
+  std::string executionProvider;
   Ort::Session session;
   Family family = Family::SparseGraph;
 };
@@ -180,28 +253,52 @@ const std::filesystem::path& GraphModel::path() const
   return impl_->path;
 }
 
+const std::string& GraphModel::executionProvider() const
+{
+  return impl_->executionProvider;
+}
+
 GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
 {
+  std::vector<GraphFeatures> batch;
+  batch.push_back(features);
+  auto predictions = evaluateBatch(batch);
+  return std::move(predictions.front());
+}
+
+std::vector<GraphPrediction> GraphModel::evaluateBatch(
+  const std::vector<GraphFeatures>& featuresBatch)
+{
+  if (featuresBatch.empty())
+    return {};
+  const int64_t batchSize = static_cast<int64_t>(featuresBatch.size());
+
   if (impl_->family == Impl::Family::StochasticMuZero)
   {
-    std::array<float, kStochasticObservationFeatures> observation {};
-    auto destination = observation.begin();
-    destination = std::copy(
-      features.global.begin(),
-      features.global.end(),
-      destination);
-    destination = std::copy(
-      features.persons.begin(),
-      features.persons.end(),
-      destination);
-    destination = std::copy(
-      features.training.begin(),
-      features.training.end(),
-      destination);
-    std::copy(
-      features.placement.begin(),
-      features.placement.end(),
-      destination);
+    std::vector<float> observations(
+      featuresBatch.size() * kStochasticObservationFeatures);
+    for (std::size_t batch = 0; batch < featuresBatch.size(); ++batch)
+    {
+      const auto& features = featuresBatch[batch];
+      auto destination = observations.begin() +
+        batch * kStochasticObservationFeatures;
+      destination = std::copy(
+        features.global.begin(),
+        features.global.end(),
+        destination);
+      destination = std::copy(
+        features.persons.begin(),
+        features.persons.end(),
+        destination);
+      destination = std::copy(
+        features.training.begin(),
+        features.training.end(),
+        destination);
+      std::copy(
+        features.placement.begin(),
+        features.placement.end(),
+        destination);
+    }
 
     constexpr std::array<const char*, 1> inputNames = {
       kInputStochasticObservation,
@@ -210,16 +307,16 @@ GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
       kOutputPolicy,
       kOutputStochasticValue,
     };
-    constexpr std::array<int64_t, 2> observationShape = {
-      1,
+    const std::array<int64_t, 2> observationShape = {
+      batchSize,
       kStochasticObservationFeatures,
     };
     auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::array<Ort::Value, 1> inputs = {
       Ort::Value::CreateTensor<float>(
         memory,
-        observation.data(),
-        observation.size(),
+        observations.data(),
+        observations.size(),
         observationShape.data(),
         observationShape.size()),
     };
@@ -232,53 +329,62 @@ GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
       outputNames.size());
     const float* policy = outputs[0].GetTensorData<float>();
     const float* value = outputs[1].GetTensorData<float>();
-    validateFinite(policy, kStochasticActionSpace, kOutputPolicy);
-    validateFinite(value, 1, kOutputStochasticValue);
+    validateFinite(
+      policy,
+      featuresBatch.size() * kStochasticActionSpace,
+      kOutputPolicy);
+    validateFinite(value, featuresBatch.size(), kOutputStochasticValue);
 
-    GraphPrediction result;
-    result.valueIsRemainingReturn = true;
-    result.priors.resize(features.actionCount);
-    result.actionValues.resize(features.actionCount);
-    result.actionScores.resize(features.actionCount);
-    if (features.actionCount > 0)
+    std::vector<GraphPrediction> results(featuresBatch.size());
+    for (std::size_t batch = 0; batch < featuresBatch.size(); ++batch)
     {
-      float maximum = -std::numeric_limits<float>::infinity();
+      const auto& features = featuresBatch[batch];
+      const float* batchPolicy = policy + batch * kStochasticActionSpace;
+      GraphPrediction& result = results[batch];
+      result.valueIsRemainingReturn = true;
+      result.priors.resize(features.actionCount);
+      result.actionValues.resize(features.actionCount);
+      result.actionScores.resize(features.actionCount);
+      if (features.actionCount > 0)
+      {
+        float maximum = -std::numeric_limits<float>::infinity();
+        for (int action = 0; action < features.actionCount; ++action)
+        {
+          const int actionId = features.actionIds[action];
+          if (actionId < 0 || actionId >= kStochasticActionSpace)
+            throw std::runtime_error("当前合法行动超出多回合模型的行动空间");
+          maximum = std::max(maximum, batchPolicy[actionId]);
+        }
+        double total = 0.0;
+        for (int action = 0; action < features.actionCount; ++action)
+        {
+          const int actionId = features.actionIds[action];
+          result.priors[action] = std::exp(
+            std::clamp<double>(batchPolicy[actionId] - maximum, -80.0, 0.0));
+          total += result.priors[action];
+        }
+        if (!std::isfinite(total) || total <= 0.0)
+        {
+          const double uniform = 1.0 / features.actionCount;
+          std::fill(result.priors.begin(), result.priors.end(), uniform);
+        }
+        else
+        {
+          for (double& prior : result.priors)
+            prior /= total;
+        }
+      }
+
+      const double remainingReturn = value[batch] * kScoreScale;
+      result.stateValue.values.fill(remainingReturn);
+      result.stateScore.values.fill(remainingReturn);
       for (int action = 0; action < features.actionCount; ++action)
       {
-        const int actionId = features.actionIds[action];
-        if (actionId < 0 || actionId >= kStochasticActionSpace)
-          throw std::runtime_error("当前合法行动超出多回合模型的行动空间");
-        maximum = std::max(maximum, policy[actionId]);
-      }
-      double total = 0.0;
-      for (int action = 0; action < features.actionCount; ++action)
-      {
-        const int actionId = features.actionIds[action];
-        result.priors[action] = std::exp(
-          std::clamp<double>(policy[actionId] - maximum, -80.0, 0.0));
-        total += result.priors[action];
-      }
-      if (!std::isfinite(total) || total <= 0.0)
-      {
-        const double uniform = 1.0 / features.actionCount;
-        std::fill(result.priors.begin(), result.priors.end(), uniform);
-      }
-      else
-      {
-        for (double& prior : result.priors)
-          prior /= total;
+        result.actionValues[action].values.fill(remainingReturn);
+        result.actionScores[action].values.fill(remainingReturn);
       }
     }
-
-    const double remainingReturn = value[0] * kScoreScale;
-    result.stateValue.values.fill(remainingReturn);
-    result.stateScore.values.fill(remainingReturn);
-    for (int action = 0; action < features.actionCount; ++action)
-    {
-      result.actionValues[action].values.fill(remainingReturn);
-      result.actionScores[action].values.fill(remainingReturn);
-    }
-    return result;
+    return results;
   }
 
   constexpr std::array<const char*, 7> inputNames = {
@@ -297,23 +403,48 @@ GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
     kOutputValue,
     kOutputStateScore,
   };
-  constexpr std::array<int64_t, 2> globalShape = {1, kGlobalFeatures};
-  constexpr std::array<int64_t, 3> personShape = {1, kMaxPersons, kPersonFeatures};
-  constexpr std::array<int64_t, 3> trainingShape = {1, kTrainingCount, kTrainingFeatures};
-  constexpr std::array<int64_t, 3> placementShape = {1, kTrainingCount, kMaxPersons};
-  constexpr std::array<int64_t, 3> actionShape = {1, kMaxActions, kActionFeatures};
-  constexpr std::array<int64_t, 2> personMaskShape = {1, kMaxPersons};
-  constexpr std::array<int64_t, 2> actionMaskShape = {1, kMaxActions};
+  std::vector<float> global;
+  std::vector<float> persons;
+  std::vector<float> training;
+  std::vector<float> placement;
+  std::vector<float> actions;
+  std::vector<float> personMask;
+  std::vector<float> actionMask;
+  global.reserve(featuresBatch.size() * kGlobalFeatures);
+  persons.reserve(featuresBatch.size() * kMaxPersons * kPersonFeatures);
+  training.reserve(featuresBatch.size() * kTrainingCount * kTrainingFeatures);
+  placement.reserve(featuresBatch.size() * kTrainingCount * kMaxPersons);
+  actions.reserve(featuresBatch.size() * kMaxActions * kActionFeatures);
+  personMask.reserve(featuresBatch.size() * kMaxPersons);
+  actionMask.reserve(featuresBatch.size() * kMaxActions);
+  for (const auto& features : featuresBatch)
+  {
+    global.insert(global.end(), features.global.begin(), features.global.end());
+    persons.insert(persons.end(), features.persons.begin(), features.persons.end());
+    training.insert(training.end(), features.training.begin(), features.training.end());
+    placement.insert(placement.end(), features.placement.begin(), features.placement.end());
+    actions.insert(actions.end(), features.actions.begin(), features.actions.end());
+    personMask.insert(personMask.end(), features.personMask.begin(), features.personMask.end());
+    actionMask.insert(actionMask.end(), features.actionMask.begin(), features.actionMask.end());
+  }
+
+  const std::array<int64_t, 2> globalShape = {batchSize, kGlobalFeatures};
+  const std::array<int64_t, 3> personShape = {batchSize, kMaxPersons, kPersonFeatures};
+  const std::array<int64_t, 3> trainingShape = {batchSize, kTrainingCount, kTrainingFeatures};
+  const std::array<int64_t, 3> placementShape = {batchSize, kTrainingCount, kMaxPersons};
+  const std::array<int64_t, 3> actionShape = {batchSize, kMaxActions, kActionFeatures};
+  const std::array<int64_t, 2> personMaskShape = {batchSize, kMaxPersons};
+  const std::array<int64_t, 2> actionMaskShape = {batchSize, kMaxActions};
 
   auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
   std::array<Ort::Value, 7> inputs = {
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.global.data()), features.global.size(), globalShape.data(), globalShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.persons.data()), features.persons.size(), personShape.data(), personShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.training.data()), features.training.size(), trainingShape.data(), trainingShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.placement.data()), features.placement.size(), placementShape.data(), placementShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.actions.data()), features.actions.size(), actionShape.data(), actionShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.personMask.data()), features.personMask.size(), personMaskShape.data(), personMaskShape.size()),
-    Ort::Value::CreateTensor<float>(memory, const_cast<float*>(features.actionMask.data()), features.actionMask.size(), actionMaskShape.data(), actionMaskShape.size()),
+    Ort::Value::CreateTensor<float>(memory, global.data(), global.size(), globalShape.data(), globalShape.size()),
+    Ort::Value::CreateTensor<float>(memory, persons.data(), persons.size(), personShape.data(), personShape.size()),
+    Ort::Value::CreateTensor<float>(memory, training.data(), training.size(), trainingShape.data(), trainingShape.size()),
+    Ort::Value::CreateTensor<float>(memory, placement.data(), placement.size(), placementShape.data(), placementShape.size()),
+    Ort::Value::CreateTensor<float>(memory, actions.data(), actions.size(), actionShape.data(), actionShape.size()),
+    Ort::Value::CreateTensor<float>(memory, personMask.data(), personMask.size(), personMaskShape.data(), personMaskShape.size()),
+    Ort::Value::CreateTensor<float>(memory, actionMask.data(), actionMask.size(), actionMaskShape.data(), actionMaskShape.size()),
   };
 
   auto outputs = impl_->session.Run(
@@ -329,50 +460,77 @@ GraphPrediction GraphModel::evaluate(const GraphFeatures& features)
   const float* actionScores = outputs[2].GetTensorData<float>();
   const float* stateValue = outputs[3].GetTensorData<float>();
   const float* stateScore = outputs[4].GetTensorData<float>();
-  validateFinite(policy, kMaxActions, kOutputPolicy);
-  validateFinite(qValues, kMaxActions * kQuantiles, kOutputQ);
-  validateFinite(actionScores, kMaxActions * kQuantiles, kOutputActionScore);
-  validateFinite(stateValue, kQuantiles, kOutputValue);
-  validateFinite(stateScore, kQuantiles, kOutputStateScore);
+  validateFinite(policy, featuresBatch.size() * kMaxActions, kOutputPolicy);
+  validateFinite(
+    qValues,
+    featuresBatch.size() * kMaxActions * kQuantiles,
+    kOutputQ);
+  validateFinite(
+    actionScores,
+    featuresBatch.size() * kMaxActions * kQuantiles,
+    kOutputActionScore);
+  validateFinite(
+    stateValue,
+    featuresBatch.size() * kQuantiles,
+    kOutputValue);
+  validateFinite(
+    stateScore,
+    featuresBatch.size() * kQuantiles,
+    kOutputStateScore);
 
-  GraphPrediction result;
-  result.priors.resize(features.actionCount);
-  result.actionValues.resize(features.actionCount);
-  result.actionScores.resize(features.actionCount);
-  if (features.actionCount > 0)
+  std::vector<GraphPrediction> results(featuresBatch.size());
+  for (std::size_t batch = 0; batch < featuresBatch.size(); ++batch)
   {
-    const float maximum = *std::max_element(policy, policy + features.actionCount);
-    double total = 0.0;
+    const auto& features = featuresBatch[batch];
+    const float* batchPolicy = policy + batch * kMaxActions;
+    const float* batchQValues = qValues + batch * kMaxActions * kQuantiles;
+    const float* batchActionScores = actionScores +
+      batch * kMaxActions * kQuantiles;
+    const float* batchStateValue = stateValue + batch * kQuantiles;
+    const float* batchStateScore = stateScore + batch * kQuantiles;
+    GraphPrediction& result = results[batch];
+    result.priors.resize(features.actionCount);
+    result.actionValues.resize(features.actionCount);
+    result.actionScores.resize(features.actionCount);
+    if (features.actionCount > 0)
+    {
+      const float maximum = *std::max_element(
+        batchPolicy,
+        batchPolicy + features.actionCount);
+      double total = 0.0;
+      for (int action = 0; action < features.actionCount; ++action)
+      {
+        result.priors[action] = std::exp(
+          std::clamp<double>(batchPolicy[action] - maximum, -80.0, 0.0));
+        total += result.priors[action];
+      }
+      if (!std::isfinite(total) || total <= 0.0)
+        total = static_cast<double>(features.actionCount);
+      for (double& prior : result.priors)
+        prior = total == static_cast<double>(features.actionCount) && prior <= 0.0
+          ? 1.0 / total
+          : prior / total;
+    }
+
     for (int action = 0; action < features.actionCount; ++action)
     {
-      result.priors[action] = std::exp(
-        std::clamp<double>(policy[action] - maximum, -80.0, 0.0));
-      total += result.priors[action];
+      for (int quantile = 0; quantile < kQuantiles; ++quantile)
+      {
+        result.actionValues[action].values[quantile] =
+          batchQValues[action * kQuantiles + quantile] * kScoreScale;
+        result.actionScores[action].values[quantile] =
+          batchActionScores[action * kQuantiles + quantile] * kScoreScale;
+      }
     }
-    if (!std::isfinite(total) || total <= 0.0)
-      total = static_cast<double>(features.actionCount);
-    for (double& prior : result.priors)
-      prior = total == static_cast<double>(features.actionCount) && prior <= 0.0
-        ? 1.0 / total
-        : prior / total;
-  }
-
-  for (int action = 0; action < features.actionCount; ++action)
-  {
     for (int quantile = 0; quantile < kQuantiles; ++quantile)
     {
-      result.actionValues[action].values[quantile] =
-        qValues[action * kQuantiles + quantile] * kScoreScale;
-      result.actionScores[action].values[quantile] =
-        actionScores[action * kQuantiles + quantile] * kScoreScale;
+      result.stateValue.values[quantile] =
+        batchStateValue[quantile] * kScoreScale;
+      result.stateScore.values[quantile] =
+        batchStateScore[quantile] * kScoreScale;
     }
   }
-  for (int quantile = 0; quantile < kQuantiles; ++quantile)
-  {
-    result.stateValue.values[quantile] = stateValue[quantile] * kScoreScale;
-    result.stateScore.values[quantile] = stateScore[quantile] * kScoreScale;
-  }
-  return result;
+  return results;
 }
 
 double adjustedRadicalFactor(double maximum, int turn)

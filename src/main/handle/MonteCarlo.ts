@@ -8,6 +8,17 @@ import { getLatestMonteCarloState } from './MonteCarloState';
 
 const PROTOCOL_PREFIX = 'UMASHOW_JSON:';
 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+const ANALYZE_MAX_ATTEMPTS = 3;
+const ANALYZE_RETRY_DELAY_MS = 250;
+
+const retryableWorkerError = (error: Error) =>
+  error.message.startsWith('推荐计算已停止') ||
+  error.message === '推荐计算未启动';
+
+const wait = (durationMs: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 
 const assetsRoot = () =>
   app.isPackaged
@@ -47,6 +58,8 @@ class MonteCarloWorker {
   private stdoutBuffer = '';
 
   private readonly pending = new Map<string, PendingRequest>();
+
+  private stopVersion = 0;
 
   private fail(error: Error) {
     this.rejectReady?.(error);
@@ -102,28 +115,33 @@ class MonteCarloWorker {
       this.resolveReady = resolve;
       this.rejectReady = reject;
     });
-    this.process = spawn(exe, [database], {
+    this.stdoutBuffer = '';
+    const workerProcess = spawn(exe, [database], {
       cwd: path.dirname(exe),
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    this.process.stdout.setEncoding('utf8');
-    this.process.stdout.on('data', (chunk: string) => {
+    this.process = workerProcess;
+    workerProcess.stdout.setEncoding('utf8');
+    workerProcess.stdout.on('data', (chunk: string) => {
+      if (this.process !== workerProcess) return;
       this.stdoutBuffer += chunk;
       const lines = this.stdoutBuffer.split(/\r?\n/);
       this.stdoutBuffer = lines.pop() || '';
       lines.forEach((line) => this.consumeLine(line));
     });
-    this.process.once('error', (error) => this.fail(error));
-    this.process.once('exit', (code) => {
-      if (this.process) {
+    workerProcess.once('error', (error) => {
+      if (this.process === workerProcess) this.fail(error);
+    });
+    workerProcess.once('exit', (code) => {
+      if (this.process === workerProcess) {
         this.fail(new Error(`推荐计算已停止（${code ?? 'unknown'}）`));
       }
     });
     await this.readyPromise;
   }
 
-  async analyze(
+  private async analyzeOnce(
     state: Record<string, unknown>,
     options: MonteCarloOptions = {},
   ): Promise<MonteCarloResult> {
@@ -143,7 +161,36 @@ class MonteCarloWorker {
     return result;
   }
 
+  async analyze(
+    state: Record<string, unknown>,
+    options: MonteCarloOptions = {},
+  ): Promise<MonteCarloResult> {
+    const analyzeStopVersion = this.stopVersion;
+    let lastError = new Error('推荐计算失败');
+
+    for (let attempt = 1; attempt <= ANALYZE_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        return await this.analyzeOnce(state, options);
+      } catch (reason) {
+        lastError =
+          reason instanceof Error ? reason : new Error(String(reason));
+        const shouldRetry =
+          attempt < ANALYZE_MAX_ATTEMPTS &&
+          analyzeStopVersion === this.stopVersion &&
+          retryableWorkerError(lastError);
+        if (!shouldRetry) throw lastError;
+        // Give Windows a moment to release the crashed worker before restart.
+        // eslint-disable-next-line no-await-in-loop
+        await wait(ANALYZE_RETRY_DELAY_MS);
+      }
+    }
+
+    throw lastError;
+  }
+
   stop() {
+    this.stopVersion += 1;
     const runningProcess = this.process;
     this.fail(new Error('推荐已停用'));
     runningProcess?.kill();

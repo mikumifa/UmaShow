@@ -39,6 +39,7 @@ export type UmaAiOptions = Required<
     | 'graphSearchNodes'
     | 'graphSearchDepth'
     | 'graphSearchTimeMs'
+    | 'graphInferenceBatchSize'
     | 'graphSearchTopK'
     | 'graphSearchChanceOutcomes'
     | 'graphSearchCpuct'
@@ -98,6 +99,7 @@ export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
     graphSearchNodes: 384,
     graphSearchDepth: 5,
     graphSearchTimeMs: 900,
+    graphInferenceBatchSize: 8,
     graphSearchTopK: 4,
     graphSearchChanceOutcomes: 8,
     graphSearchCpuct: 1.5,
@@ -293,6 +295,14 @@ export const normalizeUmaAiSettings = (
           30000,
         ),
       ),
+      graphInferenceBatchSize: Math.round(
+        boundedNumber(
+          raw.graphInferenceBatchSize,
+          defaults.graphInferenceBatchSize,
+          1,
+          64,
+        ),
+      ),
       graphSearchTopK: Math.round(
         boundedNumber(raw.graphSearchTopK, defaults.graphSearchTopK, 1, 12),
       ),
@@ -368,6 +378,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const settingsRef = useRef(settings);
   const busyRef = useRef(false);
   const refiningRef = useRef(false);
+  const suspendedRef = useRef(false);
   const autoRefinedSequenceRef = useRef(0);
   const refinementRunRef = useRef(0);
   const pendingStateRef = useRef<MonteCarloCapturedState | null>(null);
@@ -377,14 +388,14 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
 
   const analyzeCapturedState = useCallback(
     async (nextState: MonteCarloCapturedState) => {
-      if (!settingsRef.current.enabled) return;
+      if (!settingsRef.current.enabled || suspendedRef.current) return;
       pendingStateRef.current = nextState;
       if (busyRef.current) return;
 
       busyRef.current = true;
       if (mountedRef.current) setBusy(true);
       const runNext = async (): Promise<void> => {
-        if (!settingsRef.current.enabled) {
+        if (!settingsRef.current.enabled || suspendedRef.current) {
           pendingStateRef.current = null;
           return;
         }
@@ -398,12 +409,22 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
             settingsRef.current.options,
           )) as MonteCarloResult;
           if (!response.ok) throw new Error(response.error || '计算失败');
-          if (mountedRef.current && settingsRef.current.enabled) {
+          if (
+            mountedRef.current &&
+            settingsRef.current.enabled &&
+            !suspendedRef.current &&
+            capturedStateRef.current?.sequence === current.sequence
+          ) {
             resultRef.current = response;
             setResult(response);
           }
         } catch (reason) {
-          if (mountedRef.current && settingsRef.current.enabled) {
+          if (
+            mountedRef.current &&
+            settingsRef.current.enabled &&
+            !suspendedRef.current &&
+            capturedStateRef.current?.sequence === current.sequence
+          ) {
             setError(errorText(reason));
           }
         }
@@ -418,6 +439,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
 
   const startAnalysis = useCallback(
     (nextState: MonteCarloCapturedState) => {
+      if (suspendedRef.current) return;
       if (refiningRef.current) {
         refiningRef.current = false;
         setRefining(false);
@@ -427,6 +449,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       setRefinementStatus(null);
       resultRef.current = null;
       setResult(null);
+      if (busyRef.current) setBusy(true);
       analyzeCapturedState(nextState).catch((reason) => {
         if (mountedRef.current && settingsRef.current.enabled) {
           setError(errorText(reason));
@@ -437,15 +460,32 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     [analyzeCapturedState],
   );
 
+  const suspendAnalysis = useCallback(() => {
+    // Preserve the displayed recommendation while result/event packets keep
+    // every analysis backend paused.
+    suspendedRef.current = true;
+    refinementRunRef.current += 1;
+    refiningRef.current = false;
+    pendingStateRef.current = null;
+    setBusy(false);
+    setRefining(false);
+    window.electron.monteCarlo.stop().catch(() => undefined);
+  }, []);
+
   const acceptCapturedState = useCallback(
     (nextState: MonteCarloCapturedState | null) => {
-      if (!nextState || nextState.sequence <= lastSequenceRef.current) return;
+      if (!nextState) {
+        suspendAnalysis();
+        return;
+      }
+      if (nextState.sequence <= lastSequenceRef.current) return;
+      suspendedRef.current = false;
       lastSequenceRef.current = nextState.sequence;
       capturedStateRef.current = nextState;
       setCapturedState(nextState);
       if (settingsRef.current.enabled) startAnalysis(nextState);
     },
-    [startAnalysis],
+    [startAnalysis, suspendAnalysis],
   );
 
   const saveSettings = useCallback(
@@ -508,6 +548,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     const initialResult = resultRef.current;
     if (
       busyRef.current ||
+      suspendedRef.current ||
       !settingsRef.current.enabled ||
       state?.scenarioId !== 6 ||
       !initialResult?.ok ||
@@ -602,7 +643,14 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (busy || !settings.enabled || !pendingStateRef.current) return;
+    if (
+      busy ||
+      suspendedRef.current ||
+      !settings.enabled ||
+      !pendingStateRef.current
+    ) {
+      return;
+    }
     const pendingState = pendingStateRef.current;
     analyzeCapturedState(pendingState).catch((reason) => {
       if (mountedRef.current) setError(errorText(reason));
@@ -643,7 +691,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     let disposed = false;
     const unsubscribe = window.electron.monteCarlo.onStateCaptured((value) => {
       if (!disposed) {
-        acceptCapturedState(value as MonteCarloCapturedState);
+        acceptCapturedState(value as MonteCarloCapturedState | null);
       }
     });
 
@@ -660,8 +708,9 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     window.electron.monteCarlo
       .loadLatestState()
       .then((value) => {
-        if (!disposed) {
-          acceptCapturedState(value as MonteCarloCapturedState | null);
+        const latest = value as MonteCarloCapturedState | null;
+        if (!disposed && latest) {
+          acceptCapturedState(latest);
         }
         return undefined;
       })
@@ -673,6 +722,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     return () => {
       disposed = true;
       mountedRef.current = false;
+      suspendedRef.current = true;
       refiningRef.current = false;
       refinementRunRef.current += 1;
       unsubscribe();

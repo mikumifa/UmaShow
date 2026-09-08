@@ -10,6 +10,7 @@ import torch
 from torch import Tensor, nn
 
 try:
+    from .onnx_export import default_fp16_path, save_model_variants
     from .schema import (
         LIGHTZERO_ACTIONS,
         LIGHTZERO_MANIFEST,
@@ -20,6 +21,7 @@ try:
         SCORE_SCALE,
     )
 except ImportError:
+    from onnx_export import default_fp16_path, save_model_variants  # type: ignore
     from schema import (  # type: ignore
         LIGHTZERO_ACTIONS,
         LIGHTZERO_MANIFEST,
@@ -66,6 +68,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("output", type=Path)
     parser.add_argument("--config", type=Path, help="path to umashow-model.json")
     parser.add_argument("--opset", type=int, default=18)
+    parser.add_argument(
+        "--fp16-output",
+        type=Path,
+        help="GPU FP16 output path; defaults to <output stem>.fp16.onnx",
+    )
+    parser.add_argument(
+        "--no-fp16",
+        action="store_true",
+        help="only export the general FP32 model",
+    )
     return parser.parse_args()
 
 
@@ -169,7 +181,10 @@ def main() -> None:
     )
 
     exported = onnx.load(args.output)
-    onnx.helper.set_model_props(
+    fp16_output = None if args.no_fp16 else (
+        args.fp16_output or default_fp16_path(args.output)
+    )
+    saved_fp16 = save_model_variants(
         exported,
         {
             "umashow.graph_schema": str(SCHEMA_VERSION),
@@ -179,10 +194,13 @@ def main() -> None:
             "umashow.algorithm": "stochastic_muzero",
             "umashow.value_semantics": "remaining_recommendation_return",
         },
+        args.output,
+        fp16_output,
     )
-    onnx.checker.check_model(exported)
-    onnx.save(exported, args.output)
-    print(f"exported recommendation model: {args.output.resolve()}")
+    print(
+        f"exported recommendation models: FP32={args.output.resolve()}, "
+        f"GPU FP16={saved_fp16.resolve() if saved_fp16 else 'disabled'}"
+    )
 
 
 if __name__ == "__main__":

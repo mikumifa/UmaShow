@@ -20,6 +20,7 @@ struct GraphSearchConfig
   int nodeBudget = 384;
   int maxDepth = 5;
   int timeBudgetMs = 900;
+  int inferenceBatchSize = 8;
   int topK = 4;
   int maxChanceOutcomes = 8;
   double cpuct = 1.5;

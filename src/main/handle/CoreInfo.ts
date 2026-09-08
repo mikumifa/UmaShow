@@ -275,11 +275,21 @@ export async function extractCoreInfo(
     return;
   }
   const decoded = decodedData;
-  const normalizedData = normalizeSingleModeData(
-    decoded.data as Record<string, any>,
-  );
+  const rawData = decoded.data as Record<string, any>;
+  const normalizedData = normalizeSingleModeData(rawData);
   const chara = normalizedData.chara_info;
   if (!chara) return;
+  const commandResult = normalizedData.command_result ?? rawData.command_result;
+  // The command result is an intermediate snapshot. Keep the monitor on the
+  // previous turn until the next home/event packet provides a stable state.
+  if (
+    commandResult != null &&
+    typeof commandResult === 'object' &&
+    !Array.isArray(commandResult) &&
+    Object.keys(commandResult).length > 0
+  ) {
+    return;
+  }
   const scenarioType = resolveScenarioType(
     normalizedData as Record<string, unknown>,
   );

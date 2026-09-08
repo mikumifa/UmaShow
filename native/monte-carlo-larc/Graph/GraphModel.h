@@ -3,6 +3,7 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "GraphFeatures.h"
@@ -48,7 +49,10 @@ public:
   GraphModel& operator=(GraphModel&&) noexcept;
 
   GraphPrediction evaluate(const GraphFeatures& features);
+  std::vector<GraphPrediction> evaluateBatch(
+    const std::vector<GraphFeatures>& features);
   const std::filesystem::path& path() const;
+  const std::string& executionProvider() const;
 
 private:
   struct Impl;

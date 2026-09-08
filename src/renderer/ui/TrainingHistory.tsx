@@ -59,17 +59,10 @@ function getHistoryCharaId(cardId: number) {
   return Number(cardIdText.slice(0, 4));
 }
 
-function getHistoryRaceDressId(cardId: number, rarity: number) {
-  if (!Number.isFinite(cardId) || cardId <= 0) return undefined;
-  if (!Number.isFinite(rarity) || rarity <= 0) return undefined;
-  return UMDB.cardRarityData[cardId]?.[rarity];
-}
-
-function getHistoryHorseIconPath(cardId: number, rarity: number) {
+function getHistoryHorseIconPath(cardId: number) {
   const charaId = getHistoryCharaId(cardId);
-  const raceDressId = getHistoryRaceDressId(cardId, rarity);
-  if (charaId == null || raceDressId == null) return undefined;
-  return `trained_chr_icon/${charaId}_${raceDressId}.png`;
+  if (charaId == null) return undefined;
+  return UMDB.charaIconPath(charaId) || undefined;
 }
 
 function getHistoryHorseName(cardId: number) {
@@ -1158,10 +1151,7 @@ export default function TrainingHistory() {
       ? getHistoryHorseName(previewRecord.summary.cardId)
       : '养成记录';
     const horseIconPath = previewRecord
-      ? getHistoryHorseIconPath(
-          previewRecord.summary.cardId,
-          previewRecord.summary.rarity,
-        )
+      ? getHistoryHorseIconPath(previewRecord.summary.cardId)
       : undefined;
     return (
       <RacePageLayout
@@ -1224,10 +1214,7 @@ export default function TrainingHistory() {
 
   if (selected) {
     const horseName = getHistoryHorseName(selected.summary.cardId);
-    const horseIconPath = getHistoryHorseIconPath(
-      selected.summary.cardId,
-      selected.summary.rarity,
-    );
+    const horseIconPath = getHistoryHorseIconPath(selected.summary.cardId);
     return (
       <RacePageLayout
         title={horseName}
@@ -1568,10 +1555,7 @@ export default function TrainingHistory() {
 
         {items.map((item) => {
           const horseName = getHistoryHorseName(item.summary.cardId);
-          const horseIconPath = getHistoryHorseIconPath(
-            item.summary.cardId,
-            item.summary.rarity,
-          );
+          const horseIconPath = getHistoryHorseIconPath(item.summary.cardId);
           return (
             <div
               key={item.id}

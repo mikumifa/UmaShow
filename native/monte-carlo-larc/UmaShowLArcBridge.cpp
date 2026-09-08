@@ -506,6 +506,8 @@ struct RecommendationComputation
   double bestValue = -1e30;
   double predictedScore = -1e30;
   std::string backend = "builtin";
+  std::string inferenceProvider;
+  std::string resolvedModelPath;
   int simulations = 0;
   int nodes = 0;
   int elapsedMs = 0;
@@ -609,6 +611,12 @@ RecommendationComputation runGraphRecommendation(
   config.nodeBudget = boundedInt(options, "graphSearchNodes", 384, 16, 8192);
   config.maxDepth = boundedInt(options, "graphSearchDepth", 5, 1, 16);
   config.timeBudgetMs = boundedInt(options, "graphSearchTimeMs", 900, 50, 30000);
+  config.inferenceBatchSize = boundedInt(
+    options,
+    "graphInferenceBatchSize",
+    8,
+    1,
+    64);
   config.topK = boundedInt(options, "graphSearchTopK", 4, 1, 12);
   config.maxChanceOutcomes = boundedInt(
     options,
@@ -667,6 +675,8 @@ RecommendationComputation runGraphRecommendation(
 
   RecommendationComputation computation;
   computation.backend = "graph";
+  computation.inferenceProvider = model.executionProvider();
+  computation.resolvedModelPath = pathToUtf8(model.path());
   computation.simulations = searchResult.simulations;
   computation.nodes = searchResult.nodes;
   computation.elapsedMs = searchResult.elapsedMs;
@@ -1228,6 +1238,8 @@ json analyze(const json& request)
     {"backend", computation.backend},
     {"modelLoaded", computation.backend == "graph"},
     {"modelPath", modelPath},
+    {"resolvedModelPath", computation.resolvedModelPath},
+    {"inferenceProvider", computation.inferenceProvider},
     {"fallbackReason", fallbackReason},
     {"searchStats", {
       {"simulations", computation.simulations},
@@ -1245,6 +1257,12 @@ json analyze(const json& request)
       {"graphSearchNodes", boundedInt(options, "graphSearchNodes", 384, 16, 8192)},
       {"graphSearchDepth", boundedInt(options, "graphSearchDepth", 5, 1, 16)},
       {"graphSearchTimeMs", boundedInt(options, "graphSearchTimeMs", 900, 50, 30000)},
+      {"graphInferenceBatchSize", boundedInt(
+        options,
+        "graphInferenceBatchSize",
+        8,
+        1,
+        64)},
       {"graphSearchTopK", boundedInt(options, "graphSearchTopK", 4, 1, 12)},
       {"graphSearchCpuct", std::clamp(options.value("graphSearchCpuct", 1.5), 0.0, 20.0)},
       {"graphRootSelection", options.value("graphRootSelection", "puct")},
