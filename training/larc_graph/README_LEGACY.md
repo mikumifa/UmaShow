@@ -54,8 +54,6 @@ uv run --extra larc-graph python training/larc_graph/train.py \
   --batch-size 1024 --epochs 30
 ```
 
-损失包含：搜索访问分布的 Policy 交叉熵、Q/Value Quantile Huber、原始最终分数辅助损失，以及 Q/Value 一致性损失。
-
 继续上一轮权重：
 
 ```bash
@@ -63,10 +61,26 @@ uv run --extra larc-graph python training/larc_graph/train.py \
   "training/larc_graph/data/selfplay-v1/*.npz" \
   --init-checkpoint training/larc_graph/checkpoints/larc_graph-v0.pt \
   --output training/larc_graph/checkpoints/larc_graph-v1.pt \
-  --training-round 1 --batch-size 256 --epochs 30
+  --training-round 1 --batch-size 1024 --epochs 30
 ```
 
-## 3. 导出 ONNX
+使用多个数据源吧
+
+```bash
+uv run --extra larc-graph python training/larc_graph/train.py \
+  "training/larc_graph/data/selfplay-v0/*.npz" \
+  "training/larc_graph/data/selfplay-v1/*.npz" \
+  --init-checkpoint training/larc_graph/checkpoints/larc_graph-v1.pt \
+  --output training/larc_graph/checkpoints/larc_graph-v2.1.pt \
+  --training-round 2 \
+  --learning-rate 1e-4 \
+  --batch-size 256 \
+  --epochs 15 \
+  --workers 4 \
+  --device cuda
+```
+
+## 导出 ONNX
 
 ```bash
 uv run --extra larc-graph python training/larc_graph/export_onnx.py \
@@ -74,30 +88,13 @@ uv run --extra larc-graph python training/larc_graph/export_onnx.py \
   training/larc_graph/models/larc_graph-v0.onnx
 ```
 
-导出器会写入协议版本、剧本和评分缩放元数据。Python 版 ONNX Runtime 仅用于可选的导出检查，默认训练依赖不再安装它，因此 Python 3.10 也不会被其轮子版本阻塞；之后在 UmaShow 的“推荐设置”中选择该文件即可。
-
-## 4. 与内置手写策略做整局评估
-
-训练集验证损失只能说明模型拟合了 teacher，不能说明整局育成效果。使用相同的角色、卡组、继承、目标和环境随机种子，分别让旧版图模型与内置手写蒙特卡洛策略完成整局育成：
-
 ```bash
-uv run --extra larc-graph python training/larc_graph/evaluate_legacy.py \
-  training/larc_graph/models/larc_graph-v0.onnx \
-  --games 100 --workers 8 --threads 1 \
-  --builtin-searches 128 --model-nodes 128 \
-  --output training/larc_graph/evaluations/larc_graph-v0.json
+uv run --extra larc-graph python training/larc_graph/export_onnx.py \
+  training/larc_graph/checkpoints/larc_graph-v1.pt \
+  training/larc_graph/models/larc_graph-v1.onnx
 ```
 
-评估时会关闭探索、温度采样和根节点噪声。结果同时报告：
-
-- `finalScore`：不截断目标属性的模拟器终局总分。
-- `recommendationScore`：按用户目标属性截断后的推荐分，设置目标时应优先看这个指标。
-- 成对分差、胜负次数、去除平局后的胜率、均值差 95% 区间与每局耗时。
-- 新版推荐组件还会返回双方平均五维、技能点和估算技能分。
-
-默认会随机生成覆盖不同角色、卡组、继承和部分目标上限的开局。固定目标可使用 `--target-speed/--target-stamina/--target-power/--target-guts/--target-wisdom`；只想测不设目标的总分时加 `--no-random-targets`。这是模拟器内“旧模型 vs 内置手写策略”的 A/B，并不等同于真实玩家手养记录；若要比较真人手养，还需要把真人每回合选择或终局记录作为另一份输入数据。
-
-直接比较两个旧版 `.pt` checkpoint 时，脚本会自动临时导出 ONNX，并让两个模型在完全相同的开局和搜索预算下完成整局育成：
+## 比较模型
 
 ```bash
 uv run --extra larc-graph python training/larc_graph/compare_legacy_models.py \
@@ -105,29 +102,8 @@ uv run --extra larc-graph python training/larc_graph/compare_legacy_models.py \
   training/larc_graph/checkpoints/larc_graph-v1.pt \
   --games 100 --workers 4 \
   --nodes 64 --depth 8 --top-k 8 --chance-outcomes 8 \
+  --root-selection gumbel \
+  --gumbel-max-actions 16 --gumbel-scale 0 \
   --output training/larc_graph/evaluations/larc_graph-v0-vs-v1.json
+
 ```
-
-输出中的所有差值均为 `modelB - modelA`，所以上述命令中正数代表 v1 更好。需要测试 Gumbel 根搜索时加 `--root-selection gumbel --gumbel-max-actions 16 --gumbel-scale 0`。
-
-## 5. 用旧版数据热启动 LightZero
-
-旧版 `.pt`/`.onnx` 与 LightZero 架构不同，不能直接作为 LightZero checkpoint。
-旧版 NPZ 中保存的搜索标签可以用于离线蒸馏：
-
-```bash
-env -u LD_LIBRARY_PATH .venv/bin/python \
-  training/larc_graph/pretrain_lightzero_from_legacy.py \
-  "training/larc_graph/data/selfplay-v0/*.npz" \
-  "training/larc_graph/data/selfplay-v1/*.npz" \
-  --output training/larc_graph/checkpoints/lightzero-legacy-init.pth.tar \
-  --epochs 10 --batch-size 512
-```
-
-生成的是 LightZero 专用的初始化权重，不是完整训练断点。在线训练时使用
-`train_lightzero.py --init-weights ...`；完整命令和两种 checkpoint 的区别见
-[README.md](README.md)。
-
-## 数据协议
-
-固定尺寸在 `schema.py`，当前版本为 `2`。C++ 会同时校验输入输出名称、形状、float32 类型和 ONNX 元数据；任何不匹配都会给出原因并回退到内置推荐。

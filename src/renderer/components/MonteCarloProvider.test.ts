@@ -193,6 +193,53 @@ describe('recommendation settings', () => {
     });
   });
 
+  it('merges model searches by root visits instead of value alone', () => {
+    const result = (
+      bestActionId: number,
+      speedVisits: number,
+      staminaVisits: number,
+    ) => ({
+      ok: true,
+      backend: 'graph' as const,
+      bestActionId,
+      actions: [
+        {
+          id: 1,
+          label: '速度训练',
+          type: 0,
+          train: 0,
+          overdrive: false,
+          searches: speedVisits,
+          scoreMean: 1000,
+          scoreStdev: 10,
+          value: 100,
+          deltaFromBest: 0,
+        },
+        {
+          id: 2,
+          label: '耐力训练',
+          type: 0,
+          train: 1,
+          overdrive: false,
+          searches: staminaVisits,
+          scoreMean: 1010,
+          scoreStdev: 10,
+          value: 120,
+          deltaFromBest: 0,
+        },
+      ],
+    });
+
+    const merged = mergeRecommendationResults(
+      result(1, 60, 40),
+      result(1, 55, 45),
+    );
+
+    expect(merged.bestActionId).toBe(1);
+    expect(merged.bestAction).toBe('速度训练');
+    expect(merged.actions?.[0]).toMatchObject({ id: 1, searches: 115 });
+  });
+
   it('treats unchanged displayed scores and ranking as stable', () => {
     const result = {
       ok: true,

@@ -136,12 +136,14 @@ export default function AutomationControlCard({
   const scheduleHasDelayedStart = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(
     String(schedule?.start_time || ''),
   );
+  const scheduleWaitingForDelayedStart =
+    scheduleHasDelayedStart && observation?.phase === 'waiting';
   const scheduledStartChanged =
     !repeatDaily &&
     (scheduleTiming === 'scheduled'
-      ? !scheduleHasDelayedStart ||
+      ? !scheduleWaitingForDelayedStart ||
         String(schedule?.start_time || '').slice(0, 16) !== scheduledStartAt
-      : scheduleHasDelayedStart);
+      : scheduleWaitingForDelayedStart);
   const scheduledStartValid =
     scheduleTiming !== 'scheduled' ||
     (Boolean(scheduledStartAt) &&
@@ -216,25 +218,25 @@ export default function AutomationControlCard({
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-slate-500">
-            {scheduleHasDelayedStart && observation?.phase === 'waiting'
+            {scheduleWaitingForDelayedStart
               ? `计划于 ${scheduledStartLabel} 启动 · ${activeItem?.career_setting_name || '当前详设'}`
               : activeItem
-              ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
-                  activeItem.goal,
-                  activeItem.target,
-                  daily,
-                )}`
-              : activeSetting?.mode === 'offline'
-                ? '离线技能与因子配置已由服务器接管执行。'
-                : observation?.reason || '等待调度器选择下一次育成。'}
+                ? `正在执行：${activeItem.career_setting_name || '当前详设'} · ${itemGoalLabel(
+                    activeItem.goal,
+                    activeItem.target,
+                    daily,
+                  )}`
+                : activeSetting?.mode === 'offline'
+                  ? '离线技能与因子配置已由服务器接管执行。'
+                  : observation?.reason || '等待调度器选择下一次育成。'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1 rounded-lg bg-slate-50/90 p-1 ring-1 ring-slate-200/70">
           <button
             type="button"
             onClick={openAppendCareerPlan}
             disabled={!canAppendCareerPlan || runnerStopping || runnerPaused}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+            className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40"
           >
             <Plus size={14} />
             添加后续
@@ -243,7 +245,7 @@ export default function AutomationControlCard({
             <button
               type="button"
               onClick={() => editPreset(activeSetting.id)}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+              className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm"
             >
               <Settings2 size={14} />
               编辑预设
@@ -254,7 +256,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={resumeCareer}
               disabled={Boolean(busy)}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
             >
               <Play size={14} />
               {busy === 'resume' ? '正在恢复…' : '恢复原计划'}
@@ -264,7 +266,7 @@ export default function AutomationControlCard({
               type="button"
               onClick={pauseCareer}
               disabled={runnerStopping || busy === 'pause'}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-amber-700 hover:shadow-sm disabled:opacity-50"
             >
               {runnerStopping ? (
                 <RefreshCw size={14} className="animate-spin" />
@@ -278,7 +280,7 @@ export default function AutomationControlCard({
             type="button"
             onClick={closeCareerPlan}
             disabled={runnerStopping || Boolean(busy)}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-red-600 hover:shadow-sm disabled:opacity-50"
           >
             <CircleStop size={14} />
             {runnerClosing ? '正在关闭…' : '关闭'}
@@ -287,14 +289,8 @@ export default function AutomationControlCard({
             <button
               type="button"
               onClick={updateRunningAutomation}
-              disabled={
-                Boolean(busy) ||
-                (runMode === 'jewel_drops' &&
-                  !repeatDaily &&
-                  remainingJewelDrops <= 0) ||
-                !scheduledStartValid
-              }
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+              disabled={Boolean(busy) || !scheduledStartValid}
+              className="flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
             >
               <Play size={14} />
               {busy === 'update-schedule' ? '正在应用…' : '应用计划'}
@@ -304,80 +300,131 @@ export default function AutomationControlCard({
       </div>
 
       {editableSingleItem ? (
-        <div className="mt-3 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
-          {modeOptions.map((option) => {
-            const Icon = option.icon;
-            const disabled =
-              option.id === 'jewel_drops' &&
-              !repeatDaily &&
-              remainingJewelDrops <= 0;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  setRunMode(option.id);
-                  if (option.id === 'jewel_drops') {
-                    setJewelDropTarget(
-                      repeatDaily
-                        ? 20
-                        : Math.max(1, Math.min(remainingJewelDrops, 20)),
-                    );
-                  }
-                }}
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-left text-xs font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-                  runMode === option.id
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
-                }`}
-              >
-                <Icon size={14} className="flex-none" />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+        <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 rounded-xl bg-slate-50/80 p-2">
+          <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+            {modeOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setRunMode(option.id);
+                  }}
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-left text-xs font-semibold transition-all duration-150 ${
+                    runMode === option.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
+                  }`}
+                >
+                  <Icon size={14} className="flex-none" />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
 
-      {editableSingleItem && !repeatDaily ? (
-        <div className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
-          <button
-            type="button"
-            onClick={() => setScheduleTiming('now')}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
-              scheduleTiming === 'now'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
-            }`}
-          >
-            <Play size={14} /> 立即启动
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setScheduleTiming('scheduled');
-              if (!scheduledStartAt) {
-                setScheduledStartAt(defaultScheduledDateTime());
-              }
-            }}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-all duration-150 ${
-              scheduleTiming === 'scheduled'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-white/90 hover:text-slate-800'
-            }`}
-          >
-            <CalendarClock size={14} /> 定时启动
-          </button>
-          {scheduleTiming === 'scheduled' ? (
-            <input
-              type="datetime-local"
-              value={scheduledStartAt}
-              onChange={(event) => setScheduledStartAt(event.target.value)}
-              aria-label="定时启动日期和时间"
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          {runMode === 'count' ? (
+            <RunTargetInput
+              compact
+              embedded
+              className="w-fit"
+              prefix={repeatDaily ? '每天完成' : '从现在起完成'}
+              value={runCountTarget}
+              max={100}
+              suffix="次育成"
+              onValueChange={setRunCountTarget}
             />
           ) : null}
+
+          {runMode === 'jewel_drops' ? (
+            <RunTargetInput
+              compact
+              embedded
+              className="w-fit"
+              prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
+              value={jewelDropTarget}
+              max={20}
+              suffix="次宝石掉落"
+              hint={
+                repeatDaily
+                  ? '当天已有的宝石掉落会计入目标'
+                  : `本周期剩余 ${remainingJewelDrops} 次`
+              }
+              onValueChange={setJewelDropTarget}
+            />
+          ) : null}
+
+          {!repeatDaily ? (
+            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+              {scheduleTiming === 'scheduled' ? (
+                <input
+                  type="datetime-local"
+                  value={scheduledStartAt}
+                  onChange={(event) => setScheduledStartAt(event.target.value)}
+                  aria-label="定时启动日期和时间"
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                />
+              ) : null}
+              <div className="flex w-fit max-w-full items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
+                <button
+                  type="button"
+                  onClick={() => setScheduleTiming('now')}
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-all duration-150 ${
+                    scheduleTiming === 'now'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Play size={14} /> 立即启动
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleTiming('scheduled');
+                    if (!scheduledStartAt) {
+                      setScheduledStartAt(defaultScheduledDateTime());
+                    }
+                  }}
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-all duration-150 ${
+                    scheduleTiming === 'scheduled'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <CalendarClock size={14} /> 定时启动
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 text-xs text-slate-600">
+              <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                <span className="whitespace-nowrap text-slate-500">
+                  每日启动
+                </span>
+                <input
+                  type="time"
+                  value={scheduleStartTime}
+                  onChange={(event) => setScheduleStartTime(event.target.value)}
+                  className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                />
+              </label>
+              <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                <span className="whitespace-nowrap text-slate-500">
+                  每日结束
+                </span>
+                <input
+                  type="time"
+                  value={scheduleEndTime}
+                  onChange={(event) => setScheduleEndTime(event.target.value)}
+                  className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                />
+              </label>
+              <span className="text-slate-400">
+                时段外等待；相同时间表示完整的一天周期
+              </span>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -410,61 +457,6 @@ export default function AutomationControlCard({
             );
           })}
         </ol>
-      ) : null}
-
-      {editableSingleItem && runMode === 'count' ? (
-        <RunTargetInput
-          compact
-          className="mt-2 w-fit"
-          prefix={repeatDaily ? '每天完成' : '从现在起完成'}
-          value={runCountTarget}
-          max={100}
-          suffix="次育成"
-          onValueChange={setRunCountTarget}
-        />
-      ) : null}
-
-      {editableSingleItem && runMode === 'jewel_drops' ? (
-        <RunTargetInput
-          compact
-          className="mt-2 w-fit"
-          prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
-          value={jewelDropTarget}
-          max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
-          suffix="次宝石掉落"
-          hint={
-            repeatDaily
-              ? '当天已有的宝石掉落会计入目标'
-              : `本周期剩余 ${remainingJewelDrops} 次`
-          }
-          onValueChange={setJewelDropTarget}
-        />
-      ) : null}
-
-      {editableSingleItem && repeatDaily ? (
-        <div className="mt-2 flex flex-wrap items-end gap-2 text-xs text-slate-600">
-          <label>
-            <span className="mb-1 block">每日启动</span>
-            <input
-              type="time"
-              value={scheduleStartTime}
-              onChange={(event) => setScheduleStartTime(event.target.value)}
-              className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-            />
-          </label>
-          <label>
-            <span className="mb-1 block">每日结束</span>
-            <input
-              type="time"
-              value={scheduleEndTime}
-              onChange={(event) => setScheduleEndTime(event.target.value)}
-              className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-medium text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-            />
-          </label>
-          <span className="pb-2 text-slate-400">
-            时段外等待；相同时间表示完整的一天周期
-          </span>
-        </div>
       ) : null}
     </section>
   );

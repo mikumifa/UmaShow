@@ -45,9 +45,11 @@ import SkillSelector, {
   AutoResearchSkill,
 } from 'renderer/components/autoResearch/SkillSelector';
 import {
+  characterIconPath,
   horseIconPath,
   RentalParentBadge,
   supportIconPath,
+  umaSkinIconPath,
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
   AutoResearchRequestError,
@@ -270,7 +272,7 @@ const isMissingLocalGameSession = (error: unknown) => {
   return (
     message.includes('请先登录') ||
     message.includes('本地游戏会话') ||
-    message.includes('错误码 217')
+    needsRelogin(error)
   );
 };
 
@@ -748,7 +750,6 @@ export default function AutoResearch() {
     new Map<string, AccountOptionsResponse['options']>(),
   );
   const accountOptionsRequests = useRef(new Map<string, Promise<void>>());
-  const loadedCareerHistoryKeyRef = useRef('');
   const [cardId, setCardId] = useState(0);
   const [deckId, setDeckId] = useState(0);
   const [supportCardIds, setSupportCardIds] = useState<number[]>([]);
@@ -776,6 +777,16 @@ export default function AutoResearch() {
   const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
   const [scheduleTiming, setScheduleTiming] = useState<ScheduleTiming>('now');
   const [scheduledStartAt, setScheduledStartAt] = useState('');
+  const [controlRunMode, setControlRunMode] = useState<RunMode>('single');
+  const [controlRunCountTarget, setControlRunCountTarget] = useState(3);
+  const [controlJewelDropTarget, setControlJewelDropTarget] = useState(20);
+  const [controlRepeatDaily, setControlRepeatDaily] = useState(false);
+  const [controlScheduleStartTime, setControlScheduleStartTime] =
+    useState('05:00');
+  const [controlScheduleEndTime, setControlScheduleEndTime] = useState('05:00');
+  const [controlScheduleTiming, setControlScheduleTiming] =
+    useState<ScheduleTiming>('now');
+  const [controlScheduledStartAt, setControlScheduledStartAt] = useState('');
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [appendPlanPickerOpen, setAppendPlanPickerOpen] = useState(false);
   const [skillSelections, setSkillSelections] = useState<SkillSelectionEntry[]>(
@@ -917,6 +928,16 @@ export default function AutoResearch() {
   const runnerCareerUma = dashboard?.umas.find(
     (uma) => uma.id === Number(runner?.card_id || 0),
   );
+  const currentScheduleCardId = Number(
+    currentScheduleItem?.request?.card_id ||
+      careerSettings.find(
+        (setting) => setting.id === currentScheduleItem?.career_setting_id,
+      )?.card_id ||
+      0,
+  );
+  const scheduledCareerUma = dashboard?.umas.find(
+    (uma) => uma.id === currentScheduleCardId,
+  );
   // The persisted schedule remains authoritative before its disposable
   // attempt has produced a live Runner snapshot.
   const currentCareerActive = Boolean(
@@ -924,19 +945,24 @@ export default function AutoResearch() {
   );
   const currentCareerUma =
     (offlinePlanActive ? runnerCareerUma : activeCareerUma) ||
-    (runner?.running || queuedCareerPlan ? runnerCareerUma : undefined);
+    (runner?.running || queuedCareerPlan ? runnerCareerUma : undefined) ||
+    scheduledCareerUma;
   const currentCareerCardId = Number(
     currentCareerUma?.id ||
       (offlinePlanActive ? 0 : activeCareer?.card_id) ||
       runner?.card_id ||
+      currentScheduleCardId ||
       0,
   );
   const activeCareerIconPath = currentCareerCardId
-    ? horseIconPath(
+    ? umaSkinIconPath(
         currentCareerCardId,
         currentCareerUma?.rarity || 0,
-        currentCareerUma?.race_cloth_id || currentCareerCardId,
+        currentCareerUma?.race_cloth_id || 0,
       )
+    : undefined;
+  const activeCareerFallbackIconPath = currentCareerCardId
+    ? characterIconPath(currentCareerCardId)
     : undefined;
   const currentRunnerStats = offlinePlanActive
     ? {}
@@ -1091,32 +1117,30 @@ export default function AutoResearch() {
       schedule?.items[0];
     const syncKey = [
       schedule?.id || '',
-      schedule?.revision || schedule?.updated_at || '',
       observation?.current_index ?? 0,
       item?.id || '',
+      item?.goal || '',
+      item?.target || 0,
+      schedule?.cadence || '',
+      schedule?.start_time || '',
+      schedule?.end_time || '',
     ].join(':');
     if (syncedScheduleKeyRef.current === syncKey) return;
     syncedScheduleKeyRef.current = syncKey;
     if (item?.goal) {
-      setRunMode(item.goal);
+      setControlRunMode(item.goal);
     }
     const scheduleIsDaily = schedule?.cadence === 'daily';
-    setRepeatDaily(scheduleIsDaily);
-    const hasScheduledStart =
-      !scheduleIsDaily && isScheduledDateTime(schedule?.start_time);
-    setScheduleTiming(hasScheduledStart ? 'scheduled' : 'now');
-    setScheduledStartAt(
-      hasScheduledStart ? toDateTimeLocalValue(schedule?.start_time) : '',
-    );
+    setControlRepeatDaily(scheduleIsDaily);
     if (item?.goal === 'count') {
-      setRunCountTarget(item.target);
+      setControlRunCountTarget(item.target);
     }
     if (item?.goal === 'jewel_drops') {
-      setJewelDropTarget(item.target);
+      setControlJewelDropTarget(item.target);
     }
     if (schedule?.cadence === 'daily') {
-      setScheduleStartTime(schedule.start_time || '05:00');
-      setScheduleEndTime(schedule.end_time || '05:00');
+      setControlScheduleStartTime(schedule.start_time || '05:00');
+      setControlScheduleEndTime(schedule.end_time || '05:00');
     }
   }, [
     automationActive,
@@ -1125,9 +1149,36 @@ export default function AutoResearch() {
     schedule?.end_time,
     schedule?.id,
     schedule?.items,
-    schedule?.revision,
     schedule?.start_time,
-    schedule?.updated_at,
+  ]);
+  const syncedScheduleTimingKeyRef = useRef('');
+  useEffect(() => {
+    if (!automationActive) {
+      syncedScheduleTimingKeyRef.current = '';
+      return;
+    }
+    const waitingForScheduledStart = observation?.phase === 'waiting';
+    const timingKey = [
+      schedule?.id || '',
+      waitingForScheduledStart ? 'waiting' : 'started',
+      schedule?.start_time || '',
+    ].join(':');
+    if (syncedScheduleTimingKeyRef.current === timingKey) return;
+    syncedScheduleTimingKeyRef.current = timingKey;
+    const hasScheduledStart =
+      schedule?.cadence !== 'daily' &&
+      waitingForScheduledStart &&
+      isScheduledDateTime(schedule?.start_time);
+    setControlScheduleTiming(hasScheduledStart ? 'scheduled' : 'now');
+    setControlScheduledStartAt(
+      hasScheduledStart ? toDateTimeLocalValue(schedule?.start_time) : '',
+    );
+  }, [
+    automationActive,
+    observation?.phase,
+    schedule?.cadence,
+    schedule?.id,
+    schedule?.start_time,
   ]);
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
@@ -1709,13 +1760,7 @@ export default function AutoResearch() {
           if (selectedAccountIdRef.current === accountId) {
             setSession(null);
             updateRuntime(accountId, null);
-            if (
-              String((caught as Error)?.message || '').includes('错误码 217')
-            ) {
-              setError(
-                '本地游戏会话已失效（217）。请确认游戏客户端或其他工具已停止操作，再重新登录。',
-              );
-            }
+            setError(String((caught as Error)?.message || caught || ''));
           }
           return;
         }
@@ -2204,14 +2249,14 @@ export default function AutoResearch() {
           }));
         }
         if (selectedAccountIdRef.current === accountId) {
+          const message = String((caught as Error)?.message || caught || '');
           setDailyTasksOverview(null);
           if (loginRequired) {
             setDailyTasksLoadError('');
           } else {
-            const { message } = caught as Error;
             setDailyTasksLoadError(message);
-            setError(message);
           }
+          setError(message);
         }
         return false;
       } finally {
@@ -3066,22 +3111,6 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
-    if (activeTab !== 'history' || !selectedAccountId || !server) {
-      return;
-    }
-    const historyKey = `${server}\u0000${selectedAccountId}`;
-    if (loadedCareerHistoryKeyRef.current === historyKey) return;
-    loadedCareerHistoryKeyRef.current = historyKey;
-    loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [
-    activeTab,
-    loadCareerHistory,
-    selectedAccountId,
-    server,
-    serverConnectionRevision,
-  ]);
-
-  useEffect(() => {
     if (
       activeTab !== 'daily' ||
       !selectedAccountId ||
@@ -3344,7 +3373,6 @@ export default function AutoResearch() {
         setPendingLocalLoginReady(true);
       }
       setLoginSettingsOpen(false);
-      setActiveTab('career');
     }
   };
 
@@ -3581,10 +3609,7 @@ export default function AutoResearch() {
             target: Math.max(1, target),
             max_steps: Math.max(1, Number(payload.max_steps || 2500)),
             burn_clocks: Boolean(payload.burn_clocks),
-            clock_use_limit: Math.min(
-              100,
-              Math.max(1, Number(payload.clock_use_limit || 1)),
-            ),
+            clock_use_limit: Math.max(1, Number(payload.clock_use_limit || 1)),
             request: careerRequest,
             preset:
               rawPreset && typeof rawPreset === 'object'
@@ -3650,7 +3675,6 @@ export default function AutoResearch() {
     setSession(null);
     setCareerHistory([]);
     setSelectedCareerRecords(null);
-    setActiveTab('career');
   };
 
   const refreshOptionsIndex = async () => {
@@ -3660,11 +3684,7 @@ export default function AutoResearch() {
     try {
       await loadAccountOptions(selectedAccountId, true);
     } catch (caught) {
-      setError(
-        needsRelogin(caught)
-          ? '登录会话已失效，请退出账号后重新连接'
-          : (caught as Error).message,
-      );
+      setError(String((caught as Error)?.message || caught || ''));
     } finally {
       setBusy('');
     }
@@ -3823,7 +3843,6 @@ export default function AutoResearch() {
       return;
     if (resettingLocalSession) {
       await logoutLocalAccount(accountId);
-      setActiveTab('career');
       return;
     }
     if (activeLoginOperation.current || disconnectingAccountIdRef.current) {
@@ -3852,7 +3871,6 @@ export default function AutoResearch() {
       if (localStorage.getItem(LAST_ACCOUNT_KEY) === accountId) {
         localStorage.removeItem(LAST_ACCOUNT_KEY);
       }
-      setActiveTab('career');
     } catch (caught) {
       if (needsRelogin(caught)) {
         sessionTokens.current.delete(accountId);
@@ -4324,6 +4342,7 @@ export default function AutoResearch() {
           burnClocks;
         const nextClockUseLimit =
           careerOptions?.clock_use_limit ??
+          item.clock_use_limit ??
           activeAutomationSetting?.clock_use_limit ??
           clockUseLimit;
         const nextRequest: Record<string, unknown> = {
@@ -4368,11 +4387,11 @@ export default function AutoResearch() {
         {
           method: 'PUT',
           body: JSON.stringify({
-            cadence: repeatDaily ? 'daily' : 'once',
-            start_time: repeatDaily
-              ? scheduleStartTime
-              : oneOffStartTime(scheduleTiming, scheduledStartAt),
-            end_time: scheduleEndTime,
+            cadence: controlRepeatDaily ? 'daily' : 'once',
+            start_time: controlRepeatDaily
+              ? controlScheduleStartTime
+              : oneOffStartTime(controlScheduleTiming, controlScheduledStartAt),
+            end_time: controlScheduleEndTime,
             daily_tasks: readLocalDailyTasks(
               selectedAccount?.uid || '',
               defaultDailyTasksConfig(),
@@ -4394,21 +4413,21 @@ export default function AutoResearch() {
 
   const updateRunningAutomation = async () => {
     if (
-      !repeatDaily &&
-      scheduleTiming === 'scheduled' &&
-      !scheduledDateTimeIsFuture(scheduledStartAt)
+      !controlRepeatDaily &&
+      controlScheduleTiming === 'scheduled' &&
+      !scheduledDateTimeIsFuture(controlScheduledStartAt)
     ) {
       setError('请选择晚于当前时间的定时启动日期和时间');
       return;
     }
     const target =
-      runMode === 'count'
-        ? Math.max(1, runCountTarget)
-        : runMode === 'jewel_drops'
-          ? Math.max(1, jewelDropTarget)
+      controlRunMode === 'count'
+        ? Math.max(1, controlRunCountTarget)
+        : controlRunMode === 'jewel_drops'
+          ? Math.max(1, controlJewelDropTarget)
           : 1;
     if (offlinePlanActive) {
-      await updateRunnerConfiguration(undefined, runMode, target);
+      await updateRunnerConfiguration(undefined, controlRunMode, target);
       return;
     }
     const presetNameForRunner =
@@ -4420,7 +4439,7 @@ export default function AutoResearch() {
       setError('当前自动育成绑定的预设不存在');
       return;
     }
-    await updateRunnerConfiguration(preset, runMode, target);
+    await updateRunnerConfiguration(preset, controlRunMode, target);
   };
 
   const abandonCareer = async () => {
@@ -4564,12 +4583,14 @@ export default function AutoResearch() {
         activeAutomationSetting?.preset_name || String(runner?.preset || '');
       if (automationActive && runnerPresetName === preset.name) {
         const target =
-          runMode === 'count'
-            ? Math.max(1, runCountTarget)
-            : runMode === 'jewel_drops'
-              ? Math.max(1, jewelDropTarget)
+          controlRunMode === 'count'
+            ? Math.max(1, controlRunCountTarget)
+            : controlRunMode === 'jewel_drops'
+              ? Math.max(1, controlJewelDropTarget)
               : 1;
-        if (!(await updateRunnerConfiguration(preset, runMode, target))) {
+        if (
+          !(await updateRunnerConfiguration(preset, controlRunMode, target))
+        ) {
           return false;
         }
       }
@@ -4666,6 +4687,9 @@ export default function AutoResearch() {
       } else {
         setPresetEditorOpen(false);
       }
+    }
+    if (tab === 'history' && selectedAccountId && busy !== 'history') {
+      loadCareerHistory(selectedAccountId).catch(() => undefined);
     }
     setActiveTab(tab);
     if (target) {
@@ -5198,12 +5222,12 @@ export default function AutoResearch() {
       return;
     }
     const target =
-      runMode === 'count'
-        ? Math.max(1, runCountTarget)
-        : runMode === 'jewel_drops'
-          ? Math.max(1, jewelDropTarget)
+      controlRunMode === 'count'
+        ? Math.max(1, controlRunCountTarget)
+        : controlRunMode === 'jewel_drops'
+          ? Math.max(1, controlJewelDropTarget)
           : 1;
-    await updateRunnerConfiguration(preset, runMode, target, {
+    await updateRunnerConfiguration(preset, controlRunMode, target, {
       max_steps: maxSteps,
       burn_clocks: burnClocks,
       clock_use_limit: clockUseLimit,
@@ -6005,11 +6029,7 @@ export default function AutoResearch() {
                     id="auto-research-local-login-description"
                     className="mt-2 text-sm leading-6 text-slate-600"
                   >
-                    登录会刷新
-                    {localLoginConfirmationAccount
-                      ? `“${localLoginConfirmationAccount.label || `UID ${localLoginConfirmationAccount.uid}`}”`
-                      : '该账号'}
-                    的游戏会话，可能使游戏客户端或其他工具中的同账号掉线。
+                    会使其他在线的设备掉线。
                   </p>
                 </div>
               </div>
@@ -6732,26 +6752,14 @@ export default function AutoResearch() {
                     ]
                 ).map((option) => {
                   const IconComponent = option.icon;
-                  const disabled =
-                    option.id === 'jewel_drops' &&
-                    !repeatDaily &&
-                    remainingJewelDrops <= 0;
                   return (
                     <button
                       key={option.id}
                       type="button"
-                      disabled={disabled}
                       onClick={() => {
                         setRunMode(option.id);
-                        if (option.id === 'jewel_drops') {
-                          setJewelDropTarget(
-                            repeatDaily
-                              ? 20
-                              : Math.max(1, Math.min(20, remainingJewelDrops)),
-                          );
-                        }
                       }}
-                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
                         runMode === option.id
                           ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-100'
                           : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30'
@@ -6781,8 +6789,8 @@ export default function AutoResearch() {
                   </strong>
                 </div>
               ) : (
-                <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                  <div className="flex flex-wrap items-center gap-1 rounded-xl bg-white/70 p-1">
+                <section className="mt-4 rounded-xl bg-slate-50/80 p-2.5">
+                  <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
                     {[
                       {
                         id: 'now' as const,
@@ -6825,59 +6833,63 @@ export default function AutoResearch() {
                               setJewelDropTarget(20);
                             }
                           }}
-                          className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                          className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition ${
                             selected
                               ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-indigo-700 hover:bg-white'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                           }`}
                         >
                           <TimingIcon size={14} />
-                          {timingOption.label}
+                          <span className="text-xs">{timingOption.label}</span>
                         </button>
                       );
                     })}
                   </div>
                   {!repeatDaily && scheduleTiming === 'scheduled' ? (
-                    <label className="mt-3 block text-sm text-indigo-950">
-                      启动日期和时间
+                    <label className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-white/90 px-2.5 py-2 text-xs text-slate-600 shadow-sm ring-1 ring-slate-200/70">
+                      <span className="font-medium">启动日期和时间</span>
                       <input
                         type="datetime-local"
                         value={scheduledStartAt}
                         onChange={(event) =>
                           setScheduledStartAt(event.target.value)
                         }
-                        className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                        className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2.5 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                       />
-                      <span className="mt-1.5 block text-xs leading-5 text-indigo-700">
+                      <span className="text-slate-400">
                         使用北京时间；任务会先提交给服务器，并等待到指定时间再启动。
                       </span>
                     </label>
                   ) : null}
                   {repeatDaily ? (
-                    <div className="mt-3 grid gap-3 border-t border-indigo-100 pt-3 sm:grid-cols-2">
-                      <label className="text-sm text-indigo-950">
-                        每日启动时间
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                      <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                        <span className="whitespace-nowrap text-slate-500">
+                          每日启动
+                        </span>
                         <input
                           type="time"
                           value={scheduleStartTime}
                           onChange={(event) =>
                             setScheduleStartTime(event.target.value)
                           }
-                          className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                          className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                       </label>
-                      <label className="text-sm text-indigo-950">
-                        每日结束时间
+                      <label className="flex h-10 items-center gap-2 rounded-lg bg-white/90 px-2.5 shadow-sm ring-1 ring-slate-200/70">
+                        <span className="whitespace-nowrap text-slate-500">
+                          每日结束
+                        </span>
                         <input
                           type="time"
                           value={scheduleEndTime}
                           onChange={(event) =>
                             setScheduleEndTime(event.target.value)
                           }
-                          className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-semibold"
+                          className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                       </label>
-                      <p className="text-xs leading-5 text-indigo-700 sm:col-span-2">
+                      <p className="text-slate-400">
                         使用北京时间，支持跨午夜；两者同为 05:00 表示完整的
                         05:00 至次日 04:59 周期。
                       </p>
@@ -6888,7 +6900,9 @@ export default function AutoResearch() {
 
               {runMode === 'count' ? (
                 <RunTargetInput
-                  className="mt-4"
+                  compact
+                  embedded
+                  className="mt-3 w-full"
                   prefix={repeatDaily ? '每天完成' : '从现在起完成'}
                   value={runCountTarget}
                   max={100}
@@ -6904,10 +6918,12 @@ export default function AutoResearch() {
 
               {runMode === 'jewel_drops' ? (
                 <RunTargetInput
-                  className="mt-4"
+                  compact
+                  embedded
+                  className="mt-3 w-full"
                   prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
                   value={jewelDropTarget}
-                  max={repeatDaily ? 20 : Math.max(1, remainingJewelDrops)}
+                  max={20}
                   suffix="次宝石掉落"
                   hint={
                     repeatDaily
@@ -6926,35 +6942,34 @@ export default function AutoResearch() {
                   setPendingRun(null);
                 }}
                 disabled={Boolean(busy)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
-                取消
+                <span className="text-xs">取消</span>
               </button>
               <button
                 type="button"
                 onClick={confirmRunPlan}
                 disabled={
                   Boolean(busy) ||
-                  (runMode === 'jewel_drops' &&
-                    !repeatDaily &&
-                    remainingJewelDrops <= 0) ||
                   (!appendingCareerPlan &&
                     !repeatDaily &&
                     scheduleTiming === 'scheduled' &&
                     !scheduledDateTimeIsFuture(scheduledStartAt))
                 }
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
               >
-                <Play size={16} />
-                {busy
-                  ? appendingCareerPlan
-                    ? '正在添加…'
-                    : '正在启动…'
-                  : appendingCareerPlan
-                    ? '添加到后续计划'
-                    : !repeatDaily && scheduleTiming === 'scheduled'
-                      ? '预约启动'
-                      : '开始运行'}
+                <Play size={14} />
+                <span className="text-xs">
+                  {busy
+                    ? appendingCareerPlan
+                      ? '正在添加…'
+                      : '正在启动…'
+                    : appendingCareerPlan
+                      ? '添加到后续计划'
+                      : !repeatDaily && scheduleTiming === 'scheduled'
+                        ? '预约启动'
+                        : '开始运行'}
+                </span>
               </button>
             </div>
           </div>
@@ -7483,14 +7498,7 @@ export default function AutoResearch() {
                     ? '正在连接服务器上的托管任务'
                     : '未登录'}
                 </h2>
-                {missingExistingRuntimeAccountId === selectedAccount?.id ? (
-                  <div className="mx-auto mt-4 flex max-w-2xl items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
-                    <AlertTriangle size={18} className="mt-0.5 flex-none" />
-                    <span>
-                      登录会接管该账号的游戏会话，可能使正在游戏客户端或其他工具中运行的同账号立即掉线。请确认其他地方已停止操作后再继续。
-                    </span>
-                  </div>
-                ) : null}
+
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <button
                     type="button"
@@ -7820,22 +7828,22 @@ export default function AutoResearch() {
                     runnerStopping={runnerStopping}
                     runnerPaused={runnerPaused}
                     busy={busy}
-                    runMode={runMode}
-                    setRunMode={setRunMode}
-                    runCountTarget={runCountTarget}
-                    setRunCountTarget={setRunCountTarget}
-                    jewelDropTarget={jewelDropTarget}
-                    setJewelDropTarget={setJewelDropTarget}
+                    runMode={controlRunMode}
+                    setRunMode={setControlRunMode}
+                    runCountTarget={controlRunCountTarget}
+                    setRunCountTarget={setControlRunCountTarget}
+                    jewelDropTarget={controlJewelDropTarget}
+                    setJewelDropTarget={setControlJewelDropTarget}
                     remainingJewelDrops={remainingJewelDrops}
-                    repeatDaily={repeatDaily}
-                    scheduleStartTime={scheduleStartTime}
-                    setScheduleStartTime={setScheduleStartTime}
-                    scheduleEndTime={scheduleEndTime}
-                    setScheduleEndTime={setScheduleEndTime}
-                    scheduleTiming={scheduleTiming}
-                    setScheduleTiming={setScheduleTiming}
-                    scheduledStartAt={scheduledStartAt}
-                    setScheduledStartAt={setScheduledStartAt}
+                    repeatDaily={controlRepeatDaily}
+                    scheduleStartTime={controlScheduleStartTime}
+                    setScheduleStartTime={setControlScheduleStartTime}
+                    scheduleEndTime={controlScheduleEndTime}
+                    setScheduleEndTime={setControlScheduleEndTime}
+                    scheduleTiming={controlScheduleTiming}
+                    setScheduleTiming={setControlScheduleTiming}
+                    scheduledStartAt={controlScheduledStartAt}
+                    setScheduledStartAt={setControlScheduledStartAt}
                     runDailyTasksWithCareer={Boolean(
                       readCareerDailyTasks(selectedAccount?.uid || '')
                         ?.run_with_career,
@@ -7865,6 +7873,9 @@ export default function AutoResearch() {
                     <ProgressTab
                       currentCareerActive={currentCareerActive}
                       activeCareerIconPath={activeCareerIconPath}
+                      activeCareerFallbackIconPath={
+                        activeCareerFallbackIconPath
+                      }
                       activeCareer={
                         offlinePlanActive ? undefined : activeCareer
                       }

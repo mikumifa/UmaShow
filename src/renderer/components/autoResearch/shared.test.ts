@@ -36,8 +36,8 @@ describe('formatAccountError', () => {
     '错误码 218：SID session changed',
     'ApiError: result_code=218',
     'SID 会话已失效',
-  ])('shortens account session errors: %s', (message) => {
-    expect(formatAccountError(message)).toBe('账号已在别处登录');
+  ])('keeps account session error details: %s', (message) => {
+    expect(formatAccountError(message)).toBe(message);
   });
 
   it('keeps unrelated errors unchanged', () => {
@@ -46,14 +46,17 @@ describe('formatAccountError', () => {
 });
 
 describe('needsRelogin', () => {
-  it('does not treat ordinary API result codes as session failures', () => {
+  it('recognizes game result codes that require a new session', () => {
     expect(needsRelogin(new Error('API error 102 on factor_select'))).toBe(
-      false,
+      true,
     );
+    expect(needsRelogin(new Error('错误码 217：需要重新登录'))).toBe(true);
+    expect(needsRelogin(new Error('result_code=218'))).toBe(true);
+    expect(needsRelogin(new Error('错误码 201'))).toBe(true);
+    expect(needsRelogin(new Error('1503'))).toBe(true);
   });
 
   it('still recognizes actual session and network failures', () => {
-    expect(needsRelogin(new Error('错误码 217：需要重新登录'))).toBe(true);
     expect(needsRelogin(new Error('网络请求失败：connection reset'))).toBe(
       true,
     );

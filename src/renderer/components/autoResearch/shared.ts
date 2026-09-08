@@ -171,20 +171,7 @@ export class AutoResearchRequestError extends Error {
 }
 
 export function formatAccountError(message: unknown) {
-  const detail = String(message || '');
-  if (
-    /(?:错误码|result[_ ]?code|response[_ ]?code|code)[^\d]*(?:217|218)\b/i.test(
-      detail,
-    ) ||
-    /\b(?:217|218)\b/.test(detail) ||
-    /\b(?:sid|session)\b.*(?:失效|无效|变化|错误|不匹配|changed|invalid|expired)/i.test(
-      detail,
-    ) ||
-    /账号.*(?:其他位置|别处).*(?:登录|操作)/.test(detail)
-  ) {
-    return '账号已在别处登录';
-  }
-  return detail;
+  return String((message as Error)?.message || message || '');
 }
 
 export function needsRelogin(error: unknown) {
@@ -192,6 +179,14 @@ export function needsRelogin(error: unknown) {
     return true;
   }
   const detail = String((error as Error)?.message || error || '').toLowerCase();
+  if (
+    /^\s*(?:102|201|217|218|1503)\s*$/.test(detail) ||
+    /(?:错误(?:码|代码)|api\s*error|result[_ ]?code|response[_ ]?code|\bcode)[^\d]*(?:102|201|217|218|1503)\b/i.test(
+      detail,
+    )
+  ) {
+    return true;
+  }
   if (detail.includes('刷新当前账号')) {
     return false;
   }

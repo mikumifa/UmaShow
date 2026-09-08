@@ -31,6 +31,7 @@ import {
 type ProgressTabProps = {
   currentCareerActive: boolean;
   activeCareerIconPath?: string;
+  activeCareerFallbackIconPath?: string;
   activeCareer?: SessionAccount['career'];
   currentCareerUma?: Dashboard['umas'][number];
   runner?: Runner;
@@ -375,6 +376,7 @@ function automationPhaseLabel(automation?: AccountAutomation) {
 export default function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
+  activeCareerFallbackIconPath,
   activeCareer,
   currentCareerUma,
   runner,
@@ -455,6 +457,37 @@ export default function ProgressTab({
                   }
                   className="h-full w-full object-cover"
                   loading="eager"
+                  fallback={
+                    activeCareerFallbackIconPath ? (
+                      <AssetIcon
+                        path={activeCareerFallbackIconPath}
+                        alt={
+                          activeCareer?.name ||
+                          currentCareerUma?.name ||
+                          '当前育成'
+                        }
+                        className="h-full w-full object-contain"
+                        loading="eager"
+                        fallback={
+                          <Database size={28} className="m-6 text-gray-300" />
+                        }
+                      />
+                    ) : (
+                      <Database size={28} className="m-6 text-gray-300" />
+                    )
+                  }
+                />
+              ) : activeCareerFallbackIconPath ? (
+                <AssetIcon
+                  path={activeCareerFallbackIconPath}
+                  alt={
+                    activeCareer?.name || currentCareerUma?.name || '当前育成'
+                  }
+                  className="h-full w-full object-contain"
+                  loading="eager"
+                  fallback={
+                    <Database size={28} className="m-6 text-gray-300" />
+                  }
                 />
               ) : (
                 <Database size={28} className="m-6 text-gray-300" />

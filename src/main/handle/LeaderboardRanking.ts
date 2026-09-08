@@ -64,9 +64,14 @@ export type LeaderboardRankingSnapshot = {
 
 const SNAPSHOT_VERSION = 2;
 const SNAPSHOT_FILENAME = 'leaderboard_ranking_latest.json';
+const CLEARED_AT_FILENAME = 'leaderboard_ranking_cleared_at.json';
 
 function snapshotPath() {
   return path.join(RACE_DIR, SNAPSHOT_FILENAME);
+}
+
+function clearedAtPath() {
+  return path.join(RACE_DIR, CLEARED_AT_FILENAME);
 }
 
 function ensureRankingDir() {
@@ -228,6 +233,33 @@ function readExistingSnapshot() {
   }
 }
 
+function readClearedAt() {
+  const file = clearedAtPath();
+  if (!fs.existsSync(file)) return 0;
+  try {
+    const value = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+      clearedAt?: number;
+    };
+    return numberValue(value.clearedAt) ?? 0;
+  } catch (error) {
+    log.warn('[LeaderboardRanking] Failed to read clear marker:', error);
+    return 0;
+  }
+}
+
+function clearLeaderboardData() {
+  ensureRankingDir();
+  const clearedAt = Date.now();
+  const file = snapshotPath();
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+  fs.writeFileSync(
+    clearedAtPath(),
+    JSON.stringify({ clearedAt }, null, 2),
+    'utf-8',
+  );
+  return clearedAt;
+}
+
 function decodeDebugPacketFile(filePath: string) {
   const content = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as {
     receivedAt?: string;
@@ -256,7 +288,7 @@ function decodeDebugPacketFile(filePath: string) {
   };
 }
 
-function loadLatestSnapshotFromDebugPackets() {
+function loadLatestSnapshotFromDebugPackets(clearedAt = 0) {
   const debugPacketDirs = Array.from(
     new Set([
       getDebugPacketDir(),
@@ -279,7 +311,8 @@ function loadLatestSnapshotFromDebugPackets() {
             fullPath,
             mtimeMs: fs.statSync(fullPath).mtimeMs,
           };
-        }),
+        })
+        .filter((candidate) => candidate.mtimeMs > clearedAt),
     )
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
@@ -293,6 +326,7 @@ function loadLatestSnapshotFromDebugPackets() {
         const updatedAt = packet.receivedAt
           ? new Date(packet.receivedAt).getTime()
           : candidate.mtimeMs;
+        if (!Number.isFinite(updatedAt) || updatedAt <= clearedAt) return null;
         const rankings = rankingsFromPacket(packet.data);
         const details = detailsFromPacket(packet.data, updatedAt);
         const total = Object.values(rankings).reduce(
@@ -317,7 +351,7 @@ function loadLatestSnapshotFromDebugPackets() {
   );
 }
 
-function loadDetailsFromDebugPackets() {
+function loadDetailsFromDebugPackets(clearedAt = 0) {
   const debugPacketDirs = Array.from(
     new Set([
       getDebugPacketDir(),
@@ -333,11 +367,14 @@ function loadDetailsFromDebugPackets() {
       .forEach((filename) => {
         const fullPath = path.join(debugPacketDir, filename);
         try {
+          const { mtimeMs } = fs.statSync(fullPath);
+          if (mtimeMs <= clearedAt) return;
           const packet = decodeDebugPacketFile(fullPath);
           if (!packet) return;
           const updatedAt = packet.receivedAt
             ? new Date(packet.receivedAt).getTime()
-            : fs.statSync(fullPath).mtimeMs;
+            : mtimeMs;
+          if (!Number.isFinite(updatedAt) || updatedAt <= clearedAt) return;
           Object.assign(details, detailsFromPacket(packet.data, updatedAt));
         } catch (error) {
           log.warn(
@@ -363,7 +400,12 @@ export function persistLeaderboardSnapshotFromPacket(
   const detailTotal = Object.keys(details).length;
   if (total === 0 && detailTotal === 0) return;
 
-  const existing = readExistingSnapshot();
+  const clearedAt = readClearedAt();
+  const storedSnapshot = readExistingSnapshot();
+  const existing =
+    storedSnapshot && storedSnapshot.updatedAt >= clearedAt
+      ? storedSnapshot
+      : undefined;
 
   const snapshot: LeaderboardRankingSnapshot = {
     version: SNAPSHOT_VERSION,
@@ -390,9 +432,10 @@ export function persistLeaderboardSnapshotFromPacket(
 export function handleLeaderboardRanking(ipcMain: IpcMain) {
   ipcMain.handle('leaderboard-ranking:latest', async () => {
     ensureRankingDir();
+    const clearedAt = readClearedAt();
     const existing = readExistingSnapshot();
-    if (existing) {
-      const debugDetails = loadDetailsFromDebugPackets();
+    if (existing && existing.updatedAt >= clearedAt) {
+      const debugDetails = loadDetailsFromDebugPackets(clearedAt);
       if (Object.keys(debugDetails).length > 0) {
         const snapshot = {
           ...existing,
@@ -408,12 +451,18 @@ export function handleLeaderboardRanking(ipcMain: IpcMain) {
       return existing;
     }
 
-    const snapshot = loadLatestSnapshotFromDebugPackets();
+    const snapshot = loadLatestSnapshotFromDebugPackets(clearedAt);
     if (snapshot) {
       writeSnapshot(snapshot);
       return snapshot;
     }
 
     return null;
+  });
+
+  ipcMain.handle('leaderboard-ranking:clear', async () => {
+    const clearedAt = clearLeaderboardData();
+    log.info(`[LeaderboardRanking] Cleared at ${clearedAt}`);
+    return { success: true, clearedAt };
   });
 }

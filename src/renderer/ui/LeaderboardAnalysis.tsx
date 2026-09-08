@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Copy,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import RacePageLayout, {
   raceHeaderButtonClass,
@@ -812,6 +813,7 @@ export default function LeaderboardAnalysis() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lineups');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   const loadLatest = () => {
     return window.electron.leaderboardRanking
@@ -824,6 +826,24 @@ export default function LeaderboardAnalysis() {
       .catch(() => {
         setReady(true);
       });
+  };
+
+  const clearData = async () => {
+    if (!window.confirm('确定清除全部 LOH 排行榜和马娘详细数据吗？')) return;
+    setClearing(true);
+    try {
+      await window.electron.leaderboardRanking.clear();
+      setSnapshot(null);
+      setSelectedKey(null);
+      setSelectedEntryKey(null);
+      setReady(true);
+    } catch (error) {
+      window.alert(
+        `LOH 数据清除失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setClearing(false);
+    }
   };
 
   useEffect(() => {
@@ -1118,14 +1138,25 @@ export default function LeaderboardAnalysis() {
     <RacePageLayout
       title="LOH"
       actions={
-        <button
-          type="button"
-          className={raceHeaderButtonClass}
-          onClick={loadLatest}
-        >
-          <RefreshCw className="h-4 w-4" />
-          刷新
-        </button>
+        <>
+          <button
+            type="button"
+            className={raceHeaderButtonClass}
+            onClick={loadLatest}
+          >
+            <RefreshCw className="h-4 w-4" />
+            刷新
+          </button>
+          <button
+            type="button"
+            className={`${raceHeaderButtonClass} text-red-600 hover:bg-red-50`}
+            onClick={clearData}
+            disabled={clearing || !snapshot}
+          >
+            <Trash2 className="h-4 w-4" />
+            {clearing ? '清除中…' : '清除数据'}
+          </button>
+        </>
       }
     >
       {!ready ? (

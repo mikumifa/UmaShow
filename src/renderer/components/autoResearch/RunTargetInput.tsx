@@ -6,6 +6,7 @@ export default function RunTargetInput({
   suffix,
   hint,
   compact = false,
+  embedded = false,
   className = '',
   onValueChange,
 }: {
@@ -16,6 +17,7 @@ export default function RunTargetInput({
   suffix: string;
   hint?: string;
   compact?: boolean;
+  embedded?: boolean;
   className?: string;
   onValueChange: (value: number) => void;
 }) {
@@ -44,7 +46,11 @@ export default function RunTargetInput({
   if (compact) {
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-1.5 rounded-md bg-slate-100/80 px-2.5 py-1.5 text-xs text-slate-600 ${className}`.trim()}
+        className={`flex max-w-full flex-wrap items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 ${
+          embedded
+            ? 'rounded-lg bg-white/90 shadow-sm ring-1 ring-slate-200/70'
+            : 'rounded-md bg-slate-100/80'
+        } ${className}`.trim()}
       >
         {content}
         {hint ? <span className="text-slate-400">（{hint}）</span> : null}

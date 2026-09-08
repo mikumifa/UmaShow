@@ -165,11 +165,20 @@ export const mergeRecommendationResults = (
     return previous ? mergeActionResults(previous, action) : action;
   });
   currentActions.forEach((action) => mergedActions.push(action));
-  mergedActions.sort((left, right) => right.value - left.value);
+  mergedActions.sort((left, right) => {
+    if (next.backend === 'graph') {
+      if (left.searches !== right.searches) {
+        return right.searches - left.searches;
+      }
+      if (left.id === next.bestActionId) return -1;
+      if (right.id === next.bestActionId) return 1;
+    }
+    return right.value - left.value;
+  });
   const bestAction = mergedActions[0];
   const actions = mergedActions.map((action) => ({
     ...action,
-    deltaFromBest: bestAction.value - action.value,
+    deltaFromBest: Math.max(0, bestAction.value - action.value),
   }));
 
   return {

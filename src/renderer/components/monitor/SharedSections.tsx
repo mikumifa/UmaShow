@@ -96,7 +96,7 @@ function RecommendationActivitiesCard({
     settings.enabled && capturedState?.scenarioId === 6,
   );
   let refinementLabel = canAutoRefine
-    ? '开启后，每次收到新训练数据都会自动追加计算'
+    ? '开启后会持续计算'
     : '请先开启凯旋门推荐';
   if (autoRefine && !capturedState) {
     refinementLabel = '已开启，等待训练数据';
@@ -241,8 +241,8 @@ function RecommendationActivitiesCard({
         >
           <span
             aria-hidden="true"
-            className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${
-              autoRefine ? 'translate-x-[21px]' : 'translate-x-0.5'
+            className={`absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${
+              autoRefine ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -256,10 +256,10 @@ function UmaAiCommonHint() {
     useMonteCarloRecommendation();
   if (!settings.enabled) return null;
 
-  const alternatives = (result?.actions ?? [])
-    .filter((action) => action.id !== result?.bestActionId)
+  const alternatives = rankRecommendationActions(result)
+    .filter(({ isBest }) => !isBest)
     .slice(0, 3)
-    .map((action) => `${action.label} -${Math.round(action.deltaFromBest)}`)
+    .map(({ action }) => `${action.label} ${recommendationDeltaLabel(action)}`)
     .join(' / ');
   let label = capturedState ? '等待计算' : '等待育成数据';
   let title = '推荐已开启，等待可计算的行动选择回合。';
