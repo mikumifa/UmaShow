@@ -279,9 +279,22 @@ export default function handleMonteCarlo(ipcMain: IpcMain) {
   });
   ipcMain.handle(
     'monte-carlo:analyze',
-    (_event, state: Record<string, unknown>, options?: MonteCarloOptions) => {
+    async (
+      _event,
+      state: Record<string, unknown>,
+      options?: MonteCarloOptions,
+    ) => {
       const scenarioId = scenarioIdFromState(state);
-      return workers.get(scenarioId)!.analyze(state, options);
+      try {
+        return await workers.get(scenarioId)!.analyze(state, options);
+      } catch (reason) {
+        const error =
+          reason instanceof Error ? reason : new Error(String(reason));
+        if (error.message === '推荐已停用') {
+          return { ok: false, error: error.message };
+        }
+        throw error;
+      }
     },
   );
   ipcMain.handle('monte-carlo:load-latest-state', () =>

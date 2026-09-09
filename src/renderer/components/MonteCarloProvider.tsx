@@ -409,11 +409,34 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const capturedStateRef = useRef<MonteCarloCapturedState | null>(null);
   const resultRef = useRef<MonteCarloResult | null>(null);
   const lastSequenceRef = useRef(0);
+  const stopInFlightRef = useRef<Promise<unknown> | null>(null);
+
+  const stopWorkers = useCallback(() => {
+    const stopping = window.electron.monteCarlo.stop().catch(() => undefined);
+    stopInFlightRef.current = stopping;
+    stopping
+      .then(() => {
+        if (stopInFlightRef.current === stopping) {
+          stopInFlightRef.current = null;
+        }
+        return undefined;
+      })
+      .catch(() => undefined);
+    return stopping;
+  }, []);
 
   const analyzeCapturedState = useCallback(
     async (nextState: MonteCarloCapturedState) => {
       if (!settingsRef.current.enabled || suspendedRef.current) return;
       pendingStateRef.current = nextState;
+      while (stopInFlightRef.current) {
+        const stopping = stopInFlightRef.current;
+        // A newer stop may be queued while this one is resolving. Analysis
+        // must cross every stop barrier before it can reach a worker.
+        // eslint-disable-next-line no-await-in-loop
+        await stopping;
+      }
+      if (!settingsRef.current.enabled || suspendedRef.current) return;
       if (busyRef.current) return;
 
       busyRef.current = true;
@@ -467,7 +490,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       if (refiningRef.current) {
         refiningRef.current = false;
         setRefining(false);
-        window.electron.monteCarlo.stop().catch(() => undefined);
+        stopWorkers();
       }
       refinementRunRef.current += 1;
       setRefinementStatus(null);
@@ -481,7 +504,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
         return undefined;
       });
     },
-    [analyzeCapturedState],
+    [analyzeCapturedState, stopWorkers],
   );
 
   const suspendAnalysis = useCallback(() => {
@@ -494,8 +517,8 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     pendingStateRef.current = null;
     setBusy(false);
     setRefining(false);
-    window.electron.monteCarlo.stop().catch(() => undefined);
-  }, []);
+    stopWorkers();
+  }, [stopWorkers]);
 
   const acceptCapturedState = useCallback(
     (nextState: MonteCarloCapturedState | null) => {
@@ -535,12 +558,12 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
         setBusy(false);
         setRefining(false);
         setRefinementStatus(null);
-        window.electron.monteCarlo.stop().catch(() => undefined);
+        stopWorkers();
         return;
       }
       if (capturedStateRef.current) startAnalysis(capturedStateRef.current);
     },
-    [startAnalysis],
+    [startAnalysis, stopWorkers],
   );
 
   const stopRefinement = useCallback(() => {
@@ -552,8 +575,8 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
         current ? { ...current, stopReason: 'manual' } : current,
       );
     }
-    window.electron.monteCarlo.stop().catch(() => undefined);
-  }, []);
+    stopWorkers();
+  }, [stopWorkers]);
 
   const setAutoRefine = useCallback(
     (enabled: boolean) => {
