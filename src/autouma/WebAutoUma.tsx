@@ -1304,12 +1304,11 @@ export default function WebAutoUma() {
                 <p className="mt-1 text-xs text-slate-400">
                   会自动读取其中的 UID 和 access_key
                 </p>
-                <label className="mt-3 inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                <label className="relative mt-3 inline-flex cursor-pointer items-center overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
                   {busy === 'users-db' ? '正在导入…' : '选择 users.db'}
                   <input
                     type="file"
-                    accept=".db,application/x-sqlite3"
-                    className="hidden"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     disabled={busy === 'users-db'}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
