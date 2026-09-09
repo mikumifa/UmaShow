@@ -11,6 +11,7 @@ import {
   Footprints,
   Lightbulb,
   Loader2,
+  RefreshCw,
   ShoppingCart,
   Users,
   Utensils,
@@ -111,6 +112,7 @@ function RecommendationActivitiesCard({
     autoRefine,
     refinementStatus,
     setAutoRefine,
+    retryCurrentAnalysis,
     error,
   } = useMonteCarloRecommendation();
   const canAutoRefine = Boolean(
@@ -153,7 +155,7 @@ function RecommendationActivitiesCard({
   } else if (autoRefine && refinementStatus) {
     const total = refinementStatus.totalSearches.toLocaleString('zh-CN');
     if (refining) {
-      refinementLabel = `第 ${refinementStatus.passes + 1} 轮 · 累计 ${total} 次`;
+      refinementLabel = `${total} 次`;
     }
   } else if (autoRefine && result?.ok) {
     refinementLabel = '已开启，等待追加计算';
@@ -286,6 +288,17 @@ function RecommendationActivitiesCard({
             {refinementLabel}
           </span>
         </span>
+        <button
+          type="button"
+          onClick={retryCurrentAnalysis}
+          disabled={!settings.enabled}
+          title="重新计算最近一次训练状态并开启持续计算"
+          aria-label="重新计算最近一次训练状态并开启持续计算"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <RefreshCw size={13} />
+          重算
+        </button>
         <button
           type="button"
           role="switch"
@@ -735,11 +748,6 @@ export function TrainingEventsSection({
       3,
     );
   }, [capturedState?.scenarioId, charInfo.arcData, result, settings.enabled]);
-  const showActivitiesCard =
-    activityRecommendations.length > 0 ||
-    requiredArcPurchaseReminders.length > 0 ||
-    recommendedArcPurchases.length > 0 ||
-    Boolean(settings.enabled && capturedState?.scenarioId === 6);
   const eventDetailRows = buildEventDetailRows(
     charInfo.gameEvents,
     charInfo.eventDetails,
@@ -776,13 +784,11 @@ export function TrainingEventsSection({
                 }
               />
             ))}
-          {showActivitiesCard ? (
-            <RecommendationActivitiesCard
-              recommendations={activityRecommendations}
-              requiredPurchaseReminders={requiredArcPurchaseReminders}
-              recommendedPurchases={recommendedArcPurchases}
-            />
-          ) : null}
+          <RecommendationActivitiesCard
+            recommendations={activityRecommendations}
+            requiredPurchaseReminders={requiredArcPurchaseReminders}
+            recommendedPurchases={recommendedArcPurchases}
+          />
         </div>
       </section>
 

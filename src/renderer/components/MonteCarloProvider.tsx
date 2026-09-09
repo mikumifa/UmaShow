@@ -82,11 +82,14 @@ type MonteCarloContextValue = {
   autoRefine: boolean;
   refinementStatus: RecommendationRefinementStatus | null;
   setAutoRefine: (enabled: boolean) => void;
+  retryCurrentAnalysis: () => void;
   error: string;
 };
 
 const SETTINGS_KEY = 'recommendation.settings.v2';
 const AUTO_REFINE_KEY = 'recommendation.auto-refine.v1';
+const ANALYSIS_MAX_ATTEMPTS = 3;
+const ANALYSIS_RETRY_DELAY_MS = 250;
 
 export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
@@ -120,6 +123,52 @@ const MonteCarloContext = createContext<MonteCarloContextValue | null>(null);
 
 const errorText = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
+
+export const isRetryableRecommendationError = (reason: unknown) => {
+  const message = errorText(reason);
+  return (
+    message === '推荐已停用' ||
+    message === '推荐计算未启动' ||
+    message.startsWith('推荐计算已停止')
+  );
+};
+
+export const analyzeRecommendationWithRetry = async ({
+  analyze,
+  isCurrent,
+  waitForStops,
+  maxAttempts = ANALYSIS_MAX_ATTEMPTS,
+  retryDelayMs = ANALYSIS_RETRY_DELAY_MS,
+}: {
+  analyze: () => Promise<MonteCarloResult>;
+  isCurrent: () => boolean;
+  waitForStops: () => Promise<void>;
+  maxAttempts?: number;
+  retryDelayMs?: number;
+}): Promise<MonteCarloResult | null> => {
+  let attempt = 0;
+  while (isCurrent() && attempt < maxAttempts) {
+    // eslint-disable-next-line no-await-in-loop
+    await waitForStops();
+    if (!isCurrent()) return null;
+    attempt += 1;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await analyze();
+      if (response.ok) return response;
+      throw new Error(response.error || '计算失败');
+    } catch (reason) {
+      if (!isRetryableRecommendationError(reason) || attempt >= maxAttempts) {
+        throw reason;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, retryDelayMs);
+      });
+    }
+  }
+  return null;
+};
 
 const actionWeight = (action: MonteCarloActionResult) =>
   Math.max(1, action.searches);
@@ -405,9 +454,11 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
   const suspendedRef = useRef(false);
   const autoRefinedSequenceRef = useRef(0);
   const refinementRunRef = useRef(0);
-  const pendingStateRef = useRef<MonteCarloCapturedState | null>(null);
+  const pendingStateQueueRef = useRef<MonteCarloCapturedState[]>([]);
   const capturedStateRef = useRef<MonteCarloCapturedState | null>(null);
+  const lastRetryableStateRef = useRef<MonteCarloCapturedState | null>(null);
   const resultRef = useRef<MonteCarloResult | null>(null);
+  const resultStateSignatureRef = useRef('');
   const lastSequenceRef = useRef(0);
   const stopInFlightRef = useRef<Promise<unknown> | null>(null);
 
@@ -425,17 +476,21 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     return stopping;
   }, []);
 
+  const waitForWorkerStops = useCallback(async () => {
+    while (stopInFlightRef.current) {
+      const stopping = stopInFlightRef.current;
+      // A newer stop may be queued while this one is resolving. Analysis
+      // must cross every stop barrier before it can reach a worker.
+      // eslint-disable-next-line no-await-in-loop
+      await stopping;
+    }
+  }, []);
+
   const analyzeCapturedState = useCallback(
-    async (nextState: MonteCarloCapturedState) => {
+    async (nextState?: MonteCarloCapturedState) => {
       if (!settingsRef.current.enabled || suspendedRef.current) return;
-      pendingStateRef.current = nextState;
-      while (stopInFlightRef.current) {
-        const stopping = stopInFlightRef.current;
-        // A newer stop may be queued while this one is resolving. Analysis
-        // must cross every stop barrier before it can reach a worker.
-        // eslint-disable-next-line no-await-in-loop
-        await stopping;
-      }
+      if (nextState) pendingStateQueueRef.current.push(nextState);
+      await waitForWorkerStops();
       if (!settingsRef.current.enabled || suspendedRef.current) return;
       if (busyRef.current) return;
 
@@ -443,27 +498,56 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       if (mountedRef.current) setBusy(true);
       const runNext = async (): Promise<void> => {
         if (!settingsRef.current.enabled || suspendedRef.current) {
-          pendingStateRef.current = null;
+          pendingStateQueueRef.current = [];
           return;
         }
-        const { current } = pendingStateRef;
+        const current = pendingStateQueueRef.current.shift();
         if (!current) return;
-        pendingStateRef.current = null;
         if (mountedRef.current) setError('');
         try {
-          const response = (await window.electron.monteCarlo.analyze(
-            current.state,
-            settingsRef.current.options,
-          )) as MonteCarloResult;
-          if (!response.ok) throw new Error(response.error || '计算失败');
-          if (
+          const isRelevantTurn = () => {
+            const latest = capturedStateRef.current;
+            return (
+              mountedRef.current &&
+              settingsRef.current.enabled &&
+              !suspendedRef.current &&
+              latest?.scenarioId === current.scenarioId &&
+              latest.turn === current.turn &&
+              latest.gameStage === current.gameStage
+            );
+          };
+          const currentStateSignature = JSON.stringify(current.state);
+          const response = await analyzeRecommendationWithRetry({
+            analyze: async () =>
+              (await window.electron.monteCarlo.analyze(
+                current.state,
+                settingsRef.current.options,
+              )) as MonteCarloResult,
+            isCurrent: isRelevantTurn,
+            waitForStops: waitForWorkerStops,
+          });
+          if (!response) {
+            await runNext();
+            return;
+          }
+          const latest = capturedStateRef.current;
+          const isLatestState =
             mountedRef.current &&
             settingsRef.current.enabled &&
             !suspendedRef.current &&
-            capturedStateRef.current?.sequence === current.sequence
-          ) {
-            resultRef.current = response;
-            setResult(response);
+            latest?.scenarioId === current.scenarioId &&
+            latest.turn === current.turn &&
+            latest.gameStage === current.gameStage &&
+            JSON.stringify(latest.state) === currentStateSignature;
+          if (isLatestState) {
+            const nextResult =
+              resultRef.current &&
+              resultStateSignatureRef.current === currentStateSignature
+                ? mergeRecommendationResults(resultRef.current, response)
+                : response;
+            resultStateSignatureRef.current = currentStateSignature;
+            resultRef.current = nextResult;
+            setResult(nextResult);
           }
         } catch (reason) {
           if (
@@ -481,21 +565,28 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       busyRef.current = false;
       if (mountedRef.current) setBusy(false);
     },
-    [],
+    [waitForWorkerStops],
   );
 
   const startAnalysis = useCallback(
-    (nextState: MonteCarloCapturedState) => {
+    (
+      nextState: MonteCarloCapturedState,
+      clearResult = true,
+      forceRestart = false,
+    ) => {
       if (suspendedRef.current) return;
-      if (refiningRef.current) {
+      if (refiningRef.current || (forceRestart && busyRef.current)) {
         refiningRef.current = false;
         setRefining(false);
         stopWorkers();
       }
       refinementRunRef.current += 1;
       setRefinementStatus(null);
-      resultRef.current = null;
-      setResult(null);
+      if (clearResult) {
+        resultRef.current = null;
+        resultStateSignatureRef.current = '';
+        setResult(null);
+      }
       if (busyRef.current) setBusy(true);
       analyzeCapturedState(nextState).catch((reason) => {
         if (mountedRef.current && settingsRef.current.enabled) {
@@ -507,14 +598,42 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     [analyzeCapturedState, stopWorkers],
   );
 
+  const retryCurrentAnalysis = useCallback(() => {
+    if (!settingsRef.current.enabled) {
+      return;
+    }
+    const current = capturedStateRef.current ?? lastRetryableStateRef.current;
+    if (!current) {
+      setError('暂无可重算的训练数据');
+      return;
+    }
+    suspendedRef.current = false;
+    setSuspended(false);
+    autoRefinedSequenceRef.current = 0;
+    setAutoRefineState(true);
+    try {
+      localStorage.setItem(AUTO_REFINE_KEY, 'true');
+    } catch {
+      // The current session can still continue refining without persistence.
+    }
+    capturedStateRef.current = current;
+    setCapturedState(current);
+    pendingStateQueueRef.current = [];
+    startAnalysis(current, true, true);
+  }, [startAnalysis]);
+
   const suspendAnalysis = useCallback(() => {
-    // Preserve the displayed recommendation while result/event packets keep
-    // every analysis backend paused.
     suspendedRef.current = true;
     setSuspended(true);
     refinementRunRef.current += 1;
     refiningRef.current = false;
-    pendingStateRef.current = null;
+    pendingStateQueueRef.current = [];
+    capturedStateRef.current = null;
+    resultRef.current = null;
+    resultStateSignatureRef.current = '';
+    setCapturedState(null);
+    setResult(null);
+    setRefinementStatus(null);
     setBusy(false);
     setRefining(false);
     stopWorkers();
@@ -527,12 +646,25 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (nextState.sequence <= lastSequenceRef.current) return;
+      const previous = capturedStateRef.current;
+      const turnChanged =
+        previous == null ||
+        previous.scenarioId !== nextState.scenarioId ||
+        previous.turn !== nextState.turn ||
+        previous.gameStage !== nextState.gameStage;
       suspendedRef.current = false;
       setSuspended(false);
       lastSequenceRef.current = nextState.sequence;
+      if (turnChanged) {
+        resultRef.current = null;
+        resultStateSignatureRef.current = '';
+        setResult(null);
+        setRefinementStatus(null);
+      }
       capturedStateRef.current = nextState;
+      lastRetryableStateRef.current = nextState;
       setCapturedState(nextState);
-      if (settingsRef.current.enabled) startAnalysis(nextState);
+      if (settingsRef.current.enabled) startAnalysis(nextState, turnChanged);
     },
     [startAnalysis, suspendAnalysis],
   );
@@ -552,8 +684,9 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       if (!normalized.enabled) {
         refinementRunRef.current += 1;
         refiningRef.current = false;
-        pendingStateRef.current = null;
+        pendingStateQueueRef.current = [];
         resultRef.current = null;
+        resultStateSignatureRef.current = '';
         setResult(null);
         setBusy(false);
         setRefining(false);
@@ -707,12 +840,11 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       busy ||
       suspendedRef.current ||
       !settings.enabled ||
-      !pendingStateRef.current
+      pendingStateQueueRef.current.length === 0
     ) {
       return;
     }
-    const pendingState = pendingStateRef.current;
-    analyzeCapturedState(pendingState).catch((reason) => {
+    analyzeCapturedState().catch((reason) => {
       if (mountedRef.current) setError(errorText(reason));
       return undefined;
     });
@@ -802,6 +934,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       autoRefine,
       refinementStatus,
       setAutoRefine,
+      retryCurrentAnalysis,
       error,
     }),
     [
@@ -816,6 +949,7 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       autoRefine,
       refinementStatus,
       setAutoRefine,
+      retryCurrentAnalysis,
       error,
     ],
   );

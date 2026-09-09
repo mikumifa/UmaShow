@@ -356,7 +356,7 @@ describe('MonteCarloState', () => {
     expect((state?.persons as Array<{ isHint: boolean }>)[1].isHint).toBe(true);
   });
 
-  it('waits one packet before accepting an event-free training turn', () => {
+  it('captures every valid training packet without turn-start gating', () => {
     const runId = 91002;
     const send = jest.fn();
     const mainWindow = {
@@ -393,9 +393,16 @@ describe('MonteCarloState', () => {
         'response',
         mainWindow,
       ),
-    ).toBeNull();
-    expect(getLatestMonteCarloState()).toBeNull();
-    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
+    ).not.toBeNull();
+    expect(getLatestMonteCarloState()?.state).toMatchObject({
+      trainLevelCount: [1, 0, 0, 0, 0],
+      friend_stage: 1,
+      friend_outgoingUsed: 0,
+    });
+    expect(send).toHaveBeenCalledWith(
+      'monte-carlo:state-captured',
+      expect.objectContaining({ turn: 10, gameStage: 1 }),
+    );
     send.mockClear();
 
     expect(
@@ -437,8 +444,11 @@ describe('MonteCarloState', () => {
         'response',
         mainWindow,
       ),
-    ).toBeNull();
-    expect(send).not.toHaveBeenCalled();
+    ).not.toBeNull();
+    expect(send).toHaveBeenCalledWith(
+      'monte-carlo:state-captured',
+      expect.objectContaining({ turn: 10, gameStage: 1 }),
+    );
     expect(getLatestMonteCarloState()?.state).toMatchObject({
       trainLevelCount: [1, 0, 0, 0, 0],
     });

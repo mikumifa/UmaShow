@@ -1,4 +1,5 @@
 import {
+  analyzeRecommendationWithRetry,
   DEFAULT_UMA_AI_SETTINGS,
   mergeRecommendationResults,
   normalizeUmaAiSettings,
@@ -6,6 +7,25 @@ import {
 } from './MonteCarloProvider';
 
 describe('recommendation settings', () => {
+  it('retries a transient cancellation for the current turn', async () => {
+    const analyze = jest
+      .fn<Promise<{ ok: boolean; error?: string }>, []>()
+      .mockResolvedValueOnce({ ok: false, error: '推荐已停用' })
+      .mockResolvedValueOnce({ ok: true });
+    const waitForStops = jest.fn(async () => undefined);
+
+    await expect(
+      analyzeRecommendationWithRetry({
+        analyze,
+        isCurrent: () => true,
+        waitForStops,
+        retryDelayMs: 0,
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(waitForStops).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps attribute targets automatic by default', () => {
     expect(DEFAULT_UMA_AI_SETTINGS.options).toMatchObject({
       targetSpeed: 0,
