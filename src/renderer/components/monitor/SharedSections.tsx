@@ -154,8 +154,6 @@ function RecommendationActivitiesCard({
     const total = refinementStatus.totalSearches.toLocaleString('zh-CN');
     if (refining) {
       refinementLabel = `第 ${refinementStatus.passes + 1} 轮 · 累计 ${total} 次`;
-    } else if (refinementStatus.stopReason === 'stable') {
-      refinementLabel = `本回合分数已稳定 · 累计 ${total} 次`;
     }
   } else if (autoRefine && result?.ok) {
     refinementLabel = '已开启，等待追加计算';
@@ -254,9 +252,7 @@ function RecommendationActivitiesCard({
                 #{rank}
               </span>
               <Icon size={16} className="shrink-0 opacity-75" />
-              <span
-                className={`min-w-0 flex-1 ${activityTextColor ?? ''}`}
-              >
+              <span className={`min-w-0 flex-1 ${activityTextColor ?? ''}`}>
                 <span className="block truncate text-xs font-black">
                   {label}
                 </span>

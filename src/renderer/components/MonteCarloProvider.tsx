@@ -52,6 +52,7 @@ export type UmaAiOptions = Required<
 export type UmaAiSettings = {
   enabled: boolean;
   refinementIntervalMs: number;
+  refinementParallelism: number;
   options: UmaAiOptions;
 };
 
@@ -59,12 +60,13 @@ export type RecommendationRefinementStatus = {
   passes: number;
   totalSearches: number;
   stablePasses: number;
-  stopReason?: 'stable' | 'manual';
+  stopReason?: 'manual';
 };
 
 type UmaAiSettingsInput = {
   enabled?: boolean;
   refinementIntervalMs?: number;
+  refinementParallelism?: number;
   options?: Partial<MonteCarloOptions>;
 };
 
@@ -89,6 +91,7 @@ const AUTO_REFINE_KEY = 'recommendation.auto-refine.v1';
 export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
   refinementIntervalMs: 500,
+  refinementParallelism: 1,
   options: {
     modelPath: '',
     searchSingleMax: 4096,
@@ -256,6 +259,14 @@ export const normalizeUmaAiSettings = (
         DEFAULT_UMA_AI_SETTINGS.refinementIntervalMs,
         0,
         10000,
+      ),
+    ),
+    refinementParallelism: Math.round(
+      boundedNumber(
+        value?.refinementParallelism,
+        DEFAULT_UMA_AI_SETTINGS.refinementParallelism,
+        1,
+        4,
       ),
     ),
     options: {
@@ -580,7 +591,6 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
     let lastSignature = recommendationStabilitySignature(initialResult);
     let stablePasses = 0;
     let passes = 0;
-    let stopReason: RecommendationRefinementStatus['stopReason'];
     if (mountedRef.current) {
       setError('');
       setBusy(true);
@@ -610,14 +620,21 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
         ) {
           break;
         }
-        // Refinement batches must run serially so each result can be merged
-        // before stability is evaluated.
+        const parallelism = settingsRef.current.refinementParallelism;
+        const { options } = settingsRef.current;
+        // Each request is routed to a separate native worker. Results are
+        // merged only after the whole wave completes so stability remains
+        // deterministic.
         // eslint-disable-next-line no-await-in-loop
-        const response = (await window.electron.monteCarlo.analyze(
-          state.state,
-          settingsRef.current.options,
-        )) as MonteCarloResult;
-        if (!response.ok) throw new Error(response.error || '追加计算失败');
+        const responses = (await Promise.all(
+          Array.from({ length: parallelism }, () =>
+            window.electron.monteCarlo.analyze(state.state, options),
+          ),
+        )) as MonteCarloResult[];
+        const failedResponse = responses.find((response) => !response.ok);
+        if (failedResponse) {
+          throw new Error(failedResponse.error || '追加计算失败');
+        }
         if (
           !refiningRef.current ||
           runId !== refinementRunRef.current ||
@@ -626,11 +643,14 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
           break;
         }
 
-        aggregate = mergeRecommendationResults(aggregate, response);
-        const signature = recommendationStabilitySignature(aggregate);
-        stablePasses = signature === lastSignature ? stablePasses + 1 : 0;
-        lastSignature = signature;
-        passes += 1;
+        // eslint-disable-next-line no-restricted-syntax
+        for (const response of responses) {
+          aggregate = mergeRecommendationResults(aggregate, response);
+          const signature = recommendationStabilitySignature(aggregate);
+          stablePasses = signature === lastSignature ? stablePasses + 1 : 0;
+          lastSignature = signature;
+          passes += 1;
+        }
         resultRef.current = aggregate;
         if (mountedRef.current) {
           setResult(aggregate);
@@ -639,10 +659,6 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
             totalSearches: totalResultSearches(aggregate),
             stablePasses,
           });
-        }
-        if (stablePasses >= 3) {
-          stopReason = 'stable';
-          break;
         }
       }
     } catch (reason) {
@@ -659,13 +675,6 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
       if (mountedRef.current) {
         setBusy(false);
         setRefining(false);
-        if (runId === refinementRunRef.current) {
-          setRefinementStatus((current) =>
-            current && !current.stopReason && stopReason
-              ? { ...current, stopReason }
-              : current,
-          );
-        }
       }
     }
   }, []);

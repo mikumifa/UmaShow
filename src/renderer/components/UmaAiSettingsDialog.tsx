@@ -112,6 +112,7 @@ export default function UmaAiSettingsDialog({
     setDraft((current) => ({
       enabled: current.enabled,
       refinementIntervalMs: DEFAULT_UMA_AI_SETTINGS.refinementIntervalMs,
+      refinementParallelism: DEFAULT_UMA_AI_SETTINGS.refinementParallelism,
       options: {
         ...DEFAULT_UMA_AI_SETTINGS.options,
         modelPath: current.options.modelPath,
@@ -228,6 +229,19 @@ export default function UmaAiSettingsDialog({
                     setDraft((current) => ({
                       ...current,
                       refinementIntervalMs: value,
+                    }))
+                  }
+                />
+                <NumberField
+                  label="追加计算并行数"
+                  description="同时运行的完整计算批次；总负载约为此数值乘以线程数。"
+                  value={draft.refinementParallelism}
+                  min={1}
+                  max={4}
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      refinementParallelism: value,
                     }))
                   }
                 />

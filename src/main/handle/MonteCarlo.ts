@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -197,9 +198,48 @@ class MonteCarloWorker {
   }
 }
 
-const workers = new Map<number, MonteCarloWorker>([
-  [6, new MonteCarloWorker(6)],
-  [9, new MonteCarloWorker(9)],
+class MonteCarloWorkerPool {
+  private readonly workers: MonteCarloWorker[];
+
+  private readonly activeRequests: number[];
+
+  constructor(scenarioId: number, size: number) {
+    this.workers = Array.from(
+      { length: size },
+      () => new MonteCarloWorker(scenarioId),
+    );
+    this.activeRequests = Array.from({ length: size }, () => 0);
+  }
+
+  async analyze(
+    state: Record<string, unknown>,
+    options: MonteCarloOptions = {},
+  ) {
+    let workerIndex = 0;
+    for (let index = 1; index < this.workers.length; index += 1) {
+      if (this.activeRequests[index] < this.activeRequests[workerIndex]) {
+        workerIndex = index;
+      }
+    }
+    this.activeRequests[workerIndex] += 1;
+    try {
+      return await this.workers[workerIndex].analyze(state, options);
+    } finally {
+      this.activeRequests[workerIndex] = Math.max(
+        0,
+        this.activeRequests[workerIndex] - 1,
+      );
+    }
+  }
+
+  stop() {
+    this.workers.forEach((worker) => worker.stop());
+  }
+}
+
+const workers = new Map<number, MonteCarloWorkerPool>([
+  [6, new MonteCarloWorkerPool(6, 4)],
+  [9, new MonteCarloWorkerPool(9, 1)],
 ]);
 
 const scenarioIdFromState = (state: Record<string, unknown>) => {
