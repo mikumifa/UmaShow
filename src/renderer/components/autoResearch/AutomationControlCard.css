@@ -1,0 +1,131 @@
+@media (max-width: 639px) {
+  html[data-autouma] .automationControlCard {
+    padding: 0.75rem;
+    border-radius: 1rem;
+  }
+
+  html[data-autouma] .automationControlCardHeader {
+    align-items: stretch;
+    gap: 0.625rem;
+  }
+
+  html[data-autouma] .automationControlCardHeader > :first-child {
+    width: 100%;
+  }
+
+  html[data-autouma] .automationControlCardActions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+    gap: 0.25rem;
+    padding: 0.5rem 0 0;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  html[data-autouma] .automationControlCardActions button {
+    min-width: 0;
+    justify-content: center;
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  html[data-autouma] .automationControlCardEditor {
+    display: grid;
+    width: 100%;
+    gap: 0;
+    padding: 0.625rem 0 0;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  html[data-autouma] .automationControlCardModes {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 0.75rem;
+    background: #f1f5f9;
+    box-shadow: none;
+  }
+
+  html[data-autouma] .automationControlCardModes button {
+    min-width: 0;
+    justify-content: center;
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  html[data-autouma] .automationControlCardTarget {
+    display: grid;
+    width: 100%;
+    margin-top: 0.625rem;
+    grid-template-columns: max-content 4rem minmax(0, 1fr);
+    gap: 0.375rem;
+    padding: 0.75rem 0 0;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  html[data-autouma] .automationControlCardTarget > span:nth-child(4) {
+    grid-column: 1 / -1;
+    line-height: 1.4;
+  }
+
+  html[data-autouma] .automationControlCardTiming,
+  html[data-autouma] .automationControlCardDaily {
+    width: 100%;
+    margin: 0.625rem 0 0;
+    justify-content: stretch;
+  }
+
+  html[data-autouma] .automationControlCardTiming {
+    display: grid;
+  }
+
+  html[data-autouma] .automationControlCardTiming > input {
+    width: 100%;
+  }
+
+  html[data-autouma] .automationControlCardTiming > div {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    background: #f1f5f9;
+    box-shadow: none;
+  }
+
+  html[data-autouma] .automationControlCardTiming button {
+    justify-content: center;
+  }
+
+  html[data-autouma] .automationControlCardDaily {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.75rem, 1fr));
+  }
+
+  html[data-autouma] .automationControlCardTime {
+    width: 100%;
+    padding-right: 0;
+    padding-left: 0;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  html[data-autouma] .automationControlCardTime input {
+    min-width: 0;
+    flex: 1;
+  }
+
+  html[data-autouma] .automationControlCardHint {
+    padding: 0.25rem 0.25rem 0;
+    text-align: center;
+    line-height: 1.5;
+  }
+}

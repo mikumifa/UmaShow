@@ -19,6 +19,7 @@ import {
   ScheduleTiming,
 } from './types';
 import RunTargetInput from './RunTargetInput';
+import './AutomationControlCard.css';
 
 type AutomationControlCardProps = {
   readOnly?: boolean;

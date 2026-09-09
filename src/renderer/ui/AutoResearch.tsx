@@ -704,6 +704,7 @@ export default function AutoResearch() {
   const dismissError = useCallback(() => setError(''), []);
   const [successMessage, setSuccessMessage] = useState('');
   const dismissSuccess = useCallback(() => setSuccessMessage(''), []);
+  const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0);
   const [localTrainingHistoryIds, setLocalTrainingHistoryIds] = useState<
     Set<string>
   >(new Set());
@@ -738,7 +739,6 @@ export default function AutoResearch() {
   const activeConnectionAccountIdRef = useRef('');
   const disconnectingAccountIdRef = useRef('');
   const serverTaskHandoffAccountIdRef = useRef('');
-  const historyAutoLoadKeyRef = useRef('');
   const pendingLocalLoginRef = useRef(false);
   const pendingLocalLoginAccountIdRef = useRef('');
   const localLoginConfirmationRef = useRef<{
@@ -1931,6 +1931,7 @@ export default function AutoResearch() {
         commitOverviewResponse(accountId, attached);
         setMissingExistingRuntimeAccountId('');
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+        setHistoryRefreshRevision((current) => current + 1);
         return attached;
       } catch (caught) {
         if (isStale()) return false;
@@ -1969,7 +1970,9 @@ export default function AutoResearch() {
       setBusy('history');
       try {
         if (!server) throw new Error('查看记录前，请先连接自动育成服务器');
-        const account = accounts.find((item) => item.id === accountId);
+        const account = accountsRef.current.find(
+          (item) => item.id === accountId,
+        );
         if (!account) throw new Error('本地账号不存在');
         const result = await request<{
           success: boolean;
@@ -1997,7 +2000,7 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [accounts, request, server],
+    [request, server],
   );
 
   const loadCloudConfiguration = useCallback(
@@ -2486,6 +2489,7 @@ export default function AutoResearch() {
           await loadDailyTasks(accountId);
         }
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+        setHistoryRefreshRevision((current) => current + 1);
       } catch (caught) {
         setLocalAccountSessionStates((current) => ({
           ...current,
@@ -3131,16 +3135,17 @@ export default function AutoResearch() {
   }, [selectedAccountId]);
 
   useEffect(() => {
-    if (activeTab !== 'history') {
-      historyAutoLoadKeyRef.current = '';
-      return;
-    }
+    if (activeTab !== 'history') return;
     if (!selectedAccountId || !server) return;
-    const loadKey = `${server}|${selectedAccountId}`;
-    if (historyAutoLoadKeyRef.current === loadKey) return;
-    historyAutoLoadKeyRef.current = loadKey;
     loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [activeTab, loadCareerHistory, selectedAccountId, server]);
+  }, [
+    activeTab,
+    historyRefreshRevision,
+    loadCareerHistory,
+    selectedAccountId,
+    server,
+    serverConnectionRevision,
+  ]);
 
   useEffect(() => {
     if (
@@ -6031,116 +6036,79 @@ export default function AutoResearch() {
             html[data-autouma] .autoResearchMobileTab:active {
               transform: scale(0.96);
             }
-            html[data-autouma] .automationControlCard {
-              padding: 0.75rem;
-              border-radius: 1rem;
+            html[data-autouma]
+              #app-page-context-actions:has(.autoResearchPresetImportAction) {
+              position: fixed;
+              z-index: 125;
+              top: auto;
+              right: calc(0.875rem + var(--autouma-safe-right));
+              bottom: calc(4.75rem + var(--autouma-safe-bottom));
             }
-            html[data-autouma] .automationControlCardHeader {
-              align-items: stretch;
-              gap: 0.625rem;
+            html[data-autouma]
+              #app-page-context-actions:has(.autoResearchPresetImportAction)
+              > div {
+              width: 3.5rem;
+              height: 3.5rem;
+              margin: 0;
+              border: 0;
+              border-radius: 9999px;
+              background: #4f46e5;
+              color: white;
+              box-shadow: 0 0.75rem 1.75rem rgba(79, 70, 229, 0.32);
             }
-            html[data-autouma] .automationControlCardHeader > :first-child {
+            html[data-autouma] .autoResearchPresetImportAction {
+              width: 3.5rem;
+              height: 3.5rem;
+              padding: 0;
+            }
+            html[data-autouma] .autoResearchPresetImportAction label {
               width: 100%;
-            }
-            html[data-autouma] .automationControlCardActions {
-              display: grid;
-              width: 100%;
-              grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
-              gap: 0.25rem;
-              padding: 0.5rem 0 0;
-              border-top: 1px solid #e2e8f0;
-              border-radius: 0;
-              background: transparent;
-              box-shadow: none;
-            }
-            html[data-autouma] .automationControlCardActions button {
-              min-width: 0;
+              height: 100%;
               justify-content: center;
-              padding-right: 0.5rem;
-              padding-left: 0.5rem;
+              padding: 0;
+              border-radius: 9999px;
+              color: white;
             }
-            html[data-autouma] .automationControlCardEditor {
-              display: grid;
-              width: 100%;
-              gap: 0;
-              padding: 0.625rem 0 0;
-              border-top: 1px solid #e2e8f0;
-              border-radius: 0;
-              background: transparent;
+            html[data-autouma] .autoResearchPresetImportAction label:hover {
+              background: #4338ca;
             }
-            html[data-autouma] .automationControlCardModes {
-              display: grid;
-              width: 100%;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              border-radius: 0.75rem;
-              background: #f1f5f9;
-              box-shadow: none;
+            html[data-autouma] .autoResearchPresetImportAction svg,
+            html[data-autouma] .autoResearchCloudPullAction svg {
+              width: 1.375rem;
+              height: 1.375rem;
             }
-            html[data-autouma] .automationControlCardModes button {
-              min-width: 0;
+            html[data-autouma] .autoResearchCloudPullAction {
+              position: fixed;
+              z-index: 125;
+              right: calc(0.875rem + var(--autouma-safe-right));
+              bottom: calc(4.75rem + var(--autouma-safe-bottom));
+              width: 3.5rem;
+              height: 3.5rem;
               justify-content: center;
-              padding-right: 0.5rem;
-              padding-left: 0.5rem;
+              padding: 0;
+              border: 0;
+              border-radius: 9999px;
+              background: #4f46e5;
+              color: white;
+              box-shadow: 0 0.75rem 1.75rem rgba(79, 70, 229, 0.32);
             }
-            html[data-autouma] .automationControlCardTarget {
-              display: grid;
-              width: 100%;
-              margin-top: 0.625rem;
-              grid-template-columns: max-content 4rem minmax(0, 1fr);
-              gap: 0.375rem;
-              padding: 0.75rem 0 0;
-              border-top: 1px solid #e2e8f0;
-              border-radius: 0;
-              background: transparent;
-              box-shadow: none;
+            html[data-autouma] .autoResearchCloudPullAction:hover {
+              border: 0;
+              background: #4338ca;
+              color: white;
             }
-            html[data-autouma] .automationControlCardTarget > span:nth-child(4) {
-              grid-column: 1 / -1;
-              line-height: 1.4;
+            html[data-autouma] .autoResearchCloudPullAction:active,
+            html[data-autouma] .autoResearchPresetImportAction label:active {
+              transform: scale(0.94);
             }
-            html[data-autouma] .automationControlCardTiming,
-            html[data-autouma] .automationControlCardDaily {
-              width: 100%;
-              margin: 0.625rem 0 0;
-              justify-content: stretch;
+            html[data-autouma] .autoResearchMobileFabLabel {
+              display: none;
             }
-            html[data-autouma] .automationControlCardTiming {
-              display: grid;
-            }
-            html[data-autouma] .automationControlCardTiming > input {
-              width: 100%;
-            }
-            html[data-autouma] .automationControlCardTiming > div {
-              display: grid;
-              width: 100%;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              background: #f1f5f9;
-              box-shadow: none;
-            }
-            html[data-autouma] .automationControlCardTiming button {
-              justify-content: center;
-            }
-            html[data-autouma] .automationControlCardDaily {
-              display: grid;
-              grid-template-columns: 1fr;
-            }
-            html[data-autouma] .automationControlCardTime {
-              width: 100%;
-              padding-right: 0;
-              padding-left: 0;
-              border-top: 1px solid #e2e8f0;
-              border-radius: 0;
-              background: transparent;
-              box-shadow: none;
-            }
-            html[data-autouma] .automationControlCardTime input {
-              min-width: 0;
-              flex: 1;
-            }
-            html[data-autouma] .automationControlCardHint {
-              padding: 0.25rem 0.25rem 0;
-              text-align: center;
-              line-height: 1.5;
+            html[data-autouma]:has(
+                #app-page-context-actions .autoResearchPresetImportAction
+              )
+              .autoResearchContentGrid {
+              margin-top: 0;
             }
             html[data-autouma] .autoResearchAccountOverlay {
               align-items: center;
@@ -6525,7 +6493,7 @@ export default function AutoResearch() {
                   ) : (
                     <PencilLine size={13} />
                   )}
-                  保存别名
+                  保存
                 </button>
               </div>
             </footer>
@@ -6716,29 +6684,29 @@ export default function AutoResearch() {
                     </span>
                   </summary>
                   <div className="grid gap-1.5 border-t border-slate-100 p-2.5 sm:grid-cols-[1fr_1fr_auto]">
-                      <input
-                        value={manualUid}
-                        onChange={(event) => setManualUid(event.target.value)}
-                        placeholder="uid"
-                        className={accountManualInputClass}
-                      />
-                      <input
-                        value={manualAccessKey}
-                        onChange={(event) =>
-                          setManualAccessKey(event.target.value)
-                        }
-                        placeholder="access_key"
-                        type="password"
-                        className={accountManualInputClass}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => addManual().catch(() => undefined)}
-                        disabled={Boolean(busy)}
-                        className={accountDialogSecondaryButtonClass}
-                      >
-                        添加账号
-                      </button>
+                    <input
+                      value={manualUid}
+                      onChange={(event) => setManualUid(event.target.value)}
+                      placeholder="uid"
+                      className={accountManualInputClass}
+                    />
+                    <input
+                      value={manualAccessKey}
+                      onChange={(event) =>
+                        setManualAccessKey(event.target.value)
+                      }
+                      placeholder="access_key"
+                      type="password"
+                      className={accountManualInputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addManual().catch(() => undefined)}
+                      disabled={Boolean(busy)}
+                      className={accountDialogSecondaryButtonClass}
+                    >
+                      添加账号
+                    </button>
                   </div>
                 </details>
                 {captured.length ? (
@@ -6769,9 +6737,7 @@ export default function AutoResearch() {
                       <div className="flex min-w-0 items-center gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            selectLoginSettingsAccount(account.id)
-                          }
+                          onClick={() => selectLoginSettingsAccount(account.id)}
                           className="min-w-0 flex-1 text-left"
                         >
                           <p className="truncate text-xs font-semibold text-slate-800">

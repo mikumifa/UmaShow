@@ -193,10 +193,13 @@ export default function PresetsTab(props: PresetsTabProps) {
     <>
       <AppMenuPortal targetId="app-page-context-actions">
         <AppSideNotch side="right">
-          <div className="flex h-10 items-center px-2">
-            <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-gray-700 hover:bg-slate-100">
+          <div className="autoResearchPresetImportAction flex h-10 items-center px-2">
+            <label
+              className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-gray-700 hover:bg-slate-100"
+              title="导入预设"
+            >
               <Upload size={15} />
-              导入预设
+              <span className="autoResearchMobileFabLabel">导入预设</span>
               <input
                 type="file"
                 accept=".json,application/json"

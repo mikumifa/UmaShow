@@ -1378,7 +1378,7 @@ export default function WebAutoUma() {
                   ) : (
                     <PencilLine size={13} />
                   )}
-                  保存别名
+                  保存
                 </button>
               </div>
             </footer>

@@ -604,10 +604,13 @@ export default function CareerTab(props: CareerTabProps) {
             type="button"
             onClick={pullCloudConfiguration}
             disabled={busy === 'cloud-config-pull'}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
+            className="autoResearchCloudPullAction inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
+            title="拉取云端"
           >
             <CloudDownload size={15} />
-            {busy === 'cloud-config-pull' ? '正在拉取…' : '拉取云端'}
+            <span className="autoResearchMobileFabLabel">
+              {busy === 'cloud-config-pull' ? '正在拉取…' : '拉取云端'}
+            </span>
           </button>
         </div>
         <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">

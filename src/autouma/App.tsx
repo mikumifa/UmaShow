@@ -55,8 +55,25 @@ export default function AutoUmaApp() {
           img { -webkit-user-drag: none; }
           input, select, textarea, [contenteditable='true'] {
             pointer-events: auto;
+          }
+          input:not([type]),
+          input[type='text'],
+          input[type='search'],
+          input[type='email'],
+          input[type='url'],
+          input[type='tel'],
+          input[type='password'],
+          input[type='number'],
+          input[type='date'],
+          input[type='time'],
+          input[type='datetime-local'],
+          input[type='month'],
+          input[type='week'],
+          textarea,
+          [contenteditable='true'] {
             user-select: text !important;
             -webkit-user-select: text !important;
+            -webkit-touch-callout: default;
           }
           .autouma-shell { width: 100%; height: 100vh; height: 100dvh; }
           .autouma-header {
@@ -96,6 +113,29 @@ export default function AutoUmaApp() {
             }
             .autouma-content .h-screen {
               height: calc(100dvh - 3.25rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
+            }
+          }
+
+          @media (max-width: 639px), (pointer: coarse) {
+            html[data-autouma] button,
+            html[data-autouma] [role='button'],
+            html[data-autouma] [role='tab'],
+            html[data-autouma] nav,
+            html[data-autouma] label,
+            html[data-autouma] summary,
+            html[data-autouma] select,
+            html[data-autouma] option,
+            html[data-autouma] input[type='button'],
+            html[data-autouma] input[type='submit'],
+            html[data-autouma] input[type='reset'],
+            html[data-autouma] input[type='checkbox'],
+            html[data-autouma] input[type='radio'],
+            html[data-autouma] input[type='range'],
+            html[data-autouma] input[type='color'],
+            html[data-autouma] .cursor-pointer {
+              user-select: none !important;
+              -webkit-user-select: none !important;
+              -webkit-touch-callout: none;
             }
           }
         `}
