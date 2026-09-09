@@ -952,7 +952,11 @@ export default function WebAutoUma() {
   ];
 
   return (
-    <div className="autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6">
+    <div
+      className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
+        activeTab === 'career' ? 'autoResearchCareerPage' : ''
+      }`}
+    >
       <style>
         {`
           .autoResearchMobileTabs { display: none; }
@@ -964,6 +968,21 @@ export default function WebAutoUma() {
             html[data-autouma] .autoResearchContentGrid {
               margin-top: 0; padding-top: .75rem;
               padding-bottom: 4.5rem;
+            }
+            html[data-autouma] .autoResearchCareerPage,
+            html[data-autouma] .autoResearchCareerPage .autoResearchContentGrid,
+            html[data-autouma] .autoResearchCareerPage .autoResearchContentGrid > *,
+            html[data-autouma] .autoResearchCareerPage article {
+              width: 100%; min-width: 0; max-width: 100%;
+            }
+            html[data-autouma] .autoResearchCareerPage {
+              overflow-x: hidden; touch-action: pan-y;
+            }
+            html[data-autouma] .autoResearchCareerPage .autoResearchContentGrid {
+              overflow-x: hidden;
+            }
+            html[data-autouma] .autoResearchCareerPage article {
+              overflow: hidden;
             }
             html[data-autouma] .autoResearchMobileTabs {
               position: fixed; right: 0; bottom: 0; left: 0; z-index: 120;
