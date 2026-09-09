@@ -234,11 +234,19 @@ const aggregateG123Races = (
 };
 
 const runStatus = (run: CareerSessionRun, current = false) => {
-  if (current) return { label: '暂停时', className: 'text-amber-600' };
+  if (current) {
+    if (run.status === 'running' || run.in_progress) {
+      return { label: '正在进行中', className: 'text-sky-600' };
+    }
+    return { label: '暂停时', className: 'text-amber-600' };
+  }
   if (run.completed) return { label: '已完成', className: 'text-emerald-600' };
   if (run.discarded) return { label: '已放弃', className: 'text-slate-500' };
   return { label: '未完成', className: 'text-red-600' };
 };
+
+const currentDurationLabel = (run: CareerSessionRun) =>
+  run.status === 'running' || run.in_progress ? '正在进行中' : '暂停时记录';
 
 const businessDateFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Shanghai',
@@ -248,6 +256,10 @@ const businessDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const recordDateKey = (record: CareerSessionRecord) => {
+  const dailySession = String(record.session_id || record.id || '').match(
+    /^daily:(\d{4}-\d{2}-\d{2})$/,
+  );
+  if (dailySession) return dailySession[1];
   const timestamp = String(record.ended_at || record.started_at || '');
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp.slice(0, 10) || '未知日期';
@@ -790,7 +802,8 @@ export default function HistoryTab({
                             {current ? '未结束' : formatRunTime(endedAt)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500">
-                            {duration || (current ? '暂停时记录' : '未知')}
+                            {duration ||
+                              (current ? currentDurationLabel(run) : '未知')}
                           </td>
                           {!readOnly && !offlineHistory ? (
                             <td className="px-3 py-3 text-right">
