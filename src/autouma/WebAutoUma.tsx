@@ -985,6 +985,25 @@ export default function WebAutoUma() {
             html[data-autouma] .autoResearchMobileTab[aria-current='page'] {
               background: #eef2ff; color: #4f46e5;
             }
+            html[data-autouma] .autoResearchCloudPullAction {
+              position: fixed; z-index: 125;
+              right: calc(.875rem + var(--autouma-safe-right));
+              bottom: calc(4.75rem + var(--autouma-safe-bottom));
+              width: 3.5rem; height: 3.5rem; justify-content: center;
+              padding: 0; border: 0; border-radius: 9999px;
+              background: #4f46e5; color: white;
+              box-shadow: 0 .75rem 1.75rem rgba(79,70,229,.32);
+            }
+            html[data-autouma] .autoResearchCloudPullAction:hover {
+              border: 0; background: #4338ca; color: white;
+            }
+            html[data-autouma] .autoResearchCloudPullAction:active {
+              transform: scale(.94);
+            }
+            html[data-autouma] .autoResearchCloudPullAction svg {
+              width: 1.375rem; height: 1.375rem;
+            }
+            html[data-autouma] .autoResearchMobileFabLabel { display: none; }
           }
         `}
       </style>

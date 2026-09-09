@@ -41,7 +41,7 @@ export default function AutoUmaApp() {
   }, []);
 
   return (
-    <div className="autouma-shell flex min-h-0 flex-col overflow-hidden bg-slate-50 font-sans">
+    <div className="autouma-shell flex min-h-0 flex-col overflow-hidden bg-white font-sans">
       <style>
         {`
           html[data-autouma] {
@@ -51,7 +51,10 @@ export default function AutoUmaApp() {
             --autouma-safe-left: max(env(safe-area-inset-left, 0px), var(--autouma-native-safe-left, 0px));
           }
           html, body, #root { height: 100%; min-height: 0; overflow: hidden; }
-          body { margin: 0; background: #f8fafc; }
+          html[data-autouma], html[data-autouma] body, html[data-autouma] #root {
+            background: #fff;
+          }
+          body { margin: 0; background: #fff; }
           img { -webkit-user-drag: none; }
           input, select, textarea, [contenteditable='true'] {
             pointer-events: auto;
@@ -86,6 +89,7 @@ export default function AutoUmaApp() {
             padding-right: var(--autouma-safe-right);
             padding-bottom: var(--autouma-safe-bottom);
             padding-left: var(--autouma-safe-left);
+            background: #f8fafc;
           }
           .autouma-content .min-h-screen {
             min-height: calc(100dvh - 2.5rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
