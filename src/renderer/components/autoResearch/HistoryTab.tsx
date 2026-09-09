@@ -380,6 +380,39 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
     String(left.started_at || '').localeCompare(String(right.started_at || '')),
   );
   const statisticSources = records.flatMap(recordStatisticSources);
+  const chronologicalRows = sorted
+    .flatMap((record) => {
+      const recordRows = [
+        ...(record.runs || []).map((run) => ({ run, current: false })),
+        ...(record.current ? [{ run: record.current, current: true }] : []),
+      ];
+      return recordRows.map((row, index) => {
+        const startedAt =
+          String(row.run.started_at || '') ||
+          runIdTimestamp(row.run.run_id) ||
+          (index === 0 ? String(record.started_at || '') : '');
+        const nextRun = recordRows[index + 1]?.run;
+        const nextStartedAt = nextRun
+          ? String(nextRun.started_at || '') || runIdTimestamp(nextRun.run_id)
+          : '';
+        const endedAt = row.current
+          ? ''
+          : String(row.run.ended_at || '') ||
+            nextStartedAt ||
+            (index === recordRows.length - 1
+              ? String(record.ended_at || '')
+              : '');
+        return { ...row, startedAt, endedAt };
+      });
+    })
+    .sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  let sequence = 0;
+  const rows = chronologicalRows
+    .map((row) => ({
+      ...row,
+      sequence: row.current ? null : ++sequence,
+    }))
+    .reverse();
   return {
     count,
     attributesAverage,
@@ -416,30 +449,7 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
       0,
     ),
     errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
-    rows: sorted.flatMap((record) => {
-      const recordRows = [
-        ...(record.runs || []).map((run) => ({ run, current: false })),
-        ...(record.current ? [{ run: record.current, current: true }] : []),
-      ];
-      return recordRows.map((row, index) => {
-        const startedAt =
-          String(row.run.started_at || '') ||
-          runIdTimestamp(row.run.run_id) ||
-          (index === 0 ? String(record.started_at || '') : '');
-        const nextRun = recordRows[index + 1]?.run;
-        const nextStartedAt = nextRun
-          ? String(nextRun.started_at || '') || runIdTimestamp(nextRun.run_id)
-          : '';
-        const endedAt = row.current
-          ? ''
-          : String(row.run.ended_at || '') ||
-            nextStartedAt ||
-            (index === recordRows.length - 1
-              ? String(record.ended_at || '')
-              : '');
-        return { ...row, startedAt, endedAt };
-      });
-    }),
+    rows,
   };
 };
 
@@ -753,7 +763,7 @@ export default function HistoryTab({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {aggregate.rows.map(
-                    ({ run, current, startedAt, endedAt }, index) => {
+                    ({ run, current, startedAt, endedAt, sequence }, index) => {
                       const status = runStatus(run, current);
                       const duration = formatRunDuration(startedAt, endedAt);
                       const trainingHistoryId = String(
@@ -765,7 +775,7 @@ export default function HistoryTab({
                       return (
                         <tr key={run.run_id || `current-${index}`}>
                           <td className="px-4 py-3 font-medium text-slate-700">
-                            {current ? '-' : index + 1}
+                            {sequence ?? '-'}
                           </td>
                           <td className={`px-3 py-3 ${status.className}`}>
                             {status.label}
