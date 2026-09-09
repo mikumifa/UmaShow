@@ -238,6 +238,8 @@ export default function WebAutoUma() {
     () => localStorage.getItem(SERVER_KEY) || 'http://127.0.0.1:18765',
   );
   const [accounts, setAccounts] = useState<ImportedAccount[]>([]);
+  const [manualUid, setManualUid] = useState('');
+  const [manualAccessKey, setManualAccessKey] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState(
     () => localStorage.getItem(ACCOUNT_KEY) || '',
   );
@@ -515,6 +517,45 @@ export default function WebAutoUma() {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) importUsersDb(file);
+  };
+
+  const addManualAccount = async () => {
+    const uid = manualUid.trim();
+    const accessKey = manualAccessKey.trim();
+    if (!uid || !accessKey) {
+      setError('请填写 uid 和 access_key');
+      return;
+    }
+    setBusy('manual-account');
+    setError('');
+    setSuccessMessage('');
+    try {
+      await window.electron.autoResearch.saveAccounts([
+        {
+          uid,
+          accessKey,
+          source: '手动填写',
+          capturedAt: new Date().toISOString(),
+        },
+      ]);
+      const updated = (await window.electron.autoResearch.accounts()) as
+        | ImportedAccount[]
+        | undefined;
+      const nextAccounts = updated || [];
+      const added = nextAccounts.find((account) => account.uid === uid);
+      setAccounts(nextAccounts);
+      if (added) {
+        setSelectedAccountId(added.id);
+        localStorage.setItem(ACCOUNT_KEY, added.id);
+      }
+      setManualUid('');
+      setManualAccessKey('');
+      setSuccessMessage(`已添加账号 ${uid}`);
+    } catch (caught) {
+      setError(String((caught as Error)?.message || caught));
+    } finally {
+      setBusy('');
+    }
   };
 
   const openAccountAliasEditor = (account: ImportedAccount) => {
@@ -1278,6 +1319,43 @@ export default function WebAutoUma() {
                   />
                 </label>
               </div>
+              <details className="group rounded-lg border border-slate-200 bg-white">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium text-slate-700 marker:content-none">
+                  <span>手动添加账号</span>
+                  <span className="text-[10px] font-normal text-slate-400 group-open:hidden">
+                    UID + access_key
+                  </span>
+                  <span className="hidden text-[10px] font-normal text-slate-400 group-open:inline">
+                    收起
+                  </span>
+                </summary>
+                <div className="grid gap-1.5 border-t border-slate-100 p-2.5 sm:grid-cols-[1fr_1fr_auto]">
+                  <input
+                    value={manualUid}
+                    onChange={(event) => setManualUid(event.target.value)}
+                    placeholder="uid"
+                    inputMode="numeric"
+                    className="min-h-9 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <input
+                    value={manualAccessKey}
+                    onChange={(event) =>
+                      setManualAccessKey(event.target.value)
+                    }
+                    placeholder="access_key"
+                    type="password"
+                    className="min-h-9 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addManualAccount().catch(() => undefined)}
+                    disabled={Boolean(busy)}
+                    className="min-h-9 rounded-md bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {busy === 'manual-account' ? '添加中…' : '添加账号'}
+                  </button>
+                </div>
+              </details>
               <section>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-slate-800">
