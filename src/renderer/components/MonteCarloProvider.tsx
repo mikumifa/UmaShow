@@ -51,6 +51,7 @@ export type UmaAiOptions = Required<
 
 export type UmaAiSettings = {
   enabled: boolean;
+  refinementIntervalMs: number;
   options: UmaAiOptions;
 };
 
@@ -63,6 +64,7 @@ export type RecommendationRefinementStatus = {
 
 type UmaAiSettingsInput = {
   enabled?: boolean;
+  refinementIntervalMs?: number;
   options?: Partial<MonteCarloOptions>;
 };
 
@@ -86,6 +88,7 @@ const AUTO_REFINE_KEY = 'recommendation.auto-refine.v1';
 
 export const DEFAULT_UMA_AI_SETTINGS: UmaAiSettings = {
   enabled: false,
+  refinementIntervalMs: 500,
   options: {
     modelPath: '',
     searchSingleMax: 4096,
@@ -247,6 +250,14 @@ export const normalizeUmaAiSettings = (
   );
   return {
     enabled: Boolean(value?.enabled),
+    refinementIntervalMs: Math.round(
+      boundedNumber(
+        value?.refinementIntervalMs,
+        DEFAULT_UMA_AI_SETTINGS.refinementIntervalMs,
+        0,
+        10000,
+      ),
+    ),
     options: {
       modelPath: typeof raw.modelPath === 'string' ? raw.modelPath.trim() : '',
       searchSingleMax: Math.round(
@@ -583,6 +594,22 @@ export function MonteCarloProvider({ children }: { children: ReactNode }) {
 
     try {
       while (refiningRef.current) {
+        const intervalMs = settingsRef.current.refinementIntervalMs;
+        if (intervalMs > 0) {
+          // Keep the first recommendation immediate; only automatic
+          // refinement passes are paced by the configured interval.
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, intervalMs);
+          });
+        }
+        if (
+          !refiningRef.current ||
+          runId !== refinementRunRef.current ||
+          capturedStateRef.current?.sequence !== state.sequence
+        ) {
+          break;
+        }
         // Refinement batches must run serially so each result can be merged
         // before stability is evaluated.
         // eslint-disable-next-line no-await-in-loop

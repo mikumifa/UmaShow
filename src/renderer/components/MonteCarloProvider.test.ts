@@ -21,9 +21,20 @@ describe('recommendation settings', () => {
       graphRootGumbelMaxActions: 16,
       graphRootGumbelScale: 1,
     });
+    expect(DEFAULT_UMA_AI_SETTINGS.refinementIntervalMs).toBe(500);
     expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('seed');
     expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('maxDepth');
     expect(DEFAULT_UMA_AI_SETTINGS.options).not.toHaveProperty('scoringMode');
+  });
+
+  it('normalizes the automatic refinement interval', () => {
+    const normalizeInterval = (refinementIntervalMs?: number) =>
+      normalizeUmaAiSettings({ refinementIntervalMs }).refinementIntervalMs;
+
+    expect(normalizeInterval(1250.4)).toBe(1250);
+    expect(normalizeInterval(-1)).toBe(0);
+    expect(normalizeInterval(99999)).toBe(10000);
+    expect(normalizeInterval()).toBe(500);
   });
 
   it('drops settings that are not used by the LArc recommendation engine', () => {

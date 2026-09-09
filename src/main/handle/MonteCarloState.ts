@@ -182,13 +182,14 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
   }
 
   const commandResult = asObject(data.command_result);
+  let hasNewTrainingResult = false;
   if (commandResult && Object.keys(commandResult).length > 0) {
     const pendingActionTurn = tracker.pendingChoice?.currentTurn;
     const commandId = numberValue(
       commandResult.command_id,
       tracker.pendingChoice?.commandId ?? 0,
     );
-    const actionTurn = pendingActionTurn ?? Math.max(1, tracker.lastTurn);
+    const actionTurn = pendingActionTurn ?? Math.max(1, turn - 1);
     const actionKey = `${runKey}:${actionTurn}:${commandId}`;
     if (commandId > 0 && actionKey !== tracker.lastProcessedAction) {
       const trainIndex = TRAIN_INDEX.get(commandId);
@@ -217,6 +218,7 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
         tracker.friendClicked = true;
       }
       tracker.lastProcessedAction = actionKey;
+      hasNewTrainingResult = trainIndex != null;
     }
     if (TRAIN_INDEX.has(commandId)) {
       tracker.awaitingNextTurnAfterTraining = true;
@@ -226,7 +228,7 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
     tracker.pendingChoice = null;
   }
 
-  if (tracker.awaitingNextTurnAfterTraining) {
+  if (tracker.awaitingNextTurnAfterTraining && !hasNewTrainingResult) {
     const home = asObject(data.home_info);
     const hasPlayableTraining = asArray(home?.command_info_array).some(
       (item) => {

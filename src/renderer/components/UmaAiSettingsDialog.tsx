@@ -111,6 +111,7 @@ export default function UmaAiSettingsDialog({
   const restoreDefaults = () => {
     setDraft((current) => ({
       enabled: current.enabled,
+      refinementIntervalMs: DEFAULT_UMA_AI_SETTINGS.refinementIntervalMs,
       options: {
         ...DEFAULT_UMA_AI_SETTINGS.options,
         modelPath: current.options.modelPath,
@@ -214,6 +215,22 @@ export default function UmaAiSettingsDialog({
                 <h3 className="text-sm font-semibold text-slate-800">
                   计算设置
                 </h3>
+              </div>
+              <div className="mb-4 grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                <NumberField
+                  label="追加计算间隔 (ms)"
+                  description="凯旋门自动追加计算每轮之间的等待时间；0 表示不等待。"
+                  value={draft.refinementIntervalMs}
+                  min={0}
+                  max={10000}
+                  step={100}
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      refinementIntervalMs: value,
+                    }))
+                  }
+                />
               </div>
               {usingModel ? (
                 <details>

@@ -356,7 +356,7 @@ describe('MonteCarloState', () => {
     expect((state?.persons as Array<{ isHint: boolean }>)[1].isHint).toBe(true);
   });
 
-  it('accepts a playable next-turn packet without unchecked events', () => {
+  it('waits one packet before accepting an event-free training turn', () => {
     const runId = 91002;
     const send = jest.fn();
     const mainWindow = {
@@ -393,6 +393,24 @@ describe('MonteCarloState', () => {
         'response',
         mainWindow,
       ),
+    ).toBeNull();
+    expect(getLatestMonteCarloState()).toBeNull();
+    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
+    send.mockClear();
+
+    expect(
+      captureMonteCarloPacket(
+        makePacket({
+          runId,
+          turn: 11,
+          commandResult: { command_id: 901, result_state: 0 },
+          trainingLevels: [1, 1, 1, 1, 1],
+          friendOuting: 0,
+          friendStoryStep: 0,
+        }),
+        'response',
+        mainWindow,
+      ),
     ).not.toBeNull();
 
     expect(getLatestMonteCarloState()?.state).toMatchObject({
@@ -404,6 +422,26 @@ describe('MonteCarloState', () => {
       'monte-carlo:state-captured',
       expect.objectContaining({ turn: 10, gameStage: 1 }),
     );
+
+    send.mockClear();
+    expect(
+      captureMonteCarloPacket(
+        makePacket({
+          runId,
+          turn: 11,
+          commandResult: { command_id: 901, result_state: 0 },
+          trainingLevels: [1, 1, 1, 1, 1],
+          friendOuting: 0,
+          friendStoryStep: 0,
+        }),
+        'response',
+        mainWindow,
+      ),
+    ).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(getLatestMonteCarloState()?.state).toMatchObject({
+      trainLevelCount: [1, 0, 0, 0, 0],
+    });
   });
 
   it('keeps waiting when a training result includes an unchecked event', () => {
