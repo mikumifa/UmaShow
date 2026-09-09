@@ -90,12 +90,14 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk \
             "AutoUma-v${{ steps.release.outputs.version }}-Android.apk"
 
-      - name: Publish APK to GitHub Release
+      - name: Upload APK to draft GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release.outputs.tag }}
           name: UmaShow ${{ steps.release.outputs.tag }}
           target_commitish: ${{ github.sha }}
+          draft: true
+          prerelease: false
           generate_release_notes: true
           files: AutoUma-v${{ steps.release.outputs.version }}-Android.apk
           fail_on_unmatched_files: true
