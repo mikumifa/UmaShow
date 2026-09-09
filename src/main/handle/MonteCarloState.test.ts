@@ -356,7 +356,7 @@ describe('MonteCarloState', () => {
     expect((state?.persons as Array<{ isHint: boolean }>)[1].isHint).toBe(true);
   });
 
-  it('tracks a successful friend-card training without using a state file', () => {
+  it('accepts a playable next-turn packet without unchecked events', () => {
     const runId = 91002;
     const send = jest.fn();
     const mainWindow = {
@@ -393,28 +393,61 @@ describe('MonteCarloState', () => {
         'response',
         mainWindow,
       ),
-    ).toBeNull();
-    expect(getLatestMonteCarloState()).toBeNull();
-    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
-    send.mockClear();
-
-    captureMonteCarloPacket(
-      makePacket({
-        runId,
-        turn: 11,
-        trainingLevels: [1, 1, 1, 1, 1],
-        friendOuting: 0,
-        friendStoryStep: 0,
-      }),
-      'response',
-      mainWindow,
-    );
+    ).not.toBeNull();
 
     expect(getLatestMonteCarloState()?.state).toMatchObject({
       trainLevelCount: [1, 0, 0, 0, 0],
       friend_stage: 1,
       friend_outgoingUsed: 0,
     });
+    expect(send).toHaveBeenCalledWith(
+      'monte-carlo:state-captured',
+      expect.objectContaining({ turn: 10, gameStage: 1 }),
+    );
+  });
+
+  it('keeps waiting when a training result includes an unchecked event', () => {
+    const runId = 91005;
+    const send = jest.fn();
+    const mainWindow = {
+      isDestroyed: () => false,
+      webContents: { isDestroyed: () => false, send },
+    } as unknown as BrowserWindow;
+    captureMonteCarloPacket(makePacket({ runId }), 'response', mainWindow);
+    captureMonteCarloPacket(
+      { current_turn: 10, command_id: 901 },
+      'request',
+      mainWindow,
+    );
+    send.mockClear();
+
+    expect(
+      captureMonteCarloPacket(
+        makePacket({
+          runId,
+          turn: 11,
+          commandResult: { command_id: 901, result_state: 0 },
+          uncheckedEvents: [{ event_id: 1 }],
+        }),
+        'response',
+        mainWindow,
+      ),
+    ).toBeNull();
+    expect(getLatestMonteCarloState()).toBeNull();
+    expect(send).toHaveBeenCalledWith('monte-carlo:state-captured', null);
+
+    send.mockClear();
+    expect(
+      captureMonteCarloPacket(
+        makePacket({
+          runId,
+          turn: 11,
+          commandResult: { command_id: 901, result_state: 0 },
+        }),
+        'response',
+        mainWindow,
+      ),
+    ).not.toBeNull();
     expect(send).toHaveBeenCalledWith(
       'monte-carlo:state-captured',
       expect.objectContaining({ turn: 10, gameStage: 1 }),

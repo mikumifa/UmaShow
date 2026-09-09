@@ -224,18 +224,24 @@ const syncTracker = (data: PacketObject, chara: PacketObject): RunTracker => {
         pendingActionTurn == null ? turn : Math.max(turn, actionTurn + 1);
     }
     tracker.pendingChoice = null;
-  } else if (tracker.awaitingNextTurnAfterTraining) {
+  }
+
+  if (tracker.awaitingNextTurnAfterTraining) {
     const home = asObject(data.home_info);
-    const hasPlayableCommands = asArray(home?.command_info_array).some(
+    const hasPlayableTraining = asArray(home?.command_info_array).some(
       (item) => {
         const command = asObject(item);
-        return command != null && numberValue(command.command_id) > 0;
+        return (
+          command != null &&
+          TRAIN_INDEX.has(numberValue(command.command_id)) &&
+          numberValue(command.is_enable) === 1
+        );
       },
     );
     const hasPendingEvent = asArray(data.unchecked_event_array).length > 0;
     if (
       turn >= tracker.nextPlayableTurn &&
-      hasPlayableCommands &&
+      hasPlayableTraining &&
       !hasPendingEvent &&
       data.race_start_info == null
     ) {
