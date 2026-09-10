@@ -1981,6 +1981,8 @@ export default function AutoResearch() {
           method: 'POST',
           body: JSON.stringify({
             uid: account.uid,
+            view: 'day',
+            days: 50,
           }),
         });
         setCareerHistory(result.reports || []);
@@ -2149,6 +2151,9 @@ export default function AutoResearch() {
             uid: credential.uid,
             access_key: credential.accessKey,
             report_ids: reportIds,
+            view: reportIds.some((id) => String(id).startsWith('task:'))
+              ? 'task'
+              : 'day',
           }),
         });
         setCareerHistory(result.reports || []);

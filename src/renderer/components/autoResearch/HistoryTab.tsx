@@ -98,6 +98,22 @@ const formatRunTime = (value?: string) => {
   });
 };
 
+const formatRunDateTime = (value?: string) => {
+  if (!value) return '未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  return date.toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+};
+
 const formatRunDuration = (startedAt?: string, endedAt?: string) => {
   if (!startedAt || !endedAt) return '';
   const started = new Date(startedAt).getTime();
@@ -336,6 +352,29 @@ const groupRecordsBySettingAndDate = (records: CareerSessionRecord[]) => {
   return [...groups.values()];
 };
 
+const groupRecordsByTask = (records: CareerSessionRecord[]) => {
+  const groups = new Map<string, CareerSessionRecord[]>();
+  [...records]
+    .sort((left, right) =>
+      String(right.ended_at || right.started_at || '').localeCompare(
+        String(left.ended_at || left.started_at || ''),
+      ),
+    )
+    .forEach((record) => {
+      const taskId = String(record.task_id || record.session_id || record.id || '');
+      const key = `task:${taskId}`;
+      const group = groups.get(key);
+      if (group) group.push(record);
+      else groups.set(key, [record]);
+    });
+  return [...groups.entries()].map(([key, group]) => ({
+    key,
+    settingName: recordSettingName(group[0]),
+    dateKey: recordDateKey(group[0]),
+    records: group,
+  }));
+};
+
 const hasLocalCareerSetting = (
   records: CareerSessionRecord[],
   settings: CareerSetting[],
@@ -469,6 +508,7 @@ export default function HistoryTab({
   openTrainingHistory,
   races,
 }: HistoryTabProps) {
+  const [historyView, setHistoryView] = useState<'day' | 'task'>('day');
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
   const [pullDistance, setPullDistance] = useState(0);
   const pullStartY = useRef<number | null>(null);
@@ -622,7 +662,9 @@ export default function HistoryTab({
                       )
                     ) {
                       deleteCareerHistory(
-                        selectedCareerRecords.map((record) => record.id),
+                        historyView === 'task'
+                          ? [`task:${selectedCareerRecords[0]?.task_id || selectedCareerRecords[0]?.session_id || ''}`]
+                          : selectedCareerRecords.map((record) => record.id),
                       );
                     }
                   }}
@@ -654,7 +696,8 @@ export default function HistoryTab({
               </span>
               <div className="min-w-0">
                 <h2 className="truncate text-base font-bold text-slate-900 sm:text-xl">
-                  {settingName} · {formatRecordDate(dateKey)}
+                  {settingName} ·{' '}
+                  {historyView === 'task' ? '任务全量记录' : formatRecordDate(dateKey)}
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
                   {offlineHistory
@@ -806,10 +849,16 @@ export default function HistoryTab({
                             {run.jewels_earned || 0} 个
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">
-                            {formatRunTime(startedAt)}
+                            {historyView === 'task'
+                              ? formatRunDateTime(startedAt)
+                              : formatRunTime(startedAt)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">
-                            {current ? '未结束' : formatRunTime(endedAt)}
+                            {current
+                              ? '未结束'
+                              : historyView === 'task'
+                                ? formatRunDateTime(endedAt)
+                                : formatRunTime(endedAt)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500">
                             {duration ||
@@ -993,7 +1042,34 @@ export default function HistoryTab({
           </div>
         ) : null}
         <div className="mt-5 space-y-4">
-          {groupRecordsBySettingAndDate(careerHistory).map(
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-1">
+            <span className="px-2 text-xs text-slate-500">历史聚合方式</span>
+            <div className="flex gap-1">
+              {([['day', '按日期'], ['task', '按任务']] as const).map(
+                ([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                      historyView === value
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    onClick={() => {
+                      setHistoryView(value);
+                      setSelectedCareerRecords(null);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+          {(historyView === 'task'
+            ? groupRecordsByTask(careerHistory)
+            : groupRecordsBySettingAndDate(careerHistory)
+          ).map(
             ({ key, settingName, dateKey, records }) => {
               const aggregate = aggregateRecords(records);
               const recordUma = resolveRecordUma(aggregate.cardId);
@@ -1012,7 +1088,9 @@ export default function HistoryTab({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                     <h3 className="font-semibold text-slate-800">
-                      {formatRecordDate(dateKey)}
+                      {historyView === 'task'
+                        ? `任务 · ${settingName}`
+                        : formatRecordDate(dateKey)}
                     </h3>
                     <span className="flex flex-wrap items-center justify-end gap-2">
                       <span className={careerSettingModeBadgeClass(offline)}>
@@ -1051,7 +1129,9 @@ export default function HistoryTab({
                               )
                             ) {
                               deleteCareerHistory(
-                                records.map((record) => record.id),
+                                historyView === 'task'
+                                  ? [`task:${records[0]?.task_id || records[0]?.session_id || ''}`]
+                                  : records.map((record) => record.id),
                               );
                             }
                           }}

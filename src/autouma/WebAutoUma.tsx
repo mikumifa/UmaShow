@@ -463,7 +463,7 @@ export default function WebAutoUma() {
           '/api/account/career/history/query',
           {
             method: 'POST',
-            body: JSON.stringify({ uid: credential.uid }),
+            body: JSON.stringify({ uid: credential.uid, view: 'day', days: 50 }),
           },
         ),
       ]);
@@ -608,7 +608,7 @@ export default function WebAutoUma() {
         '/api/account/career/history/query',
         {
           method: 'POST',
-          body: JSON.stringify({ uid: connectedUid }),
+          body: JSON.stringify({ uid: connectedUid, view: 'day', days: 50 }),
         },
       );
       setCareerHistory(result.reports || []);

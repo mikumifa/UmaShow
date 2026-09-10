@@ -463,6 +463,10 @@ export type G123RaceRecord = {
   race_name?: string;
   recorded_at: string;
   large_margin: boolean;
+  rank?: number;
+  margin_lengths?: number | null;
+  counted?: boolean;
+  source?: string;
 };
 
 export type CareerSessionRun = {
@@ -490,6 +494,9 @@ export type CareerSessionRecord = {
   id: string;
   schema_version: number;
   session_id: string;
+  task_id?: string;
+  task_revision?: number;
+  task_item_id?: string;
   uid: string;
   started_at: string;
   ended_at: string;
