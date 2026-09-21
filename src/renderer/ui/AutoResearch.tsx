@@ -32,6 +32,7 @@ import {
   Users,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import TrainedCharactersTab from 'renderer/components/autoResearch/TrainedCharactersTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
@@ -143,6 +144,7 @@ const autoResearchTabs = [
   { id: 'presets' as const, label: '预设', icon: Settings2 },
   { id: 'career' as const, label: '详设', icon: ListChecks },
   { id: 'history' as const, label: '记录', icon: History },
+  { id: 'hall' as const, label: '殿堂', icon: Users },
 ];
 
 const isScheduledDateTime = (value?: string) =>
@@ -5583,7 +5585,8 @@ export default function AutoResearch() {
       effectiveCardId,
       offlineScenarioId,
       offlineSetupRequestKey,
-    ]);
+    ],
+  );
 
   useEffect(() => {
     if (activeTab !== 'career' || !careerSaveOpen || careerMode !== 'offline') {
@@ -8662,6 +8665,24 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
+                {activeTab === 'hall' ? (
+                  <TrainedCharactersTab
+                    key={`${server}:${selectedAccountId}`}
+                    request={async <T,>(path: string, init?: RequestInit) => {
+                      const token =
+                        sessionTokens.current.get(selectedAccountId);
+                      if (!server || !token)
+                        throw new Error('请先连接自动育成服务器账号');
+                      return request<T>(path, {
+                        ...init,
+                        headers: {
+                          ...init?.headers,
+                          Authorization: `Bearer ${token}`,
+                        },
+                      });
+                    }}
+                  />
+                ) : null}
                 {activeTab === 'history' ? (
                   server ? (
                     <HistoryTab

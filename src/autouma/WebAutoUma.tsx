@@ -24,6 +24,7 @@ import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import TrainedCharactersTab from 'renderer/components/autoResearch/TrainedCharactersTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
 import {
@@ -62,7 +63,7 @@ import autoResearchCatalog from '../../assets/data/auto_research_catalog.json';
 const SERVER_KEY = 'autouma.web.server';
 const ACCOUNT_KEY = 'autouma.web.accountId';
 
-type WebTab = 'career' | 'history';
+type WebTab = 'career' | 'history' | 'hall';
 type CareerHistoryResponse = {
   success: boolean;
   reports: CareerSessionRecord[];
@@ -284,8 +285,7 @@ export default function WebAutoUma() {
   const [runCountTarget, setRunCountTarget] = useState(3);
   const [jewelDropTarget, setJewelDropTarget] = useState(20);
   const [repeatDaily, setRepeatDaily] = useState(false);
-  const [scheduleTiming, setScheduleTiming] =
-    useState<ScheduleTiming>('now');
+  const [scheduleTiming, setScheduleTiming] = useState<ScheduleTiming>('now');
   const [scheduledStartAt, setScheduledStartAt] = useState('');
   const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
   const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
@@ -703,8 +703,7 @@ export default function WebAutoUma() {
 
   const commitHostedSession = (next: SessionResponse) => {
     setSession((current) => {
-      const nextRuntimeAutomation =
-        next.runtime?.automation || next.automation;
+      const nextRuntimeAutomation = next.runtime?.automation || next.automation;
       const nextRuntimeAccount =
         next.runtime?.account !== undefined
           ? next.runtime.account
@@ -718,8 +717,7 @@ export default function WebAutoUma() {
         runtime: {
           ...(current?.runtime || {}),
           ...(next.runtime || {}),
-          automation:
-            nextRuntimeAutomation || current?.runtime?.automation,
+          automation: nextRuntimeAutomation || current?.runtime?.automation,
           account: nextRuntimeAccount,
         },
       };
@@ -1070,6 +1068,7 @@ export default function WebAutoUma() {
   const tabs = [
     { id: 'career' as const, label: '养马详设', icon: Settings2 },
     { id: 'history' as const, label: '养马记录', icon: History },
+    { id: 'hall' as const, label: '殿堂', icon: History },
   ];
 
   return (
@@ -1283,9 +1282,7 @@ export default function WebAutoUma() {
                   <ProgressTab
                     currentCareerActive
                     activeCareerIconPath={activeCareerIconPath}
-                    activeCareerFallbackIconPath={
-                      activeCareerFallbackIconPath
-                    }
+                    activeCareerFallbackIconPath={activeCareerFallbackIconPath}
                     activeCareer={dashboard.account.career || undefined}
                     currentCareerUma={currentCareerUma}
                     runner={runner}
@@ -1306,6 +1303,11 @@ export default function WebAutoUma() {
             ) : (
               <CareerTab {...careerTabProps} readOnly />
             )
+          ) : activeTab === 'hall' ? (
+            <TrainedCharactersTab
+              key={`${server}:${connectedAccountId}`}
+              request={hostedRequest}
+            />
           ) : (
             <HistoryTab
               readOnly
@@ -1439,9 +1441,7 @@ export default function WebAutoUma() {
                   />
                   <input
                     value={manualAccessKey}
-                    onChange={(event) =>
-                      setManualAccessKey(event.target.value)
-                    }
+                    onChange={(event) => setManualAccessKey(event.target.value)}
                     placeholder="access_key"
                     type="password"
                     className="min-h-9 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -1712,7 +1712,9 @@ export default function WebAutoUma() {
                   <input
                     type="datetime-local"
                     value={scheduledStartAt}
-                    onChange={(event) => setScheduledStartAt(event.target.value)}
+                    onChange={(event) =>
+                      setScheduledStartAt(event.target.value)
+                    }
                     className="mt-2 h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                   />
                 ) : null}
@@ -1723,7 +1725,9 @@ export default function WebAutoUma() {
                       <input
                         type="time"
                         value={scheduleStartTime}
-                        onChange={(event) => setScheduleStartTime(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleStartTime(event.target.value)
+                        }
                         className="ml-2 h-8 rounded-md border border-slate-200 px-2"
                       />
                     </label>
@@ -1732,7 +1736,9 @@ export default function WebAutoUma() {
                       <input
                         type="time"
                         value={scheduleEndTime}
-                        onChange={(event) => setScheduleEndTime(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleEndTime(event.target.value)
+                        }
                         className="ml-2 h-8 rounded-md border border-slate-200 px-2"
                       />
                     </label>
