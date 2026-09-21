@@ -371,7 +371,7 @@ const groupRecordsBySettingAndDate = (records: CareerSessionRecord[]) => {
     .forEach((record) => {
       const dateKey = recordDateKey(record);
       const settingKey = recordSettingKey(record);
-      const key = `${record.task_id || record.session_id || record.id}\u0000${settingKey}\u0000${dateKey}`;
+      const key = `${settingKey}\u0000${dateKey}`;
       const group = groups.get(key);
       if (group) {
         group.records.push(record);
@@ -727,7 +727,8 @@ export default function HistoryTab({
       accountCareerSettings,
     );
     const canDownloadSetting = hasCareerSettingSnapshot(selectedCareerRecords);
-    const planSummary = taskPlanSummary(selectedCareerRecords[0]);
+    const planSummary =
+      historyView === 'task' ? taskPlanSummary(selectedCareerRecords[0]) : '';
 
     return (
       <div className="autoResearchHistory autoResearchHistoryDetail space-y-4">
@@ -1338,7 +1339,8 @@ export default function HistoryTab({
             accountCareerSettings,
           );
           const canDownloadSetting = hasCareerSettingSnapshot(records);
-          const planSummary = taskPlanSummary(records[0]);
+          const planSummary =
+            historyView === 'task' ? taskPlanSummary(records[0]) : '';
           return (
             <section key={key} className="historyGroup uma-task-card">
               <div className="historyGroupHeader">
