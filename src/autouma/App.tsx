@@ -57,9 +57,9 @@ export default function AutoUmaApp() {
           }
           html, body, #root { height: 100%; min-height: 0; overflow: hidden; }
           html[data-autouma], html[data-autouma] body, html[data-autouma] #root {
-            background: var(--uma-clay-canvas);
+            background: var(--uma-clay-chrome);
           }
-          body { margin: 0; background: var(--uma-clay-canvas); }
+          body { margin: 0; background: var(--uma-clay-chrome); }
           img { -webkit-user-drag: none; }
           input, select, textarea, [contenteditable='true'] {
             pointer-events: auto;

@@ -209,32 +209,32 @@ function AnimatedStatNumber({
 
 const STAT_TONE_CLASSES = {
   sky: {
-    container: 'bg-sky-50/80',
+    container: 'border-sky-200 bg-sky-100',
     label: 'text-sky-600',
     value: 'text-sky-950',
   },
   rose: {
-    container: 'bg-rose-50/80',
+    container: 'border-rose-200 bg-rose-100',
     label: 'text-rose-600',
     value: 'text-rose-950',
   },
   amber: {
-    container: 'bg-amber-50/80',
+    container: 'border-amber-200 bg-amber-100',
     label: 'text-amber-600',
     value: 'text-amber-950',
   },
   pink: {
-    container: 'bg-pink-50/80',
+    container: 'border-pink-200 bg-pink-100',
     label: 'text-pink-600',
     value: 'text-pink-950',
   },
   emerald: {
-    container: 'bg-emerald-50/80',
+    container: 'border-emerald-200 bg-emerald-100',
     label: 'text-emerald-600',
     value: 'text-emerald-950',
   },
   indigo: {
-    container: 'bg-indigo-50/90',
+    container: 'border-blue-200 bg-blue-100',
     label: 'text-indigo-600',
     value: 'text-indigo-950',
   },
@@ -249,7 +249,7 @@ function AnimatedStatValue({
   const toneClasses = STAT_TONE_CLASSES[tone];
   return (
     <div
-      className={`relative min-w-[92px] flex-1 rounded-lg px-3 py-2.5 ${toneClasses.container}`}
+      className={`relative min-w-0 rounded-xl border px-3 py-3 ${toneClasses.container}`}
     >
       <p className={`text-caption font-semibold ${toneClasses.label}`}>
         {label}
@@ -589,7 +589,7 @@ export default function ProgressTab({
 
         {!offlineMode && !waitingForCareerStart ? (
           <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(440px,0.65fr)]">
-            <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-sm">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 xl:grid-cols-3 2xl:grid-cols-6">
               {[
                 ['速度', currentRunnerStats.speed, 'sky'],
                 ['耐力', currentRunnerStats.stamina, 'rose'],

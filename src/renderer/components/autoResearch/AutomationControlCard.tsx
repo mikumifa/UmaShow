@@ -212,7 +212,8 @@ export default function AutomationControlCard({
             </span>
             {countProgress ? (
               <span className={statusBadgeClass('sky')}>
-                {countProgress.completed}/{countProgress.target} 次
+                {daily ? '今日' : '本计划累计'} {countProgress.completed}/
+                {countProgress.target} 次
               </span>
             ) : null}
             {daily ? (
@@ -327,7 +328,13 @@ export default function AutomationControlCard({
               compact
               embedded
               className="automationControlCardTarget w-fit"
-              prefix={repeatDaily ? '每天完成' : '从现在起完成'}
+              prefix={
+                repeatDaily
+                  ? '每天完成'
+                  : schedule
+                    ? '本计划累计完成'
+                    : '从现在起完成'
+              }
               value={runCountTarget}
               max={100}
               suffix="次育成"
@@ -438,7 +445,7 @@ export default function AutomationControlCard({
                 </span>
                 <span className="flex-none font-medium">
                   {item.goal === 'count'
-                    ? `${progress?.completed_runs || 0}/${item.target} 次`
+                    ? `${daily ? '今日' : '本计划累计'} ${progress?.completed_runs || 0}/${item.target} 次`
                     : item.goal === 'jewel_drops'
                       ? `${progress?.jewel_drops || 0}/${item.target} 钻`
                       : itemGoalLabel(item.goal, item.target, daily)}

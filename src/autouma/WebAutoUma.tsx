@@ -66,6 +66,7 @@ type WebTab = 'career' | 'history';
 type CareerHistoryResponse = {
   success: boolean;
   reports: CareerSessionRecord[];
+  task_reports?: CareerSessionRecord[];
   asset_snapshots?: DailyAssetSnapshot[];
 };
 type RunnableCloudConfig = CloudCareerConfig & {
@@ -150,7 +151,9 @@ async function serverRequest<T>(
         '当前网页是 HTTPS，但 UAR 地址是 HTTP，浏览器会阻止混合内容。请用 HTTP 打开本页面，或给 UAR 配置 HTTPS。',
       );
     }
-    throw new Error(`无法连接 UAR：${String((caught as Error)?.message || caught)}`);
+    throw new Error(
+      `无法连接 UAR：${String((caught as Error)?.message || caught)}`,
+    );
   }
   const text = await response.text();
   let payload: unknown = {};
@@ -162,7 +165,9 @@ async function serverRequest<T>(
     }
   }
   if (!response.ok || (payload as { success?: boolean })?.success === false) {
-    throw new Error(errorMessage(payload) || `UAR 返回 HTTP ${response.status}`);
+    throw new Error(
+      errorMessage(payload) || `UAR 返回 HTTP ${response.status}`,
+    );
   }
   return payload as T;
 }
@@ -478,7 +483,12 @@ export default function WebAutoUma() {
           '/api/account/career/history/query',
           {
             method: 'POST',
-            body: JSON.stringify({ uid: credential.uid, view: 'day', days: 50 }),
+            body: JSON.stringify({
+              uid: credential.uid,
+              view: 'day',
+              days: 50,
+              summary_only: true,
+            }),
           },
         ),
       ]);
@@ -489,7 +499,10 @@ export default function WebAutoUma() {
         throw configurationResult.reason;
       }
       if (historyResult.status === 'fulfilled') {
-        setCareerHistory(historyResult.value.reports || []);
+        setCareerHistory([
+          ...(historyResult.value.reports || []),
+          ...(historyResult.value.task_reports || []),
+        ]);
         setAssetSnapshots(historyResult.value.asset_snapshots || []);
       }
       setSelectedCareerRecords(null);
@@ -624,14 +637,65 @@ export default function WebAutoUma() {
         '/api/account/career/history/query',
         {
           method: 'POST',
-          body: JSON.stringify({ uid: connectedUid, view: 'day', days: 50 }),
+          body: JSON.stringify({
+            uid: connectedUid,
+            view: 'day',
+            days: 50,
+            summary_only: true,
+          }),
         },
       );
-      setCareerHistory(result.reports || []);
+      setCareerHistory([
+        ...(result.reports || []),
+        ...(result.task_reports || []),
+      ]);
       setAssetSnapshots(result.asset_snapshots || []);
       setSelectedCareerRecords(null);
     } catch (caught) {
       setError(String((caught as Error)?.message || caught));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const deleteCareerHistory = async (reportIds: string[]) => {
+    if (busy || !reportIds.length) return;
+    if (!server || !connectedAccountId || !connectedUid) {
+      setLoginSettingsOpen(true);
+      return;
+    }
+    setBusy('history-delete');
+    setError('');
+    setSuccessMessage('');
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        connectedAccountId,
+      )) as { uid: string; accessKey: string };
+      if (credential.uid !== connectedUid) {
+        throw new Error('账号已变化，请重新连接后删除记录');
+      }
+      const result = await serverRequest<CareerHistoryResponse>(
+        server,
+        '/api/account/career/history/delete-by-account',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            uid: credential.uid,
+            access_key: credential.accessKey,
+            report_ids: reportIds,
+            view: 'day',
+            summary_only: true,
+          }),
+        },
+      );
+      setCareerHistory([
+        ...(result.reports || []),
+        ...(result.task_reports || []),
+      ]);
+      setSelectedCareerRecords(null);
+      setSuccessMessage('养马记录已删除');
+    } catch (caught) {
+      setError(`删除记录失败：${String((caught as Error)?.message || caught)}`);
     } finally {
       setBusy('');
     }
@@ -823,9 +887,8 @@ export default function WebAutoUma() {
           while (!cancelled) {
             const { done, value } = await reader.read();
             if (done) break;
-            const lines = `${buffer}${decoder.decode(value, { stream: true })}`.split(
-              '\n',
-            );
+            const lines =
+              `${buffer}${decoder.decode(value, { stream: true })}`.split('\n');
             buffer = lines.pop() || '';
             lines.forEach(handleStreamLine);
           }
@@ -1246,16 +1309,31 @@ export default function WebAutoUma() {
           ) : (
             <HistoryTab
               readOnly
+              canDelete={Boolean(connectedAccountId && connectedUid)}
               selectedCareerRecords={selectedCareerRecords}
               setSelectedCareerRecords={setSelectedCareerRecords}
               busy={busy}
               loadCareerHistory={async () => refreshHistory()}
+              loadCareerHistoryDetail={async (reportId) => {
+                const result = await serverRequest<CareerHistoryResponse>(
+                  server,
+                  '/api/account/career/history/detail/query',
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      uid: connectedUid,
+                      report_id: reportId,
+                    }),
+                  },
+                );
+                return result.reports || [];
+              }}
               selectedAccountId={connectedUid}
               accountCareerSettings={careerSettings}
               careerHistory={careerHistory}
               assetSnapshots={assetSnapshots}
               downloadCareerSetting={noopAsync}
-              deleteCareerHistory={noopAsync}
+              deleteCareerHistory={deleteCareerHistory}
               downloadTrainingHistory={noopAsync}
               localTrainingHistoryIds={new Set()}
               openTrainingHistory={noop}
@@ -1534,10 +1612,30 @@ export default function WebAutoUma() {
             <div className="p-4">
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
-                  { id: 'single' as const, title: '单次', detail: '完成当前这一次育成后停止。', icon: Play },
-                  { id: 'continuous' as const, title: '持续', detail: '持续自动开始下一次，直到手动停止。', icon: RefreshCw },
-                  { id: 'count' as const, title: '完成 X 次', detail: '完成指定次数的育成后停止。', icon: ListChecks },
-                  { id: 'jewel_drops' as const, title: '获得 X 次', detail: '获得指定次数的宝石掉落后停止。', icon: Gem },
+                  {
+                    id: 'single' as const,
+                    title: '单次',
+                    detail: '完成当前这一次育成后停止。',
+                    icon: Play,
+                  },
+                  {
+                    id: 'continuous' as const,
+                    title: '持续',
+                    detail: '持续自动开始下一次，直到手动停止。',
+                    icon: RefreshCw,
+                  },
+                  {
+                    id: 'count' as const,
+                    title: '完成 X 次',
+                    detail: '完成指定次数的育成后停止。',
+                    icon: ListChecks,
+                  },
+                  {
+                    id: 'jewel_drops' as const,
+                    title: '获得 X 次',
+                    detail: '获得指定次数的宝石掉落后停止。',
+                    icon: Gem,
+                  },
                 ].map((option) => {
                   const IconComponent = option.icon;
                   return (
@@ -1571,8 +1669,16 @@ export default function WebAutoUma() {
                 <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 p-1 shadow-sm ring-1 ring-slate-200/70">
                   {[
                     { id: 'now' as const, label: '立即启动', icon: Play },
-                    { id: 'scheduled' as const, label: '定时启动', icon: CalendarClock },
-                    { id: 'daily' as const, label: '每日重复', icon: CalendarCheck },
+                    {
+                      id: 'scheduled' as const,
+                      label: '定时启动',
+                      icon: CalendarClock,
+                    },
+                    {
+                      id: 'daily' as const,
+                      label: '每日重复',
+                      icon: CalendarCheck,
+                    },
                   ].map((option) => {
                     const IconComponent = option.icon;
                     const selected =

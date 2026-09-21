@@ -25,7 +25,7 @@ import { PlannerButton } from 'renderer/components/succession/PlannerComponents'
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
 import './History.css';
-import { umaSkinIconPath } from './SelectionCards';
+import { characterIconPath, umaSkinIconPath } from './SelectionCards';
 import {
   careerSettingModeBadgeClass,
   formatAccountError,
@@ -44,12 +44,14 @@ import {
 
 type HistoryTabProps = {
   readOnly?: boolean;
+  canDelete?: boolean;
   selectedCareerRecords: CareerSessionRecord[] | null;
   setSelectedCareerRecords: Dispatch<
     SetStateAction<CareerSessionRecord[] | null>
   >;
   busy: string;
   loadCareerHistory: (accountId: string) => Promise<void>;
+  loadCareerHistoryDetail: (reportId: string) => Promise<CareerSessionRecord[]>;
   selectedAccountId: string;
   accountCareerSettings: CareerSetting[];
   careerHistory: CareerSessionRecord[];
@@ -264,6 +266,10 @@ const runStatus = (run: CareerSessionRun, current = false) => {
   }
   if (run.completed) return { label: '已完成', className: 'text-emerald-600' };
   if (run.discarded) return { label: '已放弃', className: 'text-slate-500' };
+  if (run.status === 'continuing')
+    return { label: '跨日育成', className: 'text-sky-600' };
+  if (run.status === 'stopped' || run.status === 'paused')
+    return { label: '已中断', className: 'text-amber-600' };
   return { label: '未完成', className: 'text-red-600' };
 };
 
@@ -365,7 +371,7 @@ const groupRecordsBySettingAndDate = (records: CareerSessionRecord[]) => {
     .forEach((record) => {
       const dateKey = recordDateKey(record);
       const settingKey = recordSettingKey(record);
-      const key = `${settingKey}\u0000${dateKey}`;
+      const key = `${record.task_id || record.session_id || record.id}\u0000${settingKey}\u0000${dateKey}`;
       const group = groups.get(key);
       if (group) {
         group.records.push(record);
@@ -471,21 +477,24 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
         ...(record.current ? [{ run: record.current, current: true }] : []),
       ];
       return recordRows.map((row, index) => {
-        const startedAt =
-          String(row.run.started_at || '') ||
-          runIdTimestamp(row.run.run_id) ||
-          (index === 0 ? String(record.started_at || '') : '');
+        const startedAt = row.run.timestamps_authoritative
+          ? String(row.run.started_at || '')
+          : String(row.run.started_at || '') ||
+            runIdTimestamp(row.run.run_id) ||
+            (index === 0 ? String(record.started_at || '') : '');
         const nextRun = recordRows[index + 1]?.run;
         const nextStartedAt = nextRun
           ? String(nextRun.started_at || '') || runIdTimestamp(nextRun.run_id)
           : '';
         const endedAt = row.current
           ? ''
-          : String(row.run.ended_at || '') ||
-            nextStartedAt ||
-            (index === recordRows.length - 1
-              ? String(record.ended_at || '')
-              : '');
+          : row.run.timestamps_authoritative
+            ? String(row.run.ended_at || '')
+            : String(row.run.ended_at || '') ||
+              nextStartedAt ||
+              (index === recordRows.length - 1
+                ? String(record.ended_at || '')
+                : '');
         return { ...row, startedAt, endedAt };
       });
     })
@@ -539,10 +548,12 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
 
 export default function HistoryTab({
   readOnly = false,
+  canDelete = !readOnly,
   selectedCareerRecords,
   setSelectedCareerRecords,
   busy,
   loadCareerHistory,
+  loadCareerHistoryDetail,
   selectedAccountId,
   accountCareerSettings,
   careerHistory,
@@ -558,6 +569,56 @@ export default function HistoryTab({
     'day',
   );
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const detailRevision = useRef(0);
+  useEffect(() => {
+    detailRevision.current += 1;
+    setDetailLoading(false);
+    setDetailError('');
+    return () => {
+      detailRevision.current += 1;
+    };
+  }, [selectedAccountId, careerHistory]);
+  const openDetails = async (records: CareerSessionRecord[]) => {
+    const revision = ++detailRevision.current;
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const details = (
+        await Promise.all(
+          records.map((record) =>
+            record.summary_only ||
+            (!record.runs?.length &&
+              !record.current &&
+              Number(record.attempt_count || record.count || 0) > 0)
+              ? loadCareerHistoryDetail(record.id)
+              : Promise.resolve([record]),
+          ),
+        )
+      ).flat();
+      if (revision === detailRevision.current) {
+        if (!details.length) throw new Error('记录已不存在，请刷新列表');
+        if (
+          details.some(
+            (record) =>
+              record.summary_only ||
+              (!record.runs?.length &&
+                !record.current &&
+                Number(record.attempt_count || record.count || 0) > 0),
+          )
+        ) {
+          throw new Error('服务器未返回育成详情，请刷新重试或更新服务器');
+        }
+        setSelectedCareerRecords(details);
+      }
+    } catch (caught) {
+      if (revision === detailRevision.current)
+        setDetailError(String((caught as Error).message || caught));
+    } finally {
+      if (revision === detailRevision.current) setDetailLoading(false);
+    }
+  };
   const [pullDistance, setPullDistance] = useState(0);
   const pullStartY = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
@@ -612,7 +673,7 @@ export default function HistoryTab({
   };
 
   useEffect(() => {
-    if (readOnly) return undefined;
+    if (!window.electron?.utils?.getUmaDatabase) return undefined;
     let active = true;
     loadUMDB()
       .then((database) => {
@@ -623,7 +684,7 @@ export default function HistoryTab({
     return () => {
       active = false;
     };
-  }, [readOnly]);
+  }, []);
 
   const resolveRecordUma = (cardId: number) => {
     if (!cardId) return undefined;
@@ -666,8 +727,7 @@ export default function HistoryTab({
       accountCareerSettings,
     );
     const canDownloadSetting = hasCareerSettingSnapshot(selectedCareerRecords);
-    const planSummary =
-      historyView === 'task' ? taskPlanSummary(selectedCareerRecords[0]) : '';
+    const planSummary = taskPlanSummary(selectedCareerRecords[0]);
 
     return (
       <div className="autoResearchHistory autoResearchHistoryDetail space-y-4">
@@ -698,7 +758,7 @@ export default function HistoryTab({
                   {settingDownloaded ? '详设已保存' : '下载详设'}
                 </PlannerButton>
               ) : null}
-              {!readOnly ? (
+              {canDelete ? (
                 <PlannerButton
                   variant="danger"
                   size="small"
@@ -707,7 +767,7 @@ export default function HistoryTab({
                   onClick={() => {
                     if (
                       window.confirm(
-                        `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                        `确定删除「${settingName}」${historyView === 'task' ? '的全部' : `在 ${formatRecordDate(dateKey)} 的`}养马记录吗？`,
                       )
                     ) {
                       deleteCareerHistory(
@@ -732,6 +792,13 @@ export default function HistoryTab({
                 {recordUma ? (
                   <AssetIcon
                     path={recordUma.iconPath || ''}
+                    fallback={
+                      <AssetIcon
+                        path={characterIconPath(recordUma.id) || ''}
+                        alt={recordUma.name}
+                        className="h-full w-full object-contain"
+                      />
+                    }
                     alt={recordUma.name}
                     className="h-full w-full object-contain"
                   />
@@ -829,7 +896,9 @@ export default function HistoryTab({
                 {aggregate.rows.map(
                   ({ run, current, startedAt, endedAt, sequence }, index) => {
                     const status = runStatus(run, current);
-                    const duration = formatRunDuration(startedAt, endedAt);
+                    const duration = run.ended_at_inferred
+                      ? '结束时间未记录'
+                      : formatRunDuration(startedAt, endedAt);
                     const trainingHistoryId = String(
                       run.training_history_id || '',
                     );
@@ -958,7 +1027,9 @@ export default function HistoryTab({
                         index,
                       ) => {
                         const status = runStatus(run, current);
-                        const duration = formatRunDuration(startedAt, endedAt);
+                        const duration = run.ended_at_inferred
+                          ? '结束时间未记录'
+                          : formatRunDuration(startedAt, endedAt);
                         const trainingHistoryId = String(
                           run.training_history_id || '',
                         );
@@ -1149,8 +1220,12 @@ export default function HistoryTab({
 
   const groups =
     historyView === 'task'
-      ? groupRecordsByTask(careerHistory)
-      : groupRecordsBySettingAndDate(careerHistory);
+      ? groupRecordsByTask(
+          careerHistory.filter((record) => record.aggregation_type !== 'day'),
+        )
+      : groupRecordsBySettingAndDate(
+          careerHistory.filter((record) => record.aggregation_type !== 'task'),
+        );
   const visibleGroups = historyView === 'tracking' ? [] : groups;
   return (
     <section
@@ -1161,6 +1236,12 @@ export default function HistoryTab({
       onTouchEnd={finishPull}
       onTouchCancel={finishPull}
     >
+      {detailLoading ? <p role="status">正在读取记录详情…</p> : null}
+      {detailError ? (
+        <p role="alert" className="text-red-600">
+          {detailError}
+        </p>
+      ) : null}
       {mobilePullToRefresh && (pullDistance > 0 || busy === 'history') ? (
         <div
           className="flex items-center justify-center overflow-hidden text-caption font-medium text-slate-500"
@@ -1257,8 +1338,7 @@ export default function HistoryTab({
             accountCareerSettings,
           );
           const canDownloadSetting = hasCareerSettingSnapshot(records);
-          const planSummary =
-            historyView === 'task' ? taskPlanSummary(records[0]) : '';
+          const planSummary = taskPlanSummary(records[0]);
           return (
             <section key={key} className="historyGroup uma-task-card">
               <div className="historyGroupHeader">
@@ -1300,14 +1380,14 @@ export default function HistoryTab({
                       {settingDownloaded ? '详设已保存' : '下载详设'}
                     </button>
                   ) : null}
-                  {!readOnly ? (
+                  {canDelete ? (
                     <button
                       type="button"
                       disabled={busy === 'history-delete'}
                       onClick={() => {
                         if (
                           window.confirm(
-                            `确定删除 ${formatRecordDate(dateKey)} 的全部养马记录吗？`,
+                            `确定删除「${settingName}」${historyView === 'task' ? '的全部' : `在 ${formatRecordDate(dateKey)} 的`}养马记录吗？`,
                           )
                         ) {
                           deleteCareerHistory(
@@ -1330,7 +1410,10 @@ export default function HistoryTab({
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedCareerRecords(records)}
+                disabled={detailLoading}
+                onClick={() => {
+                  void openDetails(records);
+                }}
                 className="historyRecordRow"
               >
                 <span className="historyIdentity flex min-w-0 items-center gap-3">
@@ -1338,6 +1421,13 @@ export default function HistoryTab({
                     {recordUma ? (
                       <AssetIcon
                         path={recordUma.iconPath || ''}
+                        fallback={
+                          <AssetIcon
+                            path={characterIconPath(recordUma.id) || ''}
+                            alt={settingName}
+                            className="h-full w-full object-contain"
+                          />
+                        }
                         alt={settingName}
                         className="h-full w-full object-contain"
                       />
@@ -1399,9 +1489,7 @@ export default function HistoryTab({
             </section>
           );
         })}
-        {historyView !== 'tracking' &&
-        !careerHistory.length &&
-        busy !== 'history' ? (
+        {historyView !== 'tracking' && !groups.length && busy !== 'history' ? (
           <p
             role="status"
             className="py-14 text-center text-data text-slate-600"

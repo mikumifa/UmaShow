@@ -4,6 +4,7 @@ const config: CapacitorConfig = {
   appId: 'io.github.mikumifa.autouma',
   appName: 'AutoUma',
   webDir: 'release/app/dist/autouma',
+  backgroundColor: '#dff3eb',
   server: {
     androidScheme: 'http',
     cleartext: true,

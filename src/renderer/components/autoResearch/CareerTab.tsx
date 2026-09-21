@@ -73,9 +73,9 @@ type CareerTabProps = {
   abandonCareer: () => Promise<void>;
   continuingCurrentCareer: boolean;
   canContinueCurrentCareer: boolean;
-  saveCareerSetting: () => boolean;
+  saveCareerSetting: () => Promise<boolean>;
   saveAndApplyCareerSetting: () => Promise<void>;
-  saveAndRunCareer: () => void;
+  saveAndRunCareer: () => Promise<void>;
   careerPresetName: string;
   newCareerPresetName: string;
   setNewCareerPresetName: Dispatch<SetStateAction<string>>;
@@ -911,11 +911,15 @@ export default function CareerTab(props: CareerTabProps) {
               <button
                 type="button"
                 onClick={saveCareerSetting}
-                disabled={busy === 'run'}
+                disabled={Boolean(busy)}
                 className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-caption font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
               >
                 <Save size={14} />
-                {careerDirty ? '保存修改' : '已保存'}
+                {busy === 'career-save'
+                  ? '正在保存…'
+                  : careerDirty
+                    ? '保存修改'
+                    : '已保存'}
               </button>
               <button
                 type="button"

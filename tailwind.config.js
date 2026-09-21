@@ -1,10 +1,10 @@
 const colors = require('tailwindcss/colors');
 const plugin = require('tailwindcss/plugin');
 const clayNeutral = {
-  50: '#fffaf5',
-  100: '#f2eee8',
-  200: '#e0dcd5',
-  300: '#c4c4bf',
+  50: '#f5f9fc',
+  100: '#edf3f7',
+  200: '#dce7ee',
+  300: '#bdced8',
   400: '#929995',
   500: '#626975',
   600: '#525a66',
@@ -36,7 +36,7 @@ module.exports = {
       // Bridge existing bg-white panels to the shared material, including /opacity.
       // Text, icons and borders named white keep their original contrast color.
       backgroundColor: {
-        white: 'rgb(var(--uma-clay-surface-rgb, 245 239 223) / <alpha-value>)',
+        white: 'rgb(var(--uma-clay-surface-rgb, 255 255 255) / <alpha-value>)',
       },
       borderRadius: { md: '10px', lg: '14px', xl: '20px', '2xl': '24px' },
       transitionProperty: {

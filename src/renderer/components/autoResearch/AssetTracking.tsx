@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DailyAssetSnapshot } from './types';
 import './History.css';
 
@@ -44,21 +44,46 @@ export default function AssetTracking({
   loading: boolean;
 }) {
   const [selected, setSelected] = useState<AssetKey>('jewels');
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(320);
+  const hasSnapshots = snapshots.length > 0;
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0) setChartWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasSnapshots]);
   const rows = assetHistoryRows(snapshots, selected);
   const latest = rows.at(-1);
   const name = items.find(([key]) => key === selected)![1];
-  const maximum = Math.max(1, ...rows.map((row) => row.value));
+  const maximum = Math.max(
+    2,
+    Math.ceil(Math.max(0, ...rows.map((row) => row.value)) / 2) * 2,
+  );
+  const plotLeft = 54;
+  const plotRight = chartWidth - 16;
+  const plotTop = 20;
+  const plotBottom = 192;
   const firstDay = rows.length ? dayNumber(rows[0].business_day) : 0;
   const span = latest ? dayNumber(latest.business_day) - firstDay : 0;
   const points = rows.map((row) => ({
     x: span
-      ? 96 + ((dayNumber(row.business_day) - firstDay) / span) * 520
-      : 356,
-    y: 170 - (row.value / maximum) * 138,
+      ? plotLeft +
+        ((dayNumber(row.business_day) - firstDay) / span) *
+          (plotRight - plotLeft)
+      : (plotLeft + plotRight) / 2,
+    y: plotBottom - (row.value / maximum) * (plotBottom - plotTop),
   }));
 
   return (
-    <section className="historyTracking" aria-busy={loading}>
+    <section
+      className="historyTracking"
+      data-asset={selected}
+      aria-busy={loading}
+    >
       <div
         className="historyAssetSwitch"
         role="group"
@@ -83,7 +108,7 @@ export default function AssetTracking({
       {latest ? (
         <>
           <div className="historyAssetOverview">
-            <div>
+            <div className="historyAssetBalance">
               <h3 className="text-section font-semibold text-slate-800">
                 {name}持有量
               </h3>
@@ -100,9 +125,10 @@ export default function AssetTracking({
                 </strong>
               </p>
             </div>
-            <div className="historyAssetChart">
+            <div className="historyAssetChart" ref={chartRef}>
               <svg
-                viewBox="0 0 640 212"
+                viewBox={`0 0 ${chartWidth} 232`}
+                height="232"
                 className="w-full"
                 role="img"
                 aria-label={`${name}每日持有量趋势`}
@@ -111,12 +137,24 @@ export default function AssetTracking({
                 {[0, 0.5, 1].map((ratio) => (
                   <g key={ratio}>
                     <line
-                      x1="96"
-                      x2="616"
-                      y1={170 - ratio * 138}
-                      y2={170 - ratio * 138}
-                      stroke="#e2e8f0"
+                      x1={plotLeft}
+                      x2={plotRight}
+                      y1={plotBottom - ratio * (plotBottom - plotTop)}
+                      y2={plotBottom - ratio * (plotBottom - plotTop)}
+                      className="historyChartGrid"
                     />
+                    <text
+                      x={plotLeft - 10}
+                      y={plotBottom - ratio * (plotBottom - plotTop)}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      className="historyChartLabel"
+                    >
+                      {(maximum * ratio).toLocaleString('zh-CN', {
+                        notation: 'compact',
+                        maximumFractionDigits: 1,
+                      })}
+                    </text>
                   </g>
                 ))}
                 {rows.map((row, index) => {
@@ -130,11 +168,17 @@ export default function AssetTracking({
                           y1={previous.y}
                           x2={point.x}
                           y2={point.y}
-                          stroke="#6366f1"
-                          strokeWidth="2"
+                          className="historyChartLine"
+                          strokeWidth="2.5"
+                          vectorEffect="non-scaling-stroke"
                         />
                       ) : null}
-                      <circle cx={point.x} cy={point.y} r="3.5" fill="#6366f1">
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r="4"
+                        className="historyChartPoint"
+                      >
                         <title>
                           {`${row.business_day}：${row.value.toLocaleString()}，较前日 ${formatDelta(row.delta)}`}
                         </title>
@@ -142,38 +186,31 @@ export default function AssetTracking({
                     </g>
                   );
                 })}
-              </svg>
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 text-caption tabular-nums text-slate-600"
-              >
-                {[0, 0.5, 1].map((ratio) => (
-                  <span
-                    key={ratio}
-                    className="absolute -translate-y-1/2"
-                    style={{
-                      right: '87.5%',
-                      top: `${((170 - ratio * 138) / 212) * 100}%`,
-                    }}
-                  >
-                    {(maximum * ratio).toLocaleString('zh-CN', {
-                      notation: 'compact',
-                      maximumFractionDigits: 1,
-                    })}
-                  </span>
-                ))}
-                <span className="absolute bottom-0 left-[15%]">
-                  {rows[0].business_day}
-                </span>
+                <text
+                  x={span ? plotLeft : points[0].x}
+                  y="219"
+                  textAnchor={span ? 'start' : 'middle'}
+                  className="historyChartLabel"
+                >
+                  {rows[0].business_day.slice(5).replace('-', '/')}
+                </text>
                 {rows.length > 1 ? (
-                  <span className="absolute bottom-0 right-[3.75%]">
-                    {latest.business_day}
-                  </span>
+                  <text
+                    x={plotRight}
+                    y="219"
+                    textAnchor="end"
+                    className="historyChartLabel"
+                  >
+                    {latest.business_day.slice(5).replace('-', '/')}
+                  </text>
                 ) : null}
-              </div>
+              </svg>
+              <p className="historyChartNote">
+                按游戏日记录 · 缺失日期不连线，详细数量见下表
+              </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="historyAssetTableScroll">
             <table className="historyAssetTable">
               <caption className="sr-only">{name}每日持有量与变化</caption>
               <thead className="border-y border-slate-200 bg-slate-50 text-caption text-slate-600">
@@ -199,19 +236,22 @@ export default function AssetTracking({
                     <td className="text-slate-600">
                       {row.business_day}
                       <span className="historyAssetCaptureMobile">
-                        记录于{' '}
                         {new Date(row.captured_at).toLocaleString('zh-CN', {
                           timeZone: 'Asia/Shanghai',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
                           hour12: false,
-                        })}
-                        （北京）
+                        })}{' '}
+                        北京
                       </span>
                     </td>
                     <td className="text-right font-semibold tabular-nums text-slate-800">
                       {row.value.toLocaleString()}
                     </td>
                     <td
-                      className={`text-right font-semibold tabular-nums ${row.delta && row.delta > 0 ? 'text-emerald-700' : 'text-slate-600'}`}
+                      className={`text-right font-semibold tabular-nums ${row.delta && row.delta > 0 ? 'text-emerald-700' : row.delta && row.delta < 0 ? 'text-rose-700' : 'text-slate-600'}`}
                     >
                       {formatDelta(row.delta)}
                     </td>

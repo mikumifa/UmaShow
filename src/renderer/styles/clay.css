@@ -1,20 +1,27 @@
-/* LearnHub-inspired clay: warm canvas, ink outlines and small pops of color.
+/* Colorful clay: cool canvas, crisp cards and semantic pops of color.
    Depth belongs to chrome and dialogs; working content uses open sections. */
 :root {
   color-scheme: light;
-  --uma-clay-canvas: #fffaf5;
-  --uma-clay-surface-rgb: 245 239 223;
+  --uma-clay-canvas: #f2f7fa;
+  --uma-clay-surface-rgb: 255 255 255;
   --uma-clay-surface: rgb(var(--uma-clay-surface-rgb));
-  --uma-clay-soft: #f2eee8;
-  --uma-clay-border: #d8d5cf;
+  --uma-clay-chrome: #dff3eb;
+  --uma-clay-soft: #edf3f7;
+  --uma-clay-border: #cedde5;
   --uma-clay-ink: #343b49;
   --uma-clay-text: #303744;
   --uma-clay-muted: #626975;
   --uma-clay-accent: #24783d;
   --uma-clay-accent-soft: #e6f7df;
   --uma-clay-green: #4bc65a;
-  --uma-clay-blue: #b6dce9;
-  --uma-clay-coral: #fac0b4;
+  --uma-clay-blue: #91d8f2;
+  --uma-clay-coral: #ffad9c;
+  --uma-stat-speed: #e0f2fe;
+  --uma-stat-stamina: #ffe4e6;
+  --uma-stat-power: #fff0cc;
+  --uma-stat-guts: #fce7f3;
+  --uma-stat-wit: #dcfce7;
+  --uma-stat-point: #e0e7ff;
   --uma-clay-radius: 20px;
   --uma-clay-shadow: 5px 6px 0 var(--uma-clay-ink), inset 0 -3px 0 #eceeea;
   --uma-clay-control-shadow:
@@ -33,10 +40,16 @@ html[data-autouma] #root {
 }
 html .uma-app-shell,
 html .uma-page,
-html .autouma-shell,
 html .autouma-content,
 html .successionPlannerPage {
   background: var(--uma-clay-canvas);
+}
+/* Transparent system bars and browser overscroll expose the root backdrop. */
+html[data-autouma],
+html[data-autouma] body,
+html[data-autouma] #root,
+html .autouma-shell {
+  background: var(--uma-clay-chrome);
 }
 html .successionPlannerPage,
 html .successionPickerTheme {
@@ -163,8 +176,8 @@ html .successionPickerHeader p {
 }
 html .uma-app-header,
 html .autouma-header {
-  border-bottom: 1px solid #e3dccd;
-  background: var(--uma-clay-surface);
+  border-bottom: 1px solid #b8dccc;
+  background: var(--uma-clay-chrome);
   box-shadow: 0 2px 8px rgb(81 70 49 / 0.05);
   backdrop-filter: none;
 }
@@ -203,11 +216,11 @@ html .uma-setting-card,
 html .dailyTaskPanel,
 html .uma-task-card {
   min-width: 0;
-  border: 1px solid #a6afa0;
+  border: 1px solid var(--uma-clay-border);
   border-radius: 16px;
   background: var(--uma-clay-surface);
   box-shadow:
-    2px 3px 0 #343b4924,
+    0 3px 12px #23475b0d,
     inset 0 2px 0 #fff;
 }
 /* Floating actions live outside scroll containers and below modal overlays. */
@@ -413,8 +426,8 @@ html .historyRun:hover {
   background: #f0f8eb;
 }
 html .autoResearchMobileTabs {
-  border-top: 1px solid #e3dccd;
-  background: var(--uma-clay-surface);
+  border-top: 1px solid #b8dccc;
+  background: var(--uma-clay-chrome);
   box-shadow: none;
   backdrop-filter: none;
 }
