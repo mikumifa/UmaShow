@@ -518,6 +518,7 @@ export type CareerSessionRecord = {
   schema_version: number;
   session_id: string;
   task_id?: string;
+  task_count?: number;
   task_revision?: number;
   task_item_id?: string;
   uid: string;

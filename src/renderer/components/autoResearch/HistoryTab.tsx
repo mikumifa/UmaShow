@@ -371,7 +371,10 @@ const groupRecordsBySettingAndDate = (records: CareerSessionRecord[]) => {
     .forEach((record) => {
       const dateKey = recordDateKey(record);
       const settingKey = recordSettingKey(record);
-      const key = `${settingKey}\u0000${dateKey}`;
+      const key =
+        record.aggregation_type === 'day'
+          ? record.id
+          : `${settingKey}\u0000${dateKey}`;
       const group = groups.get(key);
       if (group) {
         group.records.push(record);
@@ -1361,7 +1364,11 @@ export default function HistoryTab({
                     {offline ? '离线' : '在线'}
                   </span>
                   <span className="text-caption text-slate-500">
-                    {aggregate.count} 次育成 · {records.length} 次托管
+                    {aggregate.count} 次育成 ·{' '}
+                    {records.reduce(
+                      (total, record) => total + (record.task_count || 1),
+                      0,
+                    )} 次托管
                   </span>
                   {!readOnly && canDownloadSetting ? (
                     <button
