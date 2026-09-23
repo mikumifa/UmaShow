@@ -24,6 +24,8 @@ import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import { automationHasHostedTask } from 'renderer/components/autoResearch/hostedTask';
+import FriendFarmTab from 'renderer/components/autoResearch/FriendFarmTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
 import {
@@ -62,7 +64,7 @@ import autoResearchCatalog from '../../assets/data/auto_research_catalog.json';
 const SERVER_KEY = 'autouma.web.server';
 const ACCOUNT_KEY = 'autouma.web.accountId';
 
-type WebTab = 'career' | 'history';
+type WebTab = 'career' | 'history' | 'friend_farm';
 type CareerHistoryResponse = {
   success: boolean;
   reports: CareerSessionRecord[];
@@ -360,7 +362,7 @@ export default function WebAutoUma() {
   const schedule = automation?.schedule;
   const observation = automation?.observation;
   const runner = observation?.runner;
-  const automationActive = Boolean(schedule);
+  const automationActive = automationHasHostedTask(automation);
   const runnerStopping = Boolean(
     runner?.stopping || busy === 'pause' || busy === 'stop',
   );
@@ -1070,6 +1072,7 @@ export default function WebAutoUma() {
   const tabs = [
     { id: 'career' as const, label: '养马详设', icon: Settings2 },
     { id: 'history' as const, label: '养马记录', icon: History },
+    { id: 'friend_farm' as const, label: '刷友情点', icon: History },
   ];
 
   return (
@@ -1306,6 +1309,28 @@ export default function WebAutoUma() {
             ) : (
               <CareerTab {...careerTabProps} readOnly />
             )
+          ) : activeTab === 'friend_farm' ? (
+            <FriendFarmTab
+              key={`${server}:${selectedAccountId}`}
+              request={async <T,>(_path: string, init?: RequestInit) => {
+                if (!server || !selectedAccountId)
+                  throw new Error('请先选择服务器和小号');
+                const credential =
+                  (await window.electron.autoResearch.credential(
+                    selectedAccountId,
+                  )) as { uid: string; accessKey: string };
+                return serverRequest<T>(server, '/api/tasks/friend-farm', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    uid: credential.uid,
+                    access_key: credential.accessKey,
+                    ...(init?.body
+                      ? JSON.parse(String(init.body))
+                      : { action: 'status' }),
+                  }),
+                });
+              }}
+            />
           ) : (
             <HistoryTab
               readOnly

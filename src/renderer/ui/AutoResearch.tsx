@@ -1,3 +1,4 @@
+import { automationHasHostedTask, HOSTED_ATTACH_TIMEOUT_MS } from 'renderer/components/autoResearch/hostedTask';
 /* eslint-disable promise/always-return, promise/catch-or-return, jsx-a11y/label-has-associated-control, no-nested-ternary, no-await-in-loop */
 import {
   DragEvent,
@@ -32,6 +33,7 @@ import {
   Users,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import FriendFarmTab from 'renderer/components/autoResearch/FriendFarmTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
@@ -143,6 +145,7 @@ const autoResearchTabs = [
   { id: 'presets' as const, label: '预设', icon: Settings2 },
   { id: 'career' as const, label: '详设', icon: ListChecks },
   { id: 'history' as const, label: '记录', icon: History },
+  { id: 'friend_farm' as const, label: '刷友情点', icon: Users },
 ];
 
 const isScheduledDateTime = (value?: string) =>
@@ -407,9 +410,6 @@ const emptyAutomation = (): AccountAutomation => ({
   },
 });
 
-const automationHasSchedule = (automation?: AccountAutomation) =>
-  Boolean(automation?.schedule);
-
 const runtimeRunner = (
   runtime?: Partial<Pick<Account['runtime'], 'automation'>>,
 ) => runtime?.automation?.observation.runner;
@@ -419,7 +419,7 @@ const runtimeSessionOwner = (
     Pick<Account['runtime'], 'session_owner' | 'logged_in' | 'automation'>
   >,
 ) => {
-  if (automationHasSchedule(runtime?.automation)) return 'server' as const;
+  if (automationHasHostedTask(runtime?.automation)) return 'server' as const;
   if (runtime?.session_owner === 'local') return 'local' as const;
   return 'none' as const;
 };
@@ -918,7 +918,7 @@ export default function AutoResearch() {
       !runner?.running &&
       (observation?.phase === 'recovering' || observation?.phase === 'waiting'),
   );
-  const automationActive = Boolean(schedule);
+  const automationActive = automationHasHostedTask(automation);
   const serverCareerActive = automationActive;
   const localAccountSessionState = selectedAccountId
     ? localAccountSessionStates[selectedAccountId] || 'unknown'
@@ -1465,7 +1465,7 @@ export default function AutoResearch() {
       const responseAutomation =
         responseRuntime?.automation || response.automation;
       const responseOwner = hostedResponse
-        ? automationHasSchedule(responseAutomation)
+        ? automationHasHostedTask(responseAutomation)
           ? ('server' as const)
           : ('none' as const)
         : runtimeSessionOwner({
@@ -1621,7 +1621,7 @@ export default function AutoResearch() {
       accountId: string,
       candidateAutomation?: AccountAutomation,
     ): Promise<boolean> => {
-      if (automationHasSchedule(candidateAutomation)) {
+      if (automationHasHostedTask(candidateAutomation)) {
         return Promise.resolve(false);
       }
       const token = sessionTokens.current.get(accountId);
@@ -1809,7 +1809,7 @@ export default function AutoResearch() {
       const resultAutomation = result.runtime?.automation || result.automation;
       if (
         sessionTokens.current.has(accountId) &&
-        !automationHasSchedule(resultAutomation)
+        !automationHasHostedTask(resultAutomation)
       ) {
         await releaseIdleHostedContext(accountId, resultAutomation);
         return;
@@ -1865,7 +1865,7 @@ export default function AutoResearch() {
           const timeoutError = new Error('读取服务端已有养马状态超时');
           timeoutError.name = 'AbortError';
           reject(timeoutError);
-        }, 8000);
+        }, HOSTED_ATTACH_TIMEOUT_MS);
       });
       try {
         let attachRequest = pendingAttach;
@@ -1901,7 +1901,7 @@ export default function AutoResearch() {
         if (isStale()) return false;
         const attachedAutomation =
           attached.runtime?.automation || attached.automation;
-        if (!automationHasSchedule(attachedAutomation)) {
+        if (!automationHasHostedTask(attachedAutomation)) {
           // A 200 attach can still represent an idle in-memory AccountContext.
           // Release that backend game session before allowing UmaShow to enter
           // local mode; logging out only revokes the bearer token.
@@ -2415,7 +2415,7 @@ export default function AutoResearch() {
       const targetAccount = accountsRef.current.find(
         (account) => account.id === accountId,
       );
-      if (automationHasSchedule(targetAccount?.runtime.automation)) {
+      if (automationHasHostedTask(targetAccount?.runtime.automation)) {
         setError('当前账号处于服务器托管状态，请先停止托管');
         return;
       }
@@ -2607,7 +2607,7 @@ export default function AutoResearch() {
       );
       const targetAutomation = targetAccount?.runtime.automation;
       if (sessionTokens.current.has(targetAccountId)) {
-        if (automationHasSchedule(targetAutomation)) {
+        if (automationHasHostedTask(targetAutomation)) {
           setSelectedAccountId(targetAccountId);
           localStorage.setItem(LAST_ACCOUNT_KEY, targetAccountId);
           return;
@@ -2669,7 +2669,7 @@ export default function AutoResearch() {
       const targetAccount = accountsRef.current.find(
         (account) => account.id === accountId,
       );
-      if (automationHasSchedule(targetAccount?.runtime.automation)) {
+      if (automationHasHostedTask(targetAccount?.runtime.automation)) {
         setError('服务器托管任务运行中，不能清除本地游戏会话');
         return;
       }
@@ -3228,7 +3228,7 @@ export default function AutoResearch() {
         };
         if (!event.automation) return;
         retryDelay = 1000;
-        if (!automationHasSchedule(event.automation)) {
+        if (!automationHasHostedTask(event.automation)) {
           releaseIdleHostedContext(accountId, event.automation).catch(
             (caught) => {
               if (cancelled || selectedAccountIdRef.current !== accountId)
@@ -3304,7 +3304,7 @@ export default function AutoResearch() {
     if (
       !selectedAccountId ||
       !sessionTokens.current.has(selectedAccountId) ||
-      automationHasSchedule(automation)
+      automationHasHostedTask(automation)
     ) {
       return undefined;
     }
@@ -3811,7 +3811,7 @@ export default function AutoResearch() {
   };
 
   const accountDeleteBlockedReason = (account: Account) => {
-    if (automationHasSchedule(account.runtime.automation)) {
+    if (automationHasHostedTask(account.runtime.automation)) {
       return '账号正在养马或仍有待执行计划，请先停止任务';
     }
     if (activeLoginOperation.current || loginProgress) {
@@ -8662,6 +8662,29 @@ export default function AutoResearch() {
                   />
                 ) : null}
 
+                {activeTab === 'friend_farm' ? (
+                  <FriendFarmTab
+                    key={`${server}:${selectedAccountId}`}
+                    request={async <T,>(_path: string, init?: RequestInit) => {
+                      if (!server || !selectedAccountId)
+                        throw new Error('请先选择服务器和小号');
+                      const credential =
+                        (await window.electron.autoResearch.credential(
+                          selectedAccountId,
+                        )) as { uid: string; accessKey: string };
+                      return request<T>('/api/tasks/friend-farm', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          uid: credential.uid,
+                          access_key: credential.accessKey,
+                          ...(init?.body
+                            ? JSON.parse(String(init.body))
+                            : { action: 'status' }),
+                        }),
+                      });
+                    }}
+                  />
+                ) : null}
                 {activeTab === 'history' ? (
                   server ? (
                     <HistoryTab

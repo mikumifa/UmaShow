@@ -306,6 +306,8 @@ function scheduleGoalLabel(automation?: AccountAutomation) {
 }
 
 function automationPhaseLabel(automation?: AccountAutomation) {
+  if (automation?.friend_farm?.status === 'running') return '刷友情点运行中';
+  if (automation?.friend_farm?.status === 'paused') return '刷友情点已暂停';
   switch (automation?.observation.phase) {
     case 'daily_tasks':
       return '正在执行日常';
