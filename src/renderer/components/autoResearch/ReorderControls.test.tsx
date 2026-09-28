@@ -26,6 +26,18 @@ jest.mock('./SkillSelector', () => ({
   skillIconPath: () => '',
 }));
 
+test('direct transfer disables factor selection and can be switched off', () => {
+  render(<OfflineForm />);
+  const direct = screen.getByLabelText('养成完成后直接转队');
+  expect(direct).not.toBeChecked();
+  fireEvent.click(direct);
+  expect(direct).toBeChecked();
+  expect(screen.getByLabelText('筛选最优因子')).toBeDisabled();
+  expect(screen.getByText('直接转队模式不使用因子筛选设置。')).toBeInTheDocument();
+  fireEvent.click(direct);
+  expect(screen.getByLabelText('筛选最优因子')).not.toBeDisabled();
+});
+
 function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
   const [factorSelection, setFactorSelection] =
     useState<OfflineFactorSelection>(() => ({

@@ -26,6 +26,7 @@ import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import TrainedCharactersTab from 'renderer/components/autoResearch/TrainedCharactersTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
 import {
@@ -66,7 +67,7 @@ import { copyText } from './clipboard';
 const SERVER_KEY = 'autouma.web.server';
 const ACCOUNT_KEY = 'autouma.web.accountId';
 
-type WebTab = 'career' | 'history';
+type WebTab = 'career' | 'history' | 'hall';
 type CareerHistoryResponse = {
   success: boolean;
   reports: CareerSessionRecord[];
@@ -1126,6 +1127,7 @@ export default function WebAutoUma() {
   const tabs = [
     { id: 'career' as const, label: '养马详设', icon: Settings2 },
     { id: 'history' as const, label: '养马记录', icon: History },
+    { id: 'hall' as const, label: '殿堂', icon: History },
   ];
 
   return (
@@ -1360,6 +1362,11 @@ export default function WebAutoUma() {
             ) : (
               <CareerTab {...careerTabProps} readOnly />
             )
+          ) : activeTab === 'hall' ? (
+            <TrainedCharactersTab
+              key={`${server}:${connectedAccountId}`}
+              request={hostedRequest}
+            />
           ) : (
             <HistoryTab
               readOnly

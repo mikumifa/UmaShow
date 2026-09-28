@@ -805,6 +805,23 @@ export default function OfflineCareerSettings({
 
   return (
     <div className="autoResearchForm contents">
+      <section className="order-2 mt-5 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+        <label className="flex items-center gap-3 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={factorSelection.transfer_mode === 'direct'}
+            onChange={(event) =>
+              updateFactorSelection({
+                transfer_mode: event.target.checked ? 'direct' : 'keep',
+              })
+            }
+          />
+          养成完成后直接转队
+        </label>
+        <p className="mt-2 text-sm text-slate-600">
+          仅转队本次养成的马娘，无法撤销。开启后跳过因子评分和额外重抽；关闭时保留马娘。
+        </p>
+      </section>
       <section
         id="career-factor-options"
         className="order-2 mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
@@ -821,6 +838,7 @@ export default function OfflineCareerSettings({
           <label className="flex items-center gap-2 text-label font-medium text-slate-700">
             <input
               type="checkbox"
+              disabled={factorSelection.transfer_mode === 'direct'}
               checked={factorSelection.enabled}
               onChange={(event) =>
                 updateFactorSelection({ enabled: event.target.checked })
@@ -830,7 +848,11 @@ export default function OfflineCareerSettings({
           </label>
         </div>
 
-        {!factorSelection.enabled ? (
+        {factorSelection.transfer_mode === 'direct' ? (
+          <p className="mt-3 text-sm text-slate-600">
+            直接转队模式不使用因子筛选设置。
+          </p>
+        ) : !factorSelection.enabled ? (
           <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-label text-slate-600">
             已关闭筛选：仍会抽完所有免费次数，然后从候选中随机选择。
           </p>

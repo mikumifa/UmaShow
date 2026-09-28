@@ -330,6 +330,7 @@ export type Dashboard = {
 };
 
 export type AutoResearchTab =
+  | 'hall'
   | 'accounts'
   | 'presets'
   | 'career'
@@ -590,6 +591,7 @@ export type OfflineSkillSettings = {
 };
 
 export type OfflineFactorSelection = {
+  transfer_mode?: 'keep' | 'direct';
   enabled: boolean;
   evaluation_mode: 'parent' | 'ancestor';
   use_skill_priority: boolean;
