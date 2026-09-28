@@ -10,20 +10,24 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
-  const [expiresAt, setExpiresAt] = useState(0);
+  const [challengeExpiresAt, setChallengeExpiresAt] = useState(0);
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
-    if (!expiresAt) return undefined;
+    if (!resendAvailableAt && !challengeExpiresAt) return undefined;
     const timer = window.setInterval(() => {
-      const next = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      const now = Date.now();
+      const next = Math.max(0, Math.ceil((resendAvailableAt - now) / 1000));
       setRemaining(next);
-      if (!next) setChallengeId('');
+      if (challengeExpiresAt && challengeExpiresAt <= now) {
+        setChallengeId('');
+      }
     }, 250);
     return () => window.clearInterval(timer);
-  }, [expiresAt]);
+  }, [challengeExpiresAt, resendAvailableAt]);
 
   const sendCode = async () => {
     setBusy('send');
@@ -32,7 +36,9 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
       const result =
         await window.electron.autoResearch.sendBilibiliSmsCode(phone);
       setChallengeId(String(result.challengeId || ''));
-      setExpiresAt(Number(result.expiresAt || 0));
+      setChallengeExpiresAt(Number(result.expiresAt || 0));
+      setResendAvailableAt(Date.now() + 60_000);
+      setRemaining(60);
       setCode('');
     } catch (caught) {
       setError(String((caught as Error)?.message || caught));
@@ -65,6 +71,10 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
       setBusy('');
     }
   };
+
+  let sendButtonLabel = '发送验证码';
+  if (remaining > 0) sendButtonLabel = `${remaining}s 后重发`;
+  else if (challengeId) sendButtonLabel = '重新发送';
 
   return (
     <div
@@ -107,7 +117,6 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
             手机号
             <input
               id="autouma-sms-phone"
-              autoFocus
               value={phone}
               onChange={(event) =>
                 setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))
@@ -140,7 +149,7 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
               ) : (
                 <MessageSquare size={14} />
               )}
-              {remaining > 0 ? `${remaining}s 后重发` : '发送验证码'}
+              {sendButtonLabel}
             </button>
           </div>
           {error ? (
