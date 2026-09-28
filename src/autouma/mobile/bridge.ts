@@ -14,6 +14,12 @@ import {
 } from 'main/handle/AutoResearchIdleSingleMode';
 import type { SuccessionGameProgress } from 'main/handle/SuccessionGameClient';
 import {
+  BilibiliSmsChallenge,
+  BilibiliSmsTransport,
+  loginBilibiliSms,
+  sendBilibiliSmsCode,
+} from '../bilibiliSms';
+import {
   deleteMobileAccount,
   getMobileCredential,
   importMobileUsersDb,
@@ -46,19 +52,42 @@ type UnknownRecord = Record<string, any>;
 const loginProgressListeners = new Set<
   (progress: { loginId: string } & SuccessionGameProgress) => void
 >();
+const bilibiliSmsChallenges = new Map<string, BilibiliSmsChallenge>();
+
+const bilibiliSmsTransport: BilibiliSmsTransport = async (url, body) => {
+  const response = await CapacitorHttp.request({
+    url,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0 BSGameSDK',
+    },
+    data: body,
+    connectTimeout: 10_000,
+    readTimeout: 10_000,
+  });
+  return { status: response.status, data: response.data };
+};
+
+function smsChallengeId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  );
+}
 
 function requireNativeGameAccess() {
   if (!Capacitor.isNativePlatform()) {
-    throw new Error('纯 Web 版不执行本地游戏登录，请连接 UAR 服务器使用云端功能');
+    throw new Error(
+      '纯 Web 版不执行本地游戏登录，请连接 UAR 服务器使用云端功能',
+    );
   }
 }
 
 function responseData(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const record = value as UnknownRecord;
-  return record.data && typeof record.data === 'object'
-    ? record.data
-    : record;
+  return record.data && typeof record.data === 'object' ? record.data : record;
 }
 
 function mergeDashboardResponses(index: unknown, options: unknown) {
@@ -224,6 +253,28 @@ function installBridge() {
         return deleteMobileAccount(id);
       },
       credential: async (id: string) => getMobileCredential(id),
+      sendBilibiliSmsCode: async (phone: string) => {
+        requireNativeGameAccess();
+        const challenge = await sendBilibiliSmsCode(
+          bilibiliSmsTransport,
+          phone,
+        );
+        const challengeId = smsChallengeId();
+        bilibiliSmsChallenges.set(challengeId, challenge);
+        return { challengeId, expiresAt: challenge.expiresAt };
+      },
+      loginBilibiliSms: async (challengeId: string, otp: string) => {
+        requireNativeGameAccess();
+        const challenge = bilibiliSmsChallenges.get(challengeId);
+        if (!challenge) throw new Error('验证码会话不存在，请重新发送验证码');
+        const result = await loginBilibiliSms(
+          bilibiliSmsTransport,
+          challenge,
+          otp,
+        );
+        bilibiliSmsChallenges.delete(challengeId);
+        return result;
+      },
       currentSession: async (id: string) =>
         Capacitor.isNativePlatform() ? getMobileGameSession(id) : null,
       loginSession,

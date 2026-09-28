@@ -1126,7 +1126,7 @@ def build_succession_factor_meta(cursor: sqlite3.Cursor) -> dict:
            JOIN text_data AS factor_text
              ON factor_text.category = 147
             AND factor_text."index" = sf.factor_id
-           WHERE sf.factor_type IN (3, 4, 5)
+           WHERE sf.factor_type IN (3, 4, 5, 6)
            ORDER BY sf.factor_type, sf.factor_group_id, sf.rarity;"""
     )
     factors = {
@@ -1154,7 +1154,7 @@ def build_succession_factor_meta(cursor: sqlite3.Cursor) -> dict:
            JOIN text_data AS skill_text
              ON skill_text.category = 47
             AND skill_text."index" = skill.id
-           WHERE sf.factor_type IN (3, 4, 5)
+           WHERE sf.factor_type IN (3, 4, 5, 6)
              AND skill.rarity = 1
            ORDER BY sf.factor_id, skill.group_id;"""
     )

@@ -15,12 +15,14 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  Copy,
   Database,
   Gem,
   History,
   ListChecks,
   LogIn,
   LogOut,
+  MessageSquare,
   PencilLine,
   Play,
   Plus,
@@ -30,6 +32,7 @@ import {
   Trash2,
   Upload,
   Users,
+  X,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
@@ -132,6 +135,8 @@ import {
 
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import autoResearchCatalog from '../../../assets/data/auto_research_catalog.json';
+import SmsLoginPanel from 'autouma/SmsLoginPanel';
+import { copyText } from 'autouma/clipboard';
 
 const localCatalog = autoResearchCatalog as {
   skills: Record<string, SkillOption>;
@@ -638,6 +643,7 @@ const accountManualInputClass =
 
 function AccountManagementActions({
   accountName,
+  onCopy,
   onRename,
   onDelete,
   deleteDisabledReason = '',
@@ -645,6 +651,7 @@ function AccountManagementActions({
   className = '',
 }: {
   accountName: string;
+  onCopy: () => void;
   onRename: () => void;
   onDelete: () => void;
   deleteDisabledReason?: string;
@@ -653,6 +660,17 @@ function AccountManagementActions({
 }) {
   return (
     <div className={`flex items-center gap-1 ${className}`.trim()}>
+      <button
+        type="button"
+        onClick={onCopy}
+        disabled={busy}
+        aria-label={`复制${accountName}的完整 access_key`}
+        title="复制完整 access_key"
+        className="autoResearchAccountMiniButton inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Copy size={10} />
+        复制 key
+      </button>
       <button
         type="button"
         onClick={onRename}
@@ -715,6 +733,7 @@ export default function AutoResearch() {
   >(new Set());
   const [manualUid, setManualUid] = useState('');
   const [manualAccessKey, setManualAccessKey] = useState('');
+  const [smsLoginOpen, setSmsLoginOpen] = useState(false);
   const [editingAccountAliasId, setEditingAccountAliasId] = useState('');
   const [accountAliasDraft, setAccountAliasDraft] = useState('');
   const [deletingAccountId, setDeletingAccountId] = useState('');
@@ -3404,6 +3423,45 @@ export default function AutoResearch() {
     setManualAccessKey('');
   };
 
+  const addSmsAccount = async (credential: {
+    uid: string;
+    accessKey: string;
+  }) => {
+    await addCredentials([
+      {
+        ...credential,
+        source: '短信登录',
+        capturedAt: new Date().toISOString(),
+      },
+    ]);
+    const localAccounts =
+      (await window.electron.autoResearch.accounts()) as Array<
+        Omit<Account, 'runtime'>
+      >;
+    const added = localAccounts.find(
+      (account) => account.uid === credential.uid,
+    );
+    if (added) {
+      setSelectedAccountId(added.id);
+      localStorage.setItem(LAST_ACCOUNT_KEY, added.id);
+    }
+    setSuccessMessage(`已添加 B 站账号 UID ${credential.uid}`);
+  };
+
+  const copyAccountAccessKey = async (account: Account) => {
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        account.id,
+      )) as {
+        accessKey: string;
+      };
+      await copyText(credential.accessKey);
+      setSuccessMessage('access_key 已复制到剪贴板');
+    } catch (caught) {
+      setError(`复制 access_key 失败：${(caught as Error).message}`);
+    }
+  };
+
   const prepareAccountBeforeServer = async (accountId: string) => {
     setBusy(`prepare-${accountId}`);
     setError('');
@@ -5151,6 +5209,11 @@ export default function AutoResearch() {
         handled();
         return;
       }
+      if (smsLoginOpen) {
+        setSmsLoginOpen(false);
+        handled();
+        return;
+      }
       if (loginSettingsOpen) {
         closeLoginSettings();
         handled();
@@ -5528,8 +5591,8 @@ export default function AutoResearch() {
   offlineSetupRequestKeyRef.current = offlineSetupRequestKey;
   const autoPreparedOfflineSetupKey = useRef('');
 
-  const prepareOfflineCareer = useCallback(
-    async (): Promise<OfflineSingleModeSetup | null> => {
+  const prepareOfflineCareer =
+    useCallback(async (): Promise<OfflineSingleModeSetup | null> => {
       if (!selectedAccountId) return null;
       const accountId = selectedAccountId;
       if (
@@ -5574,8 +5637,7 @@ export default function AutoResearch() {
       } finally {
         if (selectedAccountIdRef.current === accountId) setBusy('');
       }
-    },
-    [
+    }, [
       selectedAccountId,
       automationActive,
       currentCareerActive,
@@ -6305,6 +6367,30 @@ export default function AutoResearch() {
               max-height: calc(100dvh - 5.75rem);
               overflow-y: auto;
             }
+            html[data-autouma] .autoResearchLoginSettingsOverlay {
+              align-items: stretch;
+              padding: 0;
+              background: rgb(var(--uma-clay-surface-rgb));
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog {
+              align-self: stretch;
+              width: 100%;
+              max-width: none !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
+              border-radius: 0 !important;
+              box-shadow: none;
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerHeader {
+              padding-top: calc(0.875rem + var(--autouma-safe-top));
+              padding-right: calc(1rem + var(--autouma-safe-right));
+              padding-left: calc(1rem + var(--autouma-safe-left));
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerFooter {
+              padding-right: calc(1rem + var(--autouma-safe-right));
+              padding-bottom: calc(0.75rem + var(--autouma-safe-bottom));
+              padding-left: calc(1rem + var(--autouma-safe-left));
+            }
             html[data-autouma] .autoResearchLoginAccountList {
               flex: none;
               max-height: 38dvh;
@@ -6728,7 +6814,7 @@ export default function AutoResearch() {
       ) : null}
       {loginSettingsOpen ? (
         <div
-          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay autoResearchLoginSettingsOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1200 }}
         >
           <div
@@ -6737,6 +6823,22 @@ export default function AutoResearch() {
             aria-label="自动育成登录设置"
             className="autoResearchAccountDialog autoResearchLoginSettingsDialog successionPickerDialog w-full !max-w-3xl sm:!h-[92vh] sm:!max-h-[880px] sm:!rounded-xl"
           >
+            <div className="successionPickerHeader flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">账号与登录</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  导入账号、短信登录，或选择已保存的账号继续。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLoginSettings}
+                aria-label="关闭账号与登录"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X size={17} />
+              </button>
+            </div>
             <div className="autoResearchLoginSettingsBody flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
               <section className="shrink-0 space-y-2">
                 <div
@@ -6815,6 +6917,15 @@ export default function AutoResearch() {
                     </button>
                   </div>
                 </details>
+                <button
+                  type="button"
+                  onClick={() => setSmsLoginOpen(true)}
+                  disabled={Boolean(busy || loginProgress)}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <MessageSquare size={14} />
+                  使用 B 站短信登录
+                </button>
                 {captured.length ? (
                   <p className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
                     UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
@@ -6855,6 +6966,9 @@ export default function AutoResearch() {
                         </button>
                         <AccountManagementActions
                           accountName={account.label || `UID ${account.uid}`}
+                          onCopy={() =>
+                            copyAccountAccessKey(account).catch(() => undefined)
+                          }
                           onRename={() => openAccountAliasEditor(account)}
                           onDelete={() => openDeleteAccountDialog(account)}
                           deleteDisabledReason={accountDeleteBlockedReason(
@@ -6923,6 +7037,12 @@ export default function AutoResearch() {
             </div>
           </div>
         </div>
+      ) : null}
+      {smsLoginOpen ? (
+        <SmsLoginPanel
+          onClose={() => setSmsLoginOpen(false)}
+          onComplete={addSmsAccount}
+        />
       ) : null}
       {editingSkillSelection ? (
         <div className="successionPickerTheme successionPickerOverlay z-[65]">
@@ -7955,6 +8075,23 @@ export default function AutoResearch() {
                   </button>
                 </div>
               </div>
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold text-slate-700">
+                  方法三：B 站短信登录
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  验证手机号后自动获取并保存 access_key。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSmsLoginOpen(true)}
+                  disabled={Boolean(busy || loginProgress)}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <MessageSquare size={14} />
+                  打开短信登录
+                </button>
+              </div>
             </section>
 
             <section className={panelClass('p-4')}>
@@ -8130,6 +8267,9 @@ export default function AutoResearch() {
                       )}
                       <AccountManagementActions
                         accountName={account.label || `UID ${account.uid}`}
+                        onCopy={() =>
+                          copyAccountAccessKey(account).catch(() => undefined)
+                        }
                         onRename={() => openAccountAliasEditor(account)}
                         onDelete={() => openDeleteAccountDialog(account)}
                         deleteDisabledReason={accountDeleteBlockedReason(

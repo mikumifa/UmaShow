@@ -6,6 +6,7 @@
 
 import path from 'path';
 import { app, BrowserWindow, shell, ipcMain, protocol } from 'electron';
+import { handleBilibiliSmsLogin } from './handle/BilibiliSmsLogin';
 import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
 import AppUpdater from './updater';
@@ -159,6 +160,7 @@ handleTrainingHistoryList(ipcMain);
 handleDataLoad(ipcMain);
 handleLeaderboardRanking(ipcMain);
 handleAutoResearchCredentials(ipcMain);
+handleBilibiliSmsLogin(ipcMain);
 handleAutoResearchUiSettings(ipcMain);
 handleAutoResearchDailyTasks(ipcMain);
 handleAutoResearchIdleSingleMode(ipcMain);

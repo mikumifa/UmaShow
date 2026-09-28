@@ -207,6 +207,10 @@ const electronHandler = {
       ipcRenderer.invoke('autoresearch:account-delete', id),
     credential: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-credential', id),
+    sendBilibiliSmsCode: (phone: string) =>
+      ipcRenderer.invoke('autoresearch:bilibili-sms-send', phone),
+    loginBilibiliSms: (challengeId: string, otp: string) =>
+      ipcRenderer.invoke('autoresearch:bilibili-sms-login', challengeId, otp),
     currentSession: (id: string) =>
       ipcRenderer.invoke('autoresearch:account-current-session', id),
     loginSession: (id: string, loginId: string) =>

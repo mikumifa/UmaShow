@@ -1233,7 +1233,7 @@ export default function OfflineCareerSettings({
           </div>
         </div>
 
-        <div className="mt-4 max-w-5xl">
+        <div className="mt-4 max-w-7xl">
           <div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {deckOptions.map((deck) => {

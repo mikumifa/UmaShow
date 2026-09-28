@@ -10,10 +10,12 @@ import {
 import {
   CalendarCheck,
   CalendarClock,
+  Copy,
   Database,
   Gem,
   History,
   ListChecks,
+  MessageSquare,
   PencilLine,
   Play,
   RefreshCw,
@@ -58,6 +60,8 @@ import {
   SessionResponse,
 } from 'renderer/components/autoResearch/types';
 import autoResearchCatalog from '../../assets/data/auto_research_catalog.json';
+import SmsLoginPanel from './SmsLoginPanel';
+import { copyText } from './clipboard';
 
 const SERVER_KEY = 'autouma.web.server';
 const ACCOUNT_KEY = 'autouma.web.accountId';
@@ -256,6 +260,8 @@ export default function WebAutoUma() {
   const [accounts, setAccounts] = useState<ImportedAccount[]>([]);
   const [manualUid, setManualUid] = useState('');
   const [manualAccessKey, setManualAccessKey] = useState('');
+  const [smsLoginOpen, setSmsLoginOpen] = useState(false);
+  const [desktopRuntime, setDesktopRuntime] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState(
     () => localStorage.getItem(ACCOUNT_KEY) || '',
   );
@@ -284,11 +290,17 @@ export default function WebAutoUma() {
   const [runCountTarget, setRunCountTarget] = useState(3);
   const [jewelDropTarget, setJewelDropTarget] = useState(20);
   const [repeatDaily, setRepeatDaily] = useState(false);
-  const [scheduleTiming, setScheduleTiming] =
-    useState<ScheduleTiming>('now');
+  const [scheduleTiming, setScheduleTiming] = useState<ScheduleTiming>('now');
   const [scheduledStartAt, setScheduledStartAt] = useState('');
   const [scheduleStartTime, setScheduleStartTime] = useState('05:00');
   const [scheduleEndTime, setScheduleEndTime] = useState('05:00');
+
+  useEffect(() => {
+    window.electron.appShell
+      .getInfo()
+      .then((info: any) => setDesktopRuntime(info?.platform !== 'web'))
+      .catch(() => setDesktopRuntime(false));
+  }, []);
 
   useEffect(() => {
     window.electron.autoResearch
@@ -587,6 +599,52 @@ export default function WebAutoUma() {
     }
   };
 
+  const addSmsAccount = async (credential: {
+    uid: string;
+    accessKey: string;
+  }) => {
+    setBusy('sms-account');
+    setError('');
+    try {
+      await window.electron.autoResearch.saveAccounts([
+        {
+          ...credential,
+          source: '短信登录',
+          capturedAt: new Date().toISOString(),
+        },
+      ]);
+      const updated =
+        (await window.electron.autoResearch.accounts()) as ImportedAccount[];
+      setAccounts(updated || []);
+      const added = (updated || []).find(
+        (account) => account.uid === credential.uid,
+      );
+      if (added) {
+        setSelectedAccountId(added.id);
+        localStorage.setItem(ACCOUNT_KEY, added.id);
+      }
+      setSuccessMessage(`已添加 B 站账号 UID ${credential.uid}`);
+    } catch (caught) {
+      setError(String((caught as Error)?.message || caught));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const copyAccountAccessKey = async (account: ImportedAccount) => {
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        account.id,
+      )) as {
+        accessKey: string;
+      };
+      await copyText(credential.accessKey);
+      setSuccessMessage('access_key 已复制到剪贴板');
+    } catch (caught) {
+      setError(`复制 access_key 失败：${(caught as Error).message}`);
+    }
+  };
+
   const openAccountAliasEditor = (account: ImportedAccount) => {
     setEditingAccountId(account.id);
     setAccountAliasDraft(account.label || '');
@@ -703,8 +761,7 @@ export default function WebAutoUma() {
 
   const commitHostedSession = (next: SessionResponse) => {
     setSession((current) => {
-      const nextRuntimeAutomation =
-        next.runtime?.automation || next.automation;
+      const nextRuntimeAutomation = next.runtime?.automation || next.automation;
       const nextRuntimeAccount =
         next.runtime?.account !== undefined
           ? next.runtime.account
@@ -718,8 +775,7 @@ export default function WebAutoUma() {
         runtime: {
           ...(current?.runtime || {}),
           ...(next.runtime || {}),
-          automation:
-            nextRuntimeAutomation || current?.runtime?.automation,
+          automation: nextRuntimeAutomation || current?.runtime?.automation,
           account: nextRuntimeAccount,
         },
       };
@@ -1283,9 +1339,7 @@ export default function WebAutoUma() {
                   <ProgressTab
                     currentCareerActive
                     activeCareerIconPath={activeCareerIconPath}
-                    activeCareerFallbackIconPath={
-                      activeCareerFallbackIconPath
-                    }
+                    activeCareerFallbackIconPath={activeCareerFallbackIconPath}
                     activeCareer={dashboard.account.career || undefined}
                     currentCareerUma={currentCareerUma}
                     runner={runner}
@@ -1439,9 +1493,7 @@ export default function WebAutoUma() {
                   />
                   <input
                     value={manualAccessKey}
-                    onChange={(event) =>
-                      setManualAccessKey(event.target.value)
-                    }
+                    onChange={(event) => setManualAccessKey(event.target.value)}
                     placeholder="access_key"
                     type="password"
                     className="min-h-9 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -1456,6 +1508,17 @@ export default function WebAutoUma() {
                   </button>
                 </div>
               </details>
+              {desktopRuntime ? (
+                <button
+                  type="button"
+                  onClick={() => setSmsLoginOpen(true)}
+                  disabled={Boolean(busy)}
+                  className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <MessageSquare size={15} />
+                  使用 B 站短信登录
+                </button>
+              ) : null}
               <section>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-slate-800">
@@ -1476,6 +1539,23 @@ export default function WebAutoUma() {
                       }`}
                     >
                       <div className="flex min-w-0 items-center gap-2">
+                        {desktopRuntime ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyAccountAccessKey(account).catch(
+                                () => undefined,
+                              )
+                            }
+                            disabled={Boolean(busy)}
+                            aria-label={`复制${account.label || `UID ${account.uid}`}的完整 access_key`}
+                            title="复制完整 access_key"
+                            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-caption text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
+                          >
+                            <Copy size={12} />
+                            复制 key
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setSelectedAccountId(account.id)}
@@ -1530,6 +1610,13 @@ export default function WebAutoUma() {
             </div>
           </form>
         </div>
+      ) : null}
+
+      {smsLoginOpen ? (
+        <SmsLoginPanel
+          onClose={() => setSmsLoginOpen(false)}
+          onComplete={addSmsAccount}
+        />
       ) : null}
 
       {editingAccount ? (
@@ -1712,7 +1799,9 @@ export default function WebAutoUma() {
                   <input
                     type="datetime-local"
                     value={scheduledStartAt}
-                    onChange={(event) => setScheduledStartAt(event.target.value)}
+                    onChange={(event) =>
+                      setScheduledStartAt(event.target.value)
+                    }
                     className="mt-2 h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                   />
                 ) : null}
@@ -1723,7 +1812,9 @@ export default function WebAutoUma() {
                       <input
                         type="time"
                         value={scheduleStartTime}
-                        onChange={(event) => setScheduleStartTime(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleStartTime(event.target.value)
+                        }
                         className="ml-2 h-8 rounded-md border border-slate-200 px-2"
                       />
                     </label>
@@ -1732,7 +1823,9 @@ export default function WebAutoUma() {
                       <input
                         type="time"
                         value={scheduleEndTime}
-                        onChange={(event) => setScheduleEndTime(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleEndTime(event.target.value)
+                        }
                         className="ml-2 h-8 rounded-md border border-slate-200 px-2"
                       />
                     </label>
