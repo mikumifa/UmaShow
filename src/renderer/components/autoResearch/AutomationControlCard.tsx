@@ -113,6 +113,23 @@ export default function AutomationControlCard({
   canAppendCareerPlan,
   openAppendCareerPlan,
 }: AutomationControlCardProps) {
+  const farm = automation?.friend_farm;
+  if (farm?.status === 'running' || farm?.status === 'paused') {
+    return (
+      <section className="automationControlCard uma-task-card p-4 sm:p-5">
+        <h3 className="font-semibold">
+          刷友情点{farm.status === 'running' ? '运行中' : '已暂停'}
+        </h3>
+        <p className="mt-2 text-sm">
+          已完成 {farm.runs} 次 · 重建 {farm.rebuilds} 次
+        </p>
+        <p className="mt-1 text-sm">{farm.message}</p>
+        <p className="mt-2 text-sm opacity-70">
+          请在“刷友情点”页暂停、继续或停止任务。
+        </p>
+      </section>
+    );
+  }
   const schedule = automation?.schedule;
   const observation = automation?.observation;
   const runnerClosing = busy === 'stop';
