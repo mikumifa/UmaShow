@@ -864,7 +864,6 @@ export default function AutoResearch() {
   const [careerPresetName, setCareerPresetName] = useState('');
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
-  const [newCareerPresetName, setNewCareerPresetName] = useState('');
   const [newCareerMode, setNewCareerMode] = useState<'online' | 'offline'>(
     'online',
   );
@@ -2766,14 +2765,47 @@ export default function AutoResearch() {
               }
             : current,
         );
-        await uploadDailyConfig(saved);
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
         setBusy('');
       }
     },
-    [selectedAccount, selectedAccountId, serverHostedMode, uploadDailyConfig],
+    [selectedAccount, selectedAccountId, serverHostedMode],
+  );
+
+  const uploadDailyTasks = useCallback(
+    async (config: DailyTasksConfig) => {
+      if (serverHostedMode) {
+        setError('服务端自动育成正在运行，请停止养马后再修改每日日常');
+        return;
+      }
+      if (!selectedAccountId || !selectedAccount) return;
+      if (!server) {
+        setError('上传日常配置前，请先连接自动育成服务器');
+        return;
+      }
+      setBusy('daily-upload');
+      setError('');
+      try {
+        const saved = writeLocalDailyTasks(selectedAccount.uid, config);
+        await uploadDailyConfig(saved);
+        setDailyTasksOverview((current) =>
+          current
+            ? {
+                ...current,
+                daily_tasks: { ...current.daily_tasks, ...saved },
+              }
+            : current,
+        );
+        setSuccessMessage('日常配置已上传到服务器');
+      } catch (caught) {
+        setError((caught as Error).message);
+      } finally {
+        setBusy('');
+      }
+    },
+    [selectedAccount, selectedAccountId, server, serverHostedMode, uploadDailyConfig],
   );
 
   const runDailyTasks = useCallback(
@@ -3159,7 +3191,6 @@ export default function AutoResearch() {
     setCareerPresetName('');
     setCareerSaveOpen(false);
     setNewCareerSaveName('');
-    setNewCareerPresetName('');
     setCareerHistory([]);
     setCloudCareerConfigIds(new Set());
     setSelectedCareerRecords(null);
@@ -5006,7 +5037,6 @@ export default function AutoResearch() {
 
     if (presetName === currentName) setPresetName(name);
     if (careerPresetName === currentName) setCareerPresetName(name);
-    if (newCareerPresetName === currentName) setNewCareerPresetName(name);
     setError('');
     return true;
   };
@@ -5036,7 +5066,6 @@ export default function AutoResearch() {
     setPresets(nextPresets);
     setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
     setPresetName(DEFAULT_PRESET_NAME);
-    if (newCareerPresetName === name) setNewCareerPresetName('');
     setPresetEditorOpen(false);
     setError('');
   };
@@ -5353,18 +5382,28 @@ export default function AutoResearch() {
       setError('请先填写新详设名称');
       return;
     }
-    if (
-      newCareerMode === 'online' &&
-      (!newCareerPresetName ||
-        !presets.some((preset) => preset.name === newCareerPresetName))
-    ) {
-      setError('请先选择这个养马详设要绑定的预设');
-      return;
+    let dedicatedPresetName = '';
+    if (newCareerMode === 'online') {
+      dedicatedPresetName = name;
+      let suffix = 2;
+      const presetNames = new Set(presets.map((preset) => preset.name));
+      while (presetNames.has(dedicatedPresetName)) {
+        dedicatedPresetName = `${name} (${suffix})`;
+        suffix += 1;
+      }
+      const nextPresets = [
+        ...presets,
+        createDefaultPreset(dedicatedPresetName),
+      ];
+      setPresets(nextPresets);
+      setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+      setPresetName(dedicatedPresetName);
+      setPresetSyncError(false);
     }
     setSelectedCareerSettingId('');
     setCareerMode(newCareerMode);
     setCareerSettingName(name);
-    setCareerPresetName(newCareerMode === 'online' ? newCareerPresetName : '');
+    setCareerPresetName(dedicatedPresetName);
     setCardId(0);
     setDeckId(0);
     setSupportCardIds([]);
@@ -5386,7 +5425,6 @@ export default function AutoResearch() {
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
-    setNewCareerPresetName('');
     setError('');
   };
 
@@ -6363,8 +6401,8 @@ export default function AutoResearch() {
               line-height: 1.5;
             }
             html[data-autouma] .autoResearchLoginSettingsBody {
-              flex: 0 1 auto;
-              max-height: calc(100dvh - 5.75rem);
+              flex: 1 1 0;
+              max-height: none;
               overflow-y: auto;
             }
             html[data-autouma] .autoResearchLoginSettingsOverlay {
@@ -6387,13 +6425,21 @@ export default function AutoResearch() {
               padding-left: calc(1rem + var(--autouma-safe-left));
             }
             html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerFooter {
+              flex: 0 0 auto;
+              width: 100%;
+              margin-top: auto;
               padding-right: calc(1rem + var(--autouma-safe-right));
               padding-bottom: calc(0.75rem + var(--autouma-safe-bottom));
               padding-left: calc(1rem + var(--autouma-safe-left));
             }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerFooter .autoResearchAccountDialogButton {
+              flex: 1 1 0;
+              min-width: 0;
+              min-height: 2.75rem;
+            }
             html[data-autouma] .autoResearchLoginAccountList {
-              flex: none;
-              max-height: 38dvh;
+              flex: 1 1 0;
+              max-height: none;
             }
             html[data-autouma] .autoResearchHistoryAction {
               min-height: 1.75rem;
@@ -8624,9 +8670,6 @@ export default function AutoResearch() {
                     saveCareerSetting={saveCareerSetting}
                     saveAndApplyCareerSetting={saveAndApplyCareerSetting}
                     saveAndRunCareer={saveAndRunCareer}
-                    careerPresetName={careerPresetName}
-                    newCareerPresetName={newCareerPresetName}
-                    setNewCareerPresetName={setNewCareerPresetName}
                     newCareerMode={newCareerMode}
                     setNewCareerMode={setNewCareerMode}
                     editCareerPreset={() =>
@@ -8808,6 +8851,7 @@ export default function AutoResearch() {
                       loadDailyTasks(selectedAccountId).catch(() => undefined);
                     }}
                     onSave={saveDailyTasks}
+                    onUpload={uploadDailyTasks}
                     onRun={runDailyTasks}
                   />
                 ) : null}

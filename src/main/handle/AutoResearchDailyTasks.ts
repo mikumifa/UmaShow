@@ -502,8 +502,8 @@ export async function run(id: string, config: DailyConfig) {
             started.data?.rp_info?.current_rp == null
               ? remaining - 1
               : Math.max(0, numberValue(started.data.rp_info.current_rp));
-          await runShop('竞技场');
         }
+        if (count > 0) await runShop('竞技场');
         return {
           status: count ? 'completed' : 'skipped',
           detail: `已参加 ${count} 次竞技场，未使用恢复道具`,

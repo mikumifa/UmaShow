@@ -76,9 +76,6 @@ type CareerTabProps = {
   saveCareerSetting: () => Promise<boolean>;
   saveAndApplyCareerSetting: () => Promise<void>;
   saveAndRunCareer: () => Promise<void>;
-  careerPresetName: string;
-  newCareerPresetName: string;
-  setNewCareerPresetName: Dispatch<SetStateAction<string>>;
   newCareerMode: 'online' | 'offline';
   setNewCareerMode: Dispatch<SetStateAction<'online' | 'offline'>>;
   editCareerPreset: () => void;
@@ -248,9 +245,6 @@ export default function CareerTab(props: CareerTabProps) {
     validationErrors = {},
     saveAndApplyCareerSetting,
     saveAndRunCareer,
-    careerPresetName,
-    newCareerPresetName,
-    setNewCareerPresetName,
     newCareerMode,
     setNewCareerMode,
     editCareerPreset,
@@ -456,11 +450,7 @@ export default function CareerTab(props: CareerTabProps) {
   const offlineDetailBlockedByActiveCareer = Boolean(
     careerSaveOpen && careerMode === 'offline' && activeCareer?.active,
   );
-  const canCreateCareerSave = Boolean(
-    newCareerSaveName.trim() &&
-      (newCareerMode === 'offline' ||
-        presets.some((preset) => preset.name === newCareerPresetName)),
-  );
+  const canCreateCareerSave = Boolean(newCareerSaveName.trim());
   const createCareerSaveFromDialog = () => {
     if (!canCreateCareerSave) return;
     createCareerSave();
@@ -752,7 +742,7 @@ export default function CareerTab(props: CareerTabProps) {
                 <Plus size={22} />
               </span>
               <strong className="mt-3 text-data text-indigo-950">
-                新建养马详设
+                新建育成设置
               </strong>
             </button>
           ) : null}
@@ -763,7 +753,7 @@ export default function CareerTab(props: CareerTabProps) {
         <div className="autoResearchCreateDialogOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay">
           <button
             type="button"
-            aria-label="关闭新建养马详设"
+            aria-label="关闭新建育成设置"
             onClick={() => setNewCareerDialogOpen(false)}
             className="absolute inset-0 bg-transparent"
           />
@@ -778,7 +768,7 @@ export default function CareerTab(props: CareerTabProps) {
                 id="new-career-dialog-title"
                 className="text-section font-semibold text-slate-900"
               >
-                新建养马详设
+                新建育成设置
               </h2>
               <div className="grid grid-cols-2 gap-2">
                 {(['online', 'offline'] as const).map((mode) => (
@@ -797,39 +787,15 @@ export default function CareerTab(props: CareerTabProps) {
                 ))}
               </div>
 
-              {newCareerMode === 'online' ? (
-                <label className="block text-label font-medium text-slate-700">
-                  绑定预设
-                  <select
-                    value={newCareerPresetName}
-                    onChange={(event) =>
-                      setNewCareerPresetName(event.target.value)
-                    }
-                    className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-data text-slate-800"
-                  >
-                    <option value="">请手动选择预设</option>
-                    {presets.map((preset) => (
-                      <option key={preset.name} value={preset.name}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <p className="rounded-md bg-indigo-50 px-3 py-2 text-label leading-5 text-indigo-700">
-                  离线详设不绑定预设。
-                </p>
-              )}
-
               <label className="block text-label font-medium text-slate-700">
-                详设名称
+                育成设置名称
                 <input
                   value={newCareerSaveName}
                   onChange={(event) => setNewCareerSaveName(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') createCareerSaveFromDialog();
                   }}
-                  placeholder={`例如：URA 详设 ${accountCareerSettings.length + 1}`}
+                  placeholder={`例如：URA 育成 ${accountCareerSettings.length + 1}`}
                   className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-data"
                 />
               </label>
@@ -1787,10 +1753,10 @@ export default function CareerTab(props: CareerTabProps) {
                     >
                       <span>
                         <strong className="block font-medium text-slate-800">
-                          详细预测设置
+                          详细育成设置
                         </strong>
                         <span className="mt-0.5 block text-caption font-medium text-indigo-600">
-                          编辑“{careerPresetName}”的预测配置 →
+                          设置训练目标、技能、事件与赛事 →
                         </span>
                       </span>
                     </button>
@@ -1841,7 +1807,9 @@ export default function CareerTab(props: CareerTabProps) {
                       type="checkbox"
                       checked={transferMode === 'direct'}
                       onChange={(event) =>
-                        setTransferMode(event.target.checked ? 'direct' : 'keep')
+                        setTransferMode(
+                          event.target.checked ? 'direct' : 'keep',
+                        )
                       }
                       className="mt-1"
                     />
@@ -1850,7 +1818,7 @@ export default function CareerTab(props: CareerTabProps) {
                         养成完成后直接转队
                       </strong>
                       <span className="mt-0.5 block text-caption text-slate-500">
-                        仅转队本次养成的马娘，无法撤销；默认关闭
+                        仅转队本次养成的马娘
                       </span>
                     </span>
                   </label>
@@ -1888,7 +1856,7 @@ export default function CareerTab(props: CareerTabProps) {
                       仍不足时允许使用宝石
                     </strong>
                     <span className="mt-0.5 block text-caption text-slate-500">
-                      会实际消耗宝石恢复TP，默认关闭
+                      会实际消耗宝石恢复TP
                     </span>
                   </span>
                 </label>

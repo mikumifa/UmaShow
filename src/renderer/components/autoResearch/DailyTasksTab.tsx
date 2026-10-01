@@ -8,6 +8,7 @@ import {
   Save,
   ShoppingBag,
   Swords,
+  Upload,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import DailyHorsePicker, {
@@ -33,6 +34,7 @@ type Props = {
   locked: boolean;
   onRetry: () => void;
   onSave: (config: DailyTasksConfig) => Promise<void>;
+  onUpload: (config: DailyTasksConfig) => Promise<void>;
   onRun: (config: DailyTasksConfig) => Promise<void>;
 };
 
@@ -239,6 +241,7 @@ export default function DailyTasksTab({
   locked,
   onRetry,
   onSave,
+  onUpload,
   onRun,
 }: Props) {
   const [draft, setDraft] = useState<DailyTasksConfig>(emptyConfig);
@@ -322,7 +325,8 @@ export default function DailyTasksTab({
   const dailyRaceAvailability = availability?.daily_race;
   const legendRaceAvailability = availability?.daily_legend_race;
   const stadiumAvailability = availability?.team_stadium;
-  const disabled = locked || busy === 'daily-save' || busy === 'daily-run';
+  const disabled =
+    locked || ['daily-save', 'daily-upload', 'daily-run'].includes(busy);
   const taskResults = overview.daily_tasks.task_results || {};
   const selectedDailyRace = dailyRaces.find(
     (race) => race.id === draft.daily_race.daily_race_id,
@@ -600,7 +604,7 @@ export default function DailyTasksTab({
                   限时商店
                 </h3>
                 <p className="text-label text-slate-500">
-                  每次赛事或竞技场结束后检查，达到该来源每日刷新上限后停止。
+                  赛事完成后检查，竞技场本轮全部完成后统一检查；达到该来源每日刷新上限后停止。
                 </p>
               </div>
             </div>
@@ -627,6 +631,7 @@ export default function DailyTasksTab({
 
       <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-4">
+          {busy === 'daily-run' ? (
           <div>
             <h3 className="text-section font-semibold text-slate-800">
               本地单次执行结果
@@ -645,7 +650,8 @@ export default function DailyTasksTab({
               </p>
             ) : null}
           </div>
-          <div className="dailyTaskActions">
+          ) : null}
+          <div className="dailyTaskActions ml-auto">
             <button
               type="button"
               disabled={disabled}
@@ -658,6 +664,15 @@ export default function DailyTasksTab({
             <button
               type="button"
               disabled={disabled}
+              onClick={() => onUpload(draft)}
+              className="uma-clay-button inline-flex items-center gap-2 px-4 py-2 text-data font-semibold disabled:opacity-50"
+            >
+              <Upload size={16} />
+              {busy === 'daily-upload' ? '上传中…' : '上传配置到服务器'}
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
               onClick={() => onRun(draft)}
               className="uma-clay-button-primary inline-flex items-center gap-2 px-4 py-2 text-data font-semibold disabled:opacity-50"
             >
@@ -666,7 +681,7 @@ export default function DailyTasksTab({
             </button>
           </div>
         </div>
-        {Object.keys(taskResults).length ? (
+        {busy === 'daily-run' && Object.keys(taskResults).length ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Object.entries(taskResults).map(([name, result]) => (
               <ResultCard key={name} name={name} result={result} />

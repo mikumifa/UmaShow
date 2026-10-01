@@ -345,7 +345,7 @@ export default function PresetsTab(props: PresetsTabProps) {
       <header className="autoResearchEditorToolbar">
         <nav className="autoResearchEditorTabs">
           <span className="px-2.5 text-label font-semibold text-gray-800">
-            详细预测设置
+            详细育成设置
           </span>
           {[
             ['preset-basic', '基础'],
