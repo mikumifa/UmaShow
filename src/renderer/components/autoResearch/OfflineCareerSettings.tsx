@@ -821,6 +821,7 @@ export default function OfflineCareerSettings({
           <label className="flex items-center gap-2 text-label font-medium text-slate-700">
             <input
               type="checkbox"
+              disabled={factorSelection.transfer_mode === 'direct'}
               checked={factorSelection.enabled}
               onChange={(event) =>
                 updateFactorSelection({ enabled: event.target.checked })
@@ -830,7 +831,11 @@ export default function OfflineCareerSettings({
           </label>
         </div>
 
-        {!factorSelection.enabled ? (
+        {factorSelection.transfer_mode === 'direct' ? (
+          <p className="mt-3 text-label text-slate-600">
+            已开启养成完成后直接转队，跳过因子评分和额外重抽。
+          </p>
+        ) : !factorSelection.enabled ? (
           <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-label text-slate-600">
             已关闭筛选：仍会抽完所有免费次数，然后从候选中随机选择。
           </p>

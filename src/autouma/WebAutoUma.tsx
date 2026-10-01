@@ -1124,7 +1124,7 @@ export default function WebAutoUma() {
   } as ComponentProps<typeof CareerTab>;
 
   const tabs = [
-    { id: 'career' as const, label: '养马详设', icon: Settings2 },
+    { id: 'career' as const, label: '育成', icon: Settings2 },
     { id: 'history' as const, label: '养马记录', icon: History },
   ];
 

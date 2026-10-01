@@ -28,7 +28,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Settings2,
   Trash2,
   Upload,
   Users,
@@ -145,8 +144,7 @@ const localCatalog = autoResearchCatalog as {
 
 const autoResearchTabs = [
   { id: 'daily' as const, label: '日常', icon: CalendarCheck },
-  { id: 'presets' as const, label: '预设', icon: Settings2 },
-  { id: 'career' as const, label: '详设', icon: ListChecks },
+  { id: 'career' as const, label: '育成', icon: ListChecks },
   { id: 'history' as const, label: '记录', icon: History },
 ];
 
@@ -482,6 +480,7 @@ const normalizeOfflineFactorSelection = (
   return {
     ...defaults,
     ...(value || {}),
+    transfer_mode: value?.transfer_mode === 'direct' ? 'direct' : 'keep',
     evaluation_mode:
       value?.evaluation_mode === 'ancestor' ? 'ancestor' : 'parent',
     use_skill_priority: true,
@@ -4939,11 +4938,12 @@ export default function AutoResearch() {
           }
         }
         setActiveTab(tab);
+        setPresetEditorOpen(false);
         if (target) {
           window.setTimeout(() => scrollToSection(target), 0);
         }
       },
-      activeTab === 'presets' ? 'preset' : 'career',
+      'all',
     );
   };
 
@@ -5224,13 +5224,13 @@ export default function AutoResearch() {
         handled();
         return;
       }
-      if (careerSaveOpen) {
-        closeCareerEditor();
+      if (presetEditorOpen) {
+        requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
         handled();
         return;
       }
-      if (presetEditorOpen) {
-        requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
+      if (careerSaveOpen) {
+        closeCareerEditor();
         handled();
         return;
       }
@@ -5258,7 +5258,7 @@ export default function AutoResearch() {
     }
     setPresetName(careerPresetName);
     setPresetEditorOpen(true);
-    setActiveTab('presets');
+    setActiveTab('career');
     window.setTimeout(() => scrollToSection('preset-basic'), 0);
     setError('');
   };
@@ -5277,12 +5277,10 @@ export default function AutoResearch() {
       setError(`养马详设绑定的预设不存在：${setting.preset_name}`);
       return;
     }
-    setSelectedCareerSettingId(setting.id);
-    setCareerSettingName(setting.name);
-    setCareerPresetName(setting.preset_name);
+    applyCareerSetting(setting.id);
     setPresetName(setting.preset_name);
     setPresetEditorOpen(true);
-    setActiveTab('presets');
+    setActiveTab('career');
     window.setTimeout(() => scrollToSection('preset-basic'), 0);
     setError('');
   };
@@ -6145,7 +6143,9 @@ export default function AutoResearch() {
   return (
     <div
       className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
-        selectedCareerRecords || careerSaveOpen ? 'autoResearchNestedView' : ''
+        selectedCareerRecords || careerSaveOpen || presetEditorOpen
+          ? 'autoResearchNestedView'
+          : ''
       }`}
     >
       <style>
@@ -6273,7 +6273,7 @@ export default function AutoResearch() {
               left: 0;
               z-index: 120;
               display: grid;
-              grid-template-columns: repeat(4, minmax(0, 1fr));
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
                 calc(0.375rem + var(--autouma-safe-bottom))
@@ -8451,10 +8451,10 @@ export default function AutoResearch() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => navigateToTab('presets')}
+                          onClick={() => navigateToTab('career', 'career-task')}
                           className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
-                          选择预设
+                          进入育成设置
                         </button>
                         {!automationActive ? (
                           <button
@@ -8522,7 +8522,7 @@ export default function AutoResearch() {
                   </AutoResearchNotice>
                 ) : null}
 
-                {activeTab === 'presets' ? (
+                {activeTab === 'career' && presetEditorOpen ? (
                   <PresetsTab
                     presetEditorOpen={presetEditorOpen}
                     presets={presets}
@@ -8593,6 +8593,7 @@ export default function AutoResearch() {
 
                 {dashboard?.account &&
                 activeTab === 'career' &&
+                !presetEditorOpen &&
                 (!automationActive || careerSaveOpen) ? (
                   <CareerTab
                     dashboard={dashboard}
@@ -8665,6 +8666,13 @@ export default function AutoResearch() {
                     setRecoverTpWithItem={setRecoverTpWithItem}
                     recoverTpWithJewels={recoverTpWithJewels}
                     setRecoverTpWithJewels={setRecoverTpWithJewels}
+                    transferMode={offlineFactorSelection.transfer_mode || 'keep'}
+                    setTransferMode={(mode) =>
+                      setOfflineFactorSelection((current) => ({
+                        ...current,
+                        transfer_mode: mode,
+                      }))
+                    }
                     selectionConflict={selectionConflict}
                     refreshOptionsIndex={refreshOptionsIndex}
                     renameCareerSetting={renameCareerSetting}
@@ -8707,6 +8715,7 @@ export default function AutoResearch() {
 
                 {activeTab === 'career' &&
                 automationActive &&
+                !presetEditorOpen &&
                 !careerSaveOpen ? (
                   <AutomationControlCard
                     automation={automation}
@@ -8753,6 +8762,7 @@ export default function AutoResearch() {
 
                 {activeTab === 'career' &&
                 automationActive &&
+                !presetEditorOpen &&
                 !careerSaveOpen ? (
                   <div id="career-progress" className="scroll-mt-28">
                     <ProgressTab

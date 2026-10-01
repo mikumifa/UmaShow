@@ -112,6 +112,8 @@ type CareerTabProps = {
   setRecoverTpWithItem: Dispatch<SetStateAction<boolean>>;
   recoverTpWithJewels: boolean;
   setRecoverTpWithJewels: Dispatch<SetStateAction<boolean>>;
+  transferMode?: 'keep' | 'direct';
+  setTransferMode?: (mode: 'keep' | 'direct') => void;
   selectionConflict: string;
   refreshOptionsIndex: () => Promise<void>;
   renameCareerSetting: (settingId: string, name: string) => void;
@@ -282,6 +284,8 @@ export default function CareerTab(props: CareerTabProps) {
     setRecoverTpWithItem,
     recoverTpWithJewels,
     setRecoverTpWithJewels,
+    transferMode = 'keep',
+    setTransferMode,
     selectionConflict,
     refreshOptionsIndex,
     renameCareerSetting,
@@ -1783,10 +1787,10 @@ export default function CareerTab(props: CareerTabProps) {
                     >
                       <span>
                         <strong className="block font-medium text-slate-800">
-                          {careerPresetName}
+                          详细预测设置
                         </strong>
                         <span className="mt-0.5 block text-caption font-medium text-indigo-600">
-                          编辑“{careerPresetName}”的预设配置 →
+                          编辑“{careerPresetName}”的预测配置 →
                         </span>
                       </span>
                     </button>
@@ -1830,6 +1834,26 @@ export default function CareerTab(props: CareerTabProps) {
                       </div>
                     </div>
                   </>
+                ) : null}
+                {setTransferMode ? (
+                  <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-data text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={transferMode === 'direct'}
+                      onChange={(event) =>
+                        setTransferMode(event.target.checked ? 'direct' : 'keep')
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      <strong className="block font-medium text-slate-800">
+                        养成完成后直接转队
+                      </strong>
+                      <span className="mt-0.5 block text-caption text-slate-500">
+                        仅转队本次养成的马娘，无法撤销；默认关闭
+                      </span>
+                    </span>
+                  </label>
                 ) : null}
                 <label className="flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-label text-slate-700">
                   <input
