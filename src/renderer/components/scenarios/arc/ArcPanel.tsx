@@ -23,6 +23,7 @@ import {
   VitalPanel,
 } from 'renderer/components/monitor/SharedSections';
 import { useMonteCarloRecommendation } from 'renderer/components/MonteCarloProvider';
+import PartnerBondCard from 'renderer/components/monitor/PartnerBondCard';
 import {
   RecommendationRankChip,
   rankRecommendationActions,
@@ -800,6 +801,11 @@ function ArcRivalPanel({ arcData }: { arcData: ArcData }) {
       );
     });
   if (sorted.length === 0) return null;
+  const chargeCounts = [0, 0, 0, 0];
+  sorted.forEach((rival) => {
+    const charge = Math.min(3, Math.max(0, Math.ceil(rival.rivalBoost || 0)));
+    chargeCounts[charge] += 1;
+  });
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
@@ -830,17 +836,65 @@ function ArcRivalPanel({ arcData }: { arcData: ArcData }) {
             </article>
           );
         })}
+        <article
+          aria-label="伙伴充电统计"
+          className="flex min-w-0 flex-col justify-center rounded-lg border border-slate-200 bg-slate-50 p-1.5"
+        >
+          <h3 className="mb-1 text-caption font-semibold text-slate-700">
+            充电统计
+          </h3>
+          <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-caption">
+            {[3, 2, 1, 0].map((charge) => (
+              <div
+                key={charge}
+                className="flex items-baseline justify-between gap-1"
+              >
+                <dt className="whitespace-nowrap text-slate-600">{charge} 格</dt>
+                <dd className="whitespace-nowrap font-bold tabular-nums text-slate-800">
+                  {chargeCounts[charge]}
+                  <span className="ml-0.5 font-normal text-slate-500">人</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </article>
       </div>
     </section>
   );
 }
 
 export default function ArcPanel({ charInfo }: { charInfo: CharInfo }) {
+  const [showPartnerBonds, setShowPartnerBonds] = useState(() => {
+    try {
+      return localStorage.getItem('monitorDashboard.showPartnerBonds') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const changePartnerBonds = (visible: boolean) => {
+    setShowPartnerBonds(visible);
+    try {
+      localStorage.setItem('monitorDashboard.showPartnerBonds', String(visible));
+    } catch {
+      // Keep the switch usable when storage is unavailable.
+    }
+  };
+  const vitalPanel = (
+    <VitalPanel
+      charInfo={charInfo}
+      showPartnerBonds={showPartnerBonds}
+      onPartnerBondsChange={changePartnerBonds}
+    />
+  );
+  const partnerBonds = showPartnerBonds ? (
+    <PartnerBondCard partnerStats={charInfo.partnerStats} />
+  ) : null;
   const { arcData } = charInfo;
   if (!arcData) {
     return (
       <>
-        <VitalPanel charInfo={charInfo} />
+        {vitalPanel}
+        {partnerBonds}
         <section className="rounded-2xl border border-[#71BCFF] bg-gradient-to-r from-[#71BCFF]/20 to-[#3CA2FF]/20 p-5 text-center shadow-sm">
           <Globe2 className="mx-auto text-[#3CA2FF]" size={30} />
           <h2 className="mt-2 text-section font-semibold text-slate-800">已识别凯旋门剧本</h2>
@@ -855,7 +909,8 @@ export default function ArcPanel({ charInfo }: { charInfo: CharInfo }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <VitalPanel charInfo={charInfo} />
+      {vitalPanel}
+      {partnerBonds}
       <ArcStatusBar arcData={arcData} partnerStats={charInfo.partnerStats} />
       <TrainingEventsSection charInfo={charInfo} compact />
     </div>

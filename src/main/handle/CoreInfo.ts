@@ -12,6 +12,7 @@ import {
   type EventOption,
   GameStats,
   NoteStat,
+  type PartnerStat,
   type ScenarioType,
   SongStat,
   StoryDetail,
@@ -20,6 +21,10 @@ import {
 import { isUMASingleModelResponse } from 'types/ingame/UMASingleModelResponse';
 import { UMDB } from './Data';
 import { fetchStoryDetail } from './StoryDetail';
+import {
+  capturePartnerStoryProgress,
+  resolvePartnerStoryStep,
+} from './PartnerStoryProgress';
 
 const PERF_TYPE_TO_NOTE_KEY: Record<number, keyof NoteStat> = {
   1: 'da',
@@ -445,16 +450,25 @@ export async function extractCoreInfo(
   // ---------- partner Stats ----------
   const supportCards = chara.support_card_array || [];
   const evaluations = chara.evaluation_info_array || [];
+  const storyProgress = capturePartnerStoryProgress(
+    normalizedData,
+    decoded.data_headers?.viewer_id,
+  );
 
   const partnerStats = evaluations.map((evalEntry) => {
-    const position = evalEntry.training_partner_id;
+    const position = evalEntry.training_partner_id ?? evalEntry.target_id;
     const matchedCard = supportCards.find((card) => card.position === position);
     const arcCharaId = arcData?.evaluationInfo.find(
       (item) => item.targetId === position,
     )?.charaId;
-    const result = {
+    const result: PartnerStat = {
       position,
       evaluation: evalEntry.evaluation ?? 0,
+      storyStep: evalEntry.story_step,
+      isAppear:
+        evalEntry.is_appear == null
+          ? undefined
+          : evalEntry.is_appear === 1 || evalEntry.is_appear === true,
       supportCardId: 0,
       charaPath: '',
       limitBreak: 0,
@@ -463,6 +477,7 @@ export async function extractCoreInfo(
     if (matchedCard) {
       result.supportCardId = matchedCard.support_card_id;
       const supportCard = UMDB.supportCards[matchedCard.support_card_id];
+      result.charaId = supportCard?.charaId;
       result.charaPath = supportCard
         ? (UMDB.charas[supportCard.charaId!]?.iconUrl ?? '')
         : '';
@@ -470,11 +485,19 @@ export async function extractCoreInfo(
       result.exp = matchedCard.exp;
     }
     if (!matchedCard && arcCharaId) {
+      result.charaId = arcCharaId;
       result.charaPath = getTrainingCharaIconPath(arcCharaId);
     }
     if (position >= 1000) {
+      result.charaId = position;
       result.charaPath = getTrainingCharaIconPath(position);
     }
+    result.storyStep = resolvePartnerStoryStep(
+      storyProgress,
+      result.supportCardId,
+      result.charaId,
+      evalEntry.story_step,
+    );
     return result;
   });
 

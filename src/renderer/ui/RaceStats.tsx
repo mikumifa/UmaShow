@@ -113,7 +113,7 @@ type StatRow = {
 };
 
 type StatConfig = {
-  key: 'single' | 'double' | 'triple' | 'detail';
+  key: 'single' | 'double' | 'triple';
   title: string;
   size: number;
 };
@@ -148,7 +148,6 @@ const statConfigs: StatConfig[] = [
   { key: 'single', title: '单马', size: 1 },
   { key: 'double', title: '双马组合', size: 2 },
   { key: 'triple', title: '三马组合', size: 3 },
-  { key: 'detail', title: '详细', size: 1 },
 ];
 
 const fallbackArchives: RaceArchive[] = [
@@ -159,7 +158,7 @@ const fallbackArchives: RaceArchive[] = [
   },
 ];
 
-const STATS_CACHE_VERSION = 6;
+const STATS_CACHE_VERSION = 7;
 
 const horseEventDefinitions: ProcStatDefinition[] = [
   {
@@ -187,7 +186,6 @@ function emptyBundle(): ArchiveStatsBundle {
       single: [],
       double: [],
       triple: [],
-      detail: [],
     },
   };
 }
@@ -747,179 +745,6 @@ function finalizeHorseSummary(horse: MutableHorseSummary): HorseSummaryData {
   };
 }
 
-function buildDetailRows(items: RaceRecord[]) {
-  const summaryByType = new Map<string, MutableHorseSummary>();
-  const rowStatsByType = new Map<
-    string,
-    {
-      wins: number;
-      top2: number;
-      top3: number;
-      total: number;
-    }
-  >();
-  let allHorseSummary: MutableHorseSummary | null = null;
-  let allHorseWins = 0;
-  let allHorseTop2 = 0;
-  let allHorseTop3 = 0;
-  let allHorseTotal = 0;
-
-  items.forEach((item) => {
-    const entries = getHorseEntries(item);
-    entries.forEach((entry) => {
-      const { typeKey } = entry;
-      const existingSummary =
-        summaryByType.get(typeKey) ??
-        createMutableHorseSummary({
-          ...entry.summary,
-          key: typeKey,
-        });
-      const existingRowStats = rowStatsByType.get(typeKey) ?? {
-        wins: 0,
-        top2: 0,
-        top3: 0,
-        total: 0,
-      };
-
-      existingSummary.appearances += 1;
-      existingRowStats.total += 1;
-      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 2) {
-        existingRowStats.top2 += 1;
-      }
-      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 3) {
-        existingRowStats.top3 += 1;
-      }
-      if (entry.isWin) {
-        existingSummary.winAppearances += 1;
-        existingRowStats.wins += 1;
-      }
-
-      horseEventDefinitions.forEach((definition) => {
-        const stat =
-          existingSummary.procStatMap.get(definition.key) ??
-          createProcStatAccumulator(definition.key, definition.label);
-        bumpProcStat(stat, definition.matches(entry), entry.isWin);
-        existingSummary.procStatMap.set(definition.key, stat);
-      });
-
-      entry.trainedSkills.forEach((skill) => {
-        const skillId = Number(skill.skillId);
-        const stat = existingSummary.skillStatMap.get(skillId) ?? {
-          ...createProcStatAccumulator(
-            `skill-${skillId}`,
-            getSkillDisplayLabel(skillId),
-          ),
-          skillId,
-        };
-        bumpProcStat(stat, entry.activatedSkillIds.has(skillId), entry.isWin);
-        existingSummary.skillStatMap.set(skillId, stat);
-      });
-      bumpInterferenceSkillStats(existingSummary, entry, entry.isWin);
-
-      if (entry.finalHp != null) {
-        existingSummary.finalHpTotal += entry.finalHp;
-        existingSummary.finalHpCount += 1;
-        if (entry.isWin) {
-          existingSummary.winFinalHpTotal += entry.finalHp;
-          existingSummary.winFinalHpCount += 1;
-        }
-      }
-
-      summaryByType.set(typeKey, existingSummary);
-      rowStatsByType.set(typeKey, existingRowStats);
-
-      if (!allHorseSummary) {
-        allHorseSummary = createMutableHorseSummary({
-          ...entry.summary,
-          key: 'all-horses',
-          name: '全部马',
-          trainerName: '当前存档全部样本',
-          iconPath: undefined,
-        });
-      }
-
-      allHorseSummary.appearances += 1;
-      allHorseTotal += 1;
-      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 2) {
-        allHorseTop2 += 1;
-      }
-      if ((entry.finishRank ?? Number.POSITIVE_INFINITY) <= 3) {
-        allHorseTop3 += 1;
-      }
-      if (entry.isWin) {
-        allHorseSummary.winAppearances += 1;
-        allHorseWins += 1;
-      }
-
-      horseEventDefinitions.forEach((definition) => {
-        const stat =
-          allHorseSummary!.procStatMap.get(definition.key) ??
-          createProcStatAccumulator(definition.key, definition.label);
-        bumpProcStat(stat, definition.matches(entry), entry.isWin);
-        allHorseSummary!.procStatMap.set(definition.key, stat);
-      });
-
-      entry.trainedSkills.forEach((skill) => {
-        const skillId = Number(skill.skillId);
-        const stat = allHorseSummary!.skillStatMap.get(skillId) ?? {
-          ...createProcStatAccumulator(
-            `skill-${skillId}`,
-            getSkillDisplayLabel(skillId),
-          ),
-          skillId,
-        };
-        bumpProcStat(stat, entry.activatedSkillIds.has(skillId), entry.isWin);
-        allHorseSummary!.skillStatMap.set(skillId, stat);
-      });
-      bumpInterferenceSkillStats(allHorseSummary, entry, entry.isWin);
-
-      if (entry.finalHp != null) {
-        allHorseSummary.finalHpTotal += entry.finalHp;
-        allHorseSummary.finalHpCount += 1;
-        if (entry.isWin) {
-          allHorseSummary.winFinalHpTotal += entry.finalHp;
-          allHorseSummary.winFinalHpCount += 1;
-        }
-      }
-    });
-  });
-
-  const rows: StatRow[] = [...summaryByType.entries()]
-    .map(([typeKey, summary]) => {
-      const stats = rowStatsByType.get(typeKey)!;
-      return {
-        key: typeKey,
-        label: summary.name,
-        horses: [finalizeHorseSummary(summary)],
-        wins: stats.wins,
-        top2: stats.top2,
-        top3: stats.top3,
-        total: stats.total,
-        winRate: stats.total > 0 ? stats.wins / stats.total : 0,
-        top2Rate: stats.total > 0 ? stats.top2 / stats.total : 0,
-        top3Rate: stats.total > 0 ? stats.top3 / stats.total : 0,
-      };
-    })
-    .sort((a, b) => b.total - a.total || b.winRate - a.winRate);
-
-  if (allHorseSummary) {
-    rows.unshift({
-      key: 'all-horses',
-      label: '全部马',
-      horses: [finalizeHorseSummary(allHorseSummary)],
-      wins: allHorseWins,
-      top2: allHorseTop2,
-      top3: allHorseTop3,
-      total: allHorseTotal,
-      winRate: allHorseTotal > 0 ? allHorseWins / allHorseTotal : 0,
-      top2Rate: allHorseTotal > 0 ? allHorseTop2 / allHorseTotal : 0,
-      top3Rate: allHorseTotal > 0 ? allHorseTop3 / allHorseTotal : 0,
-    });
-  }
-
-  return rows;
-}
-
 function buildStatsForSize(items: RaceRecord[], size: number) {
   const stats = new Map<string, Omit<StatRow, 'winRate'>>();
 
@@ -1016,7 +841,6 @@ function buildArchiveStatsBundle(items: RaceRecord[]): ArchiveStatsBundle {
       single: buildStatsForSize(items, 1),
       double: buildStatsForSize(items, 2),
       triple: buildStatsForSize(items, 3),
-      detail: buildDetailRows(items),
     },
   };
 }
@@ -1467,8 +1291,8 @@ function StatTable({
   const emptyColSpan = showTopRates ? 6 : 4;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="overflow-x-auto">
+    <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="h-full overflow-auto overscroll-contain">
         <table className="min-w-full text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
             <tr>

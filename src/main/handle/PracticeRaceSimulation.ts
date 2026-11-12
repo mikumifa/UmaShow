@@ -1,5 +1,10 @@
 import type { IpcMain } from 'electron';
 import type { RaceRecord } from 'types/gameTypes';
+import type {
+  SimulationProgress,
+  SimulationResult,
+  SimulationStatus,
+} from 'types/practiceRaceSimulation';
 import {
   loginAutoResearchLocalGameClient,
   withAutoResearchLocalGameClient,
@@ -18,8 +23,6 @@ type PracticeRaceSimulationInput = {
   source: PracticeRaceSource;
 };
 
-let simulationRunning = false;
-
 function wait(duration: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, duration);
@@ -27,10 +30,24 @@ function wait(duration: number) {
 }
 
 export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
+  let status: SimulationStatus = { running: false, stopping: false };
+  let publishStatus = () => {};
+  const stopped = new Error('模拟已停止');
+  const checkStopped = () => {
+    if (status.stopping) throw stopped;
+  };
+  ipcMain.handle('race:repeat-simulation:status', () => status);
+  ipcMain.handle('race:repeat-simulation:stop', () => {
+    if (status.running && !status.stopping) {
+      status = { ...status, stopping: true };
+      publishStatus();
+    }
+    return status;
+  });
   ipcMain.handle(
     'race:repeat-simulation',
     async (event, rawInput: PracticeRaceSimulationInput) => {
-      if (simulationRunning) {
+      if (status.running) {
         throw new Error('已有重复模拟任务正在运行');
       }
 
@@ -47,10 +64,29 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
       const sourceViewerIds = getPracticeRaceSourceViewerIds(requestPayload);
       let archive: ReturnType<typeof createRaceArchive> | undefined;
       let completed = 0;
-      simulationRunning = true;
+      let finalResult: SimulationResult | undefined;
+      status = {
+        running: true,
+        stopping: false,
+        accountId: input.accountId,
+        progress: {
+          stage: 'login',
+          detail: '正在准备所选账号',
+          current: 0,
+          total: count,
+          archiveName,
+        },
+      };
+      const send = (channel: string, payload: unknown) => {
+        if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+      };
+      publishStatus = () => send('race:repeat-simulation:status', status);
+      publishStatus();
 
-      const progress = (payload: Record<string, unknown>) => {
-        event.sender.send('race:repeat-simulation:progress', payload);
+      const progress = (payload: SimulationProgress) => {
+        status = { ...status, progress: payload };
+        send('race:repeat-simulation:progress', payload);
+        publishStatus();
       };
       try {
         await loginAutoResearchLocalGameClient(input.accountId, {
@@ -62,12 +98,15 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
                 value.stage === 'login' ? '正在准备所选账号' : value.detail,
               current: completed,
               total: count,
+              archiveName,
             });
           },
         });
+        checkStopped();
         const result = await withAutoResearchLocalGameClient(
           input.accountId,
           async (client) => {
+            checkStopped();
             if (!sourceViewerIds.includes(client.viewerId)) {
               throw new Error(
                 `当前 RaceData 的参赛玩家为 ${sourceViewerIds.join('、')}，所选账号登录后的玩家 ID 是 ${client.viewerId}`,
@@ -75,7 +114,7 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
             }
 
             archive = createRaceArchive(archiveName);
-            event.sender.send('race:archives-changed', {
+            send('race:archives-changed', {
               archiveId: archive.id,
               archiveName: archive.name,
             });
@@ -90,12 +129,14 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
 
             let lastSimulationStartedAt = 0;
             for (let index = 0; index < count; index += 1) {
+              checkStopped();
               const waitMs = 1000 - (Date.now() - lastSimulationStartedAt);
               if (waitMs > 0) {
                 // 借马需要服务端完成上一场的清理；race_start 至少间隔 1 秒。
                 // eslint-disable-next-line no-await-in-loop
                 await wait(waitMs);
               }
+              checkStopped();
               progress({
                 stage: 'prepare',
                 detail: `正在准备第 ${index + 1} / ${count} 场`,
@@ -110,6 +151,7 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
               // index -> race_start -> race_end。
               // eslint-disable-next-line no-await-in-loop
               const indexResult = await client.preparePracticeRace();
+              checkStopped();
               if (Number(indexResult.data?.state ?? 0) !== 0) {
                 throw new Error(
                   '所选账号当前有尚未结束的练习，请先在游戏中结束后重试',
@@ -135,7 +177,7 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
                   race,
                   archive.id,
                   (record: RaceRecord) => {
-                    event.sender.send('race:new', record);
+                    send('race:new', record);
                   },
                 );
                 completed += records.length;
@@ -156,6 +198,7 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
               }
             }
 
+            checkStopped();
             progress({
               stage: 'complete',
               detail: `已完成 ${completed} 场重复模拟`,
@@ -173,18 +216,38 @@ export default function handlePracticeRaceSimulation(ipcMain: IpcMain) {
             };
           },
         );
+        finalResult = result;
         return result;
       } catch (error) {
-        return {
-          ok: false,
+        finalResult = {
+          ok: error === stopped,
+          cancelled: error === stopped,
           completed,
           total: count,
           archiveId: archive?.id,
-          archiveName: archive?.name,
-          error: (error as Error).message,
+          archiveName: archive?.name ?? archiveName,
+          error: error === stopped ? undefined : (error as Error).message,
         };
+        progress({
+          stage: error === stopped ? 'stopped' : 'error',
+          detail:
+            error === stopped
+              ? `已停止，已保存 ${completed} 场模拟`
+              : (error as Error).message,
+          current: completed,
+          total: count,
+          archiveId: archive?.id,
+          archiveName: archive?.name ?? archiveName,
+        });
+        return finalResult;
       } finally {
-        simulationRunning = false;
+        status = {
+          ...status,
+          running: false,
+          stopping: false,
+          result: finalResult,
+        };
+        publishStatus();
       }
     },
   );

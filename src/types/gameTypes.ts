@@ -239,8 +239,11 @@ export interface ArcData {
 export interface PartnerStat {
   position: number;
   supportCardId: number; // if id == 0, this is not a support card
+  charaId?: number;
   charaPath: string;
   evaluation: number; // 来自 evaluation_info_array
+  storyStep?: number; // 来自 evaluation_info_array.story_step，缺失时不推断进度
+  isAppear?: boolean; // 来自 evaluation_info_array.is_appear
   limitBreak: number;
   exp: number;
 }

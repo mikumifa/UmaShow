@@ -418,9 +418,13 @@ function hintDiscountPercent(level: number) {
 export function VitalPanel({
   charInfo,
   showEffects = true,
+  showPartnerBonds = true,
+  onPartnerBondsChange,
 }: {
   charInfo: CharInfo;
   showEffects?: boolean;
+  showPartnerBonds?: boolean;
+  onPartnerBondsChange?: (visible: boolean) => void;
 }) {
   const [skillHintsOpen, setSkillHintsOpen] = useState(false);
   const vitalPercent =
@@ -598,6 +602,35 @@ export function VitalPanel({
                 ))
               : null}
           </div>
+          {onPartnerBondsChange ? (
+            <button
+              type="button"
+              role="switch"
+              aria-label="显示人物羁绊"
+              aria-checked={showPartnerBonds}
+              onClick={() => onPartnerBondsChange(!showPartnerBonds)}
+              className={`inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-semibold transition-colors ${
+                showPartnerBonds
+                  ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Users size={12} strokeWidth={2.5} />
+              羁绊
+              <span
+                aria-hidden="true"
+                className={`relative h-4 w-7 rounded-full transition-colors ${
+                  showPartnerBonds ? 'bg-sky-600' : 'bg-slate-400'
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                    showPartnerBonds ? 'translate-x-3' : 'translate-x-0'
+                  }`}
+                />
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             title="展开可学习技能"

@@ -9,6 +9,11 @@ TRAINED_CHR_ICON_TARGET_DIR = "./assets/trained_chr_icon"
 SUPPORT_CARD_S_TARGET_DIR = "./assets/support_card_s"
 WEB_CHARA_ICON_TARGET_DIR = "./web-assets/icons/chara"
 ARC_ICON_TARGET_DIR = "./web-assets/icons/arc"
+STORY_ICON_TARGET_DIR = "./web-assets/icons/story"
+STORY_PROGRESS_ICON_FILENAMES = (
+    "utx_ico_storyprogress_00.png",
+    "utx_ico_storyprogress_01.png",
+)
 WEB_TRAINING_CHARA_ICON_IDS = {"9043"}
 ARC_REWARD_ICON_FILENAMES = (
     "utx_ico_ssmatch_bonus_01.png",
@@ -27,6 +32,7 @@ for target_dir in (
     SUPPORT_CARD_S_TARGET_DIR,
     WEB_CHARA_ICON_TARGET_DIR,
     ARC_ICON_TARGET_DIR,
+    STORY_ICON_TARGET_DIR,
 ):
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
@@ -78,5 +84,14 @@ for filename in ARC_REWARD_ICON_FILENAMES:
     dst_path = os.path.join(ARC_ICON_TARGET_DIR, filename)
     shutil.copy2(src_path, dst_path)
     print("Copied Arc reward icon: {} -> {}".format(filename, dst_path))
+
+for filename in STORY_PROGRESS_ICON_FILENAMES:
+    src_path = os.path.join(SPRITE_SOURCE_DIR, filename)
+    if not os.path.exists(src_path):
+        print("Missing story progress icon: {}".format(src_path))
+        continue
+    dst_path = os.path.join(STORY_ICON_TARGET_DIR, filename)
+    shutil.copy2(src_path, dst_path)
+    print("Copied story progress icon: {} -> {}".format(filename, dst_path))
 
 print("Done.")

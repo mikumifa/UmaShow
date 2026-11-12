@@ -1,5 +1,9 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import type {
+  SimulationProgress,
+  SimulationStatus,
+} from 'types/practiceRaceSimulation';
 
 export type Channels = 'ipc-example';
 
@@ -106,16 +110,22 @@ const electronHandler = {
         horses: Record<string, unknown>[];
       };
     }) => ipcRenderer.invoke('race:repeat-simulation', payload),
-    onRepeatSimulationProgress(
-      callback: (data: {
-        stage: 'login' | 'prepare' | 'simulate' | 'save' | 'complete';
-        detail: string;
-        current?: number;
-        total?: number;
-        archiveId?: string;
-        archiveName?: string;
-      }) => void,
-    ) {
+    getRepeatSimulationStatus: (): Promise<SimulationStatus> =>
+      ipcRenderer.invoke('race:repeat-simulation:status'),
+    stopRepeatSimulation: (): Promise<SimulationStatus> =>
+      ipcRenderer.invoke('race:repeat-simulation:stop'),
+    onRepeatSimulationStatus(callback: (data: SimulationStatus) => void) {
+      const subscription = (_event: IpcRendererEvent, data: SimulationStatus) =>
+        callback(data);
+      ipcRenderer.on('race:repeat-simulation:status', subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          'race:repeat-simulation:status',
+          subscription,
+        );
+      };
+    },
+    onRepeatSimulationProgress(callback: (data: SimulationProgress) => void) {
       const subscription = (_event: IpcRendererEvent, data: any) =>
         callback(data);
       ipcRenderer.on('race:repeat-simulation:progress', subscription);

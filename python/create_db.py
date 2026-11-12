@@ -1060,6 +1060,67 @@ def populate_team_stadium_score_bonus(pb: data_pb2.UMDatabase, cursor: sqlite3.C
         pb.team_stadium_score_bonus.append(r)
 
 
+def build_story_progress(cursor: sqlite3.Cursor) -> dict:
+    card_totals = dict(cursor.execute(
+        """SELECT support_card_id, MAX(show_progress_2)
+           FROM single_mode_story_data
+           WHERE support_card_id > 0
+           GROUP BY support_card_id"""
+    ))
+    chara_totals = dict(cursor.execute(
+        """SELECT support_chara_id, MAX(show_progress_2)
+           FROM single_mode_story_data
+           WHERE support_chara_id > 0
+           GROUP BY support_chara_id"""
+    ))
+    support_totals = {
+        str(card_id): max(
+            card_totals.get(card_id, 0), chara_totals.get(chara_id, 0), outing_max
+        )
+        for card_id, chara_id, outing_max in cursor.execute(
+            "SELECT id, chara_id, outing_max FROM support_card_data ORDER BY id"
+        )
+    }
+    return {
+        "supportCardTotals": support_totals,
+        "outingTotals": {
+            str(card_id): total for card_id, total in cursor.execute(
+                "SELECT id, outing_max FROM support_card_data WHERE outing_max > 0"
+            )
+        },
+        "charaTotals": {
+            str(chara_id): total
+            for chara_id, total in sorted(chara_totals.items()) if total > 0
+        },
+    }
+
+
+def write_story_progress(cursor: sqlite3.Cursor):
+    os.makedirs("assets/data", exist_ok=True)
+    with open("assets/data/story_progress.json", "w", encoding="utf-8") as f:
+        json.dump(build_story_progress(cursor), f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    events = {
+        str(story_id): {
+            "supportCardId": card_id,
+            "charaId": chara_id,
+            "step": step,
+            "total": total,
+        }
+        for story_id, card_id, chara_id, step, total in cursor.execute(
+            """SELECT story_id, support_card_id, support_chara_id,
+                      show_progress_1, show_progress_2
+               FROM single_mode_story_data
+               WHERE show_progress_1 > 0 AND show_progress_2 > 0
+                 AND (support_card_id > 0 OR support_chara_id > 0)
+               ORDER BY story_id"""
+        )
+    }
+    with open("assets/data/story_progress_events.json", "w", encoding="utf-8") as f:
+        json.dump(events, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
 def populate_stories(pb: data_pb2.UMDatabase, cursor: sqlite3.Cursor):
     cursor.execute("SELECT `index`, text FROM text_data WHERE category=181;")
     rows = cursor.fetchall()
@@ -1213,6 +1274,7 @@ def main():
     parser.add_argument("--version", default="test")
     parser.add_argument("--skill_data_out", default="assets/data/skill_data.json")
     parser.add_argument("--only_skill_data", action="store_true")
+    parser.add_argument("--only_story_progress", action="store_true")
     parser.add_argument(
         "--succession_factor_meta_out",
         default="assets/data/succession_factor_meta.json",
@@ -1225,6 +1287,9 @@ def main():
     args = parser.parse_args()
 
     cursor = open_db(args.db_path)
+    if args.only_story_progress:
+        write_story_progress(cursor)
+        return
     succession_factor_meta = build_succession_factor_meta(cursor)
     os.makedirs(os.path.dirname(args.succession_factor_meta_out) or ".", exist_ok=True)
     with open(args.succession_factor_meta_out, "w", encoding="utf-8") as f:
@@ -1246,6 +1311,8 @@ def main():
 
     if args.only_skill_data:
         return
+
+    write_story_progress(cursor)
 
     global data_pb2, json_format
     from google.protobuf import json_format
