@@ -24,6 +24,7 @@ import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
+import RaceJewelStats from './RaceJewelStats';
 import './History.css';
 import { characterIconPath, umaSkinIconPath } from './SelectionCards';
 import {
@@ -572,6 +573,7 @@ export default function HistoryTab({
     'day',
   );
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
+  const [detailTab, setDetailTab] = useState<'runs' | 'races'>('runs');
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const detailRevision = useRef(0);
@@ -614,6 +616,7 @@ export default function HistoryTab({
           throw new Error('服务器未返回育成详情，请刷新重试或更新服务器');
         }
         setSelectedCareerRecords(details);
+        setDetailTab('runs');
       }
     } catch (caught) {
       if (revision === detailRevision.current)
@@ -894,271 +897,313 @@ export default function HistoryTab({
         </section>
 
         <section className={panelClass('overflow-hidden')}>
-          {aggregate.rows.length ? (
-            <>
-              <div className="historyCompactRuns divide-y divide-slate-200">
-                {aggregate.rows.map(
-                  ({ run, current, startedAt, endedAt, sequence }, index) => {
-                    const status = runStatus(run, current);
-                    const duration = run.ended_at_inferred
-                      ? '结束时间未记录'
-                      : formatRunDuration(startedAt, endedAt);
-                    const trainingHistoryId = String(
-                      run.training_history_id || '',
-                    );
-                    const downloaded =
-                      !!trainingHistoryId &&
-                      localTrainingHistoryIds.has(trainingHistoryId);
-                    return (
-                      <article
-                        key={run.run_id || `mobile-current-${index}`}
-                        className="historyRun px-3 py-4 sm:px-4"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="min-w-0">
-                            <strong className="text-data text-slate-800">
-                              {sequence ? `第 ${sequence} 次` : '当前进度'}
-                            </strong>
-                            <span
-                              className={`ml-2 text-caption ${status.className}`}
-                            >
-                              {status.label}
-                            </span>
-                          </span>
-                          <span className="max-w-[55%] text-right text-caption tabular-nums text-slate-500">
-                            <span className="block">
-                              {historyView === 'task'
-                                ? formatRunDateTime(startedAt)
-                                : formatRunTime(startedAt)}
-                            </span>
-                            <span className="block">
-                              {duration ||
-                                (current ? currentDurationLabel(run) : '未知')}
-                            </span>
-                          </span>
-                        </div>
-                        {run.last_error ? (
-                          <p className="historyLongText mt-2 text-caption text-red-700">
-                            {formatAccountError(run.last_error)}
-                          </p>
-                        ) : null}
-                        <div className="historyAttributes mt-3">
-                          {attributeItems.map(([key, label]) => (
-                            <span key={key} className="min-w-0 text-center">
-                              <strong className="block text-label font-semibold text-slate-800">
-                                {run.attributes?.[key] || 0}
+          <div
+            role="tablist"
+            aria-label="历史详情视图"
+            className="flex gap-2 border-b border-slate-200 p-3"
+          >
+            {(
+              [
+                ['runs', '育成记录'],
+                ['races', '比赛掉落'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                id={`history-detail-tab-${key}`}
+                aria-selected={detailTab === key}
+                aria-controls="history-detail-panel"
+                onClick={() => setDetailTab(key)}
+                className={`rounded-lg px-4 py-2 text-data font-semibold ${detailTab === key ? 'bg-sky-100 text-sky-800' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div
+            role="tabpanel"
+            id="history-detail-panel"
+            aria-labelledby={`history-detail-tab-${detailTab}`}
+          >
+            {detailTab === 'races' ? (
+              <RaceJewelStats records={selectedCareerRecords} races={races} />
+            ) : aggregate.rows.length ? (
+              <>
+                <div className="historyCompactRuns divide-y divide-slate-200">
+                  {aggregate.rows.map(
+                    ({ run, current, startedAt, endedAt, sequence }, index) => {
+                      const status = runStatus(run, current);
+                      const duration = run.ended_at_inferred
+                        ? '结束时间未记录'
+                        : formatRunDuration(startedAt, endedAt);
+                      const trainingHistoryId = String(
+                        run.training_history_id || '',
+                      );
+                      const downloaded =
+                        !!trainingHistoryId &&
+                        localTrainingHistoryIds.has(trainingHistoryId);
+                      return (
+                        <article
+                          key={run.run_id || `mobile-current-${index}`}
+                          className="historyRun px-3 py-4 sm:px-4"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="min-w-0">
+                              <strong className="text-data text-slate-800">
+                                {sequence ? `第 ${sequence} 次` : '当前进度'}
                               </strong>
-                              <span className="text-caption text-slate-500">
-                                {label}
+                              <span
+                                className={`ml-2 text-caption ${status.className}`}
+                              >
+                                {status.label}
                               </span>
                             </span>
-                          ))}
-                        </div>
-                        <div className="mt-2 flex items-center justify-between gap-2 text-caption text-slate-500">
-                          <span className="flex flex-wrap gap-x-3 gap-y-1">
-                            {!offlineHistory ? (
-                              <span className="text-amber-700">
-                                大差 {run.large_margin_count || 0}/
-                                {totalRaceCount(run.g123_race_counts)}
+                            <span className="max-w-[55%] text-right text-caption tabular-nums text-slate-500">
+                              <span className="block">
+                                {historyView === 'task'
+                                  ? formatRunDateTime(startedAt)
+                                  : formatRunTime(startedAt)}
                               </span>
-                            ) : null}
-                            {!offlineHistory ? (
-                              <span className="text-sky-700">
-                                闹钟 {run.clocks_used || 0}
+                              <span className="block">
+                                {duration ||
+                                  (current
+                                    ? currentDurationLabel(run)
+                                    : '未知')}
                               </span>
-                            ) : null}
-                            <span className="text-violet-700">
-                              宝石 {run.jewel_drop_count || 0}/
-                              {run.jewels_earned || 0}
                             </span>
-                          </span>
-                          {!readOnly && !offlineHistory && trainingHistoryId ? (
-                            <button
-                              type="button"
-                              disabled={
-                                busy === `history-download:${trainingHistoryId}`
-                              }
-                              onClick={() => {
-                                if (downloaded) {
-                                  openTrainingHistory(trainingHistoryId);
-                                } else {
-                                  downloadTrainingHistory(trainingHistoryId);
-                                }
-                              }}
-                              className="historyAction shrink-0 rounded-md bg-indigo-50 px-3 font-medium text-indigo-700 disabled:opacity-50"
-                            >
-                              {downloaded ? '查看' : '下载记录'}
-                            </button>
+                          </div>
+                          {run.last_error ? (
+                            <p className="historyLongText mt-2 text-caption text-red-700">
+                              {formatAccountError(run.last_error)}
+                            </p>
                           ) : null}
-                        </div>
-                      </article>
-                    );
-                  },
-                )}
-              </div>
-              <div className="historyDesktopRuns overflow-x-auto">
-                <table className="historyTable w-full min-w-[980px] text-left text-label">
-                  <thead className="bg-slate-50 text-caption text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">次数</th>
-                      <th className="px-3 py-3 font-medium">状态</th>
-                      {attributeItems.map(([key, label]) => (
-                        <th key={key} className="px-3 py-3 font-medium">
-                          {label}
-                        </th>
-                      ))}
-                      {!offlineHistory ? (
-                        <th className="px-3 py-3 font-medium">比赛大差</th>
-                      ) : null}
-                      {!offlineHistory ? (
-                        <th className="px-3 py-3 font-medium">闹钟</th>
-                      ) : null}
-                      <th className="px-3 py-3 font-medium">宝石掉落</th>
-                      <th className="px-3 py-3 font-medium">开始</th>
-                      <th className="px-3 py-3 font-medium">结束</th>
-                      <th className="px-3 py-3 font-medium">持续</th>
-                      {!readOnly && !offlineHistory ? (
-                        <th className="px-3 py-3 text-right font-medium">
-                          Training History
-                        </th>
-                      ) : null}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {aggregate.rows.map(
-                      (
-                        { run, current, startedAt, endedAt, sequence },
-                        index,
-                      ) => {
-                        const status = runStatus(run, current);
-                        const duration = run.ended_at_inferred
-                          ? '结束时间未记录'
-                          : formatRunDuration(startedAt, endedAt);
-                        const trainingHistoryId = String(
-                          run.training_history_id || '',
-                        );
-                        const downloaded =
-                          !!trainingHistoryId &&
-                          localTrainingHistoryIds.has(trainingHistoryId);
-                        return (
-                          <tr key={run.run_id || `current-${index}`}>
-                            <td className="px-4 py-3 font-medium text-slate-700">
-                              {sequence ?? '-'}
-                            </td>
-                            <td className={`px-3 py-3 ${status.className}`}>
-                              {status.label}
-                              {run.last_error ? (
-                                <span className="historyLongText mt-1 block max-w-40 text-caption text-red-700">
-                                  {formatAccountError(run.last_error)}
+                          <div className="historyAttributes mt-3">
+                            {attributeItems.map(([key, label]) => (
+                              <span key={key} className="min-w-0 text-center">
+                                <strong className="block text-label font-semibold text-slate-800">
+                                  {run.attributes?.[key] || 0}
+                                </strong>
+                                <span className="text-caption text-slate-500">
+                                  {label}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2 text-caption text-slate-500">
+                            <span className="flex flex-wrap gap-x-3 gap-y-1">
+                              {!offlineHistory ? (
+                                <span className="text-amber-700">
+                                  大差 {run.large_margin_count || 0}/
+                                  {totalRaceCount(run.g123_race_counts)}
                                 </span>
                               ) : null}
-                            </td>
-                            {attributeItems.map(([key]) => (
-                              <td
-                                key={key}
-                                className="px-3 py-3 text-slate-700"
+                              {!offlineHistory ? (
+                                <span className="text-sky-700">
+                                  闹钟 {run.clocks_used || 0}
+                                </span>
+                              ) : null}
+                              <span className="text-violet-700">
+                                宝石 {run.jewel_drop_count || 0}/
+                                {run.jewels_earned || 0}
+                              </span>
+                            </span>
+                            {!readOnly &&
+                            !offlineHistory &&
+                            trainingHistoryId ? (
+                              <button
+                                type="button"
+                                disabled={
+                                  busy ===
+                                  `history-download:${trainingHistoryId}`
+                                }
+                                onClick={() => {
+                                  if (downloaded) {
+                                    openTrainingHistory(trainingHistoryId);
+                                  } else {
+                                    downloadTrainingHistory(trainingHistoryId);
+                                  }
+                                }}
+                                className="historyAction shrink-0 rounded-md bg-indigo-50 px-3 font-medium text-indigo-700 disabled:opacity-50"
                               >
-                                {run.attributes?.[key] || 0}
-                              </td>
-                            ))}
-                            {!offlineHistory ? (
-                              <td className="px-3 py-3 text-amber-700">
-                                {run.large_margin_count || 0} /{' '}
-                                {totalRaceCount(run.g123_race_counts)} 场
-                              </td>
+                                {downloaded ? '查看' : '下载记录'}
+                              </button>
                             ) : null}
-                            {!offlineHistory ? (
-                              <td className="px-3 py-3 text-sky-700">
-                                {run.clocks_used || 0} 次
+                          </div>
+                        </article>
+                      );
+                    },
+                  )}
+                </div>
+                <div className="historyDesktopRuns overflow-x-auto">
+                  <table className="historyTable w-full min-w-[980px] text-left text-label">
+                    <thead className="bg-slate-50 text-caption text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">次数</th>
+                        <th className="px-3 py-3 font-medium">状态</th>
+                        {attributeItems.map(([key, label]) => (
+                          <th key={key} className="px-3 py-3 font-medium">
+                            {label}
+                          </th>
+                        ))}
+                        {!offlineHistory ? (
+                          <th className="px-3 py-3 font-medium">比赛大差</th>
+                        ) : null}
+                        {!offlineHistory ? (
+                          <th className="px-3 py-3 font-medium">闹钟</th>
+                        ) : null}
+                        <th className="px-3 py-3 font-medium">宝石掉落</th>
+                        <th className="px-3 py-3 font-medium">开始</th>
+                        <th className="px-3 py-3 font-medium">结束</th>
+                        <th className="px-3 py-3 font-medium">持续</th>
+                        {!readOnly && !offlineHistory ? (
+                          <th className="px-3 py-3 text-right font-medium">
+                            Training History
+                          </th>
+                        ) : null}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {aggregate.rows.map(
+                        (
+                          { run, current, startedAt, endedAt, sequence },
+                          index,
+                        ) => {
+                          const status = runStatus(run, current);
+                          const duration = run.ended_at_inferred
+                            ? '结束时间未记录'
+                            : formatRunDuration(startedAt, endedAt);
+                          const trainingHistoryId = String(
+                            run.training_history_id || '',
+                          );
+                          const downloaded =
+                            !!trainingHistoryId &&
+                            localTrainingHistoryIds.has(trainingHistoryId);
+                          return (
+                            <tr key={run.run_id || `current-${index}`}>
+                              <td className="px-4 py-3 font-medium text-slate-700">
+                                {sequence ?? '-'}
                               </td>
-                            ) : null}
-                            <td className="px-3 py-3 text-violet-700">
-                              {run.jewel_drop_count || 0} 次 /{' '}
-                              {run.jewels_earned || 0} 个
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-600">
-                              {historyView === 'task'
-                                ? formatRunDateTime(startedAt)
-                                : formatRunTime(startedAt)}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-600">
-                              {current
-                                ? '未结束'
-                                : historyView === 'task'
-                                  ? formatRunDateTime(endedAt)
-                                  : formatRunTime(endedAt)}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-500">
-                              {duration ||
-                                (current ? currentDurationLabel(run) : '未知')}
-                            </td>
-                            {!readOnly && !offlineHistory ? (
-                              <td className="px-3 py-3 text-right">
-                                {trainingHistoryId ? (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      busy ===
-                                      `history-download:${trainingHistoryId}`
-                                    }
-                                    onClick={() => {
-                                      if (downloaded) {
-                                        openTrainingHistory(trainingHistoryId);
-                                      } else {
-                                        downloadTrainingHistory(
-                                          trainingHistoryId,
-                                        );
-                                      }
-                                    }}
-                                    className={`historyAction inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-caption font-medium disabled:opacity-50 ${
-                                      downloaded
-                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                                        : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                                    }`}
-                                    title={
-                                      downloaded
-                                        ? '打开本机 Training History 记录'
-                                        : '下载到本机 Training History'
-                                    }
-                                  >
-                                    {downloaded ? (
-                                      <ExternalLink size={14} />
-                                    ) : (
-                                      <Download
-                                        size={14}
-                                        className={
-                                          busy ===
-                                          `history-download:${trainingHistoryId}`
-                                            ? 'animate-pulse'
-                                            : ''
-                                        }
-                                      />
-                                    )}
-                                    {downloaded ? '查看记录' : '下载到本地'}
-                                  </button>
-                                ) : (
-                                  <span className="text-caption text-slate-500">
-                                    无数据
+                              <td className={`px-3 py-3 ${status.className}`}>
+                                {status.label}
+                                {run.last_error ? (
+                                  <span className="historyLongText mt-1 block max-w-40 text-caption text-red-700">
+                                    {formatAccountError(run.last_error)}
                                   </span>
-                                )}
+                                ) : null}
                               </td>
-                            ) : null}
-                          </tr>
-                        );
-                      },
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : (
-            <p className="py-12 text-center text-data text-slate-600">
-              当天没有可显示的育成结果
-            </p>
-          )}
+                              {attributeItems.map(([key]) => (
+                                <td
+                                  key={key}
+                                  className="px-3 py-3 text-slate-700"
+                                >
+                                  {run.attributes?.[key] || 0}
+                                </td>
+                              ))}
+                              {!offlineHistory ? (
+                                <td className="px-3 py-3 text-amber-700">
+                                  {run.large_margin_count || 0} /{' '}
+                                  {totalRaceCount(run.g123_race_counts)} 场
+                                </td>
+                              ) : null}
+                              {!offlineHistory ? (
+                                <td className="px-3 py-3 text-sky-700">
+                                  {run.clocks_used || 0} 次
+                                </td>
+                              ) : null}
+                              <td className="px-3 py-3 text-violet-700">
+                                {run.jewel_drop_count || 0} 次 /{' '}
+                                {run.jewels_earned || 0} 个
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-600">
+                                {historyView === 'task'
+                                  ? formatRunDateTime(startedAt)
+                                  : formatRunTime(startedAt)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-600">
+                                {current
+                                  ? '未结束'
+                                  : historyView === 'task'
+                                    ? formatRunDateTime(endedAt)
+                                    : formatRunTime(endedAt)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-500">
+                                {duration ||
+                                  (current
+                                    ? currentDurationLabel(run)
+                                    : '未知')}
+                              </td>
+                              {!readOnly && !offlineHistory ? (
+                                <td className="px-3 py-3 text-right">
+                                  {trainingHistoryId ? (
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        busy ===
+                                        `history-download:${trainingHistoryId}`
+                                      }
+                                      onClick={() => {
+                                        if (downloaded) {
+                                          openTrainingHistory(
+                                            trainingHistoryId,
+                                          );
+                                        } else {
+                                          downloadTrainingHistory(
+                                            trainingHistoryId,
+                                          );
+                                        }
+                                      }}
+                                      className={`historyAction inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-caption font-medium disabled:opacity-50 ${
+                                        downloaded
+                                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                          : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                      }`}
+                                      title={
+                                        downloaded
+                                          ? '打开本机 Training History 记录'
+                                          : '下载到本机 Training History'
+                                      }
+                                    >
+                                      {downloaded ? (
+                                        <ExternalLink size={14} />
+                                      ) : (
+                                        <Download
+                                          size={14}
+                                          className={
+                                            busy ===
+                                            `history-download:${trainingHistoryId}`
+                                              ? 'animate-pulse'
+                                              : ''
+                                          }
+                                        />
+                                      )}
+                                      {downloaded ? '查看记录' : '下载到本地'}
+                                    </button>
+                                  ) : (
+                                    <span className="text-caption text-slate-500">
+                                      无数据
+                                    </span>
+                                  )}
+                                </td>
+                              ) : null}
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="py-12 text-center text-data text-slate-600">
+                当天没有可显示的育成结果
+              </p>
+            )}
+          </div>
         </section>
 
-        {!offlineHistory ? (
+        {!offlineHistory && detailTab === 'runs' ? (
           <section className={panelClass('p-3 sm:p-5')}>
             <h3 className="text-section font-semibold text-slate-900">
               大差情况
@@ -1368,7 +1413,8 @@ export default function HistoryTab({
                     {records.reduce(
                       (total, record) => total + (record.task_count || 1),
                       0,
-                    )} 次托管
+                    )}{' '}
+                    次托管
                   </span>
                   {!readOnly && canDownloadSetting ? (
                     <button

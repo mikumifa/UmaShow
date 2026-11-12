@@ -479,9 +479,11 @@ export type G123RaceRecord = {
   margin_lengths?: number | null;
   counted?: boolean;
   source?: string;
+  jewel_amount?: number | null;
 };
 
 export type CareerSessionRun = {
+  unattributed_jewels?: number;
   run_id?: string;
   training_history_id?: string;
   status?:
