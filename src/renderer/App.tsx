@@ -10,7 +10,6 @@ import 'tailwindcss/tailwind.css';
 import './styles/typography.css';
 import './styles/motion.css';
 import './styles/clay.css';
-import { useAppMotion } from './utils/motion';
 import RaceDataPage from 'renderer/ui/RaceDataPage';
 import HiddenNavigator from 'renderer/components/HiddenNavigator';
 import RaceList from 'renderer/ui/RaceList';
@@ -21,6 +20,8 @@ import AutoResearch from 'renderer/ui/AutoResearch';
 import SuccessionPlanner from 'renderer/ui/SuccessionPlanner';
 import AppMenuBar from 'renderer/components/AppMenuBar';
 import { MonteCarloProvider } from 'renderer/components/MonteCarloProvider';
+import PracticeRaceSimulationStatus from 'renderer/components/PracticeRaceSimulationStatus';
+import { useAppMotion } from './utils/motion';
 
 export default function App() {
   useAppMotion();
@@ -71,6 +72,7 @@ export default function App() {
           <AliveScope>
             <HiddenNavigator />
             <AppMenuBar />
+            <PracticeRaceSimulationStatus />
             <div className="app-route-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
               <Routes>
                 <Route

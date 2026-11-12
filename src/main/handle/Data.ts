@@ -52,7 +52,7 @@ export const UMDB = {
       id: number;
       groupId: number;
       stars: 1 | 2 | 3;
-      factorType: 3 | 4 | 5;
+      factorType: 3 | 4 | 5 | 6;
       name: string;
       skillGroupIds: number[];
       skillTargets: Array<{
@@ -176,7 +176,7 @@ export function UMDBload() {
           id: number;
           groupId: number;
           stars: 1 | 2 | 3;
-          factorType: 3 | 4 | 5;
+          factorType: 3 | 4 | 5 | 6;
           name: string;
           skillGroupIds?: number[];
           skillTargets?: Array<{

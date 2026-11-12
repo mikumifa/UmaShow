@@ -17,6 +17,8 @@ import type { RaceArchive, RaceMetaInfo } from 'types/gameTypes';
 import { RaceSimulateData } from 'umdb/race_data_pb';
 import { deserializeFromBase64 } from 'umdb/RaceDataParser';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
+import { usePracticeRaceSimulation } from 'renderer/components/PracticeRaceSimulationStatus';
+import type { SimulationStatus } from 'types/practiceRaceSimulation';
 import RacePageLayout, {
   raceHeaderButtonClass,
 } from 'renderer/components/RacePageLayout';
@@ -30,6 +32,7 @@ type RaceDataPageProps = {
     archiveId?: string;
   };
   navigate: NavigateFunction; // 传入 navigate 函数以便支持返回操作
+  simulationStatus: SimulationStatus;
 };
 
 type SimulationAccount = {
@@ -39,24 +42,6 @@ type SimulationAccount = {
   source: string;
   accessKeyPreview: string;
   updatedAt: string;
-};
-
-type SimulationProgress = {
-  stage: 'login' | 'prepare' | 'simulate' | 'save' | 'complete';
-  detail: string;
-  current?: number;
-  total?: number;
-  archiveId?: string;
-  archiveName?: string;
-};
-
-type SimulationResult = {
-  ok: boolean;
-  completed: number;
-  total: number;
-  archiveId?: string;
-  archiveName?: string;
-  error?: string;
 };
 
 // 2. State 定义：不再需要 input 字符串，只需要解析后的对象
@@ -70,10 +55,7 @@ type RaceDataPageState = {
   selectedSimulationAccountId: string;
   simulationCount: number;
   simulationArchiveName: string;
-  simulationBusy: boolean;
-  simulationProgress?: SimulationProgress;
   simulationError?: string;
-  simulationResult?: SimulationResult;
 };
 
 function escapeRegExp(value: string) {
@@ -84,7 +66,13 @@ class RaceDataPageClass extends React.Component<
   RaceDataPageProps,
   RaceDataPageState
 > {
-  private unsubscribeSimulationProgress?: () => void;
+  private startingSimulation = false;
+
+  private mounted = false;
+
+  private simulationDialog = React.createRef<HTMLElement>();
+
+  private simulationTrigger?: HTMLElement;
 
   constructor(props: RaceDataPageProps) {
     super(props);
@@ -98,18 +86,13 @@ class RaceDataPageClass extends React.Component<
       selectedSimulationAccountId: '',
       simulationCount: 10,
       simulationArchiveName: '',
-      simulationBusy: false,
-      simulationProgress: undefined,
       simulationError: undefined,
-      simulationResult: undefined,
     };
   }
 
   async componentDidMount() {
-    this.unsubscribeSimulationProgress =
-      window.electron.race.onRepeatSimulationProgress((progress) => {
-        this.setState({ simulationProgress: progress });
-      });
+    this.mounted = true;
+    window.addEventListener('keydown', this.handleSimulationKeyDown);
     const { initialValues } = this.props;
     await loadUMDB();
     if (!initialValues || !initialValues.scenario) {
@@ -143,8 +126,35 @@ class RaceDataPageClass extends React.Component<
   }
 
   componentWillUnmount() {
-    this.unsubscribeSimulationProgress?.();
+    this.mounted = false;
+    window.removeEventListener('keydown', this.handleSimulationKeyDown);
   }
+
+  closeSimulation = () => {
+    this.setState({ simulationOpen: false }, () =>
+      this.simulationTrigger?.focus(),
+    );
+  };
+
+  handleSimulationKeyDown = (event: KeyboardEvent) => {
+    const { simulationOpen } = this.state;
+    if (!simulationOpen) return;
+    if (event.key === 'Escape') this.closeSimulation();
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(
+      this.simulationDialog.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
+      ) ?? [],
+    );
+    const target = event.shiftKey ? controls[controls.length - 1] : controls[0];
+    if (
+      document.activeElement ===
+      (event.shiftKey ? controls[0] : controls[controls.length - 1])
+    ) {
+      event.preventDefault();
+      target?.focus();
+    }
+  };
 
   getPracticeRaceName = () => {
     const { initialValues } = this.props;
@@ -155,12 +165,17 @@ class RaceDataPageClass extends React.Component<
 
   openSimulation = async () => {
     const { initialValues } = this.props;
-    this.setState({
-      simulationOpen: true,
-      simulationError: undefined,
-      simulationResult: undefined,
-      simulationProgress: undefined,
-    });
+    this.simulationTrigger = document.activeElement as HTMLElement;
+    this.setState(
+      {
+        simulationOpen: true,
+        simulationError: undefined,
+      },
+      () =>
+        this.simulationDialog.current
+          ?.querySelector<HTMLButtonElement>('button')
+          ?.focus(),
+    );
     try {
       const [accounts, archiveConfig] = await Promise.all([
         window.electron.autoResearch.accounts() as Promise<SimulationAccount[]>,
@@ -197,11 +212,20 @@ class RaceDataPageClass extends React.Component<
           selectedAccountId,
         );
       }
-      this.setState({
+      const { simulationStatus } = this.props;
+      if (!this.mounted) return;
+      this.setState((state) => ({
         simulationAccounts: accounts,
-        selectedSimulationAccountId: selectedAccountId,
-        simulationArchiveName: `${raceName} 模拟${nextNumber}`,
-      });
+        selectedSimulationAccountId: simulationStatus.running
+          ? (simulationStatus.accountId ?? selectedAccountId)
+          : selectedAccountId,
+        simulationArchiveName: simulationStatus.running
+          ? (simulationStatus.progress?.archiveName ?? '')
+          : `${raceName} 模拟${nextNumber}`,
+        simulationCount: simulationStatus.running
+          ? (simulationStatus.progress?.total ?? state.simulationCount)
+          : state.simulationCount,
+      }));
     } catch (error) {
       this.setState({
         simulationError: `读取账号或存档失败：${(error as Error).message}`,
@@ -210,7 +234,8 @@ class RaceDataPageClass extends React.Component<
   };
 
   startSimulation = async () => {
-    const { initialValues } = this.props;
+    const { initialValues, simulationStatus } = this.props;
+    if (this.startingSimulation || simulationStatus.running) return;
     const {
       selectedSimulationAccountId,
       simulationArchiveName,
@@ -230,19 +255,10 @@ class RaceDataPageClass extends React.Component<
       return;
     }
 
-    this.setState({
-      simulationBusy: true,
-      simulationError: undefined,
-      simulationResult: undefined,
-      simulationProgress: {
-        stage: 'login',
-        detail: '正在准备所选账号',
-        current: 0,
-        total: simulationCount,
-      },
-    });
+    this.startingSimulation = true;
+    this.setState({ simulationError: undefined });
     try {
-      const result = (await window.electron.race.repeatSimulation({
+      await window.electron.race.repeatSimulation({
         accountId: selectedSimulationAccountId,
         archiveName: simulationArchiveName.trim(),
         count: simulationCount,
@@ -250,15 +266,12 @@ class RaceDataPageClass extends React.Component<
           raceMetaInfo: initialValues?.raceMetaInfo ?? {},
           horses: parsedHorseInfo,
         },
-      })) as SimulationResult;
-      this.setState({
-        simulationResult: result,
-        simulationError: result.ok ? undefined : result.error || '重复模拟失败',
       });
     } catch (error) {
-      this.setState({ simulationError: (error as Error).message });
+      if (this.mounted)
+        this.setState({ simulationError: (error as Error).message });
     } finally {
-      this.setState({ simulationBusy: false });
+      this.startingSimulation = false;
     }
   };
 
@@ -290,17 +303,20 @@ class RaceDataPageClass extends React.Component<
   };
 
   renderSimulationDialog = () => {
-    const { navigate } = this.props;
+    const { navigate, simulationStatus } = this.props;
+    const {
+      running: simulationBusy,
+      stopping,
+      progress: simulationProgress,
+      result: simulationResult,
+    } = simulationStatus;
     const {
       simulationOpen,
       simulationAccounts,
       selectedSimulationAccountId,
       simulationCount,
       simulationArchiveName,
-      simulationBusy,
-      simulationProgress,
       simulationError,
-      simulationResult,
     } = this.state;
     if (!simulationOpen) return null;
 
@@ -315,11 +331,10 @@ class RaceDataPageClass extends React.Component<
     return (
       <div
         className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
-        onMouseDown={() => {
-          if (!simulationBusy) this.setState({ simulationOpen: false });
-        }}
+        onMouseDown={this.closeSimulation}
       >
         <section
+          ref={this.simulationDialog}
           role="dialog"
           aria-modal="true"
           aria-label="重复模拟"
@@ -335,13 +350,14 @@ class RaceDataPageClass extends React.Component<
               <p className="mt-1 text-sm text-slate-500">
                 直接根据当前 RaceData
                 构造练习请求，每场结果自动保存到同一个存档。
+                关闭面板后继续在后台运行，可在顶部查看进度或停止。
               </p>
             </div>
             <button
               type="button"
               aria-label="关闭重复模拟"
-              disabled={simulationBusy}
-              onClick={() => this.setState({ simulationOpen: false })}
+              title={simulationBusy ? '收起面板，后台继续运行' : '关闭'}
+              onClick={this.closeSimulation}
               className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <X size={18} />
@@ -448,7 +464,9 @@ class RaceDataPageClass extends React.Component<
                     {simulationBusy && (
                       <Loader2 size={14} className="animate-spin" />
                     )}
-                    {simulationProgress.detail}
+                    {stopping
+                      ? '正在停止，等待当前操作结束…'
+                      : simulationProgress.detail}
                   </span>
                   <span className="font-mono text-xs text-blue-600">
                     {progressCurrent}/{progressTotal}
@@ -457,15 +475,17 @@ class RaceDataPageClass extends React.Component<
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
                   <div
                     className="uma-progress-fill h-full rounded-full bg-blue-600"
-                    style={{ transform: `scaleX(${Math.max(0, Math.min(1, progressPercent / 100))})` }}
+                    style={{
+                      transform: `scaleX(${Math.max(0, Math.min(1, progressPercent / 100))})`,
+                    }}
                   />
                 </div>
               </section>
             )}
 
-            {simulationError && (
+            {(simulationError || simulationResult?.error) && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {simulationError}
+                {simulationError || simulationResult?.error}
                 {simulationResult?.completed ? (
                   <span className="mt-1 block text-xs">
                     已成功保存 {simulationResult.completed} /{' '}
@@ -477,13 +497,44 @@ class RaceDataPageClass extends React.Component<
 
             {simulationResult?.ok && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                已完成 {simulationResult.completed} 场模拟，结果已保存到“
-                {simulationResult.archiveName}”。
+                {simulationResult.cancelled ? '已停止，已保存' : '已完成'}{' '}
+                {simulationResult.completed} 场模拟。
+                {simulationResult.archiveId && (
+                  <>结果已保存到“{simulationResult.archiveName}”。</>
+                )}
               </div>
             )}
           </div>
 
           <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
+            {simulationBusy && (
+              <>
+                <button
+                  type="button"
+                  onClick={this.closeSimulation}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  后台运行
+                </button>
+                <button
+                  type="button"
+                  disabled={stopping}
+                  onClick={async () => {
+                    try {
+                      await window.electron.race.stopRepeatSimulation();
+                    } catch (error) {
+                      if (this.mounted)
+                        this.setState({
+                          simulationError: `停止失败：${(error as Error).message}`,
+                        });
+                    }
+                  }}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {stopping ? '正在退出…' : '退出模拟'}
+                </button>
+              </>
+            )}
             {resultArchiveId && !simulationBusy && (
               <button
                 type="button"
@@ -638,6 +689,7 @@ class RaceDataPageClass extends React.Component<
 
 // 导出包装组件
 export default function RaceDataPage() {
+  const simulationStatus = usePracticeRaceSimulation();
   const location = useLocation();
   const navigate = useNavigate(); // 获取 navigate
   const state = location.state as {
@@ -648,6 +700,10 @@ export default function RaceDataPage() {
   } | null;
 
   return (
-    <RaceDataPageClass initialValues={state || undefined} navigate={navigate} />
+    <RaceDataPageClass
+      initialValues={state || undefined}
+      navigate={navigate}
+      simulationStatus={simulationStatus}
+    />
   );
 }

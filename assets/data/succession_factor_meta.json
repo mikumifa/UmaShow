@@ -25450,5 +25450,437 @@
         "level": 1
       }
     ]
+  },
+  "3000101": {
+    "id": 3000101,
+    "groupId": 30001,
+    "stars": 1,
+    "factorType": 6,
+    "name": "URA剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000102": {
+    "id": 3000102,
+    "groupId": 30001,
+    "stars": 2,
+    "factorType": 6,
+    "name": "URA剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000103": {
+    "id": 3000103,
+    "groupId": 30001,
+    "stars": 3,
+    "factorType": 6,
+    "name": "URA剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000201": {
+    "id": 3000201,
+    "groupId": 30002,
+    "stars": 1,
+    "factorType": 6,
+    "name": "青春杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000202": {
+    "id": 3000202,
+    "groupId": 30002,
+    "stars": 2,
+    "factorType": 6,
+    "name": "青春杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000203": {
+    "id": 3000203,
+    "groupId": 30002,
+    "stars": 3,
+    "factorType": 6,
+    "name": "青春杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000301": {
+    "id": 3000301,
+    "groupId": 30003,
+    "stars": 1,
+    "factorType": 6,
+    "name": "巅峰杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000302": {
+    "id": 3000302,
+    "groupId": 30003,
+    "stars": 2,
+    "factorType": 6,
+    "name": "巅峰杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000303": {
+    "id": 3000303,
+    "groupId": 30003,
+    "stars": 3,
+    "factorType": 6,
+    "name": "巅峰杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000401": {
+    "id": 3000401,
+    "groupId": 30004,
+    "stars": 1,
+    "factorType": 6,
+    "name": "闪耀舞台剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000402": {
+    "id": 3000402,
+    "groupId": 30004,
+    "stars": 2,
+    "factorType": 6,
+    "name": "闪耀舞台剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000403": {
+    "id": 3000403,
+    "groupId": 30004,
+    "stars": 3,
+    "factorType": 6,
+    "name": "闪耀舞台剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000501": {
+    "id": 3000501,
+    "groupId": 30005,
+    "stars": 1,
+    "factorType": 6,
+    "name": "荣耀女神杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000502": {
+    "id": 3000502,
+    "groupId": 30005,
+    "stars": 2,
+    "factorType": 6,
+    "name": "荣耀女神杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000503": {
+    "id": 3000503,
+    "groupId": 30005,
+    "stars": 3,
+    "factorType": 6,
+    "name": "荣耀女神杯剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000601": {
+    "id": 3000601,
+    "groupId": 30006,
+    "stars": 1,
+    "factorType": 6,
+    "name": "凯旋门剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000602": {
+    "id": 3000602,
+    "groupId": 30006,
+    "stars": 2,
+    "factorType": 6,
+    "name": "凯旋门剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3000603": {
+    "id": 3000603,
+    "groupId": 30006,
+    "stars": 3,
+    "factorType": 6,
+    "name": "凯旋门剧本",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100101": {
+    "id": 3100101,
+    "groupId": 31001,
+    "stars": 1,
+    "factorType": 6,
+    "name": "海外草地适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100102": {
+    "id": 3100102,
+    "groupId": 31001,
+    "stars": 2,
+    "factorType": 6,
+    "name": "海外草地适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100103": {
+    "id": 3100103,
+    "groupId": 31001,
+    "stars": 3,
+    "factorType": 6,
+    "name": "海外草地适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100201": {
+    "id": 3100201,
+    "groupId": 31002,
+    "stars": 1,
+    "factorType": 6,
+    "name": "隆尚适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100202": {
+    "id": 3100202,
+    "groupId": 31002,
+    "stars": 2,
+    "factorType": 6,
+    "name": "隆尚适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100203": {
+    "id": 3100203,
+    "groupId": 31002,
+    "stars": 3,
+    "factorType": 6,
+    "name": "隆尚适应性",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100301": {
+    "id": 3100301,
+    "groupId": 31003,
+    "stars": 1,
+    "factorType": 6,
+    "name": "生活节奏",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100302": {
+    "id": 3100302,
+    "groupId": 31003,
+    "stars": 2,
+    "factorType": 6,
+    "name": "生活节奏",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100303": {
+    "id": 3100303,
+    "groupId": 31003,
+    "stars": 3,
+    "factorType": 6,
+    "name": "生活节奏",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100401": {
+    "id": 3100401,
+    "groupId": 31004,
+    "stars": 1,
+    "factorType": 6,
+    "name": "营养管理",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100402": {
+    "id": 3100402,
+    "groupId": 31004,
+    "stars": 2,
+    "factorType": 6,
+    "name": "营养管理",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100403": {
+    "id": 3100403,
+    "groupId": 31004,
+    "stars": 3,
+    "factorType": 6,
+    "name": "营养管理",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100501": {
+    "id": 3100501,
+    "groupId": 31005,
+    "stars": 1,
+    "factorType": 6,
+    "name": "法语能力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100502": {
+    "id": 3100502,
+    "groupId": 31005,
+    "stars": 2,
+    "factorType": 6,
+    "name": "法语能力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100503": {
+    "id": 3100503,
+    "groupId": 31005,
+    "stars": 3,
+    "factorType": 6,
+    "name": "法语能力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100601": {
+    "id": 3100601,
+    "groupId": 31006,
+    "stars": 1,
+    "factorType": 6,
+    "name": "海外远征",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100602": {
+    "id": 3100602,
+    "groupId": 31006,
+    "stars": 2,
+    "factorType": 6,
+    "name": "海外远征",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100603": {
+    "id": 3100603,
+    "groupId": 31006,
+    "stars": 3,
+    "factorType": 6,
+    "name": "海外远征",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100701": {
+    "id": 3100701,
+    "groupId": 31007,
+    "stars": 1,
+    "factorType": 6,
+    "name": "胆魄",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100702": {
+    "id": 3100702,
+    "groupId": 31007,
+    "stars": 2,
+    "factorType": 6,
+    "name": "胆魄",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100703": {
+    "id": 3100703,
+    "groupId": 31007,
+    "stars": 3,
+    "factorType": 6,
+    "name": "胆魄",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100801": {
+    "id": 3100801,
+    "groupId": 31008,
+    "stars": 1,
+    "factorType": 6,
+    "name": "意志力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100802": {
+    "id": 3100802,
+    "groupId": 31008,
+    "stars": 2,
+    "factorType": 6,
+    "name": "意志力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100803": {
+    "id": 3100803,
+    "groupId": 31008,
+    "stars": 3,
+    "factorType": 6,
+    "name": "意志力",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100901": {
+    "id": 3100901,
+    "groupId": 31009,
+    "stars": 1,
+    "factorType": 6,
+    "name": "凯旋门的希望",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100902": {
+    "id": 3100902,
+    "groupId": 31009,
+    "stars": 2,
+    "factorType": 6,
+    "name": "凯旋门的希望",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3100903": {
+    "id": 3100903,
+    "groupId": 31009,
+    "stars": 3,
+    "factorType": 6,
+    "name": "凯旋门的希望",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3101001": {
+    "id": 3101001,
+    "groupId": 31010,
+    "stars": 1,
+    "factorType": 6,
+    "name": "凯旋门奖连霸之梦",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3101002": {
+    "id": 3101002,
+    "groupId": 31010,
+    "stars": 2,
+    "factorType": 6,
+    "name": "凯旋门奖连霸之梦",
+    "skillGroupIds": [],
+    "skillTargets": []
+  },
+  "3101003": {
+    "id": 3101003,
+    "groupId": 31010,
+    "stars": 3,
+    "factorType": 6,
+    "name": "凯旋门奖连霸之梦",
+    "skillGroupIds": [],
+    "skillTargets": []
   }
 }

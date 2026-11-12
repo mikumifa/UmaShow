@@ -91,6 +91,7 @@ export const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
 
 export function createDefaultOfflineFactorSelection(): OfflineFactorSelection {
   return {
+    transfer_mode: 'keep',
     enabled: true,
     evaluation_mode: 'parent',
     use_skill_priority: true,

@@ -223,7 +223,7 @@ export default function AssetTracking({
                     较前日
                   </th>
                   <th scope="col" className="historyAssetCapture text-right">
-                    记录时间（北京）
+                    记录时间
                   </th>
                 </tr>
               </thead>
@@ -243,8 +243,7 @@ export default function AssetTracking({
                           hour: '2-digit',
                           minute: '2-digit',
                           hour12: false,
-                        })}{' '}
-                        北京
+                        })}
                       </span>
                     </td>
                     <td className="text-right font-semibold tabular-nums text-slate-800">

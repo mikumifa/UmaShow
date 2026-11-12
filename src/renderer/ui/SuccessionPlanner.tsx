@@ -186,7 +186,7 @@ type SuccessionFactorMeta = {
   id: number;
   groupId: number;
   stars: 1 | 2 | 3;
-  factorType: 3 | 4 | 5;
+  factorType: 3 | 4 | 5 | 6;
   name: string;
   skillGroupIds: number[];
   skillTargets?: Array<{
@@ -312,6 +312,11 @@ type CompleteDesignPosition = {
     blueFactor: CapturedBlueFactor | null;
     aptitudeFactor: CapturedFactor;
     uniqueFactorStars: number;
+    scenarioFactors: Array<{
+      id: number;
+      name: string;
+      stars: 1 | 2 | 3;
+    }>;
     selectedSkillFactors: Array<{
       groupId: number;
       name: string;
@@ -822,16 +827,17 @@ export function isLegacyDefaultInheritanceAptitude(
 }
 
 export function capturedFactorBaseProbability(
-  factorType: 3 | 4 | 5,
+  factorType: 3 | 4 | 5 | 6,
   stars: 1 | 2 | 3,
 ) {
   if (factorType === 3) return 0.05 * stars;
   if (factorType === 4) return 0.03 * stars;
-  return 0.01 * stars;
+  if (factorType === 5) return 0.01 * stars;
+  return 0;
 }
 
 export function capturedFactorInheritanceProbability(
-  factorType: 3 | 4 | 5,
+  factorType: 3 | 4 | 5 | 6,
   stars: 1 | 2 | 3,
   compatibility: number,
 ) {
@@ -2235,6 +2241,13 @@ function demandSatisfied(
   });
 }
 
+export function pendingParentAptitudeDemandSatisfied(
+  demand: Partial<Record<AptitudeKey, number>>,
+  parentFactors: Array<{ type: AptitudeKey; stars: number }>,
+) {
+  return demandSatisfied(demand, parentFactors);
+}
+
 export function capturedUmaMatchesGeneratedCandidate(
   candidate: CapturedTrainedUma,
   position: Pick<CompleteDesignPosition, 'uma' | 'factor' | 'minimumDemand'>,
@@ -3374,6 +3387,11 @@ function CompleteDesignPositionPortrait({
 function capturedMemberSummaryFactors(
   member: CapturedLineageMember,
 ): PlannerFactor[] {
+  const scenarioFactors = capturedScenarioFactors(member.inheritanceFactors);
+  const otherWhiteFactorCount = Math.max(
+    0,
+    member.whiteFactorCount - scenarioFactors.length,
+  );
   return [
     ...(member.blueFactor
       ? [
@@ -3401,17 +3419,36 @@ function capturedMemberSummaryFactors(
           },
         ]
       : []),
-    ...(member.whiteFactorCount > 0
+    ...scenarioFactors.map((factor) => ({
+      id: factor.id,
+      name: factor.name,
+      stars: factor.stars,
+      tone: 'white' as const,
+      title: `剧本因子 · ID ${factor.id}`,
+    })),
+    ...(otherWhiteFactorCount > 0
       ? [
           {
             id: `white:${member.trainedCharaId}`,
             name: '白因子',
-            count: member.whiteFactorCount,
+            count: otherWhiteFactorCount,
             tone: 'white' as const,
           },
         ]
       : []),
   ];
+}
+
+export function capturedScenarioFactors(
+  factors: CapturedInheritanceFactor[],
+  factorMeta: Record<number, SuccessionFactorMeta> = UMDB.successionFactorMeta,
+) {
+  return factors.flatMap((factor) => {
+    const meta = factorMeta[factor.id];
+    return meta?.factorType === 6
+      ? [{ id: factor.id, name: meta.name, stars: factor.stars }]
+      : [];
+  });
 }
 
 function CapturedMemberDetails({ member }: { member: CapturedLineageMember }) {
@@ -5010,6 +5047,10 @@ function CompleteDesignCapturedFactorSummary({
 }: {
   summary: NonNullable<CompleteDesignPosition['capturedFactorSummary']>;
 }) {
+  const otherWhiteFactorCount = Math.max(
+    0,
+    summary.whiteFactorCount - summary.scenarioFactors.length,
+  );
   const factors: PlannerFactor[] = [
     ...(summary.blueFactor
       ? [
@@ -5033,6 +5074,13 @@ function CompleteDesignCapturedFactorSummary({
       stars: summary.uniqueFactorStars,
       tone: 'unique',
     },
+    ...summary.scenarioFactors.map((factor) => ({
+      id: factor.id,
+      name: factor.name,
+      stars: factor.stars,
+      tone: 'white' as const,
+      title: `剧本因子 · ID ${factor.id}`,
+    })),
     ...summary.selectedSkillFactors
       .filter((skill) => skill.count > 0)
       .map((skill) => ({
@@ -5041,12 +5089,12 @@ function CompleteDesignCapturedFactorSummary({
         count: skill.count,
         tone: 'skill' as const,
       })),
-    ...(summary.whiteFactorCount > 0
+    ...(otherWhiteFactorCount > 0
       ? [
           {
             id: 'captured-white',
             name: '白因子',
-            count: summary.whiteFactorCount,
+            count: otherWhiteFactorCount,
             tone: 'white' as const,
           },
         ]
@@ -6759,6 +6807,7 @@ function SuccessionPlanner({
         blueFactor: member.blueFactor,
         aptitudeFactor: member.factor,
         uniqueFactorStars: member.uniqueFactorStars,
+        scenarioFactors: capturedScenarioFactors(member.inheritanceFactors),
         selectedSkillFactors: effectiveCapturedFactorTargets.map((target) => ({
           groupId: target.groupId,
           name:
@@ -6831,7 +6880,19 @@ function SuccessionPlanner({
         ) {
           return;
         }
-        pendingFactorOptions.forEach(({ factor }) => {
+        pendingFactorOptions.forEach(({ factor, requirement }) => {
+          // 待育成马娘的初始适性来自这两个已育成祖辈的红因子。
+          // 之前这里只检查了 plannedParent 自身是否“理论上可提升”，
+          // 却没有核对 A/B 实际携带的因子，导致适性根本无法提升到
+          // 赛程或待产出红因子所需的等级时仍然会被选为候选。
+          if (
+            !pendingParentAptitudeDemandSatisfied(requirement.demand, [
+              left.factor,
+              right.factor,
+            ])
+          ) {
+            return;
+          }
           const strategyKey = `${factor.type}:${factor.stars}|${left.selectionId}|${right.selectionId}`;
           if (seenStrategies.has(strategyKey)) return;
           seenStrategies.add(strategyKey);
@@ -7135,6 +7196,7 @@ function SuccessionPlanner({
         blueFactor: member.blueFactor,
         aptitudeFactor: member.factor,
         uniqueFactorStars: member.uniqueFactorStars,
+        scenarioFactors: capturedScenarioFactors(member.inheritanceFactors),
         selectedSkillFactors: effectiveCapturedFactorTargets.map((target) => ({
           groupId: target.groupId,
           name:
@@ -7313,7 +7375,15 @@ function SuccessionPlanner({
               ) {
                 continue;
               }
-              for (const { factor } of pendingFactorOptions) {
+              for (const { factor, requirement } of pendingFactorOptions) {
+                if (
+                  !pendingParentAptitudeDemandSatisfied(requirement.demand, [
+                    left.factor,
+                    right.factor,
+                  ])
+                ) {
+                  continue;
+                }
                 const strategyKey = `${factor.type}:${factor.stars}|${left.selectionId}|${right.selectionId}`;
                 if (seenStrategies.has(strategyKey)) continue;
                 seenStrategies.add(strategyKey);
@@ -11228,7 +11298,8 @@ function SuccessionPlanner({
                 <strong>未找到可行的种马路线</strong>
                 {!hasOwnCapturedUma && (
                   <span>
-                    请进入“优俊少女名人堂”，让程序获取自己的马娘信息。
+                    请进入“优俊少女名人堂” 和
+                    养成选种马界面，让程序获取自己的马娘信息。
                   </span>
                 )}
               </div>

@@ -11,6 +11,7 @@ import {
   capturedReusePairPolicy,
   capturedTraversalCandidates,
   capturedSelectedSkillFactorCount,
+  capturedScenarioFactors,
   capturedUmaMatchesGeneratedCandidate,
   combinedSkillTargetProbability,
   compareCombinedProbabilityPriority,
@@ -22,6 +23,7 @@ import {
   normalizeSuccessionIndex,
   pendingCapturedParentPairOrientations,
   pendingCapturedParentPairValid,
+  pendingParentAptitudeDemandSatisfied,
   parentPairCompatibilityTotal,
   probabilityAtLeastOnce,
   selectGreedyPendingBranchCandidate,
@@ -69,6 +71,23 @@ describe('winSaddleCompatibilityBonus', () => {
 describe('parentPairCompatibilityTotal', () => {
   test('adds three compatibility points for every G1 shared by both parents', () => {
     expect(parentPairCompatibilityTotal(14, 2)).toBe(20);
+  });
+});
+
+describe('pending parent aptitude demand', () => {
+  test('requires A/B red factors to cover the planned aptitude raises', () => {
+    expect(
+      pendingParentAptitudeDemandSatisfied({ turf: 4 }, [
+        { type: 'turf', stars: 2 },
+        { type: 'turf', stars: 2 },
+      ]),
+    ).toBe(true);
+    expect(
+      pendingParentAptitudeDemandSatisfied({ turf: 4 }, [
+        { type: 'turf', stars: 3 },
+        { type: 'mile', stars: 3 },
+      ]),
+    ).toBe(false);
   });
 });
 
@@ -661,6 +680,27 @@ describe('captured factor display order', () => {
         3202,
       ).map((factor) => factor.id),
     ).toEqual([10320202, 2004502, 1000302]);
+  });
+
+  test('keeps scenario factors with their catalogue names', () => {
+    expect(
+      capturedScenarioFactors(
+        [
+          { id: 3000503, groupId: 30005, stars: 3 },
+          { id: 2001803, groupId: 20018, stars: 3 },
+        ],
+        {
+          3000503: {
+            id: 3000503,
+            groupId: 30005,
+            stars: 3,
+            factorType: 6,
+            name: '荣耀女神杯剧本',
+            skillGroupIds: [],
+          },
+        },
+      ),
+    ).toEqual([{ id: 3000503, name: '荣耀女神杯剧本', stars: 3 }]);
   });
 });
 

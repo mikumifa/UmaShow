@@ -27,5 +27,6 @@
     "package-lock.json": true,
     "*.{css,sass,scss}.d.ts": true
   },
-  "python-envs.pythonProjects": []
+  "python-envs.pythonProjects": [],
+  "cmake.sourceDirectory": "D:/Cache/Documents/MyHub/UmaShow/UmaShow/native/monte-carlo-larc"
 }

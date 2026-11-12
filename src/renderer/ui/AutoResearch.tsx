@@ -15,21 +15,23 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  Copy,
   Database,
   Gem,
   History,
   ListChecks,
   LogIn,
   LogOut,
+  MessageSquare,
   PencilLine,
   Play,
   Plus,
   RefreshCw,
   RotateCcw,
-  Settings2,
   Trash2,
   Upload,
   Users,
+  X,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
@@ -132,6 +134,8 @@ import {
 
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import autoResearchCatalog from '../../../assets/data/auto_research_catalog.json';
+import SmsLoginPanel from 'autouma/SmsLoginPanel';
+import { copyText } from 'autouma/clipboard';
 
 const localCatalog = autoResearchCatalog as {
   skills: Record<string, SkillOption>;
@@ -140,8 +144,7 @@ const localCatalog = autoResearchCatalog as {
 
 const autoResearchTabs = [
   { id: 'daily' as const, label: '日常', icon: CalendarCheck },
-  { id: 'presets' as const, label: '预设', icon: Settings2 },
-  { id: 'career' as const, label: '详设', icon: ListChecks },
+  { id: 'career' as const, label: '育成', icon: ListChecks },
   { id: 'history' as const, label: '记录', icon: History },
 ];
 
@@ -477,6 +480,7 @@ const normalizeOfflineFactorSelection = (
   return {
     ...defaults,
     ...(value || {}),
+    transfer_mode: value?.transfer_mode === 'direct' ? 'direct' : 'keep',
     evaluation_mode:
       value?.evaluation_mode === 'ancestor' ? 'ancestor' : 'parent',
     use_skill_priority: true,
@@ -638,6 +642,7 @@ const accountManualInputClass =
 
 function AccountManagementActions({
   accountName,
+  onCopy,
   onRename,
   onDelete,
   deleteDisabledReason = '',
@@ -645,6 +650,7 @@ function AccountManagementActions({
   className = '',
 }: {
   accountName: string;
+  onCopy: () => void;
   onRename: () => void;
   onDelete: () => void;
   deleteDisabledReason?: string;
@@ -653,6 +659,17 @@ function AccountManagementActions({
 }) {
   return (
     <div className={`flex items-center gap-1 ${className}`.trim()}>
+      <button
+        type="button"
+        onClick={onCopy}
+        disabled={busy}
+        aria-label={`复制${accountName}的完整 access_key`}
+        title="复制完整 access_key"
+        className="autoResearchAccountMiniButton inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Copy size={10} />
+        复制 key
+      </button>
       <button
         type="button"
         onClick={onRename}
@@ -715,6 +732,7 @@ export default function AutoResearch() {
   >(new Set());
   const [manualUid, setManualUid] = useState('');
   const [manualAccessKey, setManualAccessKey] = useState('');
+  const [smsLoginOpen, setSmsLoginOpen] = useState(false);
   const [editingAccountAliasId, setEditingAccountAliasId] = useState('');
   const [accountAliasDraft, setAccountAliasDraft] = useState('');
   const [deletingAccountId, setDeletingAccountId] = useState('');
@@ -846,7 +864,6 @@ export default function AutoResearch() {
   const [careerPresetName, setCareerPresetName] = useState('');
   const [careerSaveOpen, setCareerSaveOpen] = useState(false);
   const [newCareerSaveName, setNewCareerSaveName] = useState('');
-  const [newCareerPresetName, setNewCareerPresetName] = useState('');
   const [newCareerMode, setNewCareerMode] = useState<'online' | 'offline'>(
     'online',
   );
@@ -2748,14 +2765,47 @@ export default function AutoResearch() {
               }
             : current,
         );
-        await uploadDailyConfig(saved);
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
         setBusy('');
       }
     },
-    [selectedAccount, selectedAccountId, serverHostedMode, uploadDailyConfig],
+    [selectedAccount, selectedAccountId, serverHostedMode],
+  );
+
+  const uploadDailyTasks = useCallback(
+    async (config: DailyTasksConfig) => {
+      if (serverHostedMode) {
+        setError('服务端自动育成正在运行，请停止养马后再修改每日日常');
+        return;
+      }
+      if (!selectedAccountId || !selectedAccount) return;
+      if (!server) {
+        setError('上传日常配置前，请先连接自动育成服务器');
+        return;
+      }
+      setBusy('daily-upload');
+      setError('');
+      try {
+        const saved = writeLocalDailyTasks(selectedAccount.uid, config);
+        await uploadDailyConfig(saved);
+        setDailyTasksOverview((current) =>
+          current
+            ? {
+                ...current,
+                daily_tasks: { ...current.daily_tasks, ...saved },
+              }
+            : current,
+        );
+        setSuccessMessage('日常配置已上传到服务器');
+      } catch (caught) {
+        setError((caught as Error).message);
+      } finally {
+        setBusy('');
+      }
+    },
+    [selectedAccount, selectedAccountId, server, serverHostedMode, uploadDailyConfig],
   );
 
   const runDailyTasks = useCallback(
@@ -3141,7 +3191,6 @@ export default function AutoResearch() {
     setCareerPresetName('');
     setCareerSaveOpen(false);
     setNewCareerSaveName('');
-    setNewCareerPresetName('');
     setCareerHistory([]);
     setCloudCareerConfigIds(new Set());
     setSelectedCareerRecords(null);
@@ -3402,6 +3451,45 @@ export default function AutoResearch() {
     ]);
     setManualUid('');
     setManualAccessKey('');
+  };
+
+  const addSmsAccount = async (credential: {
+    uid: string;
+    accessKey: string;
+  }) => {
+    await addCredentials([
+      {
+        ...credential,
+        source: '短信登录',
+        capturedAt: new Date().toISOString(),
+      },
+    ]);
+    const localAccounts =
+      (await window.electron.autoResearch.accounts()) as Array<
+        Omit<Account, 'runtime'>
+      >;
+    const added = localAccounts.find(
+      (account) => account.uid === credential.uid,
+    );
+    if (added) {
+      setSelectedAccountId(added.id);
+      localStorage.setItem(LAST_ACCOUNT_KEY, added.id);
+    }
+    setSuccessMessage(`已添加 B 站账号 UID ${credential.uid}`);
+  };
+
+  const copyAccountAccessKey = async (account: Account) => {
+    try {
+      const credential = (await window.electron.autoResearch.credential(
+        account.id,
+      )) as {
+        accessKey: string;
+      };
+      await copyText(credential.accessKey);
+      setSuccessMessage('access_key 已复制到剪贴板');
+    } catch (caught) {
+      setError(`复制 access_key 失败：${(caught as Error).message}`);
+    }
   };
 
   const prepareAccountBeforeServer = async (accountId: string) => {
@@ -4881,11 +4969,12 @@ export default function AutoResearch() {
           }
         }
         setActiveTab(tab);
+        setPresetEditorOpen(false);
         if (target) {
           window.setTimeout(() => scrollToSection(target), 0);
         }
       },
-      activeTab === 'presets' ? 'preset' : 'career',
+      'all',
     );
   };
 
@@ -4948,7 +5037,6 @@ export default function AutoResearch() {
 
     if (presetName === currentName) setPresetName(name);
     if (careerPresetName === currentName) setCareerPresetName(name);
-    if (newCareerPresetName === currentName) setNewCareerPresetName(name);
     setError('');
     return true;
   };
@@ -4978,7 +5066,6 @@ export default function AutoResearch() {
     setPresets(nextPresets);
     setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
     setPresetName(DEFAULT_PRESET_NAME);
-    if (newCareerPresetName === name) setNewCareerPresetName('');
     setPresetEditorOpen(false);
     setError('');
   };
@@ -5151,6 +5238,11 @@ export default function AutoResearch() {
         handled();
         return;
       }
+      if (smsLoginOpen) {
+        setSmsLoginOpen(false);
+        handled();
+        return;
+      }
       if (loginSettingsOpen) {
         closeLoginSettings();
         handled();
@@ -5161,13 +5253,13 @@ export default function AutoResearch() {
         handled();
         return;
       }
-      if (careerSaveOpen) {
-        closeCareerEditor();
+      if (presetEditorOpen) {
+        requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
         handled();
         return;
       }
-      if (presetEditorOpen) {
-        requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
+      if (careerSaveOpen) {
+        closeCareerEditor();
         handled();
         return;
       }
@@ -5195,7 +5287,7 @@ export default function AutoResearch() {
     }
     setPresetName(careerPresetName);
     setPresetEditorOpen(true);
-    setActiveTab('presets');
+    setActiveTab('career');
     window.setTimeout(() => scrollToSection('preset-basic'), 0);
     setError('');
   };
@@ -5214,12 +5306,10 @@ export default function AutoResearch() {
       setError(`养马详设绑定的预设不存在：${setting.preset_name}`);
       return;
     }
-    setSelectedCareerSettingId(setting.id);
-    setCareerSettingName(setting.name);
-    setCareerPresetName(setting.preset_name);
+    applyCareerSetting(setting.id);
     setPresetName(setting.preset_name);
     setPresetEditorOpen(true);
-    setActiveTab('presets');
+    setActiveTab('career');
     window.setTimeout(() => scrollToSection('preset-basic'), 0);
     setError('');
   };
@@ -5292,18 +5382,28 @@ export default function AutoResearch() {
       setError('请先填写新详设名称');
       return;
     }
-    if (
-      newCareerMode === 'online' &&
-      (!newCareerPresetName ||
-        !presets.some((preset) => preset.name === newCareerPresetName))
-    ) {
-      setError('请先选择这个养马详设要绑定的预设');
-      return;
+    let dedicatedPresetName = '';
+    if (newCareerMode === 'online') {
+      dedicatedPresetName = name;
+      let suffix = 2;
+      const presetNames = new Set(presets.map((preset) => preset.name));
+      while (presetNames.has(dedicatedPresetName)) {
+        dedicatedPresetName = `${name} (${suffix})`;
+        suffix += 1;
+      }
+      const nextPresets = [
+        ...presets,
+        createDefaultPreset(dedicatedPresetName),
+      ];
+      setPresets(nextPresets);
+      setSharedStorageItem(LOCAL_PRESETS_KEY, JSON.stringify(nextPresets));
+      setPresetName(dedicatedPresetName);
+      setPresetSyncError(false);
     }
     setSelectedCareerSettingId('');
     setCareerMode(newCareerMode);
     setCareerSettingName(name);
-    setCareerPresetName(newCareerMode === 'online' ? newCareerPresetName : '');
+    setCareerPresetName(dedicatedPresetName);
     setCardId(0);
     setDeckId(0);
     setSupportCardIds([]);
@@ -5325,7 +5425,6 @@ export default function AutoResearch() {
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
-    setNewCareerPresetName('');
     setError('');
   };
 
@@ -5528,8 +5627,8 @@ export default function AutoResearch() {
   offlineSetupRequestKeyRef.current = offlineSetupRequestKey;
   const autoPreparedOfflineSetupKey = useRef('');
 
-  const prepareOfflineCareer = useCallback(
-    async (): Promise<OfflineSingleModeSetup | null> => {
+  const prepareOfflineCareer =
+    useCallback(async (): Promise<OfflineSingleModeSetup | null> => {
       if (!selectedAccountId) return null;
       const accountId = selectedAccountId;
       if (
@@ -5574,8 +5673,7 @@ export default function AutoResearch() {
       } finally {
         if (selectedAccountIdRef.current === accountId) setBusy('');
       }
-    },
-    [
+    }, [
       selectedAccountId,
       automationActive,
       currentCareerActive,
@@ -6083,7 +6181,9 @@ export default function AutoResearch() {
   return (
     <div
       className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
-        selectedCareerRecords || careerSaveOpen ? 'autoResearchNestedView' : ''
+        selectedCareerRecords || careerSaveOpen || presetEditorOpen
+          ? 'autoResearchNestedView'
+          : ''
       }`}
     >
       <style>
@@ -6211,7 +6311,7 @@ export default function AutoResearch() {
               left: 0;
               z-index: 120;
               display: grid;
-              grid-template-columns: repeat(4, minmax(0, 1fr));
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
                 calc(0.375rem + var(--autouma-safe-bottom))
@@ -6301,13 +6401,45 @@ export default function AutoResearch() {
               line-height: 1.5;
             }
             html[data-autouma] .autoResearchLoginSettingsBody {
-              flex: 0 1 auto;
-              max-height: calc(100dvh - 5.75rem);
+              flex: 1 1 0;
+              max-height: none;
               overflow-y: auto;
             }
+            html[data-autouma] .autoResearchLoginSettingsOverlay {
+              align-items: stretch;
+              padding: 0;
+              background: rgb(var(--uma-clay-surface-rgb));
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog {
+              align-self: stretch;
+              width: 100%;
+              max-width: none !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
+              border-radius: 0 !important;
+              box-shadow: none;
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerHeader {
+              padding-top: calc(0.875rem + var(--autouma-safe-top));
+              padding-right: calc(1rem + var(--autouma-safe-right));
+              padding-left: calc(1rem + var(--autouma-safe-left));
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerFooter {
+              flex: 0 0 auto;
+              width: 100%;
+              margin-top: auto;
+              padding-right: calc(1rem + var(--autouma-safe-right));
+              padding-bottom: calc(0.75rem + var(--autouma-safe-bottom));
+              padding-left: calc(1rem + var(--autouma-safe-left));
+            }
+            html[data-autouma] .autoResearchLoginSettingsDialog .successionPickerFooter .autoResearchAccountDialogButton {
+              flex: 1 1 0;
+              min-width: 0;
+              min-height: 2.75rem;
+            }
             html[data-autouma] .autoResearchLoginAccountList {
-              flex: none;
-              max-height: 38dvh;
+              flex: 1 1 0;
+              max-height: none;
             }
             html[data-autouma] .autoResearchHistoryAction {
               min-height: 1.75rem;
@@ -6728,7 +6860,7 @@ export default function AutoResearch() {
       ) : null}
       {loginSettingsOpen ? (
         <div
-          className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
+          className="autoResearchAccountOverlay autoResearchLoginSettingsOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay"
           style={{ zIndex: 1200 }}
         >
           <div
@@ -6737,6 +6869,22 @@ export default function AutoResearch() {
             aria-label="自动育成登录设置"
             className="autoResearchAccountDialog autoResearchLoginSettingsDialog successionPickerDialog w-full !max-w-3xl sm:!h-[92vh] sm:!max-h-[880px] sm:!rounded-xl"
           >
+            <div className="successionPickerHeader flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">账号与登录</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  导入账号、短信登录，或选择已保存的账号继续。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLoginSettings}
+                aria-label="关闭账号与登录"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X size={17} />
+              </button>
+            </div>
             <div className="autoResearchLoginSettingsBody flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
               <section className="shrink-0 space-y-2">
                 <div
@@ -6815,6 +6963,15 @@ export default function AutoResearch() {
                     </button>
                   </div>
                 </details>
+                <button
+                  type="button"
+                  onClick={() => setSmsLoginOpen(true)}
+                  disabled={Boolean(busy || loginProgress)}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <MessageSquare size={14} />
+                  使用 B 站短信登录
+                </button>
                 {captured.length ? (
                   <p className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
                     UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
@@ -6855,6 +7012,9 @@ export default function AutoResearch() {
                         </button>
                         <AccountManagementActions
                           accountName={account.label || `UID ${account.uid}`}
+                          onCopy={() =>
+                            copyAccountAccessKey(account).catch(() => undefined)
+                          }
                           onRename={() => openAccountAliasEditor(account)}
                           onDelete={() => openDeleteAccountDialog(account)}
                           deleteDisabledReason={accountDeleteBlockedReason(
@@ -6923,6 +7083,12 @@ export default function AutoResearch() {
             </div>
           </div>
         </div>
+      ) : null}
+      {smsLoginOpen ? (
+        <SmsLoginPanel
+          onClose={() => setSmsLoginOpen(false)}
+          onComplete={addSmsAccount}
+        />
       ) : null}
       {editingSkillSelection ? (
         <div className="successionPickerTheme successionPickerOverlay z-[65]">
@@ -7955,6 +8121,23 @@ export default function AutoResearch() {
                   </button>
                 </div>
               </div>
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold text-slate-700">
+                  方法三：B 站短信登录
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  验证手机号后自动获取并保存 access_key。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSmsLoginOpen(true)}
+                  disabled={Boolean(busy || loginProgress)}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <MessageSquare size={14} />
+                  打开短信登录
+                </button>
+              </div>
             </section>
 
             <section className={panelClass('p-4')}>
@@ -8130,6 +8313,9 @@ export default function AutoResearch() {
                       )}
                       <AccountManagementActions
                         accountName={account.label || `UID ${account.uid}`}
+                        onCopy={() =>
+                          copyAccountAccessKey(account).catch(() => undefined)
+                        }
                         onRename={() => openAccountAliasEditor(account)}
                         onDelete={() => openDeleteAccountDialog(account)}
                         deleteDisabledReason={accountDeleteBlockedReason(
@@ -8311,10 +8497,10 @@ export default function AutoResearch() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => navigateToTab('presets')}
+                          onClick={() => navigateToTab('career', 'career-task')}
                           className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
-                          选择预设
+                          进入育成设置
                         </button>
                         {!automationActive ? (
                           <button
@@ -8382,7 +8568,7 @@ export default function AutoResearch() {
                   </AutoResearchNotice>
                 ) : null}
 
-                {activeTab === 'presets' ? (
+                {activeTab === 'career' && presetEditorOpen ? (
                   <PresetsTab
                     presetEditorOpen={presetEditorOpen}
                     presets={presets}
@@ -8453,6 +8639,7 @@ export default function AutoResearch() {
 
                 {dashboard?.account &&
                 activeTab === 'career' &&
+                !presetEditorOpen &&
                 (!automationActive || careerSaveOpen) ? (
                   <CareerTab
                     dashboard={dashboard}
@@ -8483,9 +8670,6 @@ export default function AutoResearch() {
                     saveCareerSetting={saveCareerSetting}
                     saveAndApplyCareerSetting={saveAndApplyCareerSetting}
                     saveAndRunCareer={saveAndRunCareer}
-                    careerPresetName={careerPresetName}
-                    newCareerPresetName={newCareerPresetName}
-                    setNewCareerPresetName={setNewCareerPresetName}
                     newCareerMode={newCareerMode}
                     setNewCareerMode={setNewCareerMode}
                     editCareerPreset={() =>
@@ -8525,6 +8709,13 @@ export default function AutoResearch() {
                     setRecoverTpWithItem={setRecoverTpWithItem}
                     recoverTpWithJewels={recoverTpWithJewels}
                     setRecoverTpWithJewels={setRecoverTpWithJewels}
+                    transferMode={offlineFactorSelection.transfer_mode || 'keep'}
+                    setTransferMode={(mode) =>
+                      setOfflineFactorSelection((current) => ({
+                        ...current,
+                        transfer_mode: mode,
+                      }))
+                    }
                     selectionConflict={selectionConflict}
                     refreshOptionsIndex={refreshOptionsIndex}
                     renameCareerSetting={renameCareerSetting}
@@ -8567,6 +8758,7 @@ export default function AutoResearch() {
 
                 {activeTab === 'career' &&
                 automationActive &&
+                !presetEditorOpen &&
                 !careerSaveOpen ? (
                   <AutomationControlCard
                     automation={automation}
@@ -8613,6 +8805,7 @@ export default function AutoResearch() {
 
                 {activeTab === 'career' &&
                 automationActive &&
+                !presetEditorOpen &&
                 !careerSaveOpen ? (
                   <div id="career-progress" className="scroll-mt-28">
                     <ProgressTab
@@ -8658,6 +8851,7 @@ export default function AutoResearch() {
                       loadDailyTasks(selectedAccountId).catch(() => undefined);
                     }}
                     onSave={saveDailyTasks}
+                    onUpload={uploadDailyTasks}
                     onRun={runDailyTasks}
                   />
                 ) : null}
