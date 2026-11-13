@@ -236,7 +236,7 @@ export default function AutomationControlCard({
                 className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-white hover:text-indigo-700 hover:shadow-sm disabled:opacity-40 sm:h-7"
               >
                 <Plus size={14} />
-                添加后续
+                添加
               </button>
               {activeSetting && activeSetting.mode !== 'offline' ? (
                 <button
@@ -292,7 +292,7 @@ export default function AutomationControlCard({
               className="flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50 sm:h-7"
             >
               <Play size={14} />
-              {busy === 'update-schedule' ? '正在应用…' : '应用计划'}
+              {busy === 'update-schedule' ? '正在应用…' : '应用'}
             </button>
           ) : null}
         </div>
