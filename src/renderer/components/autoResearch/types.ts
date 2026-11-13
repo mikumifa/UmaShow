@@ -469,6 +469,24 @@ export type CareerSessionAttributes = {
   wit: number;
 };
 
+export type RaceTrainingMetadata = {
+  schema_version?: number;
+  card_id?: number;
+  chara_id?: number;
+  scenario_id?: number;
+  grade?: number;
+  ground?: string;
+  distance_type?: string;
+  ground_aptitude?: number | null;
+  distance_aptitude?: number | null;
+  aptitude_source?: string;
+  consecutive_races_before?: number | null;
+  history_complete?: boolean | null;
+  is_goal_race?: boolean | null;
+  goal_source?: string;
+  [key: string]: unknown;
+};
+
 export type G123RaceRecord = {
   race_id: number;
   program_id: number;
@@ -481,6 +499,7 @@ export type G123RaceRecord = {
   counted?: boolean;
   source?: string;
   jewel_amount?: number | null;
+  metadata?: RaceTrainingMetadata;
 };
 
 export type CareerSessionRun = {

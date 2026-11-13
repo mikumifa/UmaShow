@@ -61,8 +61,8 @@ type AptitudeKey =
   | 'senko'
   | 'sashi'
   | 'oikomi';
-type FactorKey = AptitudeKey;
-type InheritanceTargets = Partial<Record<FactorKey, number>>;
+export type FactorKey = AptitudeKey;
+export type InheritanceTargets = Partial<Record<FactorKey, number>>;
 type AptitudeMinimums = Record<AptitudeKey, number>;
 type RouteMinimums = Record<BranchKey, AptitudeMinimums>;
 type SlotRouteSetting = {
@@ -79,7 +79,7 @@ type LineageSlot =
   | 'maternalA'
   | 'maternalB';
 
-type SuccessionUma = {
+export type SuccessionUma = {
   id: number;
   name: string;
   icon?: string | null;
@@ -2017,7 +2017,7 @@ function effectiveFactorRoleKey(assignment: FactorAssignment) {
     : `${assignment.type}:${assignment.stars}`;
 }
 
-function inheritanceAllocation(
+export function inheritanceAllocation(
   target: SuccessionUma,
   selected: FactorKey[],
   targets: InheritanceTargets,
@@ -4402,7 +4402,7 @@ function InRaceFactorJumpOption({
   );
 }
 
-function InheritanceAptitudes({
+export function InheritanceAptitudes({
   target,
   selected,
   targets,

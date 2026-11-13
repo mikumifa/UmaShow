@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import RacePlanningTab from 'renderer/components/autoResearch/RacePlanningTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
@@ -145,6 +146,7 @@ const localCatalog = autoResearchCatalog as {
 const autoResearchTabs = [
   { id: 'daily' as const, label: '日常', icon: CalendarCheck },
   { id: 'career' as const, label: '育成', icon: ListChecks },
+  { id: 'planning' as const, label: '规划', icon: CalendarClock },
   { id: 'history' as const, label: '记录', icon: History },
 ];
 
@@ -6311,7 +6313,7 @@ export default function AutoResearch() {
               left: 0;
               z-index: 120;
               display: grid;
-              grid-template-columns: repeat(3, minmax(0, 1fr));
+              grid-template-columns: repeat(4, minmax(0, 1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
                 calc(0.375rem + var(--autouma-safe-bottom))
@@ -8345,7 +8347,9 @@ export default function AutoResearch() {
                 : ''
             }`}
           >
-            {activeTab !== 'presets' && !selectedAccount ? (
+            {activeTab === 'planning' ? (
+              <RacePlanningTab />
+            ) : activeTab !== 'presets' && !selectedAccount ? (
               <section className="flex min-h-full items-center justify-center p-12 text-center text-slate-400">
                 <p>请先选择要使用的账号。</p>
               </section>
