@@ -25,6 +25,11 @@ import {
 import AppMenuPortal from 'renderer/components/AppMenuPortal';
 import AutomationControlCard from 'renderer/components/autoResearch/AutomationControlCard';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
+import {
+  normalizeOfflineDesign,
+  offlineRaceRequest,
+  offlineScheduleError,
+} from 'renderer/utils/offlineCareerDesign';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
@@ -201,8 +206,10 @@ function buildScheduleItem(
   if (!offline && !config.payload.preset) {
     throw new Error(`详设“${config.name}”没有包含绑定预设，无法启动`);
   }
-  if (offline && !setting.offline_race_deck_num) {
-    throw new Error(`离线详设“${config.name}”尚未选择游戏赛程槽位`);
+  if (offline && offlineScheduleError(setting)) {
+    throw new Error(
+      `离线详设“${config.name}”：${offlineScheduleError(setting)}`,
+    );
   }
   return {
     id: `web-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -248,6 +255,7 @@ function buildScheduleItem(
         setting.offline_factor_selection ||
         createDefaultOfflineFactorSelection(),
       race_deck_num: Number(setting.offline_race_deck_num || 0),
+      ...(offline ? offlineRaceRequest(setting.offline_design) : {}),
     },
   };
 }
@@ -1063,6 +1071,8 @@ export default function WebAutoUma() {
     offlineRunningStyle: 0,
     setOfflineRunningStyle: noop,
     offlineRaceDeckNum: 0,
+    offlineDesign: normalizeOfflineDesign(),
+    setOfflineDesign: noop,
     setOfflineRaceDeckNum: noop,
     resetOfflineCareer: noop,
     prepareOfflineCareer: async () => null,

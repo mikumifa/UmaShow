@@ -25,6 +25,8 @@ import {
 } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import OfflineCareerSettings from './OfflineCareerSettings';
+import OfflineDesignSettings from './OfflineDesignSettings';
+import { OfflineDesign } from 'renderer/utils/offlineCareerDesign';
 import {
   DeckChoiceCard,
   isRentalParent,
@@ -65,7 +67,7 @@ type CareerTabProps = {
   cloudCareerConfigIds: Set<string>;
   newCareerSaveName: string;
   setNewCareerSaveName: Dispatch<SetStateAction<string>>;
-  createCareerSave: () => void;
+  createCareerSave: (goal?: OfflineDesign['goal']) => void;
   automationActive: boolean;
   busy: string;
   activeCareer?: SessionAccount['career'];
@@ -123,6 +125,8 @@ type CareerTabProps = {
   offlineRunningStyle: number;
   setOfflineRunningStyle: Dispatch<SetStateAction<number>>;
   offlineRaceDeckNum: number;
+  offlineDesign: OfflineDesign;
+  setOfflineDesign: Dispatch<SetStateAction<OfflineDesign>>;
   setOfflineRaceDeckNum: Dispatch<SetStateAction<number>>;
   resetOfflineCareer: () => void;
   prepareOfflineCareer: () => Promise<OfflineSingleModeSetup | null>;
@@ -292,6 +296,8 @@ export default function CareerTab(props: CareerTabProps) {
     offlineRunningStyle,
     setOfflineRunningStyle,
     offlineRaceDeckNum,
+    offlineDesign,
+    setOfflineDesign,
     setOfflineRaceDeckNum,
     resetOfflineCareer,
     prepareOfflineCareer,
@@ -306,6 +312,8 @@ export default function CareerTab(props: CareerTabProps) {
     setOfflineSkillSettings,
   } = props;
   const [newCareerDialogOpen, setNewCareerDialogOpen] = useState(false);
+  const [newCareerGoal, setNewCareerGoal] =
+    useState<OfflineDesign['goal']>('breeding');
   const [umaPickerOpen, setUmaPickerOpen] = useState(false);
   const [umaPickerSearch, setUmaPickerSearch] = useState('');
   const [parentPickerSlot, setParentPickerSlot] = useState<1 | 2 | null>(null);
@@ -453,12 +461,13 @@ export default function CareerTab(props: CareerTabProps) {
   const canCreateCareerSave = Boolean(newCareerSaveName.trim());
   const createCareerSaveFromDialog = () => {
     if (!canCreateCareerSave) return;
-    createCareerSave();
+    createCareerSave(newCareerMode === 'offline' ? newCareerGoal : 'breeding');
     setNewCareerDialogOpen(false);
   };
   const careerModeSettings = (
     <OfflineCareerSettings
       factorOnly={careerMode === 'online'}
+      customSchedule={offlineDesign.source === 'custom'}
       setup={offlineSetup}
       selectedScenarioId={offlineScenarioId}
       races={races}
@@ -678,7 +687,7 @@ export default function CareerTab(props: CareerTabProps) {
                     <p className="mt-1 truncate text-label text-gray-500">
                       {uma?.name || '尚未选择育成马娘'} ·{' '}
                       {offline
-                        ? `游戏离线育成 · 槽位 ${setting.offline_race_deck_num || '-'}`
+                        ? `游戏离线育成 · ${setting.offline_design?.goal === 'jewels' ? '挂钻' : setting.offline_design?.goal === 'fans' ? '刷粉丝' : '种马'} · ${setting.offline_design?.source === 'custom' ? `自定义 ${setting.offline_design.raceIds.length} 场` : `槽位 ${setting.offline_race_deck_num || '-'}`}`
                         : setting.preset_name}
                     </p>
                     {!presetExists ? (
@@ -787,6 +796,27 @@ export default function CareerTab(props: CareerTabProps) {
                 ))}
               </div>
 
+              {newCareerMode === 'offline' && (
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      ['breeding', '种马'],
+                      ['jewels', '挂钻'],
+                      ['fans', '刷粉丝'],
+                    ] as const
+                  ).map(([goal, label]) => (
+                    <button
+                      key={goal}
+                      type="button"
+                      aria-pressed={newCareerGoal === goal}
+                      onClick={() => setNewCareerGoal(goal)}
+                      className={`rounded-md border px-3 py-2 text-data font-medium ${newCareerGoal === goal ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <label className="block text-label font-medium text-slate-700">
                 育成设置名称
                 <input
@@ -897,7 +927,9 @@ export default function CareerTab(props: CareerTabProps) {
                 disabled={
                   Boolean(busy) ||
                   (continuingCurrentCareer && !canContinueCurrentCareer) ||
-                  (careerMode === 'offline' && !offlineRaceDeckNum)
+                  (careerMode === 'offline' &&
+                    offlineDesign.source === 'api' &&
+                    !offlineRaceDeckNum)
                 }
                 className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-caption font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
@@ -908,7 +940,9 @@ export default function CareerTab(props: CareerTabProps) {
                     : careerMode === 'offline'
                       ? '启动中…'
                       : '保存并开始中…'
-                  : careerMode === 'offline' && !offlineRaceDeckNum
+                  : careerMode === 'offline' &&
+                      offlineDesign.source === 'api' &&
+                      !offlineRaceDeckNum
                     ? '请选择赛程槽位'
                     : continuingCurrentCareer
                       ? canContinueCurrentCareer
@@ -953,6 +987,24 @@ export default function CareerTab(props: CareerTabProps) {
         ) : null}
         {!dashboard.account.career?.active ? (
           <div id="career-selection" className="scroll-mt-28 space-y-5">
+            {careerMode === 'offline' && (
+              <OfflineDesignSettings
+                key={`${selectedUma?.chara_id || 0}:${offlineScenarioId}`}
+                design={offlineDesign}
+                setDesign={setOfflineDesign}
+                charaId={selectedUma?.chara_id || 0}
+                scenarioId={offlineScenarioId}
+                changeScenario={changeOfflineScenario}
+                parents={dashboard.parents}
+                selectedParent1={parent1}
+                selectedParent2={parent2}
+                setParents={(first, second) => {
+                  setParent1(first);
+                  setParent2(second);
+                }}
+                busy={busy}
+              />
+            )}
             {careerMode === 'offline' ? (
               <section
                 id="career-scenario"
@@ -972,13 +1024,18 @@ export default function CareerTab(props: CareerTabProps) {
                       育成剧本
                       <select
                         value={offlineScenarioId}
-                        disabled={Boolean(busy)}
+                        disabled={
+                          Boolean(busy) || offlineDesign.goal !== 'breeding'
+                        }
                         onChange={(event) =>
                           changeOfflineScenario(Number(event.target.value))
                         }
                         className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
                       >
                         <option value={0}>自动选择最新可用剧本</option>
+                        {!offlineScenarios.some(
+                          (scenario) => scenario.id === 5,
+                        ) && <option value={5}>荣耀女神杯</option>}
                         {offlineScenarios.map((scenario) => (
                           <option key={scenario.id} value={scenario.id}>
                             {scenario.name}

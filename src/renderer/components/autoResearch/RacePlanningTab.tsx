@@ -58,7 +58,7 @@ type Settings = {
   charaId: number;
   scenarioId: number;
   routeId: number;
-  objective: 'fans' | 'wins';
+  objective: 'fans' | 'wins' | 'jewels';
   gradeThreshold: 100 | 200 | 300;
   fanBonus: number;
   inheritance: FactorKey[];
@@ -100,7 +100,10 @@ function loadSettings(): Settings {
         ? saved.scenarioId
         : 1,
       routeId: Number(saved.routeId) || 0,
-      objective: saved.objective === 'wins' ? 'wins' : 'fans',
+      objective:
+        saved.objective === 'wins' || saved.objective === 'jewels'
+          ? saved.objective
+          : 'fans',
       gradeThreshold: [100, 200, 300].includes(saved.gradeThreshold)
         ? saved.gradeThreshold
         : 300,
@@ -434,6 +437,7 @@ export default function RacePlanningTab() {
             >
               <option value="fans">期望粉丝数最多</option>
               <option value="wins">期望重赏胜场最多</option>
+              <option value="jewels">期望掉钻次数最多</option>
             </select>
             <select
               aria-label="胜场统计级别"
@@ -766,9 +770,11 @@ export default function RacePlanningTab() {
       <section className={panelClass('p-4 sm:p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-section font-semibold">
-            {settings.objective === 'fans'
-              ? '期望粉丝最优赛程'
-              : '期望重赏胜场最优赛程'}
+            {settings.objective === 'jewels'
+              ? '期望掉钻最优赛程'
+              : settings.objective === 'fans'
+                ? '期望粉丝最优赛程'
+                : '期望重赏胜场最优赛程'}
           </h3>
           <div className="flex flex-wrap gap-2">
             <PlannerButton
@@ -870,6 +876,7 @@ export default function RacePlanningTab() {
                   result.expectedWins.toFixed(2),
                 ],
                 ['参赛次数', String(result.raceCount)],
+                ['期望掉落次数', result.expectedDrops.toFixed(2)],
                 [
                   '休息／训练回合',
                   String(result.steps.length - result.raceCount),

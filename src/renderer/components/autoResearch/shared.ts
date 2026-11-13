@@ -31,6 +31,7 @@ export function cloudCareerSetting(
     setting.mode === 'offline' ||
     (setting.mode === undefined &&
       (Number(setting.offline_scenario_id || 0) > 0 ||
+        setting.offline_design?.source === 'custom' ||
         Number(setting.offline_race_deck_num || 0) > 0));
   return {
     ...setting,

@@ -10,6 +10,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motionScrollBehavior } from 'renderer/utils/motion';
 import {
+  OfflineDesign,
+  normalizeOfflineDesign,
+  offlineRaceRequest,
+  offlineScheduleError,
+} from 'renderer/utils/offlineCareerDesign';
+import {
   AlertTriangle,
   CalendarCheck,
   CalendarClock,
@@ -876,6 +882,9 @@ export default function AutoResearch() {
   const [offlineScenarioId, setOfflineScenarioId] = useState(0);
   const [offlineRunningStyle, setOfflineRunningStyle] = useState(0);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
+  const [offlineDesign, setOfflineDesign] = useState(() =>
+    normalizeOfflineDesign(),
+  );
   const [offlineFactorSelection, setOfflineFactorSelection] =
     useState<OfflineFactorSelection>(() =>
       createDefaultOfflineFactorSelection(),
@@ -2769,7 +2778,13 @@ export default function AutoResearch() {
         setBusy('');
       }
     },
-    [selectedAccount, selectedAccountId, server, serverHostedMode, uploadDailyConfig],
+    [
+      selectedAccount,
+      selectedAccountId,
+      server,
+      serverHostedMode,
+      uploadDailyConfig,
+    ],
   );
 
   const runDailyTasks = useCallback(
@@ -3166,6 +3181,7 @@ export default function AutoResearch() {
     setOfflineScenarioId(0);
     setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
+    setOfflineDesign(normalizeOfflineDesign());
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -4195,6 +4211,7 @@ export default function AutoResearch() {
       offlineScenarioId,
       offlineRunningStyle,
       offlineRaceDeckNum,
+      offlineDesign,
       offlineFactorSelection,
       offlinePrioritySkillIds,
       offlineSkillSettings,
@@ -4219,8 +4236,15 @@ export default function AutoResearch() {
   if (!continuingCurrentCareer && selectionConflict) {
     careerValidationErrors['career-support'] = selectionConflict;
   }
-  if (careerMode === 'offline' && !offlineRaceDeckNum) {
-    careerValidationErrors['offline-career-setup'] = '请选择一个游戏赛程槽位';
+  if (careerMode === 'offline') {
+    const scheduleError = offlineScheduleError({
+      card_id: effectiveCardId,
+      offline_scenario_id: offlineScenarioId,
+      offline_race_deck_num: offlineRaceDeckNum,
+      offline_design: offlineDesign,
+    });
+    if (scheduleError)
+      careerValidationErrors['offline-career-setup'] = scheduleError;
   }
 
   const requestEditorLeave = (
@@ -4917,29 +4941,26 @@ export default function AutoResearch() {
   };
 
   const navigateToTab = (tab: AutoResearchTab, target?: string) => {
-    requestEditorLeave(
-      () => {
-        if (tab === 'presets') {
-          if (target) {
-            const selectedName = presets.some(
-              (preset) => preset.name === presetName,
-            )
-              ? presetName
-              : DEFAULT_PRESET_NAME;
-            setPresetName(selectedName);
-            setPresetEditorOpen(true);
-          } else {
-            setPresetEditorOpen(false);
-          }
-        }
-        setActiveTab(tab);
-        setPresetEditorOpen(false);
+    requestEditorLeave(() => {
+      if (tab === 'presets') {
         if (target) {
-          window.setTimeout(() => scrollToSection(target), 0);
+          const selectedName = presets.some(
+            (preset) => preset.name === presetName,
+          )
+            ? presetName
+            : DEFAULT_PRESET_NAME;
+          setPresetName(selectedName);
+          setPresetEditorOpen(true);
+        } else {
+          setPresetEditorOpen(false);
         }
-      },
-      'all',
-    );
+      }
+      setActiveTab(tab);
+      setPresetEditorOpen(false);
+      if (target) {
+        window.setTimeout(() => scrollToSection(target), 0);
+      }
+    }, 'all');
   };
 
   const openPresetEditor = (name: string) => {
@@ -5330,6 +5351,7 @@ export default function AutoResearch() {
     setOfflineScenarioId(Number(setting.offline_scenario_id || 0));
     setOfflineRunningStyle(Number(setting.running_style || 0));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
+    setOfflineDesign(normalizeOfflineDesign(setting.offline_design));
     setOfflineFactorSelection(factorSelectionFromSetting(setting));
     setOfflinePrioritySkillIds(
       normalizeOfflinePrioritySkillIds(setting.offline_priority_skill_ids),
@@ -5340,7 +5362,7 @@ export default function AutoResearch() {
     setCareerSaveOpen(true);
   };
 
-  const createCareerSave = () => {
+  const createCareerSave = (goal: OfflineDesign['goal'] = 'breeding') => {
     const name = newCareerSaveName.trim();
     if (!name) {
       setError('请先填写新详设名称');
@@ -5381,9 +5403,10 @@ export default function AutoResearch() {
     setRecoverTpWithJewels(false);
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
-    setOfflineScenarioId(0);
+    setOfflineScenarioId(goal === 'breeding' ? 0 : 5);
     setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
+    setOfflineDesign(normalizeOfflineDesign({ goal }));
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
     setOfflinePrioritySkillIds([]);
     setOfflineSkillSettings(createDefaultOfflineSkillSettings());
@@ -5497,6 +5520,7 @@ export default function AutoResearch() {
       recover_tp_with_jewels: recoverTpWithJewels,
       offline_race_deck_num:
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
+      offline_design: careerMode === 'offline' ? offlineDesign : undefined,
       offline_priority_skill_ids:
         careerMode === 'offline'
           ? normalizeOfflinePrioritySkillIds(offlinePrioritySkillIds)
@@ -5648,7 +5672,12 @@ export default function AutoResearch() {
     ]);
 
   useEffect(() => {
-    if (activeTab !== 'career' || !careerSaveOpen || careerMode !== 'offline') {
+    if (
+      activeTab !== 'career' ||
+      !careerSaveOpen ||
+      careerMode !== 'offline' ||
+      offlineDesign.source === 'custom'
+    ) {
       autoPreparedOfflineSetupKey.current = '';
       return;
     }
@@ -5680,6 +5709,7 @@ export default function AutoResearch() {
     offlineSetup,
     offlineSetupRequestKey,
     prepareOfflineCareer,
+    offlineDesign.source,
   ]);
 
   const saveOfflineRaceDeck = async (
@@ -5738,8 +5768,14 @@ export default function AutoResearch() {
   };
 
   const startOfflineCareer = async (mode: RunMode, target: number) => {
-    if (!selectedAccountId || !offlineRaceDeckNum) {
-      setError('请先选择一个游戏赛程槽位');
+    const scheduleError = offlineScheduleError({
+      card_id: effectiveCardId,
+      offline_scenario_id: offlineScenarioId,
+      offline_race_deck_num: offlineRaceDeckNum,
+      offline_design: offlineDesign,
+    });
+    if (!selectedAccountId || scheduleError) {
+      setError(scheduleError || '请先选择账号');
       return false;
     }
     const accountId = selectedAccountId;
@@ -5766,6 +5802,7 @@ export default function AutoResearch() {
             offlineFactorSelection,
           ),
           race_deck_num: offlineRaceDeckNum,
+          ...offlineRaceRequest(offlineDesign),
         },
         mode === 'queue' ? 'single' : mode,
         target,
@@ -5794,8 +5831,9 @@ export default function AutoResearch() {
     mode: RunMode,
     target: number,
   ) => {
-    if (!selectedAccountId || !setting.offline_race_deck_num) {
-      setError('这个离线详设尚未选择游戏赛程槽位');
+    const scheduleError = offlineScheduleError(setting);
+    if (!selectedAccountId || scheduleError) {
+      setError(scheduleError || '请先选择账号');
       return false;
     }
     const accountId = selectedAccountId;
@@ -5847,6 +5885,7 @@ export default function AutoResearch() {
             setting.factor_selection || setting.offline_factor_selection,
           ),
           race_deck_num: setting.offline_race_deck_num,
+          ...offlineRaceRequest(setting.offline_design),
         },
         mode === 'queue' ? 'single' : mode,
         target,
@@ -5913,8 +5952,10 @@ export default function AutoResearch() {
         `详设“${resolved.name}”绑定的预设不存在：${resolved.preset_name}`,
       );
     }
-    if (offline && !resolved.offline_race_deck_num) {
-      throw new Error(`离线详设“${resolved.name}”尚未选择游戏赛程槽位`);
+    if (offline && offlineScheduleError(resolved)) {
+      throw new Error(
+        `离线详设“${resolved.name}”：${offlineScheduleError(resolved)}`,
+      );
     }
     return {
       id: queueItem.id,
@@ -5959,6 +6000,7 @@ export default function AutoResearch() {
           resolved.factor_selection || resolved.offline_factor_selection,
         ),
         race_deck_num: resolved.offline_race_deck_num || 0,
+        ...(offline ? offlineRaceRequest(resolved.offline_design) : {}),
       },
     };
   };
@@ -7326,7 +7368,7 @@ export default function AutoResearch() {
                   const settingParent1 = setting.parent_1_snapshot;
                   const settingParent2 = setting.parent_2_snapshot;
                   const invalid = offline
-                    ? !setting.offline_race_deck_num
+                    ? Boolean(offlineScheduleError(setting))
                     : !presets.some(
                         (preset) => preset.name === setting.preset_name,
                       );
@@ -8675,7 +8717,9 @@ export default function AutoResearch() {
                     setRecoverTpWithItem={setRecoverTpWithItem}
                     recoverTpWithJewels={recoverTpWithJewels}
                     setRecoverTpWithJewels={setRecoverTpWithJewels}
-                    transferMode={offlineFactorSelection.transfer_mode || 'keep'}
+                    transferMode={
+                      offlineFactorSelection.transfer_mode || 'keep'
+                    }
                     setTransferMode={(mode) =>
                       setOfflineFactorSelection((current) => ({
                         ...current,
@@ -8695,6 +8739,7 @@ export default function AutoResearch() {
                     }
                     offlineScenarioId={offlineScenarioId}
                     changeOfflineScenario={(selectedScenarioId) => {
+                      if (selectedScenarioId === offlineScenarioId) return;
                       setOfflineScenarioId(selectedScenarioId);
                       setOfflineSetup(null);
                       setOfflineSetupAccountId('');
@@ -8703,6 +8748,8 @@ export default function AutoResearch() {
                     offlineRunningStyle={offlineRunningStyle}
                     setOfflineRunningStyle={setOfflineRunningStyle}
                     offlineRaceDeckNum={offlineRaceDeckNum}
+                    offlineDesign={offlineDesign}
+                    setOfflineDesign={setOfflineDesign}
                     setOfflineRaceDeckNum={setOfflineRaceDeckNum}
                     resetOfflineCareer={() => {
                       setOfflineSetup(null);

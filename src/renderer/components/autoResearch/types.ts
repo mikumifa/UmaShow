@@ -708,6 +708,7 @@ export type CareerSetting = {
   recover_tp_with_item: boolean;
   recover_tp_with_jewels: boolean;
   offline_race_deck_num?: number;
+  offline_design?: import('renderer/utils/offlineCareerDesign').OfflineDesign;
   offline_priority_skill_ids?: number[];
   offline_skill_settings?: OfflineSkillSettings;
   factor_selection?: OfflineFactorSelection;

@@ -9,6 +9,8 @@
  * Fans use P(win) * winnerFans; non-winning prizes are approximated as zero.
  * This model does not simulate fan-entry gates or non-race career objectives.
  */
+import { expectedJewelDrops } from './raceJewelModel';
+
 export type Ground = 'turf' | 'dirt';
 export type Distance = 'short' | 'mile' | 'middle' | 'long';
 export type PlanningAptitudes = Record<Ground | Distance, number>;
@@ -31,7 +33,7 @@ export type ScheduleInput = {
   endTurn: number;
   aptitudes: PlanningAptitudes;
   winRates: WinRates;
-  objective: 'fans' | 'wins';
+  objective: 'fans' | 'wins' | 'jewels';
   gradeThreshold: 100 | 200 | 300;
   fanBonusPercent: number;
   fixedRaces: Readonly<Record<number, readonly number[]>>;
@@ -52,6 +54,7 @@ export type ScheduleResult = {
   steps: ScheduleStep[];
   expectedFans: number;
   expectedWins: number;
+  expectedDrops: number;
   raceCount: number;
   missingRatePairs: string[];
   error?: string;
@@ -87,6 +90,7 @@ export function raceWinProbability(
 type Node = {
   fans: number;
   wins: number;
+  drops: number;
   count: number;
   streak: number;
   previous: Node | null;
@@ -100,9 +104,11 @@ function better(
 ) {
   if (!current) return true;
   const primary =
-    objective === 'fans'
-      ? candidate.fans - current.fans
-      : candidate.wins - current.wins;
+    objective === 'jewels'
+      ? candidate.drops - current.drops
+      : objective === 'fans'
+        ? candidate.fans - current.fans
+        : candidate.wins - current.wins;
   if (Math.abs(primary) > 1e-9) return primary > 0;
   const secondary =
     objective === 'fans'
@@ -117,6 +123,7 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
     steps: [],
     expectedFans: 0,
     expectedWins: 0,
+    expectedDrops: 0,
     raceCount: 0,
     missingRatePairs: [],
     error,
@@ -164,7 +171,18 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
   }
   const missing = new Set<string>();
   let frontier = new Map<number, Node>([
-    [0, { fans: 0, wins: 0, count: 0, streak: 0, previous: null, step: null }],
+    [
+      0,
+      {
+        fans: 0,
+        wins: 0,
+        drops: 0,
+        count: 0,
+        streak: 0,
+        previous: null,
+        step: null,
+      },
+    ],
   ]);
   for (let turn = input.startTurn; turn <= input.endTurn; turn += 1) {
     const next = new Map<number, Node>();
@@ -223,6 +241,7 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
         accept({
           fans,
           wins,
+          drops: previous.drops + expectedJewelDrops(probability, streak),
           count: previous.count + 1,
           streak,
           previous,
@@ -263,6 +282,7 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
     steps,
     expectedFans: best?.fans || 0,
     expectedWins: best?.wins || 0,
+    expectedDrops: best?.drops || 0,
     raceCount: best?.count || 0,
     missingRatePairs: [...missing],
   };

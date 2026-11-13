@@ -46,6 +46,7 @@ import ReorderControls from './ReorderControls';
 
 type Props = {
   factorOnly?: boolean;
+  customSchedule?: boolean;
   setup: OfflineSingleModeSetup | null;
   selectedScenarioId: number;
   races: RaceOption[];
@@ -190,6 +191,7 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
 
 export default function OfflineCareerSettings({
   factorOnly = false,
+  customSchedule = false,
   setup,
   selectedScenarioId,
   races,
@@ -1219,8 +1221,8 @@ export default function OfflineCareerSettings({
       </section>
 
       <section
-        id="offline-career-setup"
-        className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+        id={customSchedule ? undefined : 'offline-career-setup'}
+        className={`${factorOnly || customSchedule ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
