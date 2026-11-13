@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Bot,
+  CalendarClock,
   Check,
   ChevronDown,
   Copy,
@@ -60,6 +61,12 @@ const navigationItems = [
     path: '/training-history',
     icon: History,
     matches: ['/training-history'],
+  },
+  {
+    label: '规划',
+    path: '/race-planner',
+    icon: CalendarClock,
+    matches: ['/race-planner'],
   },
 ] as const;
 

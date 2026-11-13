@@ -1820,6 +1820,15 @@
   line-height: 1.6;
 }
 
+.successionAptitudeRow span.successionAptitudeChanged {
+  background: #fef08a;
+  box-shadow: inset 0 0 0 1px #eab308;
+}
+
+.successionAptitudeChanged small {
+  color: #713f12;
+}
+
 .successionAptitudeRow .successionRankIcon {
   height: 20px;
 }

@@ -334,7 +334,6 @@ export type AutoResearchTab =
   | 'presets'
   | 'career'
   | 'daily'
-  | 'planning'
   | 'history';
 
 export type DailyTaskResult = {

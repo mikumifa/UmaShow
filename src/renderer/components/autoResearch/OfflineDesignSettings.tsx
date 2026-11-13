@@ -1,12 +1,15 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { WandSparkles } from 'lucide-react';
-import { InheritanceAptitudes } from 'renderer/ui/SuccessionPlanner';
 import {
   PlannerButton,
   PlannerFactorBadge,
 } from 'renderer/components/succession/PlannerComponents';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
+import {
+  RACE_PLANNER_STORAGE_KEY,
+  storedPlannerFanBonus,
+} from 'renderer/utils/racePlannerPreferences';
 import {
   buildPlanningCalendar,
   PLANNER_CATALOG,
@@ -14,17 +17,18 @@ import {
 } from 'renderer/utils/racePlannerCatalog';
 import {
   designOfflineCareer,
+  isOwnDesignParent,
   recommendOfflineLineages,
   OfflineDesign,
 } from 'renderer/utils/offlineCareerDesign';
 import { Dashboard, RaceOption } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
+import { getSharedStorageItem } from './shared';
 
 type Props = {
   design: OfflineDesign;
   setDesign: Dispatch<SetStateAction<OfflineDesign>>;
   charaId: number;
-  scenarioId: number;
   changeScenario: (id: number) => void;
   parents: Dashboard['parents'];
   selectedParent1: string;
@@ -33,34 +37,16 @@ type Props = {
   busy: string;
 };
 
-export default function OfflineDesignSettings({
+export function OfflineCustomSchedule({
   design,
   setDesign,
   charaId,
   scenarioId,
-  changeScenario,
-  parents,
-  selectedParent1,
-  selectedParent2,
-  setParents,
-  busy,
-}: Props) {
-  const [result, setResult] = useState<ReturnType<
-    typeof designOfflineCareer
-  > | null>(null);
-  const [error, setError] = useState('');
-  const [designing, setDesigning] = useState(false);
-  useEffect(() => {
-    if (
-      result?.best &&
-      (result.best.parents[0].selection_id !== selectedParent1 ||
-        result.best.parents[1].selection_id !== selectedParent2)
-    )
-      setResult(null);
-  }, [result, selectedParent1, selectedParent2]);
-  const character = PLANNER_CATALOG.characters.find(
-    (item) => item.id === charaId,
-  );
+  disabled = false,
+}: Pick<Props, 'design' | 'setDesign' | 'charaId'> & {
+  scenarioId: number;
+  disabled?: boolean;
+}) {
   const calendar = useMemo(
     () => buildPlanningCalendar(charaId, scenarioId || 5, design.routeId),
     [charaId, scenarioId, design.routeId],
@@ -68,11 +54,7 @@ export default function OfflineDesignSettings({
   const options = useMemo<RaceOption[]>(
     () =>
       calendar.races
-        .filter(
-          (race) =>
-            !calendar.fixedRaces[race.turn] &&
-            !calendar.blockedTurns.includes(race.turn),
-        )
+        .filter((race) => !calendar.blockedTurns.includes(race.turn))
         .map((race) => ({
           id: race.id,
           program_id: race.programId,
@@ -87,6 +69,9 @@ export default function OfflineDesignSettings({
                 300: 'GIII',
                 400: 'OP',
                 700: 'PRE-OP',
+                800: '未胜利',
+                900: '出道',
+                1000: 'EX',
               } as Record<number, string>
             )[race.grade] || '其他',
           terrain: race.ground === 'turf' ? '草地' : '泥地',
@@ -102,6 +87,60 @@ export default function OfflineDesignSettings({
         })),
     [calendar],
   );
+  if (!charaId) {
+    return <p className="text-label text-gray-500">先选择育成马娘</p>;
+  }
+  return (
+    <RaceSchedulePicker
+      title="参赛计划"
+      races={options}
+      lockedRaces={calendar.fixedRaces}
+      selectedRaceIds={design.raceIds}
+      setSelectedRaceIds={
+        disabled
+          ? undefined
+          : (value) => {
+              setDesign((current) => ({
+                ...current,
+                raceIds:
+                  typeof value === 'function' ? value(current.raceIds) : value,
+              }));
+            }
+      }
+    />
+  );
+}
+
+export default function OfflineDesignSettings({
+  design,
+  setDesign,
+  charaId,
+  changeScenario,
+  parents,
+  selectedParent1,
+  selectedParent2,
+  setParents,
+  busy,
+}: Props) {
+  const [result, setResult] = useState<ReturnType<
+    typeof designOfflineCareer
+  > | null>(null);
+  const [error, setError] = useState('');
+  const [designing, setDesigning] = useState(false);
+  useEffect(() => {
+    if (
+      result &&
+      (design.source !== 'custom' ||
+        design.raceIds !== result.raceIds ||
+        (result.best &&
+          (result.best.parents[0].selection_id !== selectedParent1 ||
+            result.best.parents[1].selection_id !== selectedParent2)))
+    )
+      setResult(null);
+  }, [result, selectedParent1, selectedParent2, design.source, design.raceIds]);
+  const character = PLANNER_CATALOG.characters.find(
+    (item) => item.id === charaId,
+  );
   const patch = (values: Partial<OfflineDesign>) => {
     setDesign((current) => ({ ...current, ...values }));
     setResult(null);
@@ -112,9 +151,16 @@ export default function OfflineDesignSettings({
     setDesigning(true);
     setError('');
     // Allow the button's pending state to paint before the local search.
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
     try {
-      const next = designOfflineCareer(character, design, parents);
+      const next = designOfflineCareer(
+        character,
+        design,
+        parents.filter(isOwnDesignParent),
+        storedPlannerFanBonus(getSharedStorageItem(RACE_PLANNER_STORAGE_KEY)),
+      );
       changeScenario(5);
       setParents(
         next.best?.parents[0].selection_id || '',
@@ -124,6 +170,10 @@ export default function OfflineDesignSettings({
         ...current,
         source: 'custom',
         raceIds: next.raceIds,
+        inheritance: next.demands.map((demand) => demand.key),
+        targets: Object.fromEntries(
+          next.demands.map((demand) => [demand.key, demand.target]),
+        ),
       }));
       setResult(next);
     } catch (caught) {
@@ -134,10 +184,7 @@ export default function OfflineDesignSettings({
     }
   };
   return (
-    <section
-      id={design.source === 'custom' ? 'offline-career-setup' : undefined}
-      className="space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-    >
+    <section className="space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="mr-1 text-section">养成目标</strong>
@@ -173,118 +220,6 @@ export default function OfflineDesignSettings({
           </PlannerButton>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-label">
-        <span className="text-gray-500">赛程来源</span>
-        {(
-          [
-            ['api', '读取游戏 API'],
-            ['custom', '自行配置'],
-          ] as const
-        ).map(([source, label]) => (
-          <label key={source} className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="offline-schedule-source"
-              checked={design.source === source}
-              disabled={!!busy || designing}
-              onChange={() => {
-                patch({ source });
-                if (source === 'custom' && !scenarioId) changeScenario(5);
-              }}
-            />
-            {label}
-          </label>
-        ))}
-        {design.goal !== 'breeding' && (
-          <span className="text-indigo-600">荣耀女神杯</span>
-        )}
-        {design.goal !== 'breeding' && !character && (
-          <span className="text-gray-500">先选择育成马娘</span>
-        )}
-      </div>
-      {design.goal !== 'breeding' && (
-        <details>
-          <summary className="cursor-pointer text-label text-indigo-700">
-            适应性改造与固定比赛
-          </summary>
-          {character ? (
-            <div className="successionPlanner mt-3 space-y-3">
-              <InheritanceAptitudes
-                target={{ ...character, relationTypes: [] }}
-                selected={design.inheritance}
-                targets={design.targets}
-                onToggle={(key) =>
-                  patch({
-                    inheritance: design.inheritance.includes(key)
-                      ? design.inheritance.filter((item) => item !== key)
-                      : [...design.inheritance, key],
-                  })
-                }
-                onConfigure={(key, rank) =>
-                  patch({
-                    inheritance: [...new Set([...design.inheritance, key])],
-                    targets: { ...design.targets, [key]: rank },
-                  })
-                }
-              />
-              {calendar.routes.length > 1 && (
-                <label className="text-label">
-                  生涯目标
-                  <select
-                    className="ml-2 rounded border bg-white px-2 py-1"
-                    value={design.routeId || calendar.routes[0].id}
-                    onChange={(event) =>
-                      patch({ routeId: Number(event.target.value) })
-                    }
-                  >
-                    {calendar.routes.map((route) => (
-                      <option key={route.id} value={route.id}>
-                        路线 {route.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <details className="text-label text-gray-600">
-                <summary className="cursor-pointer">
-                  生涯目标 · {Object.keys(calendar.fixedRaces).length} 场
-                </summary>
-                <div className="mt-2 space-y-1">
-                  {Object.entries(calendar.fixedRaces).map(([turn, ids]) => (
-                    <p key={turn}>
-                      {planningDate(Number(turn))} ·{' '}
-                      {ids
-                        .map(
-                          (id) =>
-                            calendar.races.find((race) => race.id === id)
-                              ?.name || id,
-                        )
-                        .join(' / ')}
-                    </p>
-                  ))}
-                </div>
-              </details>
-              <RaceSchedulePicker
-                title="手动固定比赛"
-                races={options}
-                selectedRaceIds={design.fixedIds}
-                setSelectedRaceIds={(value) => {
-                  setResult(null);
-                  setDesign((current) => ({
-                    ...current,
-                    fixedIds:
-                      typeof value === 'function'
-                        ? value(current.fixedIds)
-                        : value,
-                  }));
-                }}
-              />
-            </div>
-          ) : (
-            <p className="mt-2 text-label text-gray-500">先选择育成马娘</p>
-          )}
-        </details>
-      )}
       {error && (
         <p role="alert" className="text-label text-red-600">
           {error}
@@ -303,12 +238,7 @@ export default function OfflineDesignSettings({
                 : `期望粉丝 ${Math.round(result.schedule.expectedFans).toLocaleString()}`}
             </span>
           </div>
-          {result.best ? (
-            <p className="text-gray-600">
-              {result.best.parents.map((parent) => parent.name).join(' × ')} ·
-              红 {result.best.redTotal}★ / 蓝 {result.best.blue}★
-            </p>
-          ) : (
+          {!result.best && (
             <div className="rounded-lg border border-rose-200 bg-white p-3">
               <strong className="text-rose-700">
                 推荐种马因子 · 两侧及祖辈合计
@@ -338,7 +268,7 @@ export default function OfflineDesignSettings({
               <p className="mt-2 text-gray-500">
                 {result.demands.length
                   ? '按上述红因子组合寻找种马，蓝因子任选。'
-                  : '需要两位不同角色的种马，最多租借一位。'}
+                  : '需要两位不同角色的自有继承马娘。'}
               </p>
               <details className="mt-2" open>
                 <summary className="cursor-pointer text-rose-700">
@@ -381,41 +311,7 @@ export default function OfflineDesignSettings({
               </details>
             </div>
           )}
-          <details className="text-gray-500">
-            <summary className="cursor-pointer">估算说明</summary>
-            <p className="mt-1">
-              参考胜率；掉落按胜利后 5%，第 4 连战起 4%。未计支援粉丝加成。
-            </p>
-            {result.notes.map((note) => (
-              <p key={note}>{note}</p>
-            ))}
-          </details>
         </div>
-      )}
-      {design.source === 'custom' && character && (
-        <details open={design.raceIds.length === 0}>
-          <summary className="cursor-pointer text-label text-indigo-700">
-            自定义赛程 · {design.raceIds.length} 场额外比赛
-          </summary>
-          <div className="mt-3">
-            <RaceSchedulePicker
-              title="参赛计划"
-              notice="生涯目标由游戏自动执行；额外赛程随详设保存。"
-              races={options}
-              selectedRaceIds={design.raceIds}
-              setSelectedRaceIds={(value) => {
-                setResult(null);
-                setDesign((current) => ({
-                  ...current,
-                  raceIds:
-                    typeof value === 'function'
-                      ? value(current.raceIds)
-                      : value,
-                }));
-              }}
-            />
-          </div>
-        </details>
       )}
     </section>
   );

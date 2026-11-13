@@ -1,5 +1,12 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
+import {
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   CalendarDays,
   Check,
@@ -22,6 +29,10 @@ import {
   PlannerPortrait,
   PlannerSelectionCard,
 } from 'renderer/components/succession/PlannerComponents';
+import {
+  matchesParentFactorFilters,
+  ParentFactorFilter,
+} from 'renderer/utils/parentFactorFilters';
 import { compareRaces } from './shared';
 import SkillSelector, {
   AutoResearchSkill,
@@ -43,10 +54,14 @@ import {
 } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import ReorderControls from './ReorderControls';
+import ParentFactorFilters from './ParentFactorFilters';
 
 type Props = {
   factorOnly?: boolean;
   customSchedule?: boolean;
+  setCustomSchedule?: (custom: boolean) => void;
+  customScheduleContent?: ReactNode;
+  customRaceCount?: number;
   setup: OfflineSingleModeSetup | null;
   selectedScenarioId: number;
   races: RaceOption[];
@@ -92,11 +107,6 @@ const APTITUDE_FACTORS: OfflineFactorTarget[] = [
   { factor_group_id: 33, name: '中距离', kind: 'aptitude', weight: 1 },
   { factor_group_id: 34, name: '长距离', kind: 'aptitude', weight: 1 },
 ];
-
-const BLUE_FACTOR_FILTERS = BLUE_FACTORS.map(([, label], index) => ({
-  factor_group_id: index + 1,
-  name: label,
-}));
 
 const APTITUDE_FACTOR_GROUP_IDS = new Set(
   APTITUDE_FACTORS.map((factor) => factor.factor_group_id),
@@ -192,6 +202,9 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
 export default function OfflineCareerSettings({
   factorOnly = false,
   customSchedule = false,
+  setCustomSchedule,
+  customScheduleContent,
+  customRaceCount = 0,
   setup,
   selectedScenarioId,
   races,
@@ -228,14 +241,14 @@ export default function OfflineCareerSettings({
     useState(false);
   const [specificLineageSource, setSpecificLineageSource] =
     useState<LineageSourceFilter>('all');
-  const [specificLineageBlueFactors, setSpecificLineageBlueFactors] = useState<
-    number[]
-  >([]);
-  const [specificLineageBlueStars, setSpecificLineageBlueStars] = useState(0);
-  const [specificLineageAptitudeFactors, setSpecificLineageAptitudeFactors] =
-    useState<number[]>([]);
-  const [specificLineageAptitudeStars, setSpecificLineageAptitudeStars] =
-    useState(0);
+  const [specificLineageFactorFilters, setSpecificLineageFactorFilters] =
+    useState<ParentFactorFilter[]>([]);
+  const specificLineageBlueFactors = specificLineageFactorFilters
+    .filter((item) => item.groupId <= 5)
+    .map((item) => item.groupId);
+  const specificLineageAptitudeFactors = specificLineageFactorFilters
+    .filter((item) => item.groupId > 5)
+    .map((item) => item.groupId);
   const [specificLineageSort, setSpecificLineageSort] =
     useState<LineageSort>('score');
   const [specificLineageSortDirection, setSpecificLineageSortDirection] =
@@ -512,13 +525,6 @@ export default function OfflineCareerSettings({
     (parent) => parent.selection_id === factorSelection.lineage.selection_id,
   );
   const selectedLineageParentRental = isRentalParent(selectedLineageParent);
-  const requiredSpecificLineageBlueStars = specificLineageBlueFactors.length
-    ? Math.max(1, specificLineageBlueStars)
-    : specificLineageBlueStars;
-  const requiredSpecificLineageAptitudeStars =
-    specificLineageAptitudeFactors.length
-      ? Math.max(1, specificLineageAptitudeStars)
-      : specificLineageAptitudeStars;
   const filteredLineageParents = parents
     .filter((parent) => {
       if (
@@ -534,20 +540,8 @@ export default function OfflineCareerSettings({
       ) {
         return false;
       }
-      if (
-        requiredSpecificLineageBlueStars > 0 &&
-        parentFactorStars(parent, 'blue', specificLineageBlueFactors) <
-          requiredSpecificLineageBlueStars
-      ) {
+      if (!matchesParentFactorFilters(parent, specificLineageFactorFilters))
         return false;
-      }
-      if (
-        requiredSpecificLineageAptitudeStars > 0 &&
-        parentFactorStars(parent, 'aptitude', specificLineageAptitudeFactors) <
-          requiredSpecificLineageAptitudeStars
-      ) {
-        return false;
-      }
       if (!normalizedSpecificLineageSearch) return true;
       return [
         parent.name,
@@ -587,10 +581,7 @@ export default function OfflineCareerSettings({
     });
   const specificLineageHasFilters = Boolean(
     specificLineageSource !== 'all' ||
-      specificLineageBlueFactors.length ||
-      specificLineageBlueStars ||
-      specificLineageAptitudeFactors.length ||
-      specificLineageAptitudeStars ||
+      specificLineageFactorFilters.length ||
       specificLineageSort !== 'score' ||
       specificLineageSortDirection !== 'desc',
   );
@@ -1221,82 +1212,123 @@ export default function OfflineCareerSettings({
       </section>
 
       <section
-        id={customSchedule ? undefined : 'offline-career-setup'}
-        className={`${factorOnly || customSchedule ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
+        id="offline-career-setup"
+        className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
               4
             </span>
-            <div>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h3 className="text-section font-semibold text-gray-800">
                 赛程设置
               </h3>
-              <p className="text-label text-gray-500">
-                详设只保存游戏赛程槽位 ID，启动时直接使用服务器上的槽位内容。
-              </p>
+              {customSchedule && (
+                <span className="text-label text-gray-500">
+                  自定义赛程 · {customRaceCount} 场额外比赛
+                </span>
+              )}
             </div>
           </div>
+          {setCustomSchedule && (
+            <div className="flex items-center gap-2 text-label">
+              <span
+                className={
+                  customSchedule
+                    ? 'text-slate-500'
+                    : 'font-semibold text-indigo-700'
+                }
+              >
+                游戏内预设赛程
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-label="本体配置"
+                aria-checked={customSchedule}
+                disabled={Boolean(busy)}
+                onClick={() => setCustomSchedule(!customSchedule)}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 ${customSchedule ? 'bg-indigo-600' : 'bg-slate-300'}`}
+              >
+                <span
+                  className={`absolute left-0 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${customSchedule ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </button>
+              <span
+                className={
+                  customSchedule
+                    ? 'font-semibold text-indigo-700'
+                    : 'text-slate-500'
+                }
+              >
+                本体配置
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="mt-4 max-w-7xl">
-          <div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {deckOptions.map((deck) => {
-                const selected = selectedDeckNum === deck.deck_num;
-                return (
-                  <article
-                    key={deck.deck_num}
-                    className={`flex min-h-16 min-w-0 items-center gap-2 rounded-lg border bg-white p-2.5 text-data transition ${
-                      selected
-                        ? 'border-indigo-400 ring-2 ring-indigo-100'
-                        : 'border-slate-200'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setSelectedDeckNum(deck.deck_num)}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
+        {customSchedule ? (
+          <div className="mt-4">{customScheduleContent}</div>
+        ) : (
+          <div className="mt-4 max-w-7xl">
+            <div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {deckOptions.map((deck) => {
+                  const selected = selectedDeckNum === deck.deck_num;
+                  return (
+                    <article
+                      key={deck.deck_num}
+                      className={`flex min-h-16 min-w-0 items-center gap-2 rounded-lg border bg-white p-2.5 text-data transition ${
+                        selected
+                          ? 'border-indigo-400 ring-2 ring-indigo-100'
+                          : 'border-slate-200'
+                      }`}
                     >
-                      <span
-                        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
-                          selected
-                            ? 'border-indigo-600 bg-indigo-600 text-white'
-                            : 'border-slate-300 text-transparent'
-                        }`}
+                      <button
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setSelectedDeckNum(deck.deck_num)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700"
                       >
-                        <Check size={12} strokeWidth={3} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <strong className="block truncate">
-                          槽位 {deck.deck_num} ·{' '}
-                          {setup ? deck.deck_name || '空槽位' : '待读取'}
-                        </strong>
-                        <span className="text-caption text-slate-500">
-                          {busy === 'idle-prepare'
-                            ? '正在读取赛程…'
-                            : setup
-                              ? `${deck.race_array.length} 场比赛`
-                              : '暂无数据'}
+                        <span
+                          className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border ${
+                            selected
+                              ? 'border-indigo-600 bg-indigo-600 text-white'
+                              : 'border-slate-300 text-transparent'
+                          }`}
+                        >
+                          <Check size={12} strokeWidth={3} />
                         </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => editDeck(deck.deck_num)}
-                      disabled={Boolean(busy)}
-                      className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-caption font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
-                    >
-                      <Pencil size={12} /> 编辑
-                    </button>
-                  </article>
-                );
-              })}
+                        <span className="min-w-0 flex-1">
+                          <strong className="block truncate">
+                            槽位 {deck.deck_num} ·{' '}
+                            {setup ? deck.deck_name || '空槽位' : '待读取'}
+                          </strong>
+                          <span className="text-caption text-slate-500">
+                            {busy === 'idle-prepare'
+                              ? '正在读取赛程…'
+                              : setup
+                                ? `${deck.race_array.length} 场比赛`
+                                : '暂无数据'}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => editDeck(deck.deck_num)}
+                        disabled={Boolean(busy)}
+                        className="flex flex-none items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-caption font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                      >
+                        <Pencil size={12} /> 编辑
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       {!factorOnly && editingDeckNum ? (
@@ -1946,7 +1978,7 @@ export default function OfflineCareerSettings({
         <SuccessionPickerDialog
           ariaLabel="指定已有马娘"
           title="正在选择已有马娘"
-          description="选择一组完整谱系作为另一侧父辈；可继续切换，并查看本体、两位父辈与全部因子。"
+          description="选择一组完整谱系作为另一侧父辈，选中后自动关闭；可查看本体、两位父辈与全部因子。"
           onClose={() => setSpecificLineagePickerOpen(false)}
           dialogClassName="successionCapturedPickerDialog"
           searchValue={specificLineageSearch}
@@ -1960,199 +1992,38 @@ export default function OfflineCareerSettings({
             summary={specificLineageHasFilters ? '已启用筛选' : '全部已有马娘'}
             onClear={() => {
               setSpecificLineageSource('all');
-              setSpecificLineageBlueFactors([]);
-              setSpecificLineageBlueStars(0);
-              setSpecificLineageAptitudeFactors([]);
-              setSpecificLineageAptitudeStars(0);
+              setSpecificLineageFactorFilters([]);
               setSpecificLineageSort('score');
               setSpecificLineageSortDirection('desc');
             }}
           >
             <div className="successionCapturedPickerFilters border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-              <div className="autoResearchAdaptiveColumns grid gap-3">
-                <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <strong className="text-caption text-slate-700">
-                      基础筛选
-                    </strong>
-                    <span className="text-caption text-slate-500">
-                      属性可多选
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-12 text-caption font-medium text-slate-500">
-                      来源
-                    </span>
-                    {(
-                      [
-                        ['all', '全部'],
-                        ['own', '自己的'],
-                        ['rental', '玩家借用'],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        aria-pressed={specificLineageSource === value}
-                        onClick={() => setSpecificLineageSource(value)}
-                        className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                          specificLineageSource === value
-                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="my-2 border-t border-slate-100" />
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-12 text-caption font-medium text-slate-500">
-                      属性
-                    </span>
-                    <button
-                      type="button"
-                      aria-pressed={!specificLineageBlueFactors.length}
-                      onClick={() => setSpecificLineageBlueFactors([])}
-                      className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                        !specificLineageBlueFactors.length
-                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                      }`}
-                    >
-                      任意
-                    </button>
-                    {BLUE_FACTOR_FILTERS.map((factor) => {
-                      const selected = specificLineageBlueFactors.includes(
-                        factor.factor_group_id,
-                      );
-                      return (
-                        <button
-                          key={factor.factor_group_id}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() =>
-                            setSpecificLineageBlueFactors((current) =>
-                              selected
-                                ? current.filter(
-                                    (id) => id !== factor.factor_group_id,
-                                  )
-                                : [...current, factor.factor_group_id],
-                            )
-                          }
-                          className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                            selected
-                              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                          }`}
-                        >
-                          {factor.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="w-12 text-caption font-medium text-slate-500">
-                      星级
-                    </span>
-                    {[0, 1, 2, 3].map((stars) => (
-                      <button
-                        key={stars}
-                        type="button"
-                        aria-pressed={specificLineageBlueStars === stars}
-                        onClick={() => setSpecificLineageBlueStars(stars)}
-                        className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                          specificLineageBlueStars === stars
-                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                        }`}
-                      >
-                        {stars ? `${stars}★${stars < 3 ? '+' : ''}` : '不限'}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <strong className="text-caption text-slate-700">
-                      适应性因子
-                    </strong>
-                    <button
-                      type="button"
-                      onClick={() => setSpecificLineageAptitudeFactors([])}
-                      className={`successionCapturedPickerCompactControl rounded-md border px-2 py-0.5 text-caption font-medium transition-colors ${
-                        !specificLineageAptitudeFactors.length
-                          ? 'border-pink-300 bg-pink-50 text-pink-700'
-                          : 'border-slate-200 bg-white text-slate-500 hover:border-pink-200'
-                      }`}
-                    >
-                      任意类型
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {RED_FACTOR_GROUPS.map((group) => (
-                      <div
-                        key={group.label}
-                        className="flex flex-wrap items-center gap-1.5"
-                      >
-                        <span className="w-12 text-caption font-medium text-slate-500">
-                          {group.label}
-                        </span>
-                        {group.factors.map((factor) => {
-                          const selected =
-                            specificLineageAptitudeFactors.includes(
-                              factor.factor_group_id,
-                            );
-                          return (
-                            <button
-                              key={factor.factor_group_id}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() =>
-                                setSpecificLineageAptitudeFactors((current) =>
-                                  selected
-                                    ? current.filter(
-                                        (id) => id !== factor.factor_group_id,
-                                      )
-                                    : [...current, factor.factor_group_id],
-                                )
-                              }
-                              className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                                selected
-                                  ? 'border-pink-300 bg-pink-50 text-pink-700'
-                                  : 'border-slate-200 bg-white text-slate-600 hover:border-pink-200'
-                              }`}
-                            >
-                              {factor.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                    <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
-                      <span className="w-12 text-caption font-medium text-slate-500">
-                        星级
-                      </span>
-                      {[0, 1, 2, 3].map((stars) => (
-                        <button
-                          key={stars}
-                          type="button"
-                          aria-pressed={specificLineageAptitudeStars === stars}
-                          onClick={() => setSpecificLineageAptitudeStars(stars)}
-                          className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${
-                            specificLineageAptitudeStars === stars
-                              ? 'border-pink-300 bg-pink-50 text-pink-700'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-pink-200'
-                          }`}
-                        >
-                          {stars ? `${stars}★${stars < 3 ? '+' : ''}` : '不限'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </section>
+              <div className="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2">
+                <span className="mr-1 text-caption font-semibold text-slate-700">
+                  来源
+                </span>
+                {(
+                  [
+                    ['all', '全部'],
+                    ['own', '自己的'],
+                    ['rental', '玩家借用'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={specificLineageSource === value}
+                    onClick={() => setSpecificLineageSource(value)}
+                    className={`rounded-md border px-2.5 py-1 text-caption font-medium transition-colors ${specificLineageSource === value ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+              <ParentFactorFilters
+                filters={specificLineageFactorFilters}
+                setFilters={setSpecificLineageFactorFilters}
+              />
 
               <section className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -2223,6 +2094,7 @@ export default function OfflineCareerSettings({
                         selection_id: parent.selection_id,
                       },
                     });
+                    setSpecificLineagePickerOpen(false);
                   }}
                 />
               ))}
@@ -2240,7 +2112,7 @@ export default function OfflineCareerSettings({
           ariaLabel="选择谱系树马娘"
           eyebrow="LINEAGE TREE"
           title={`正在选择${LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}`}
-          description="点击卡片选择，可继续切换；使用右上角按钮关闭。"
+          description="点击卡片选择，选中后自动关闭。"
           onClose={() => setLineageTreePicker('')}
           overlayClassName="plannerElevatedOverlay"
           searchValue={lineageTreeSearch}
@@ -2252,9 +2124,10 @@ export default function OfflineCareerSettings({
               <span>找到 {filteredLineageCharaOptions.length} 位马娘</span>
               <button
                 type="button"
-                onClick={() =>
-                  updateLineageTreeSlot(lineageTreePicker, { chara_id: 0 })
-                }
+                onClick={() => {
+                  updateLineageTreeSlot(lineageTreePicker, { chara_id: 0 });
+                  setLineageTreePicker('');
+                }}
               >
                 设为不固定
               </button>
@@ -2301,6 +2174,7 @@ export default function OfflineCareerSettings({
                       route_id: current.route_id || 'none',
                       min_factor_stars: 0,
                     });
+                    setLineageTreePicker('');
                   }}
                 />
               );

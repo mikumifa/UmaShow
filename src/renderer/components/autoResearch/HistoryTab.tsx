@@ -24,7 +24,7 @@ import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
 import RaceJewelStats from './RaceJewelStats';
 import HistoryMetrics, {
-  averageRunMetrics,
+  totalRunMetrics,
   formatHistoryMetric,
   historyMetrics,
   runMetrics,
@@ -476,7 +476,7 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
     .reverse();
   return {
     count,
-    metricsAverage: averageRunMetrics(records),
+    metricsTotal: totalRunMetrics(records),
     cardId: Number(sorted.find((record) => record.card_id)?.card_id || 0),
     startedAt: String(sorted[0]?.started_at || ''),
     endedAt: String(sorted.at(-1)?.ended_at || ''),
@@ -779,15 +779,11 @@ export default function HistoryTab({
             </div>
           ) : null}
 
-          <div className="historyAverageOverview">
-            <div className="historyAverageHeading">
-              <strong>每次育成平均</strong>
-              <span>已完成 {aggregate.count} 次</span>
-            </div>
-            <HistoryMetrics values={aggregate.metricsAverage} average />
-            <p className="mt-2 text-caption text-slate-500">
-              仅统计已完成记录；缺失项不计入对应均值。
-            </p>
+          <div className="historySummaryOverview">
+            <HistoryMetrics
+              values={aggregate.metricsTotal}
+              completedCount={aggregate.count}
+            />
           </div>
         </section>
 
@@ -875,7 +871,7 @@ export default function HistoryTab({
                             </p>
                           ) : null}
                           <div className="mt-3">
-                            <HistoryMetrics values={runMetrics(run)} pending={current} />
+                            <HistoryMetrics values={runMetrics(run)} />
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-2 text-caption text-slate-500">
                             <span className="flex flex-wrap gap-x-3 gap-y-1">
@@ -1349,13 +1345,13 @@ export default function HistoryTab({
                       {formatReportTime(aggregate.startedAt)} 至{' '}
                       {formatReportTime(aggregate.endedAt)}
                     </span>
-                    <span className="mt-1 block text-caption text-slate-500">
-                      已完成 {aggregate.count} 次 · 下方为每次平均
-                    </span>
                   </span>
                 </span>
 
-                <HistoryMetrics values={aggregate.metricsAverage} average />
+                <HistoryMetrics
+                  values={aggregate.metricsTotal}
+                  completedCount={aggregate.count}
+                />
 
                 <ChevronRight
                   size={16}

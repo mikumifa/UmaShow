@@ -44,10 +44,17 @@ def generate(master: Path) -> dict:
         groups = {}
         for row in db.execute('SELECT * FROM single_mode_race_group ORDER BY id'):
             groups.setdefault(row['race_group_id'], []).append(row['race_program_id'])
+        scenario_events = [
+            {'scenarioId': 5, 'turn': row['turn_num'],
+             'programIds': groups.get(row['race_group_id'], [])}
+            for row in db.execute('SELECT * FROM single_mode_venus_sprace_data ORDER BY turn_num')
+        ]
         routes = []
         for route in db.execute('SELECT * FROM single_mode_route WHERE scenario_id IN (0, 6) ORDER BY id'):
             goals = []
-            for row in db.execute('SELECT * FROM single_mode_route_race WHERE race_set_id=? AND target_type=1 ORDER BY sort_id', (route['race_set_id'],)):
+            # 99 marks a conditional replacement goal. Combining these with
+            # the default route creates impossible simultaneous obligations.
+            for row in db.execute('SELECT * FROM single_mode_route_race WHERE race_set_id=? AND target_type=1 AND determine_race_for_generate<>99 ORDER BY sort_id', (route['race_set_id'],)):
                 ids = []
                 if row['condition_type'] == 1:
                     condition = row['condition_id']
@@ -74,6 +81,7 @@ def generate(master: Path) -> dict:
     return {
         'schemaVersion': 1, 'masterSha256': hashlib.sha256(master.read_bytes()).hexdigest(),
         'programs': programs, 'characters': charas, 'routes': routes,
+        'scenarioEvents': scenario_events,
     }
 
 

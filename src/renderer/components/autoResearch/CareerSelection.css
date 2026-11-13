@@ -1,0 +1,48 @@
+.careerSelection > section {
+  min-width: 0;
+}
+
+.careerSelection .successionUmaSelect {
+  height: 100%;
+}
+
+.careerSelection .successionSelectedUma {
+  min-width: 0;
+}
+
+.careerUmaPickerGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+
+.careerUmaPickerGrid .plannerSelectionCard {
+  min-height: 108px;
+}
+
+.careerUmaPickerGrid .plannerSelectionCard.hasState {
+  padding-right: 40px;
+}
+
+.careerUmaPickerGrid .plannerSelectionState {
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.careerUmaPickerGrid .plannerSelectionState > span {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .careerSelection {
+    grid-template-columns: minmax(260px, 1fr) minmax(0, 3fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .careerUmaPickerGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

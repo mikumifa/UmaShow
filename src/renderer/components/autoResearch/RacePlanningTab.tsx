@@ -1,40 +1,49 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { useEffect, useMemo, useState } from 'react';
-import { Download, RotateCcw, Copy, CalendarDays } from 'lucide-react';
+import {
+  Download,
+  RotateCcw,
+  Copy,
+  CalendarDays,
+  List,
+  Trophy,
+} from 'lucide-react';
 import { copyText } from 'autouma/clipboard';
 import {
-  InheritanceAptitudes,
-  inheritanceAllocation,
-  FactorKey,
-  InheritanceTargets,
-} from 'renderer/ui/SuccessionPlanner';
-import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
+  PlannerButton,
+  PlannerPortrait,
+  PlannerSelectionCard,
+  PlannerFactorList,
+} from 'renderer/components/succession/PlannerComponents';
 import {
-  optimizeRaceSchedule,
-  rateKey,
-  ScheduleInput,
-  WinRates,
-} from 'renderer/utils/raceScheduleOptimizer';
+  SuccessionPickerDialog,
+  SuccessionPickerTrigger,
+} from 'renderer/components/succession/SuccessionPicker';
+import { ScheduleInput } from 'renderer/utils/raceScheduleOptimizer';
+import { recommendRaceInheritance } from 'renderer/utils/raceInheritanceRecommendation';
 import {
   buildPlanningCalendar,
   PLANNER_CATALOG,
-  PLANNING_SCENARIOS,
   planningDate,
 } from 'renderer/utils/racePlannerCatalog';
+import { REFERENCE_WIN_RATES } from 'renderer/utils/raceWinRateModel';
+import { expectedJewelDrops } from 'renderer/utils/raceJewelModel';
 import {
-  DEFAULT_WIN_RATES,
-  REFERENCE_WIN_RATES,
-  WIN_RATE_SAMPLES,
-} from 'renderer/utils/raceWinRateModel';
+  RACE_PLANNER_STORAGE_KEY as STORAGE_KEY,
+  RACE_PLANNER_SETTINGS_VERSION as SETTINGS_VERSION,
+  DEFAULT_PLANNER_FAN_BONUS,
+  plannerFanBonus,
+} from 'renderer/utils/racePlannerPreferences';
 import RaceSchedulePicker from './RaceSchedulePicker';
+import RacePlannerLeaderboard from './RacePlannerLeaderboard';
 import { RaceOption } from './types';
 import {
   getSharedStorageItem,
   panelClass,
   setSharedStorageItem,
+  normalizeRaceSelection,
 } from './shared';
 
-const STORAGE_KEY = 'uma-race-planner-v1';
 const RANKS = ['—', 'G', 'F', 'E', 'D', 'C', 'B', 'A', 'S'];
 const GRADE_LABELS: Record<number, string> = {
   100: 'GI',
@@ -53,34 +62,24 @@ const DISTANCE_LABELS = {
   long: '长距离',
 };
 const APTITUDES = ['turf', 'dirt', 'short', 'mile', 'middle', 'long'] as const;
-const BUCKETS = ['1–2 连战', '3 连战', '4 连战', '5 连战', '6+ 连战'];
+const APTITUDE_LABELS = { turf: '草地', dirt: '泥地', ...DISTANCE_LABELS };
 type Settings = {
   charaId: number;
-  scenarioId: number;
   routeId: number;
   objective: 'fans' | 'wins' | 'jewels';
   gradeThreshold: 100 | 200 | 300;
   fanBonus: number;
-  inheritance: FactorKey[];
-  targets: InheritanceTargets;
   manualIds: number[];
   restTurns: number[];
-  rateOverrides: Record<string, string>;
-  rateModel: 'reference' | 'samples';
 };
 const DEFAULT_SETTINGS: Settings = {
   charaId: 1001,
-  scenarioId: 1,
   routeId: 0,
   objective: 'fans',
-  gradeThreshold: 300,
-  fanBonus: 0,
-  inheritance: [],
-  targets: {},
+  gradeThreshold: 100,
+  fanBonus: DEFAULT_PLANNER_FAN_BONUS,
   manualIds: [],
   restTurns: [],
-  rateOverrides: {},
-  rateModel: 'reference',
 };
 
 function loadSettings(): Settings {
@@ -94,11 +93,6 @@ function loadSettings(): Settings {
     return {
       ...DEFAULT_SETTINGS,
       charaId: saved.charaId,
-      scenarioId: PLANNING_SCENARIOS.some(
-        (scenario) => scenario.id === saved.scenarioId,
-      )
-        ? saved.scenarioId
-        : 1,
       routeId: Number(saved.routeId) || 0,
       objective:
         saved.objective === 'wins' || saved.objective === 'jewels'
@@ -106,38 +100,18 @@ function loadSettings(): Settings {
           : 'fans',
       gradeThreshold: [100, 200, 300].includes(saved.gradeThreshold)
         ? saved.gradeThreshold
-        : 300,
-      fanBonus:
-        Number.isFinite(saved.fanBonus) && saved.fanBonus >= 0
-          ? saved.fanBonus
-          : 0,
-      inheritance: Array.isArray(saved.inheritance)
-        ? saved.inheritance.filter((key: FactorKey) =>
-            [...APTITUDES, 'nige', 'senko', 'sashi', 'oikomi'].includes(key),
-          )
-        : [],
-      targets:
-        saved.targets && typeof saved.targets === 'object' ? saved.targets : {},
+        : 100,
+      fanBonus: plannerFanBonus(saved),
       manualIds: Array.isArray(saved.manualIds)
         ? saved.manualIds.filter(Number.isInteger)
         : [],
       restTurns: Array.isArray(saved.restTurns)
         ? saved.restTurns.filter(Number.isInteger)
         : [],
-      rateOverrides:
-        saved.rateOverrides && typeof saved.rateOverrides === 'object'
-          ? saved.rateOverrides
-          : {},
-      rateModel: saved.rateModel === 'samples' ? 'samples' : 'reference',
     };
   } catch {
     return DEFAULT_SETTINGS;
   }
-}
-
-function pairLabel(key: string) {
-  const [ground, distance] = key.split(':').map(Number);
-  return `场地 ${RANKS[ground]} / 距离 ${RANKS[distance]}`;
 }
 
 function saveCsv(rows: Array<Array<string | number>>, name: string) {
@@ -159,13 +133,17 @@ function saveCsv(rows: Array<Array<string | number>>, name: string) {
 export default function RacePlanningTab() {
   const [settings, setSettings] = useState(loadSettings);
   const [search, setSearch] = useState('');
-  const [restTurn, setRestTurn] = useState(13);
-  const [showRest, setShowRest] = useState(false);
+  const [characterPickerOpen, setCharacterPickerOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [resultView, setResultView] = useState<'list' | 'calendar'>('list');
   const [copyStatus, setCopyStatus] = useState('');
   const [storageError, setStorageError] = useState('');
   useEffect(() => {
     try {
-      setSharedStorageItem(STORAGE_KEY, JSON.stringify(settings));
+      setSharedStorageItem(
+        STORAGE_KEY,
+        JSON.stringify({ ...settings, version: SETTINGS_VERSION }),
+      );
       setStorageError('');
     } catch {
       setStorageError('当前浏览器无法保存规划设置，关闭页面后设置会丢失。');
@@ -178,75 +156,10 @@ export default function RacePlanningTab() {
   const character =
     PLANNER_CATALOG.characters.find((item) => item.id === settings.charaId) ||
     PLANNER_CATALOG.characters[0];
-  const target = useMemo(
-    () => ({ ...character, relationTypes: [] }),
-    [character],
-  );
   const calendar = useMemo(
-    () =>
-      buildPlanningCalendar(
-        character.id,
-        settings.scenarioId,
-        settings.routeId,
-      ),
-    [character.id, settings.scenarioId, settings.routeId],
+    () => buildPlanningCalendar(character.id, 5, settings.routeId),
+    [character.id, settings.routeId],
   );
-  const aptitudes = useMemo(() => {
-    const result = { ...target.aptitudes };
-    inheritanceAllocation(
-      target,
-      settings.inheritance,
-      settings.targets,
-    ).forEach((item) => {
-      result[item.type] = item.target;
-    });
-    return result;
-  }, [target, settings.inheritance, settings.targets]);
-  const pairKeys = useMemo(
-    () =>
-      [
-        ...new Set(
-          calendar.races.map((race) =>
-            rateKey(aptitudes[race.ground], aptitudes[race.distanceType]),
-          ),
-        ),
-      ]
-        .sort()
-        .reverse(),
-    [calendar.races, aptitudes],
-  );
-  const baseRates =
-    settings.rateModel === 'samples' ? DEFAULT_WIN_RATES : REFERENCE_WIN_RATES;
-  const rates = useMemo<WinRates>(() => {
-    const values: Record<string, Array<number | null>> = Object.fromEntries(
-      pairKeys.map((key) => [
-        key,
-        [...(baseRates[key] || [null, null, null, null, null])],
-      ]),
-    );
-    Object.entries(settings.rateOverrides).forEach(([key, value]) => {
-      const index = key.lastIndexOf(':');
-      const pair = key.slice(0, index);
-      const bucket = Number(key.slice(index + 1));
-      if (
-        !values[pair] ||
-        !Number.isInteger(bucket) ||
-        bucket < 0 ||
-        bucket > 4
-      )
-        return;
-      const number = Number(value);
-      values[pair][bucket] =
-        typeof value === 'string' &&
-        value.trim() !== '' &&
-        Number.isFinite(number) &&
-        number >= 0 &&
-        number <= 100
-          ? number / 100
-          : null;
-    });
-    return values;
-  }, [pairKeys, settings.rateOverrides, baseRates]);
   const selection = useMemo(() => {
     const fixed = { ...calendar.fixedRaces };
     const errors = [...calendar.errors];
@@ -262,26 +175,17 @@ export default function RacePlanningTab() {
     });
     return { fixed, errors };
   }, [calendar, settings.manualIds]);
-  const restOptions = useMemo(
-    () =>
-      Array.from(
-        { length: calendar.scenario.endTurn - calendar.startTurn + 1 },
-        (_, index) => calendar.startTurn + index,
-      ).filter((turn) => !selection.fixed[turn]),
-    [calendar, selection.fixed],
-  );
-  const selectedRestTurn = restOptions.includes(restTurn)
-    ? restTurn
-    : restOptions[0];
   const input = useMemo<ScheduleInput>(
     () => ({
       races: calendar.races,
+      automaticRaces: calendar.automaticRaces,
       startTurn: calendar.startTurn,
       endTurn: calendar.scenario.endTurn,
-      aptitudes,
-      winRates: rates,
+      aptitudes: character.aptitudes,
+      winRates: REFERENCE_WIN_RATES,
       objective: settings.objective,
-      gradeThreshold: settings.gradeThreshold,
+      gradeThreshold:
+        settings.objective === 'wins' ? settings.gradeThreshold : 100,
       fanBonusPercent: settings.fanBonus,
       fixedRaces: selection.fixed,
       blockedTurns: calendar.blockedTurns,
@@ -289,8 +193,7 @@ export default function RacePlanningTab() {
     }),
     [
       calendar,
-      aptitudes,
-      rates,
+      character,
       settings.objective,
       settings.gradeThreshold,
       settings.fanBonus,
@@ -298,15 +201,19 @@ export default function RacePlanningTab() {
       settings.restTurns,
     ],
   );
-  const result = useMemo(() => optimizeRaceSchedule(input), [input]);
+  const recommendation = useMemo(
+    () => recommendRaceInheritance(input),
+    [input],
+  );
+  const { aptitudes, schedule: result } = recommendation;
   const error = selection.errors[0] || result.error;
-  const electiveOptions = useMemo<RaceOption[]>(
+  const calendarOptions = useMemo<RaceOption[]>(
     () =>
       calendar.races
-        .filter(
-          (race) =>
-            !calendar.fixedRaces[race.turn] &&
-            !calendar.blockedTurns.includes(race.turn),
+        .filter((race) =>
+          calendar.fixedRaces[race.turn]
+            ? calendar.fixedRaces[race.turn].includes(race.id)
+            : !calendar.blockedTurns.includes(race.turn),
         )
         .map((race) => ({
           id: race.id,
@@ -323,20 +230,46 @@ export default function RacePlanningTab() {
         })),
     [calendar],
   );
+  const normalizedSearch = search.trim().toLowerCase();
   const matchedCharacters = PLANNER_CATALOG.characters.filter(
     (item) =>
-      !search ||
-      item.name.includes(search) ||
-      String(item.id).includes(search) ||
-      item.id === character.id,
+      !normalizedSearch ||
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      String(item.id).includes(normalizedSearch),
   );
-  const fixedTurns = Object.keys(calendar.fixedRaces)
-    .map(Number)
-    .sort((a, b) => a - b);
-  const unknownPairs = pairKeys.filter((key) =>
-    rates[key].some((value) => value === null),
+  const planRows = result.steps.flatMap((step) => [
+    {
+      ...step,
+      name: step.race?.name || '休息／训练',
+      programId: step.race?.programId || '',
+      gradeLabel: GRADE_LABELS[step.race?.grade || 0] || '',
+      automatic: false,
+      isRace: !!step.race,
+      expectedDrops: step.race
+        ? expectedJewelDrops(step.winProbability, step.streak)
+        : 0,
+      baseFans: step.race?.fans || 0,
+    },
+    ...result.automaticRaces
+      .filter((race) => race.turn === step.turn)
+      .map((race) => ({
+        ...race,
+        race: null,
+        name: race.name,
+        programId: '',
+        gradeLabel: '剧本重赏',
+        automatic: true,
+        isRace: true,
+        fixed: true,
+        streak: 0,
+        winProbability: 1,
+        baseFans: race.fans,
+      })),
+  ]);
+  const rows = planRows.filter((step) => step.isRace);
+  const resultRaces = calendarOptions.filter((race) =>
+    result.steps.some((step) => step.race?.id === race.id),
   );
-  const rows = result.steps.filter((step) => step.race || showRest);
   const entryWarnings = result.steps.filter(
     (step) =>
       step.race &&
@@ -351,78 +284,56 @@ export default function RacePlanningTab() {
       <section className={panelClass('p-4 sm:p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-section font-bold text-slate-900">赛程规划</h2>
-            <p className="mt-1 text-caption text-slate-500">
-              选择马娘与适应性改造，规划整个剧本内的参赛和休息安排。修改设置后自动重新计算。
-            </p>
+            <h2 className="text-section font-bold text-slate-900">
+              赛程规划{' '}
+              <span className="ml-2 text-label font-medium text-slate-500">
+                荣耀女神杯
+              </span>
+            </h2>
           </div>
-          <PlannerButton
-            variant="secondary"
-            size="small"
-            onClick={() => setSettings(DEFAULT_SETTINGS)}
-          >
-            <RotateCcw size={14} />
-            重置规划
-          </PlannerButton>
+          <div className="flex flex-wrap gap-2">
+            <PlannerButton
+              variant="secondary"
+              size="small"
+              onClick={() => setSettings(DEFAULT_SETTINGS)}
+            >
+              <RotateCcw size={14} />
+              重置规划
+            </PlannerButton>
+            <PlannerButton
+              variant="secondary"
+              size="small"
+              onClick={() => setLeaderboardOpen(true)}
+            >
+              <Trophy size={14} />
+              排行榜
+            </PlannerButton>
+          </div>
         </div>
         {storageError ? (
           <p role="status" className="mt-2 text-amber-700">
             {storageError}
           </p>
         ) : null}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="text-label text-slate-700">
-            育成马娘
-            <input
-              aria-label="搜索规划马娘"
-              placeholder="搜索名称或编号"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-data"
-            />
-            <select
-              aria-label="规划马娘"
-              value={character.id}
-              onChange={(event) => {
-                resetCalendar({
-                  charaId: Number(event.target.value),
-                  inheritance: [],
-                  targets: {},
-                });
-                setSearch('');
-              }}
-              className="mt-1 w-full rounded-lg border border-slate-200 p-2"
-            >
-              {matchedCharacters.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-label text-slate-700">
-            剧本
-            <select
-              aria-label="规划剧本"
-              value={settings.scenarioId}
-              onChange={(event) =>
-                resetCalendar({ scenarioId: Number(event.target.value) })
-              }
-              className="mt-1 block w-full rounded-lg border border-slate-200 p-2"
-            >
-              {PLANNING_SCENARIOS.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-            <span className="mt-2 block text-caption text-slate-500">
-              截至{planningDate(calendar.scenario.endTurn)}
-              {settings.scenarioId === 6
-                ? '；海外期间只安排固定目标赛。'
-                : '；不含之后的决赛。'}
-            </span>
-          </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <SuccessionPickerTrigger
+            label="育成马娘"
+            selected
+            required
+            portrait={
+              <PlannerPortrait
+                path={`chr_icon/${character.id}.png`}
+                alt={character.name}
+              />
+            }
+            onOpen={() => {
+              setSearch('');
+              setCharacterPickerOpen(true);
+            }}
+          >
+            <strong>{character.name}</strong>
+            <small>角色 ID {character.id} · 点击切换</small>
+          </SuccessionPickerTrigger>
           <label className="text-label text-slate-700">
             优化目标
             <select
@@ -431,6 +342,7 @@ export default function RacePlanningTab() {
               onChange={(event) =>
                 patch({
                   objective: event.target.value as Settings['objective'],
+                  gradeThreshold: 100,
                 })
               }
               className="mt-1 block w-full rounded-lg border border-slate-200 p-2"
@@ -439,22 +351,24 @@ export default function RacePlanningTab() {
               <option value="wins">期望重赏胜场最多</option>
               <option value="jewels">期望掉钻次数最多</option>
             </select>
-            <select
-              aria-label="胜场统计级别"
-              value={settings.gradeThreshold}
-              onChange={(event) =>
-                patch({
-                  gradeThreshold: Number(
-                    event.target.value,
-                  ) as Settings['gradeThreshold'],
-                })
-              }
-              className="mt-2 block w-full rounded-lg border border-slate-200 p-2"
-            >
-              <option value={300}>GIII 及以上</option>
-              <option value={200}>GII 及以上</option>
-              <option value={100}>仅 GI</option>
-            </select>
+            {settings.objective === 'wins' ? (
+              <select
+                aria-label="胜场统计级别"
+                value={settings.gradeThreshold}
+                onChange={(event) =>
+                  patch({
+                    gradeThreshold: Number(
+                      event.target.value,
+                    ) as Settings['gradeThreshold'],
+                  })
+                }
+                className="mt-2 block w-full rounded-lg border border-slate-200 p-2"
+              >
+                <option value={100}>仅 GI</option>
+                <option value={200}>GII 及以上</option>
+                <option value={300}>GIII 及以上</option>
+              </select>
+            ) : null}
           </label>
           <label className="text-label text-slate-700">
             粉丝加成（%）
@@ -481,49 +395,116 @@ export default function RacePlanningTab() {
         </div>
       </section>
 
-      <section className={panelClass('p-4 sm:p-5')}>
-        <InheritanceAptitudes
-          target={target}
-          selected={settings.inheritance}
-          targets={settings.targets}
-          onToggle={(type) =>
+      {leaderboardOpen ? (
+        <RacePlannerLeaderboard
+          objective={settings.objective}
+          fanBonus={settings.fanBonus}
+          onObjectiveChange={(objective) => patch({ objective })}
+          onClose={() => setLeaderboardOpen(false)}
+          onSelect={(entry) => {
             patch({
-              inheritance: settings.inheritance.includes(type)
-                ? settings.inheritance.filter((key) => key !== type)
-                : [...settings.inheritance, type],
-            })
-          }
-          onConfigure={(type, rank) =>
-            patch({
-              inheritance: [...new Set([...settings.inheritance, type])],
-              targets: { ...settings.targets, [type]: rank },
-            })
-          }
+              charaId: entry.charaId,
+              routeId: entry.routeId,
+              manualIds: [],
+              restTurns: [],
+              gradeThreshold: 100,
+            });
+            setLeaderboardOpen(false);
+          }}
         />
-        <div className="mt-3 flex flex-wrap gap-2">
+      ) : null}
+
+      {characterPickerOpen ? (
+        <SuccessionPickerDialog
+          ariaLabel="选择规划马娘"
+          title="选择育成马娘"
+          description="选择角色后自动计算继承需求与赛程。切换角色会清空手动比赛和休息安排。"
+          onClose={() => setCharacterPickerOpen(false)}
+          searchValue={search}
+          searchPlaceholder="输入马娘名称或 ID"
+          searchAriaLabel="搜索规划马娘"
+          onSearchChange={setSearch}
+          meta={<span>找到 {matchedCharacters.length} 位马娘</span>}
+          bodyClassName="successionPickerGrid"
+        >
+          {matchedCharacters.length ? (
+            matchedCharacters.map((item) => (
+              <PlannerSelectionCard
+                key={item.id}
+                selected={character.id === item.id}
+                portrait={
+                  <PlannerPortrait
+                    path={`chr_icon/${item.id}.png`}
+                    alt={item.name}
+                    size="large"
+                  />
+                }
+                title={item.name}
+                subtitle={`角色 ID ${item.id}`}
+                onClick={() => {
+                  if (item.id !== character.id)
+                    resetCalendar({
+                      charaId: item.id,
+                    });
+                  setCharacterPickerOpen(false);
+                }}
+              />
+            ))
+          ) : (
+            <div className="successionPickerEmpty">
+              <strong>没有符合条件的马娘</strong>
+              <p>尝试修改名称、ID，或清空搜索。</p>
+              <button type="button" onClick={() => setSearch('')}>
+                清空搜索
+              </button>
+            </div>
+          )}
+        </SuccessionPickerDialog>
+      ) : null}
+
+      <section className={panelClass('p-4 sm:p-5')}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-section font-semibold">需要继承的适应性</h3>
+          <span className="text-caption text-slate-600">
+            系统推荐 · 至少占用 {recommendation.slots} / 6 个红因子槽位
+          </span>
+        </div>
+        {error ? (
+          <p className="mt-3 text-caption text-amber-800">
+            当前约束下无法生成完整方案，请调整固定赛程。
+          </p>
+        ) : null}
+        {!error && recommendation.demands.length > 0 ? (
+          <div className="mt-3 space-y-3">
+            <PlannerFactorList
+              factors={recommendation.demands.map((demand) => ({
+                id: demand.type,
+                name: APTITUDE_LABELS[demand.type],
+                stars: demand.stars,
+                tone: 'aptitude',
+                title: `${RANKS[demand.base]} → ${RANKS[demand.target]}，同类红因子合计至少 ${demand.stars}★，至少 ${demand.slots} 个槽位`,
+              }))}
+            />
+          </div>
+        ) : null}
+        {!error && !recommendation.demands.length ? (
+          <p className="mt-3 text-data text-slate-600">
+            当前初始适应性已满足最优方案，无需额外指定红因子。
+          </p>
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-data">
           {APTITUDES.map((key) => (
-            <span
-              key={key}
-              className="rounded-lg bg-slate-50 px-3 py-2 text-data"
-            >
-              {key === 'turf'
-                ? '草地'
-                : key === 'dirt'
-                  ? '泥地'
-                  : DISTANCE_LABELS[key]}{' '}
+            <span key={key} className="inline-flex items-center gap-2">
+              <span className="text-slate-500">{APTITUDE_LABELS[key]}</span>
               <strong>
-                {RANKS[target.aptitudes[key]]}
-                {target.aptitudes[key] !== aptitudes[key]
+                {RANKS[character.aptitudes[key]]}
+                {character.aptitudes[key] !== aptitudes[key]
                   ? ` → ${RANKS[aptitudes[key]]}`
                   : ''}
               </strong>
             </span>
           ))}
         </div>
-        <p className="mt-2 text-caption text-slate-500">
-          沿用继承规划的红因子槽位限制。胜率模型使用场地和距离适应性，S 暂按 A
-          计算；跑法不影响本模型。
-        </p>
       </section>
 
       <section className={panelClass('p-4 sm:p-5')}>
@@ -550,23 +531,71 @@ export default function RacePlanningTab() {
             </select>
           </label>
         ) : null}
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {fixedTurns.map((turn) => (
-            <div key={turn} className="rounded-lg border border-slate-200 p-3">
-              <span className="block text-caption text-slate-500">
-                {planningDate(turn)} · {calendar.fixedLabels[turn]}
-              </span>
-              <strong className="text-data">
-                {calendar.fixedRaces[turn]
-                  .map(
-                    (id) =>
-                      calendar.races.find((race) => race.id === id)?.name || id,
-                  )
-                  .join(' / ')}
-              </strong>
-            </div>
-          ))}
+        <div className="mt-4">
+          <RaceSchedulePicker
+            key={`${character.id}:${settings.routeId}`}
+            id="optimal-race-fixed"
+            title="参赛与休息安排"
+            races={calendarOptions}
+            automaticRaces={calendar.automaticRaces}
+            selectedRaceIds={settings.manualIds}
+            setSelectedRaceIds={(value) =>
+              setSettings((current) => ({
+                ...current,
+                manualIds:
+                  typeof value === 'function'
+                    ? value(current.manualIds)
+                    : value,
+              }))
+            }
+            planning={{
+              startTurn: calendar.startTurn,
+              endTurn: calendar.scenario.endTurn,
+              fixedRaces: calendar.fixedRaces,
+              fixedLabels: calendar.fixedLabels,
+              blockedTurns: calendar.blockedTurns,
+              restTurns: settings.restTurns,
+              onChange: (turn, action) => {
+                if (calendar.fixedRaces[turn] && action === 'rest') return;
+                if (
+                  calendar.fixedRaces[turn] &&
+                  typeof action === 'number' &&
+                  !calendar.fixedRaces[turn].includes(action)
+                )
+                  return;
+                setSettings((current) => ({
+                  ...current,
+                  manualIds: normalizeRaceSelection(
+                    [
+                      ...current.manualIds.filter(
+                        (id) =>
+                          calendar.races.find((race) => race.id === id)
+                            ?.turn !== turn,
+                      ),
+                      ...(typeof action === 'number' ? [action] : []),
+                    ],
+                    calendarOptions,
+                  ),
+                  restTurns: [
+                    ...current.restTurns.filter((value) => value !== turn),
+                    ...(action === 'rest' ? [turn] : []),
+                  ],
+                }));
+              },
+            }}
+          />
         </div>
+        {settings.manualIds.length || settings.restTurns.length ? (
+          <PlannerButton
+            variant="secondary"
+            size="small"
+            className="mt-4"
+            onClick={() => patch({ manualIds: [], restTurns: [] })}
+          >
+            <RotateCcw size={14} />
+            清除手动安排
+          </PlannerButton>
+        ) : null}
         {calendar.notes.length ? (
           <details className="mt-3 text-caption text-slate-600">
             <summary className="cursor-pointer">
@@ -579,202 +608,18 @@ export default function RacePlanningTab() {
             </ul>
           </details>
         ) : null}
-        <details className="mt-4 rounded-lg border border-slate-200 p-3">
-          <summary className="cursor-pointer text-label font-semibold">
-            手动固定比赛（{settings.manualIds.length} 场）
-          </summary>
-          <div className="mt-3">
-            <RaceSchedulePicker
-              id="optimal-race-fixed"
-              title="选择必须参加的比赛"
-              description="生涯目标所在日期和剧本禁赛日期不可另外安排比赛。"
-              races={electiveOptions}
-              selectedRaceIds={settings.manualIds}
-              setSelectedRaceIds={(value) =>
-                setSettings((current) => ({
-                  ...current,
-                  manualIds:
-                    typeof value === 'function'
-                      ? value(current.manualIds)
-                      : value,
-                }))
-              }
-            />
-          </div>
-          {settings.manualIds.length ? (
-            <button
-              type="button"
-              onClick={() => patch({ manualIds: [] })}
-              className="mt-3 text-caption text-slate-500 underline"
-            >
-              清除手动固定比赛
-            </button>
-          ) : null}
-        </details>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <label className="text-label">
-            固定休息
-            <select
-              aria-label="固定休息日期"
-              value={selectedRestTurn ?? ''}
-              onChange={(event) => setRestTurn(Number(event.target.value))}
-              className="ml-2 rounded-lg border border-slate-200 p-2"
-            >
-              {restOptions.map((turn) => (
-                <option key={turn} value={turn}>
-                  {planningDate(turn)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <PlannerButton
-            size="small"
-            variant="secondary"
-            disabled={selectedRestTurn === undefined}
-            onClick={() => {
-              if (selectedRestTurn !== undefined)
-                patch({
-                  restTurns: [
-                    ...new Set([...settings.restTurns, selectedRestTurn]),
-                  ],
-                });
-            }}
-          >
-            固定休息
-          </PlannerButton>
-          {settings.restTurns.map((turn) => (
-            <button
-              type="button"
-              key={turn}
-              onClick={() =>
-                patch({
-                  restTurns: settings.restTurns.filter(
-                    (value) => value !== turn,
-                  ),
-                })
-              }
-              className="rounded-lg bg-sky-50 px-2 py-1 text-caption text-sky-800"
-              aria-label={`取消${planningDate(turn)}固定休息`}
-            >
-              {planningDate(turn)} ×
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className={panelClass('p-4 sm:p-5')}>
-        <label className="mb-3 block text-label font-semibold">
-          胜率数据来源
-          <select
-            aria-label="胜率数据来源"
-            value={settings.rateModel}
-            onChange={(event) =>
-              patch({
-                rateModel: event.target.value as Settings['rateModel'],
-                rateOverrides: {},
-              })
-            }
-            className="ml-2 rounded-lg border border-slate-200 p-2"
-          >
-            <option value="reference">参考站点完整表（2026-07-26）</option>
-            <option value="samples">截图实测样本表</option>
-          </select>
-        </label>
-        <details open={!!error && unknownPairs.length > 0}>
-          <summary className="cursor-pointer text-label font-semibold">
-            胜率模型 · 可编辑
-            {unknownPairs.length
-              ? `（${unknownPairs.length} 种组合存在缺失数据）`
-              : ''}
-          </summary>
-          <p className="mt-2 text-caption text-slate-500">
-            {settings.rateModel === 'samples'
-              ? '采用截图中的实测胜场／出赛数，未测组合保留空白。'
-              : '采用参考站点的完整估计表，覆盖所有场地与距离适应性组合。'}
-            输入 0–100
-            的百分比，空白表示未知；未知的组合与连战次数不会被自动选用。悬停输入框可查看样本量。
-          </p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-caption">
-              <thead>
-                <tr>
-                  <th className="min-w-36 p-2">适应性组合</th>
-                  {BUCKETS.map((label) => (
-                    <th key={label} className="min-w-24 p-2">
-                      {label}（%）
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pairKeys.map((key) => (
-                  <tr key={key} className="border-t border-slate-100">
-                    <th className="p-2 font-medium">{pairLabel(key)}</th>
-                    {BUCKETS.map((label, index) => {
-                      const field = `${key}:${index}`;
-                      const sample =
-                        settings.rateModel === 'samples'
-                          ? WIN_RATE_SAMPLES[key]?.[index]
-                          : null;
-                      const defaultRate = baseRates[key]?.[index];
-                      return (
-                        <td key={label} className="p-2">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="0.1"
-                            aria-label={`${pairLabel(key)} ${label}胜率`}
-                            title={
-                              sample
-                                ? `实测 ${sample[0]} 胜 / ${sample[1]} 场`
-                                : settings.rateModel === 'reference'
-                                  ? '参考站点完整估计表'
-                                  : '暂无实测样本'
-                            }
-                            value={
-                              settings.rateOverrides[field] ??
-                              (defaultRate == null
-                                ? ''
-                                : (defaultRate * 100).toFixed(2))
-                            }
-                            placeholder="未知"
-                            onChange={(event) =>
-                              patch({
-                                rateOverrides: {
-                                  ...settings.rateOverrides,
-                                  [field]: event.target.value,
-                                },
-                              })
-                            }
-                            className="w-24 rounded border border-slate-200 p-2"
-                          />
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button
-            type="button"
-            onClick={() => patch({ rateOverrides: {} })}
-            className="mt-2 text-caption text-slate-500 underline"
-          >
-            恢复所选来源的胜率
-          </button>
-        </details>
       </section>
 
       <section className={panelClass('p-4 sm:p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-section font-semibold">
-            {settings.objective === 'jewels'
-              ? '期望掉钻最优赛程'
-              : settings.objective === 'fans'
-                ? '期望粉丝最优赛程'
-                : '期望重赏胜场最优赛程'}
+            {
+              {
+                jewels: '期望掉钻最优赛程',
+                fans: '期望粉丝最优赛程',
+                wins: '期望重赏胜场最优赛程',
+              }[settings.objective]
+            }
           </h3>
           <div className="flex flex-wrap gap-2">
             <PlannerButton
@@ -825,24 +670,28 @@ export default function RacePlanningTab() {
                       '固定',
                       '连续出赛',
                       '胜率',
+                      '基础粉丝',
                       '期望粉丝',
                       '累计期望粉丝',
                       '累计期望重赏胜场',
+                      '期望掉落次数',
                     ],
-                    ...result.steps.map((step) => [
+                    ...planRows.map((step) => [
                       character.name,
                       calendar.scenario.name,
-                      planningDate(step.turn),
+                      `${planningDate(step.turn)}${step.automatic ? '结束后' : ''}`,
                       step.turn,
-                      step.race?.name || '休息／训练',
-                      step.race?.programId || '',
-                      GRADE_LABELS[step.race?.grade || 0] || '',
-                      step.fixed ? '是' : '',
-                      step.streak,
-                      step.race ? step.winProbability : '',
+                      step.name,
+                      step.programId,
+                      step.gradeLabel,
+                      step.automatic ? '剧本' : String(step.fixed),
+                      step.automatic ? '' : step.streak,
+                      step.isRace ? step.winProbability : '',
+                      step.baseFans,
                       step.expectedFans,
                       step.totalExpectedFans,
                       step.totalExpectedWins,
+                      step.expectedDrops,
                     ]),
                   ],
                   `${character.name}-${calendar.scenario.name}-最优赛程.csv`,
@@ -868,111 +717,166 @@ export default function RacePlanningTab() {
           </p>
         ) : (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-3 border-y border-slate-200 py-3">
               {[
                 ['期望粉丝', Math.round(result.expectedFans).toLocaleString()],
                 [
-                  `${GRADE_LABELS[settings.gradeThreshold]}及以上期望胜场`,
+                  `期望 ${GRADE_LABELS[input.gradeThreshold]}／剧本胜场`,
                   result.expectedWins.toFixed(2),
                 ],
-                ['参赛次数', String(result.raceCount)],
+                [
+                  '参赛次数',
+                  String(result.raceCount + result.automaticRaces.length),
+                ],
                 ['期望掉落次数', result.expectedDrops.toFixed(2)],
                 [
                   '休息／训练回合',
                   String(result.steps.length - result.raceCount),
                 ],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl bg-slate-50 p-3">
-                  <span className="block text-caption text-slate-500">
-                    {label}
-                  </span>
-                  <strong className="mt-1 block text-section text-indigo-700">
+                <div key={label} className="min-w-28">
+                  <dt className="text-caption text-slate-500">{label}</dt>
+                  <dd className="mt-1 text-section font-semibold tabular-nums text-slate-900">
                     {value}
-                  </strong>
+                  </dd>
                 </div>
               ))}
-            </div>
-            {result.missingRatePairs.length ? (
-              <p className="mt-3 text-caption text-amber-700">
-                部分候选比赛缺少胜率，已排除未知的出赛选项。结果是在当前已知胜率范围内的最优解；可展开胜率模型补充。
-              </p>
-            ) : null}
+            </dl>
             {entryWarnings.length ? (
               <p className="mt-3 text-caption text-amber-700">
                 {entryWarnings.length}{' '}
                 场比赛的报名粉丝门槛高于此前的期望粉丝数；实际报名条件需在游戏中确认。
               </p>
             ) : null}
-            <label className="mt-4 flex items-center gap-2 text-caption">
-              <input
-                type="checkbox"
-                checked={showRest}
-                onChange={(event) => setShowRest(event.target.checked)}
-              />
-              显示休息／训练回合
-            </label>
-            <div className="mt-2 overflow-x-auto">
-              <table
-                className="w-full text-left text-data"
-                aria-label="最优赛程"
+            <div
+              role="group"
+              aria-label="赛程显示方式"
+              className="mt-4 flex gap-2"
+            >
+              <PlannerButton
+                size="small"
+                variant={resultView === 'list' ? 'primary' : 'secondary'}
+                aria-pressed={resultView === 'list'}
+                onClick={() => setResultView('list')}
               >
-                <thead className="border-b border-slate-200 text-caption text-slate-500">
-                  <tr>
-                    {[
-                      '日期',
-                      '比赛',
-                      '连续出赛',
-                      '胜率',
-                      '期望粉丝',
-                      '累计期望胜场',
-                    ].map((label) => (
-                      <th
-                        key={label}
-                        className="whitespace-nowrap p-3 font-medium"
-                      >
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.map((step) => (
-                    <tr key={step.turn}>
-                      <td className="whitespace-nowrap p-3 text-caption">
-                        {planningDate(step.turn)}
-                      </td>
-                      <td className="min-w-40 p-3">
-                        <strong className="font-medium">
-                          {step.race?.name || '休息／训练'}
-                        </strong>
-                        {step.race ? (
-                          <span className="block text-caption text-slate-500">
-                            {GRADE_LABELS[step.race.grade] || '其他'} ·{' '}
-                            {step.race.ground === 'turf' ? '草地' : '泥地'} ·{' '}
-                            {step.race.distance}m
-                            {step.fixed
-                              ? ` · ${calendar.fixedLabels[step.turn] || '手动固定'}`
-                              : ''}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="p-3 tabular-nums">{step.streak || '—'}</td>
-                      <td className="p-3 tabular-nums">
-                        {step.race
-                          ? `${(step.winProbability * 100).toFixed(1)}%`
-                          : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums">
-                        {Math.round(step.expectedFans).toLocaleString()}
-                      </td>
-                      <td className="p-3 tabular-nums">
-                        {step.totalExpectedWins.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                <List size={14} />
+                列表
+              </PlannerButton>
+              <PlannerButton
+                size="small"
+                variant={resultView === 'calendar' ? 'primary' : 'secondary'}
+                aria-pressed={resultView === 'calendar'}
+                onClick={() => setResultView('calendar')}
+              >
+                <CalendarDays size={14} />
+                赛程日历
+              </PlannerButton>
             </div>
+            {resultView === 'calendar' ? (
+              <div className="mt-4">
+                <RaceSchedulePicker
+                  id="optimal-race-result"
+                  title="最优赛程日历"
+                  races={resultRaces}
+                  automaticRaces={calendar.automaticRaces}
+                  selectedRaceIds={resultRaces.map((race) => race.id)}
+                  readOnly
+                  planning={{
+                    startTurn: calendar.startTurn,
+                    endTurn: calendar.scenario.endTurn,
+                    fixedRaces: calendar.fixedRaces,
+                    fixedLabels: calendar.fixedLabels,
+                    blockedTurns: [],
+                    restTurns: result.steps
+                      .filter((step) => !step.race)
+                      .map((step) => step.turn),
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="mt-2 overflow-x-auto">
+                <table
+                  className="w-full text-left text-data"
+                  aria-label="最优赛程"
+                >
+                  <thead className="border-b border-slate-200 text-caption text-slate-500">
+                    <tr>
+                      {[
+                        '日期',
+                        '比赛',
+                        '连续出赛',
+                        '胜率',
+                        '基础粉丝',
+                        '期望粉丝',
+                        '累计期望胜场',
+                        '期望掉落次数',
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className="whitespace-nowrap p-3 font-medium"
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map((step) => (
+                      <tr
+                        key={`${step.turn}:${step.automatic ? 'automatic' : 'regular'}`}
+                      >
+                        <td className="whitespace-nowrap p-3 text-caption">
+                          {planningDate(step.turn)}
+                          {step.automatic ? (
+                            <span className="block text-slate-500">
+                              回合结束后
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="min-w-40 p-3">
+                          <strong className="font-medium">{step.name}</strong>
+                          {step.race ? (
+                            <span className="block text-caption text-slate-500">
+                              {GRADE_LABELS[step.race.grade] || '其他'} ·{' '}
+                              {step.race.ground === 'turf' ? '草地' : '泥地'} ·{' '}
+                              {step.race.distance}m
+                              {step.fixed
+                                ? ` · ${calendar.fixedLabels[step.turn] || '手动固定'}`
+                                : ''}
+                            </span>
+                          ) : null}
+                          {step.automatic ? (
+                            <span className="block text-caption text-slate-500">
+                              剧本
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {step.automatic ? '—' : step.streak || '—'}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {step.isRace
+                            ? `${(step.winProbability * 100).toFixed(1)}%`
+                            : '—'}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {step.baseFans.toLocaleString()}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {Math.round(step.expectedFans).toLocaleString()}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {step.totalExpectedWins.toFixed(2)}
+                        </td>
+                        <td className="p-3 tabular-nums">
+                          {step.expectedDrops.toFixed(3)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -983,11 +887,13 @@ export default function RacePlanningTab() {
         </p>
         <p className="mt-2">
           以回合和连续出赛次数做动态规划；休息会重置连战，固定目标赛必须参加。期望粉丝采用胜率
-          × 冠军粉丝奖励，非冠军粉丝近似为 0。胜场仅计所选重赏级别，EX 不算 GIII
-          以上。
+          × 冠军基础粉丝 ×（1 + 支援卡粉丝加成）× 1.10
+          经验修正；比赛外剧本粉丝暂按 0 计算。胜场仅计所选重赏级别，EX 不算
+          GIII 以上。
         </p>
         <p className="mt-2">
-          这是离线育成的期望收益模型，不模拟属性成长、训练效果、目标通关概率或报名门槛；常规剧本的赛后决赛、自动事件赛不计入。资料未覆盖的胜率保留为未知，不作保证。
+          女神杯三场年末赛按必成功、每场 5%
+          掉落计算，计入粉丝和重赏胜场，不影响普通赛程连战。模型不模拟属性成长、训练效果、目标通关概率或报名门槛。
         </p>
         <p className="mt-2">
           方法参考：

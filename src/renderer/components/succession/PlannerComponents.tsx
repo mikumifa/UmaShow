@@ -202,9 +202,11 @@ export function PlannerSelectionCard({
   occupied = false,
   disabled = false,
   onClick,
+  ariaLabel,
 }: {
   portrait: ReactNode;
-  title: ReactNode;
+  title?: ReactNode;
+  ariaLabel?: string;
   subtitle?: ReactNode;
   details?: ReactNode;
   selected?: boolean;
@@ -224,12 +226,13 @@ export function PlannerSelectionCard({
         state ? 'hasState' : ''
       }`.trim()}
       aria-pressed={selected}
+      aria-label={ariaLabel}
       disabled={disabled || occupied}
       onClick={onClick}
     >
       {portrait}
       <span className="plannerSelectionCardCopy">
-        <strong>{title}</strong>
+        {title ? <strong>{title}</strong> : null}
         {subtitle ? <small>{subtitle}</small> : null}
         {details}
       </span>
@@ -305,6 +308,9 @@ export function PlannerLineageCard({
   extra,
   onSelect,
   onDetails,
+  factorFocused = false,
+  heading,
+  headingActions,
 }: {
   member: PlannerLineageMember;
   parents: PlannerLineageMember[];
@@ -314,9 +320,14 @@ export function PlannerLineageCard({
   extra?: ReactNode;
   onSelect?: () => void;
   onDetails?: () => void;
+  factorFocused?: boolean;
+  heading?: ReactNode;
+  headingActions?: ReactNode;
 }) {
   const interactive = Boolean(onSelect) && !disabled && !viewOnly;
-  const state = resolvePlannerSelectionState({ selected, disabled });
+  const state = viewOnly
+    ? null
+    : resolvePlannerSelectionState({ selected, disabled });
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!interactive || event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -328,20 +339,31 @@ export function PlannerLineageCard({
     <article
       className={`plannerUiTheme plannerLineageCard ${
         selected ? 'selected' : ''
-      } ${disabled ? 'disabled' : ''} ${viewOnly ? 'viewOnly' : ''}`.trim()}
+      } ${disabled ? 'disabled' : ''} ${viewOnly ? 'viewOnly' : ''} ${factorFocused ? 'factorFocused' : ''}`.trim()}
+      aria-label={member.name}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-pressed={interactive ? selected : undefined}
       onClick={interactive ? onSelect : undefined}
       onKeyDown={onKeyDown}
     >
+      {heading || headingActions ? (
+        <div className="plannerLineageHeading">
+          <strong>{heading}</strong>
+          <div>{headingActions}</div>
+        </div>
+      ) : null}
       <header className="plannerLineageSelf">
         {member.portrait}
-        <span className="plannerLineageIdentity">
-          {member.label ? <small>{member.label}</small> : null}
-          <strong>{member.name}</strong>
-          {member.subtitle ? <em>{member.subtitle}</em> : null}
-        </span>
+        {factorFocused ? (
+          <PlannerFactorList factors={member.factors} compact />
+        ) : (
+          <span className="plannerLineageIdentity">
+            {member.label ? <small>{member.label}</small> : null}
+            <strong>{member.name}</strong>
+            {member.subtitle ? <em>{member.subtitle}</em> : null}
+          </span>
+        )}
         {state || onDetails ? (
           <span className="plannerLineageActions">
             {state ? <PlannerSelectionStateBadge state={state} /> : null}
@@ -361,7 +383,9 @@ export function PlannerLineageCard({
           </span>
         ) : null}
       </header>
-      <PlannerFactorList factors={member.factors} compact />
+      {!factorFocused ? (
+        <PlannerFactorList factors={member.factors} compact />
+      ) : null}
       {extra}
       {parents.length ? (
         <div className="plannerLineageParents">
@@ -369,13 +393,19 @@ export function PlannerLineageCard({
             <section key={parent.key}>
               <header>
                 {parent.portrait}
-                <span>
-                  {parent.label ? <small>{parent.label}</small> : null}
-                  <strong>{parent.name}</strong>
-                  {parent.subtitle ? <em>{parent.subtitle}</em> : null}
-                </span>
+                {factorFocused ? (
+                  <PlannerFactorList factors={parent.factors} compact />
+                ) : (
+                  <span>
+                    {parent.label ? <small>{parent.label}</small> : null}
+                    <strong>{parent.name}</strong>
+                    {parent.subtitle ? <em>{parent.subtitle}</em> : null}
+                  </span>
+                )}
               </header>
-              <PlannerFactorList factors={parent.factors} compact />
+              {!factorFocused ? (
+                <PlannerFactorList factors={parent.factors} compact />
+              ) : null}
             </section>
           ))}
         </div>

@@ -70,7 +70,7 @@
 
 .historyRecordRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.5fr) 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 540px) 16px;
   align-items: center;
   gap: 20px;
   width: 100%;
@@ -91,12 +91,17 @@
 
 .historyMetrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
   min-width: 0;
   padding: 8px 0;
   border-radius: 8px;
   background: var(--uma-clay-soft);
+}
+
+.historyMetrics-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 540px;
 }
 
 .historyMetric {
@@ -137,24 +142,10 @@
   color: var(--uma-clay-muted);
   font-size: var(--uma-type-caption, 12px);
 }
-.historyMetric-chara_score .historyMetricValue {
-  color: var(--uma-clay-accent);
-}
-.historyAverageOverview {
+.historySummaryOverview {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--uma-clay-border);
-}
-.historyAverageHeading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.historyAverageHeading > span {
-  color: var(--uma-clay-muted);
-  font-size: var(--uma-type-caption, 12px);
 }
 
 .historyCompactRuns {

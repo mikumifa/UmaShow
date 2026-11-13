@@ -52,42 +52,30 @@ export const DEFAULT_WIN_RATES: WinRates = Object.fromEntries(
   ]),
 );
 
-// Complete, rounded reference model (2026-07-26 revision), kept separate
-// from the user's raw samples. These are estimates, not invented samples.
-// https://tma.main.jp/uma/maximize_win_independent_training.php
-const REFERENCE_GROUPS = [
-  ['AA'],
-  ['AB', 'BA'],
-  ['AC', 'BB', 'CA'],
-  ['AD', 'BC', 'CB', 'DA'],
-  ['AE', 'BD', 'CC', 'DB'],
-  ['BE', 'CD', 'DC', 'EA'],
-  ['AF', 'CE', 'DD', 'EB', 'FA'],
-  ['BF', 'DE', 'EC', 'FB'],
-  ['CF', 'ED', 'FC'],
-  ['AG', 'DF', 'EE', 'FD', 'GA'],
-  ['BG', 'FE', 'GB'],
-  ['CG', 'DG', 'EF', 'EG', 'FF', 'FG', 'GC', 'GD', 'GE', 'GF', 'GG'],
+// User-provided reference image: aptitude ranks are evaluated by their sum.
+// Representatives for each total rank deficit from AA: AA, AB, AC, AD, AE,
+// AF, AG, BG, CG, DG, EG, FG, GG. Swap ground/distance without changing rates.
+// Preserve 110%/105% in the underlying model, then clamp actual probabilities.
+export const REFERENCE_WIN_RATE_MODEL_VERSION = 'aptitude-sum-streak-v2';
+const BASE_PERCENT_BY_DEFICIT = [
+  110, 100, 90, 80, 70, 50, 20, 10, 0, 0, 0, 0, 0,
 ];
-const REFERENCE_COLUMNS = [
-  [100, 100, 90, 80, 60],
-  [100, 95, 80, 70, 50],
-  [90, 85, 70, 60, 40],
-  [80, 75, 60, 50, 30],
-  [70, 65, 50, 40, 20],
-  [60, 55, 40, 30, 10],
-  [50, 45, 30, 20, 0],
-  [40, 35, 20, 10, 0],
-  [30, 25, 10, 0, 0],
-  [20, 15, 0, 0, 0],
-  [10, 5, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-];
+const STREAK_PENALTIES = [0, 5, 20, 30, 50];
+const APTITUDE_RANKS = [7, 6, 5, 4, 3, 2, 1];
 export const REFERENCE_WIN_RATES: WinRates = Object.fromEntries(
-  REFERENCE_GROUPS.flatMap((pairs, column) =>
-    pairs.map((pair) => [
-      `${7 - 'ABCDEFG'.indexOf(pair[0])}:${7 - 'ABCDEFG'.indexOf(pair[1])}`,
-      REFERENCE_COLUMNS[column].map((percent) => percent / 100),
+  APTITUDE_RANKS.flatMap((ground) =>
+    APTITUDE_RANKS.map((distance) => [
+      `${ground}:${distance}`,
+      STREAK_PENALTIES.map(
+        (penalty) =>
+          Math.max(
+            0,
+            Math.min(
+              100,
+              BASE_PERCENT_BY_DEFICIT[14 - ground - distance] - penalty,
+            ),
+          ) / 100,
+      ),
     ]),
   ),
 );

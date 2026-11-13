@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { Check } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -208,12 +208,18 @@ export function ParentChoiceCard({
   disabled,
   compatibility,
   onSelect,
+  viewOnly = false,
+  heading,
+  headingActions,
 }: {
   parent: Dashboard['parents'][number];
   selected: boolean;
   disabled: boolean;
   compatibility?: ParentCompatibilityPreview;
   onSelect: () => void;
+  viewOnly?: boolean;
+  heading?: ReactNode;
+  headingActions?: ReactNode;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const iconPath = umaSkinIconPath(
@@ -225,6 +231,9 @@ export function ParentChoiceCard({
   return (
     <>
       <PlannerLineageCard
+        factorFocused
+        heading={heading}
+        headingActions={headingActions}
         member={{
           key: `self:${parent.instance_id}`,
           name: UMDB.cards[parent.card_id]?.name || parent.name,
@@ -267,6 +276,7 @@ export function ParentChoiceCard({
           ),
         }))}
         selected={selected}
+        viewOnly={viewOnly}
         disabled={disabled}
         onSelect={onSelect}
         onDetails={() => setDetailOpen(true)}

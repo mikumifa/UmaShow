@@ -6,10 +6,17 @@
  * Complexity: O(turns * 7 * racesPerTurn); no greedy decisions or beam pruning.
  *
  * Reference: https://tma.main.jp/uma/maximize_fan_independent_training.php
- * Fans use P(win) * winnerFans; non-winning prizes are approximated as zero.
+ * Fans use P(win) * winnerFans * support bonus * 1.10 empirical correction.
+ * Non-race scenario fans are currently zero.
  * This model does not simulate fan-entry gates or non-race career objectives.
  */
-import { expectedJewelDrops } from './raceJewelModel';
+/* eslint-disable no-restricted-syntax, no-continue */
+import { expectedJewelDrops, SCENARIO_RACE_DROP_RATE } from './raceJewelModel';
+
+export const FAN_MODEL = {
+  empiricalCorrection: 1.1,
+  nonRaceScenarioFans: 0,
+} as const;
 
 export type Ground = 'turf' | 'dirt';
 export type Distance = 'short' | 'mile' | 'middle' | 'long';
@@ -25,10 +32,24 @@ export type PlanningRace = {
   distance: number;
   fans: number;
   requiredFans: number;
+  /** Career goals ignore streak penalties when looking up win probability. */
+  isCareerGoal?: boolean;
 };
 export type WinRates = Record<string, ReadonlyArray<number | null>>;
+export type AutomaticPlanningRace = {
+  turn: number;
+  name: string;
+  fans: number;
+};
+export type AutomaticRaceStep = AutomaticPlanningRace & {
+  expectedFans: number;
+  totalExpectedFans: number;
+  totalExpectedWins: number;
+  expectedDrops: number;
+};
 export type ScheduleInput = {
   races: readonly PlanningRace[];
+  automaticRaces?: readonly AutomaticPlanningRace[];
   startTurn: number;
   endTurn: number;
   aptitudes: PlanningAptitudes;
@@ -52,13 +73,46 @@ export type ScheduleStep = {
 };
 export type ScheduleResult = {
   steps: ScheduleStep[];
+  automaticRaces: AutomaticRaceStep[];
   expectedFans: number;
   expectedWins: number;
+  expectedGradeWins: Record<100 | 200 | 300, number>;
   expectedDrops: number;
   raceCount: number;
   missingRatePairs: string[];
   error?: string;
 };
+
+type ScheduleScore = Pick<
+  ScheduleResult,
+  'expectedFans' | 'expectedWins' | 'expectedDrops' | 'expectedGradeWins'
+>;
+
+/** Jewels prioritize drops, then fans; grade preference breaks remaining ties. */
+export function compareScheduleScores(
+  candidate: ScheduleScore,
+  current: ScheduleScore,
+  objective: ScheduleInput['objective'],
+) {
+  const metric = {
+    jewels: 'expectedDrops',
+    fans: 'expectedFans',
+    wins: 'expectedWins',
+  } as const;
+  const primary = candidate[metric[objective]] - current[metric[objective]];
+  if (Math.abs(primary) > 1e-9) return primary;
+  if (objective === 'jewels') {
+    const fans = candidate.expectedFans - current.expectedFans;
+    if (Math.abs(fans) > 1e-9) return fans;
+  }
+  for (const grade of [100, 200, 300] as const) {
+    const difference =
+      candidate.expectedGradeWins[grade] - current.expectedGradeWins[grade];
+    if (Math.abs(difference) > 1e-9) return difference;
+  }
+  const secondary = objective === 'fans' ? 'expectedWins' : 'expectedFans';
+  return candidate[secondary] - current[secondary];
+}
 
 export function rateKey(groundRank: number, distanceRank: number): string {
   // S has the same estimated win rate as A in the reference data.
@@ -77,7 +131,7 @@ export function raceWinProbability(
 ): number | null {
   const value =
     rates[rateKey(aptitudes[race.ground], aptitudes[race.distanceType])]?.[
-      streakBucket(streak)
+      streakBucket(race.isCareerGoal ? 1 : streak)
     ];
   return typeof value === 'number' &&
     Number.isFinite(value) &&
@@ -87,10 +141,7 @@ export function raceWinProbability(
     : null;
 }
 
-type Node = {
-  fans: number;
-  wins: number;
-  drops: number;
+type Node = ScheduleScore & {
   count: number;
   streak: number;
   previous: Node | null;
@@ -103,26 +154,18 @@ function better(
   objective: ScheduleInput['objective'],
 ) {
   if (!current) return true;
-  const primary =
-    objective === 'jewels'
-      ? candidate.drops - current.drops
-      : objective === 'fans'
-        ? candidate.fans - current.fans
-        : candidate.wins - current.wins;
-  if (Math.abs(primary) > 1e-9) return primary > 0;
-  const secondary =
-    objective === 'fans'
-      ? candidate.wins - current.wins
-      : candidate.fans - current.fans;
-  if (Math.abs(secondary) > 1e-9) return secondary > 0;
+  const score = compareScheduleScores(candidate, current, objective);
+  if (Math.abs(score) > 1e-9) return score > 0;
   return candidate.count < current.count;
 }
 
 export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
   const empty = (error: string): ScheduleResult => ({
     steps: [],
+    automaticRaces: [],
     expectedFans: 0,
     expectedWins: 0,
+    expectedGradeWins: { 100: 0, 200: 0, 300: 0 },
     expectedDrops: 0,
     raceCount: 0,
     missingRatePairs: [],
@@ -139,6 +182,8 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
   }
   if (!Number.isFinite(input.fanBonusPercent) || input.fanBonusPercent < 0)
     return empty('粉丝加成必须是非负数。');
+  const fanMultiplier =
+    (1 + input.fanBonusPercent / 100) * FAN_MODEL.empiricalCorrection;
   const byTurn = new Map<number, PlanningRace[]>();
   const seen = new Set<number>();
   for (const race of input.races) {
@@ -174,9 +219,10 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
     [
       0,
       {
-        fans: 0,
-        wins: 0,
-        drops: 0,
+        expectedFans: 0,
+        expectedWins: 0,
+        expectedDrops: 0,
+        expectedGradeWins: { 100: 0, 200: 0, 300: 0 },
         count: 0,
         streak: 0,
         previous: null,
@@ -209,8 +255,8 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
             streak: 0,
             winProbability: 0,
             expectedFans: 0,
-            totalExpectedFans: previous.fans,
-            totalExpectedWins: previous.wins,
+            totalExpectedFans: previous.expectedFans,
+            totalExpectedWins: previous.expectedWins,
           },
         });
       for (const race of candidates) {
@@ -230,18 +276,22 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
           );
           continue;
         }
-        const expectedFans =
-          race.fans * probability * (1 + input.fanBonusPercent / 100);
-        const fans = previous.fans + expectedFans;
+        const expectedFans = race.fans * probability * fanMultiplier;
+        const fans = previous.expectedFans + expectedFans;
         const wins =
-          previous.wins +
+          previous.expectedWins +
           (race.grade >= 100 && race.grade <= input.gradeThreshold
             ? probability
             : 0);
+        const expectedGradeWins = { ...previous.expectedGradeWins };
+        if (race.grade === 100 || race.grade === 200 || race.grade === 300)
+          expectedGradeWins[race.grade] += probability;
         accept({
-          fans,
-          wins,
-          drops: previous.drops + expectedJewelDrops(probability, streak),
+          expectedFans: fans,
+          expectedWins: wins,
+          expectedDrops:
+            previous.expectedDrops + expectedJewelDrops(probability, streak),
+          expectedGradeWins,
           count: previous.count + 1,
           streak,
           previous,
@@ -274,15 +324,44 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
   steps.reverse();
   // Keep the real streak in output; only the DP state is capped at 6.
   let actualStreak = 0;
+  let automaticFans = 0;
+  let automaticWins = 0;
+  const automaticRaces: AutomaticRaceStep[] = [];
   steps.forEach((step) => {
     actualStreak = step.race ? actualStreak + 1 : 0;
     step.streak = actualStreak;
+    step.totalExpectedFans += automaticFans;
+    step.totalExpectedWins += automaticWins;
+    let turnFans = step.totalExpectedFans;
+    let turnWins = step.totalExpectedWins;
+    // Goddess year-end races happen after the regular turn. Their fixed
+    // returns cannot change the optimal path or advance/reset its race streak.
+    for (const race of input.automaticRaces || []) {
+      if (race.turn !== step.turn) continue;
+      const expectedFans = race.fans * fanMultiplier;
+      automaticFans += expectedFans;
+      automaticWins += 1;
+      turnFans += expectedFans;
+      turnWins += 1;
+      automaticRaces.push({
+        ...race,
+        expectedFans,
+        totalExpectedFans: turnFans,
+        totalExpectedWins: turnWins,
+        expectedDrops: SCENARIO_RACE_DROP_RATE,
+      });
+    }
   });
   return {
     steps,
-    expectedFans: best?.fans || 0,
-    expectedWins: best?.wins || 0,
-    expectedDrops: best?.drops || 0,
+    automaticRaces,
+    expectedFans:
+      (best?.expectedFans || 0) + automaticFans + FAN_MODEL.nonRaceScenarioFans,
+    expectedWins: (best?.expectedWins || 0) + automaticWins,
+    expectedGradeWins: best?.expectedGradeWins || { 100: 0, 200: 0, 300: 0 },
+    expectedDrops:
+      (best?.expectedDrops || 0) +
+      automaticRaces.length * SCENARIO_RACE_DROP_RATE,
     raceCount: best?.count || 0,
     missingRatePairs: [...missing],
   };

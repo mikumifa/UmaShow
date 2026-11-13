@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax, no-continue */
 import type {
   Dashboard,
   CareerSetting,
@@ -13,9 +14,13 @@ import {
 } from './racePlannerCatalog';
 import {
   optimizeRaceSchedule,
+  compareScheduleScores,
   PlanningAptitudes,
+  ScheduleInput,
+  ScheduleResult,
 } from './raceScheduleOptimizer';
 import { REFERENCE_WIN_RATES } from './raceWinRateModel';
+import { recommendRaceInheritance } from './raceInheritanceRecommendation';
 
 export type OfflineDesign = {
   goal: 'breeding' | 'jewels' | 'fans';
@@ -46,6 +51,11 @@ export const FACTOR_TYPES: Array<{
 const STAR_THRESHOLDS = [0, 1, 4, 7, 10];
 type Character = (typeof PLANNER_CATALOG.characters)[number];
 type Parent = Dashboard['parents'][number];
+
+export const isOwnDesignParent = (parent: Parent) =>
+  parent.source === 'own' &&
+  !(Number(parent.viewer_id) > 0) &&
+  !parent.selection_id.startsWith('rental:');
 
 export function normalizeOfflineDesign(
   value?: Partial<OfflineDesign>,
@@ -218,19 +228,65 @@ function parentStars(parent: Parent) {
   return { red, blue, redTotal: Object.values(red).reduce((a, b) => a + b, 0) };
 }
 
+export function inheritedCareerAptitudes(
+  base: Character['aptitudes'],
+  parents: Array<Parent | undefined>,
+): Character['aptitudes'] {
+  const lineages = parents
+    .filter((parent): parent is Parent => Boolean(parent))
+    .map(parentStars);
+  return Object.fromEntries(
+    FACTOR_TYPES.map(({ key, group }) => {
+      const stars = lineages.reduce(
+        (total, lineage) => total + (lineage.red[group] || 0),
+        0,
+      );
+      const raise =
+        STAR_THRESHOLDS.filter((threshold) => threshold <= stars).length - 1;
+      return [key, Math.max(base[key], Math.min(7, base[key] + raise))];
+    }),
+  ) as Character['aptitudes'];
+}
+
+function offlinePlanningInput(
+  character: Character,
+  design: OfflineDesign,
+  fanBonusPercent = 120,
+): ScheduleInput {
+  const calendar = buildPlanningCalendar(character.id, 5, design.routeId);
+  if (calendar.errors.length) throw new Error(calendar.errors[0]);
+  const fixedRaces = { ...calendar.fixedRaces };
+  design.fixedIds.forEach((id) => {
+    const race = calendar.races.find((item) => item.id === id);
+    if (!race || (fixedRaces[race.turn] && !fixedRaces[race.turn].includes(id)))
+      throw new Error('固定比赛与女神杯生涯目标冲突，请调整');
+    fixedRaces[race.turn] = [id];
+  });
+  return {
+    races: calendar.races,
+    automaticRaces: calendar.automaticRaces,
+    startTurn: calendar.startTurn,
+    endTurn: calendar.scenario.endTurn,
+    aptitudes: character.aptitudes as PlanningAptitudes,
+    winRates: REFERENCE_WIN_RATES,
+    objective: design.goal === 'jewels' ? 'jewels' : 'fans',
+    gradeThreshold: 100,
+    fanBonusPercent,
+    fixedRaces,
+    blockedTurns: calendar.blockedTurns,
+    restTurns: [],
+  };
+}
+
 export function chooseOfflineParents(
   character: Character,
   design: OfflineDesign,
   parents: Parent[],
+  input = offlinePlanningInput(character, design),
 ) {
-  const demands = inheritanceDemands(character, design);
   const candidates = parents
     .filter(
-      (parent) =>
-        parent.chara_id !== character.id &&
-        (parent.source === 'own' ||
-          parent.friend_state === undefined ||
-          [1, 3].includes(parent.friend_state)),
+      (parent) => parent.chara_id !== character.id && isOwnDesignParent(parent),
     )
     .map((parent) => ({ parent, ...parentStars(parent) }));
   let best:
@@ -240,92 +296,124 @@ export function chooseOfflineParents(
         blue: number;
         redTotal: number;
         score: number;
+        schedule: ScheduleResult;
+        demands: ReturnType<typeof inheritanceDemands>;
+        slots: number;
+        stars: number;
       }
     | undefined;
+  // A schedule depends on the six surface/distance aptitudes, not on parent
+  // identity or surplus stars. Reuse it across equivalent owned pairs.
+  const schedules = new Map<string, ScheduleResult>();
   for (let i = 0; i < candidates.length; i += 1) {
     const a = candidates[i];
     for (let j = i + 1; j < candidates.length; j += 1) {
       const b = candidates[j];
       if (
         a.parent.chara_id === b.parent.chara_id ||
-        a.parent.selection_id === b.parent.selection_id ||
-        (a.parent.source === 'rental' && b.parent.source === 'rental')
-      )
-        continue;
-      if (
-        !demands.every(
-          (demand) =>
-            (a.red[demand.group] || 0) + (b.red[demand.group] || 0) >=
-            demand.stars,
-        )
+        a.parent.selection_id === b.parent.selection_id
       )
         continue;
       const blue = a.blue + b.blue;
       const redTotal = a.redTotal + b.redTotal;
-      const score = blue + redTotal;
-      if (
-        best &&
-        (score < best.score || (score === best.score && blue <= best.blue))
-      )
-        continue;
       const red = Object.fromEntries(
         FACTOR_TYPES.map((type) => [
           type.group,
           (a.red[type.group] || 0) + (b.red[type.group] || 0),
         ]),
       );
-      best = { parents: [a.parent, b.parent], red, blue, redTotal, score };
+      const aptitudes = Object.fromEntries(
+        FACTOR_TYPES.map(({ key, group }) => {
+          const raise =
+            STAR_THRESHOLDS.filter((threshold) => threshold <= red[group])
+              .length - 1;
+          return [
+            key,
+            Math.max(
+              character.aptitudes[key],
+              Math.min(7, character.aptitudes[key] + raise),
+            ),
+          ];
+        }),
+      ) as Character['aptitudes'];
+      const relevantTypes = FACTOR_TYPES.slice(0, 6);
+      const key = relevantTypes
+        .map((type) => Math.min(7, aptitudes[type.key]))
+        .join(',');
+      let schedule = schedules.get(key);
+      if (!schedule) {
+        schedule = optimizeRaceSchedule({ ...input, aptitudes });
+        schedules.set(key, schedule);
+      }
+      if (schedule.error) continue;
+      const demands = relevantTypes.flatMap((type) => {
+        const base = character.aptitudes[type.key];
+        const target = aptitudes[type.key];
+        return target > base
+          ? [{ ...type, base, target, stars: STAR_THRESHOLDS[target - base] }]
+          : [];
+      });
+      const slots = demands.reduce(
+        (sum, demand) => sum + Math.ceil(demand.stars / 3),
+        0,
+      );
+      const stars = demands.reduce((sum, demand) => sum + demand.stars, 0);
+      const comparison = best
+        ? compareScheduleScores(schedule, best.schedule, input.objective)
+        : 1;
+      const tied = Math.abs(comparison) <= 1e-9;
+      if (
+        best &&
+        !(
+          comparison > 1e-9 ||
+          (tied &&
+            (slots < best.slots ||
+              (slots === best.slots &&
+                (stars < best.stars ||
+                  (stars === best.stars && blue > best.blue)))))
+        )
+      )
+        continue;
+      best = {
+        parents: [a.parent, b.parent],
+        red,
+        blue,
+        redTotal,
+        score:
+          input.objective === 'jewels'
+            ? schedule.expectedDrops
+            : schedule.expectedFans,
+        schedule,
+        demands,
+        slots,
+        stars,
+      };
     }
   }
-  return { best, demands };
+  return { best, demands: best?.demands || [] };
 }
 
-/** One-click orchestration. Schedule optimization remains in raceScheduleOptimizer. */
+/** Same objective, win rates, fan model and inheritance search as the planning
+ * tab; actual owned pairs are compared using their attainable aptitudes. */
 export function designOfflineCareer(
   character: Character,
   design: OfflineDesign,
   parents: Parent[],
+  fanBonusPercent = 120,
 ) {
+  const input = offlinePlanningInput(character, design, fanBonusPercent);
   const calendar = buildPlanningCalendar(character.id, 5, design.routeId);
-  if (calendar.errors.length) throw new Error(calendar.errors[0]);
-  const { best, demands } = chooseOfflineParents(character, design, parents);
-  if (demands.reduce((sum, demand) => sum + Math.ceil(demand.stars / 3), 0) > 6)
-    throw new Error('适应性改造超过 6 个因子槽位，请减少目标');
-  const aptitudes = { ...character.aptitudes };
-  if (best) {
-    FACTOR_TYPES.forEach(({ key, group }) => {
-      const stars = best.red[group] || 0;
-      const raise =
-        STAR_THRESHOLDS.filter((threshold) => threshold <= stars).length - 1;
-      aptitudes[key] = Math.max(
-        aptitudes[key],
-        Math.min(7, aptitudes[key] + raise),
-      );
-    });
-  } else
-    demands.forEach((demand) => {
-      aptitudes[demand.key] = demand.target;
-    });
-  const fixedRaces = { ...calendar.fixedRaces };
-  design.fixedIds.forEach((id) => {
-    const race = calendar.races.find((item) => item.id === id);
-    if (!race || (fixedRaces[race.turn] && !fixedRaces[race.turn].includes(id)))
-      throw new Error('固定比赛与女神杯生涯目标冲突，请调整');
-    fixedRaces[race.turn] = [id];
-  });
-  const schedule = optimizeRaceSchedule({
-    races: calendar.races,
-    startTurn: calendar.startTurn,
-    endTurn: calendar.scenario.endTurn,
-    aptitudes: aptitudes as PlanningAptitudes,
-    winRates: REFERENCE_WIN_RATES,
-    objective: design.goal === 'jewels' ? 'jewels' : 'fans',
-    gradeThreshold: 300,
-    fanBonusPercent: 0,
-    fixedRaces,
-    blockedTurns: calendar.blockedTurns,
-    restTurns: [],
-  });
+  const { best } = chooseOfflineParents(character, design, parents, input);
+  const recommendation = best ? undefined : recommendRaceInheritance(input);
+  const schedule = best?.schedule || recommendation!.schedule;
+  const demands =
+    best?.demands ||
+    recommendation!.demands.map((demand) => ({
+      ...FACTOR_TYPES.find((type) => type.key === demand.type)!,
+      base: demand.base,
+      target: demand.target,
+      stars: demand.stars,
+    }));
   if (schedule.error) throw new Error(schedule.error);
   const raceIds = schedule.steps.flatMap((step) =>
     step.race && !calendar.fixedRaces[step.turn] ? [step.race.id] : [],

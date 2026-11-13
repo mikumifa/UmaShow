@@ -32,7 +32,8 @@ const configuration: webpack.Configuration = {
 
   entry: {
     renderer: Object.keys(dependencies || {}).filter(
-      (dependency) => dependency !== 'node-gyp',
+      // The Android platform package contains native sources, not a JS entry.
+      (dependency) => !['node-gyp', '@capacitor/android'].includes(dependency),
     ),
   },
 

@@ -2338,15 +2338,21 @@ function UmaPortrait({
   );
 }
 
-function UmaAptitudeRows({
+export function UmaAptitudeRows({
   uma,
   picker = false,
+  baseAptitudes,
 }: {
-  uma: SuccessionUma;
+  uma: Pick<SuccessionUma, 'aptitudes'>;
   picker?: boolean;
+  baseAptitudes?: SuccessionUma['aptitudes'];
 }) {
   return (
-    <div className={`successionAptitudeRows ${picker ? 'picker' : 'compact'}`}>
+    <div
+      role="group"
+      aria-label="适应性"
+      className={`successionAptitudeRows ${picker ? 'picker' : 'compact'}`}
+    >
       {APTITUDE_GROUPS.map((group) => (
         <div
           className="successionAptitudeRow"
@@ -2354,12 +2360,22 @@ function UmaAptitudeRows({
           key={group.label}
         >
           <div>
-            {group.types.map((type) => (
-              <span key={type} title={APTITUDE_LABELS[type]}>
-                <small>{APTITUDE_SHORT_LABELS[type]}</small>
-                <RankIcon value={uma.aptitudes[type]} compact />
-              </span>
-            ))}
+            {group.types.map((type) => {
+              const base = baseAptitudes?.[type];
+              const changed = base !== undefined && base !== uma.aptitudes[type];
+              return (
+                <span
+                  key={type}
+                  className={changed ? 'successionAptitudeChanged' : undefined}
+                  title={changed
+                    ? `${APTITUDE_LABELS[type]}：${rankLabel(base)} → ${rankLabel(uma.aptitudes[type])}`
+                    : APTITUDE_LABELS[type]}
+                >
+                  <small>{APTITUDE_SHORT_LABELS[type]}</small>
+                  <RankIcon value={uma.aptitudes[type]} compact />
+                </span>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -2448,6 +2464,7 @@ function UmaSelect({
 
   const chooseUma = (umaId: number) => {
     onChange(umaId);
+    setOpen(false);
   };
   const clearSearch = () => setQuery('');
 
@@ -2498,7 +2515,7 @@ function UmaSelect({
           ariaLabel={`选择${label}`}
           eyebrow="SELECT UMAMUSUME"
           title={`正在选择${label}`}
-          description="点击卡片选择，可继续切换；使用右上角按钮关闭。"
+          description="点击卡片选择，选中后自动关闭。"
           onClose={() => setOpen(false)}
           searchValue={query}
           searchPlaceholder="输入马娘名称或 ID"

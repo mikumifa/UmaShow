@@ -18,6 +18,7 @@ import TrainingHistory from 'renderer/ui/TrainingHistory';
 import LeaderboardAnalysis from 'renderer/ui/LeaderboardAnalysis';
 import AutoResearch from 'renderer/ui/AutoResearch';
 import SuccessionPlanner from 'renderer/ui/SuccessionPlanner';
+import RacePlannerPage from 'renderer/ui/RacePlannerPage';
 import AppMenuBar from 'renderer/components/AppMenuBar';
 import { MonteCarloProvider } from 'renderer/components/MonteCarloProvider';
 import PracticeRaceSimulationStatus from 'renderer/components/PracticeRaceSimulationStatus';
@@ -131,6 +132,14 @@ export default function App() {
                   element={
                     <KeepAlive name="AutoResearch" cacheKey="AutoResearch">
                       <AutoResearch />
+                    </KeepAlive>
+                  }
+                />
+                <Route
+                  path="/race-planner"
+                  element={
+                    <KeepAlive name="RacePlanner" cacheKey="RacePlanner">
+                      <RacePlannerPage />
                     </KeepAlive>
                   }
                 />

@@ -3,6 +3,7 @@
  * The output is expected drop events, not a diamond quantity.
  */
 export const JEWEL_MODEL_VERSION = 'win-streak-v1';
+export const SCENARIO_RACE_DROP_RATE = 0.05;
 
 export function jewelProbabilityGivenWin(streak: number): number {
   return streak > 3 ? 0.04 : 0.05;

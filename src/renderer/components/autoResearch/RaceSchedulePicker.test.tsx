@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { normalizeOfflineDesign } from 'renderer/utils/offlineCareerDesign';
+import { buildPlanningCalendar } from 'renderer/utils/racePlannerCatalog';
 import OfflineCareerSettings from './OfflineCareerSettings';
+import { OfflineCustomSchedule } from './OfflineDesignSettings';
 import {
   createDefaultOfflineFactorSelection,
   createDefaultOfflineSkillSettings,
@@ -10,6 +13,41 @@ import { OfflineSingleModeSetup, RaceOption } from './types';
 
 jest.mock('renderer/utils/umdb', () => ({ UMDB: {} }));
 jest.mock('renderer/components/trainingHistory/AssetIcon', () => () => null);
+
+test('custom schedules show locked career goals while extra dates remain editable', () => {
+  const calendar = buildPlanningCalendar(1001, 5);
+  const design = normalizeOfflineDesign({ source: 'custom' });
+  const setDesign = jest.fn();
+  render(
+    <OfflineCustomSchedule
+      design={design}
+      setDesign={setDesign}
+      charaId={1001}
+      scenarioId={5}
+    />,
+  );
+  const goalTurn = Number(Object.keys(calendar.fixedRaces)[0]);
+  const goal = screen.getByRole('button', {
+    name: new RegExp(`^${skillPurchaseTurnLabel(goalTurn)}，生涯目标`),
+  });
+  expect(goal).toBeDisabled();
+  fireEvent.click(goal);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  const extra = calendar.races.find((race) => !calendar.fixedRaces[race.turn])!;
+  const date = skillPurchaseTurnLabel(extra.turn);
+  fireEvent.click(screen.getByRole('button', { name: `${date}，未选择比赛` }));
+  const picker = screen.getByRole('dialog', { name: `${date}比赛选择` });
+  fireEvent.click(within(picker).getAllByRole('radio')[0]);
+  const updated = setDesign.mock.calls[0][0](design);
+  expect(updated.raceIds).toHaveLength(1);
+  expect(calendar.fixedRaces[extra.turn]).toBeUndefined();
+  expect(Object.values(calendar.fixedRaces).flat()).not.toContain(
+    updated.raceIds[0],
+  );
+  expect(screen.queryByText(/生涯目标由游戏自动执行/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/· 剧本$/)).not.toBeInTheDocument();
+});
 
 test('a nested race picker keeps its selection and closes before the deck editor', () => {
   const saveDeck = jest.fn().mockResolvedValue(true);

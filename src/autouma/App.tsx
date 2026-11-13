@@ -1,7 +1,8 @@
 import { AliveScope } from 'react-activation';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { CalendarClock, History } from 'lucide-react';
 import 'tailwindcss/tailwind.css';
 import 'renderer/styles/typography.css';
 import 'renderer/styles/motion.css';
@@ -9,6 +10,7 @@ import 'renderer/styles/clay.css';
 import { useAppMotion } from 'renderer/utils/motion';
 import AutoResearch from 'renderer/ui/AutoResearch';
 import TrainingHistory from 'renderer/ui/TrainingHistory';
+import RacePlannerPage from 'renderer/ui/RacePlannerPage';
 import WebAutoUma from './WebAutoUma';
 
 function WebAutoUmaRoute() {
@@ -26,7 +28,7 @@ export default function AutoUmaApp() {
       if (!window.dispatchEvent(backEvent)) return;
       if (
         canGoBack &&
-        window.location.hash.startsWith('#/training-history')
+        /#\/(training-history|race-planner)/.test(window.location.hash)
       ) {
         window.history.back();
         return;
@@ -162,6 +164,31 @@ export default function AutoUmaApp() {
                 className="h-8 w-8 rounded-lg object-contain"
               />
             </div>
+            <nav
+              aria-label="工具导航"
+              className="flex shrink-0 items-center gap-1"
+            >
+              {__AUTOUMA_ANDROID__ ? (
+                <NavLink
+                  to="/training-history"
+                  className={({ isActive }) =>
+                    `flex items-center gap-1 rounded-lg px-2 py-2 text-label ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'}`
+                  }
+                >
+                  <History size={15} />
+                  记录
+                </NavLink>
+              ) : null}
+              <NavLink
+                to="/race-planner"
+                className={({ isActive }) =>
+                  `flex items-center gap-1 rounded-lg px-2 py-2 text-label ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'}`
+                }
+              >
+                <CalendarClock size={15} />
+                规划
+              </NavLink>
+            </nav>
             <div
               id="app-page-actions"
               className="autouma-actions flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto"
@@ -193,6 +220,7 @@ export default function AutoUmaApp() {
                   __AUTOUMA_ANDROID__ ? <AutoResearch /> : <WebAutoUmaRoute />
                 }
               />
+              <Route path="/race-planner" element={<RacePlannerPage />} />
               <Route
                 path="/training-history"
                 element={

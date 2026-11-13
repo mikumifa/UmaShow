@@ -110,11 +110,64 @@
 }
 
 .plannerFactorBadge b {
+  flex: 0 0 auto;
   color: inherit;
   font-family: var(--uma-font-mono);
   font-size: var(--uma-type-caption);
   line-height: 1.45;
   font-weight: 700;
+}
+
+.plannerFactorBadge.unique {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.plannerFactorBadge.unique > span {
+  overflow: hidden;
+  max-width: 12em;
+  text-overflow: ellipsis;
+}
+
+.plannerLineageHeading,
+.plannerLineageHeading > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plannerLineageHeading {
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--uma-type-data);
+}
+
+.plannerLineageCard.factorFocused {
+  height: 100%;
+}
+
+.factorFocused .plannerLineageSelf > .plannerFactorList {
+  flex: 1;
+}
+
+.factorFocused .plannerLineageActions {
+  align-self: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 90px;
+}
+
+.factorFocused .plannerLineageParents > section {
+  padding: 6px;
+}
+
+.factorFocused .plannerLineageParents > section > header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.factorFocused .plannerLineageParents .plannerFactorList {
+  flex: 1 1 90px;
 }
 
 .plannerFactorBadge.compact {

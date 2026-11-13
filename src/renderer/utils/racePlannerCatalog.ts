@@ -26,6 +26,13 @@ export type GoalRoute = {
   scenarioId: number;
   goals: CareerGoal[];
 };
+export type PlanningScenarioEvent = {
+  turn: number;
+  name: string;
+  fans: number;
+  thumbnailId: number;
+  programIds: number[];
+};
 export const PLANNER_CATALOG = data as unknown as {
   masterSha256: string;
   programs: Record<string, RaceProgram>;
@@ -38,6 +45,11 @@ export const PLANNER_CATALOG = data as unknown as {
     >;
   }>;
   routes: GoalRoute[];
+  scenarioEvents: Array<{
+    scenarioId: number;
+    turn: number;
+    programIds: number[];
+  }>;
 };
 
 export const PLANNING_SCENARIOS = [
@@ -89,14 +101,9 @@ export function buildPlanningCalendar(
   const scenarioRoute = PLANNER_CATALOG.routes.find(
     (route) => route.scenarioId === scenarioId && route.charaId === 0,
   );
-  const goals =
-    (scenario.characterGoals
-      ? characterRoute?.goals
-      : scenarioId === 6
-        ? scenarioRoute?.goals
-        : debut
-          ? [debut]
-          : []) || [];
+  let goals = debut ? [debut] : [];
+  if (scenario.characterGoals) goals = characterRoute?.goals || [];
+  else if (scenarioId === 6) goals = scenarioRoute?.goals || [];
   const blockedTurns =
     scenarioId === 6
       ? [37, 38, 39, 40, 41, 42, 43, 61, 62, 63, 64, 65, 66, 67]
@@ -129,6 +136,17 @@ export function buildPlanningCalendar(
   const notes: string[] = [];
   const errors: string[] = [];
   const fixedLabels: Record<number, string> = {};
+  const automaticRaces: PlanningScenarioEvent[] = PLANNER_CATALOG.scenarioEvents
+    .filter((event) => event.scenarioId === scenarioId)
+    .map((event) => {
+      const program = PLANNER_CATALOG.programs[String(event.programIds[0])];
+      return {
+        ...event,
+        name: program?.name || '剧本赛',
+        fans: program?.fans || 0,
+        thumbnailId: program?.thumbnailId || 0,
+      };
+    });
   if (!debut) errors.push('主数据库缺少这位马娘的出道赛目标，暂时无法规划。');
   goals
     .filter((goal) => goal.turn <= scenario.endTurn)
@@ -139,7 +157,10 @@ export function buildPlanningCalendar(
         const candidates = ids.flatMap((id) => {
           const program = PLANNER_CATALOG.programs[String(id)];
           if (!program) return [];
-          const race = planningRace(program, goal.turn);
+          const race = {
+            ...planningRace(program, goal.turn),
+            isCareerGoal: true,
+          };
           races.set(race.id, race);
           return [race.id];
         });
@@ -154,12 +175,11 @@ export function buildPlanningCalendar(
         } else fixedRaces[goal.turn] = candidates;
         fixedLabels[goal.turn] = scenarioId === 6 ? '剧本目标' : '生涯目标';
       } else {
-        const label =
-          goal.conditionType === 3
-            ? `粉丝达到 ${goal.value.toLocaleString()}`
-            : goal.conditionType === 11
-              ? `支持者点数达到 ${goal.value.toLocaleString()}`
-              : `非固定赛目标（类型 ${goal.conditionType}，条件 ${goal.value}/${goal.value2}）`;
+        let label = `非固定赛目标（类型 ${goal.conditionType}，条件 ${goal.value}/${goal.value2}）`;
+        if (goal.conditionType === 3)
+          label = `粉丝达到 ${goal.value.toLocaleString()}`;
+        else if (goal.conditionType === 11)
+          label = `支持者点数达到 ${goal.value.toLocaleString()}`;
         notes.push(`${planningDate(goal.turn)}：${label}，需另行确认达成。`);
       }
     });
@@ -175,5 +195,6 @@ export function buildPlanningCalendar(
     notes,
     errors,
     startTurn,
+    automaticRaces,
   };
 }
