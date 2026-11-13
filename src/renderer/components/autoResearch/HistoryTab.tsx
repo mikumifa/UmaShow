@@ -15,7 +15,6 @@ import {
   ExternalLink,
   ListTodo,
   RefreshCw,
-  Trash2,
   Trophy,
   TrendingUp,
 } from 'lucide-react';
@@ -49,7 +48,6 @@ import {
 
 type HistoryTabProps = {
   readOnly?: boolean;
-  canDelete?: boolean;
   selectedCareerRecords: CareerSessionRecord[] | null;
   setSelectedCareerRecords: Dispatch<
     SetStateAction<CareerSessionRecord[] | null>
@@ -62,7 +60,6 @@ type HistoryTabProps = {
   careerHistory: CareerSessionRecord[];
   assetSnapshots: DailyAssetSnapshot[];
   downloadCareerSetting: (records: CareerSessionRecord[]) => Promise<void>;
-  deleteCareerHistory: (reportIds: string[]) => Promise<void>;
   downloadTrainingHistory: (recordId: string) => Promise<void>;
   localTrainingHistoryIds: Set<string>;
   openTrainingHistory: (recordId: string) => void;
@@ -519,7 +516,6 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
 
 export default function HistoryTab({
   readOnly = false,
-  canDelete = !readOnly,
   selectedCareerRecords,
   setSelectedCareerRecords,
   busy,
@@ -530,7 +526,6 @@ export default function HistoryTab({
   careerHistory,
   assetSnapshots,
   downloadCareerSetting,
-  deleteCareerHistory,
   downloadTrainingHistory,
   localTrainingHistoryIds,
   openTrainingHistory,
@@ -730,32 +725,6 @@ export default function HistoryTab({
                 >
                   <Download size={14} />
                   {settingDownloaded ? '详设已保存' : '下载详设'}
-                </PlannerButton>
-              ) : null}
-              {canDelete ? (
-                <PlannerButton
-                  variant="danger"
-                  size="small"
-                  className="historyAction"
-                  disabled={busy === 'history-delete'}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        `确定删除「${settingName}」${historyView === 'task' ? '的全部' : `在 ${formatRecordDate(dateKey)} 的`}养马记录吗？`,
-                      )
-                    ) {
-                      deleteCareerHistory(
-                        historyView === 'task'
-                          ? [
-                              `task:${selectedCareerRecords[0]?.task_id || selectedCareerRecords[0]?.session_id || ''}`,
-                            ]
-                          : selectedCareerRecords.map((record) => record.id),
-                      );
-                    }
-                  }}
-                >
-                  <Trash2 size={14} />
-                  删除
                 </PlannerButton>
               ) : null}
             </div>
@@ -1341,32 +1310,6 @@ export default function HistoryTab({
                     >
                       <Download size={14} />
                       {settingDownloaded ? '详设已保存' : '下载详设'}
-                    </button>
-                  ) : null}
-                  {canDelete ? (
-                    <button
-                      type="button"
-                      disabled={busy === 'history-delete'}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `确定删除「${settingName}」${historyView === 'task' ? '的全部' : `在 ${formatRecordDate(dateKey)} 的`}养马记录吗？`,
-                          )
-                        ) {
-                          deleteCareerHistory(
-                            historyView === 'task'
-                              ? [
-                                  `task:${records[0]?.task_id || records[0]?.session_id || ''}`,
-                                ]
-                              : records.map((record) => record.id),
-                          );
-                        }
-                      }}
-                      className="historyAction inline-flex w-9 items-center justify-center rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      title="删除"
-                      aria-label="删除"
-                    >
-                      <Trash2 size={15} />
                     </button>
                   ) : null}
                 </span>

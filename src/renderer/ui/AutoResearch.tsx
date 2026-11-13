@@ -2171,44 +2171,6 @@ export default function AutoResearch() {
     }
   }, [loadCloudConfiguration, selectedAccountId, server]);
 
-  const deleteCareerHistory = useCallback(
-    async (reportIds: string[]) => {
-      if (!selectedAccountId || !reportIds.length) return;
-      setBusy('history-delete');
-      setError('');
-      try {
-        if (!server) throw new Error('删除记录前，请先连接自动育成服务器');
-        const credential = (await window.electron.autoResearch.credential(
-          selectedAccountId,
-        )) as { uid: string; accessKey: string };
-        const result = await request<{
-          success: boolean;
-          reports: CareerSessionRecord[];
-          task_reports?: CareerSessionRecord[];
-        }>('/api/account/career/history/delete-by-account', {
-          method: 'POST',
-          body: JSON.stringify({
-            uid: credential.uid,
-            access_key: credential.accessKey,
-            report_ids: reportIds,
-            view: 'day',
-            summary_only: true,
-          }),
-        });
-        setCareerHistory([
-          ...(result.reports || []),
-          ...(result.task_reports || []),
-        ]);
-        setSelectedCareerRecords(null);
-      } catch (caught) {
-        setError((caught as Error).message);
-      } finally {
-        setBusy('');
-      }
-    },
-    [request, selectedAccountId, server],
-  );
-
   const downloadTrainingHistory = useCallback(
     async (recordId: string) => {
       if (!selectedAccountId || !recordId) return;
@@ -8888,7 +8850,6 @@ export default function AutoResearch() {
                       careerHistory={careerHistory}
                       assetSnapshots={assetSnapshots}
                       downloadCareerSetting={downloadCareerSetting}
-                      deleteCareerHistory={deleteCareerHistory}
                       downloadTrainingHistory={downloadTrainingHistory}
                       localTrainingHistoryIds={localTrainingHistoryIds}
                       openTrainingHistory={openTrainingHistory}
