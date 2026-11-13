@@ -6315,7 +6315,7 @@ export default function AutoResearch() {
               left: 0;
               z-index: 120;
               display: grid;
-              grid-template-columns: repeat(4, minmax(0, 1fr));
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
                 calc(0.375rem + var(--autouma-safe-bottom))
