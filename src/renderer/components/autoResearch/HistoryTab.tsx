@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   CalendarDays,
@@ -14,6 +15,7 @@ import {
   Download,
   ExternalLink,
   ListTodo,
+  LoaderCircle,
   RefreshCw,
   Trophy,
   TrendingUp,
@@ -22,7 +24,6 @@ import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
-import RaceJewelStats from './RaceJewelStats';
 import HistoryMetrics, {
   totalRunMetrics,
   formatHistoryMetric,
@@ -41,8 +42,6 @@ import {
   CareerSessionRecord,
   CareerSessionRun,
   CareerSetting,
-  G123RaceRecord,
-  RaceOption,
   DailyAssetSnapshot,
 } from './types';
 
@@ -63,7 +62,6 @@ type HistoryTabProps = {
   downloadTrainingHistory: (recordId: string) => Promise<void>;
   localTrainingHistoryIds: Set<string>;
   openTrainingHistory: (recordId: string) => void;
-  races: RaceOption[];
 };
 
 const runIdTimestamp = (runId?: string) => {
@@ -133,110 +131,6 @@ const raceCounts = (value?: Record<string, number>) => {
 
 const totalRaceCount = (value?: Record<string, number>) =>
   Object.values(raceCounts(value)).reduce((sum, count) => sum + count, 0);
-
-const recordStatisticSources = (record: CareerSessionRecord) => {
-  const sources: Array<CareerSessionRun | CareerSessionRecord> = [
-    ...(record.runs || []),
-    ...(record.current ? [record.current] : []),
-  ];
-  return sources.length ? sources : [record];
-};
-
-type AggregatedG123Race = {
-  raceId: number;
-  programId: number;
-  turn: number;
-  raceName: string;
-  largeMarginCount: number;
-  raceCount: number;
-  recordedAt: string;
-};
-
-const normalizedG123RaceRecords = (value?: G123RaceRecord[]) =>
-  (Array.isArray(value) ? value : []).filter(
-    (record) => Number(record?.program_id) > 0,
-  );
-
-const aggregateG123Races = (
-  records: CareerSessionRecord[],
-): AggregatedG123Race[] => {
-  const aggregated = new Map<string, AggregatedG123Race>();
-  records.forEach((record) => {
-    const sources = recordStatisticSources(record);
-    const raceRecords = sources.flatMap((source) =>
-      normalizedG123RaceRecords(source.g123_race_records),
-    );
-    if (raceRecords.length) {
-      raceRecords.forEach((raceRecord) => {
-        const raceId = Number(raceRecord.race_id || 0);
-        const programId = Number(raceRecord.program_id);
-        const turn = Number(raceRecord.turn || 0);
-        const key =
-          raceId > 0 ? `race:${raceId}` : `program:${programId}:${turn}`;
-        const previous = aggregated.get(key);
-        aggregated.set(key, {
-          raceId,
-          programId,
-          turn,
-          raceName:
-            String(raceRecord.race_name || '').trim() ||
-            previous?.raceName ||
-            '',
-          largeMarginCount:
-            (previous?.largeMarginCount || 0) +
-            (raceRecord.large_margin ? 1 : 0),
-          raceCount: (previous?.raceCount || 0) + 1,
-          recordedAt:
-            String(raceRecord.recorded_at || '') >
-            String(previous?.recordedAt || '')
-              ? String(raceRecord.recorded_at || '')
-              : String(previous?.recordedAt || ''),
-        });
-      });
-      return;
-    }
-
-    const allRaceCounts: Record<string, number> = {};
-    const largeCounts: Record<string, number> = {};
-    sources.forEach((source) => {
-      Object.entries(raceCounts(source.g123_race_counts)).forEach(
-        ([raceId, count]) => {
-          allRaceCounts[raceId] = (allRaceCounts[raceId] || 0) + count;
-        },
-      );
-      Object.entries(raceCounts(source.large_margin_race_counts)).forEach(
-        ([raceId, count]) => {
-          largeCounts[raceId] = (largeCounts[raceId] || 0) + count;
-        },
-      );
-    });
-    const raceIds = new Set([
-      ...Object.keys(allRaceCounts),
-      ...Object.keys(largeCounts),
-    ]);
-    raceIds.forEach((raceId) => {
-      const programId = Number(raceId);
-      const key = `${programId}:0`;
-      const previous = aggregated.get(key);
-      aggregated.set(key, {
-        raceId: programId,
-        programId,
-        turn: 0,
-        raceName: previous?.raceName || '',
-        largeMarginCount:
-          (previous?.largeMarginCount || 0) + (largeCounts[raceId] || 0),
-        raceCount: (previous?.raceCount || 0) + (allRaceCounts[raceId] || 0),
-        recordedAt: '',
-      });
-    });
-  });
-  return [...aggregated.values()].sort(
-    (left, right) =>
-      right.largeMarginCount - left.largeMarginCount ||
-      left.turn - right.turn ||
-      left.programId - right.programId,
-  );
-};
 
 const runStatus = (run: CareerSessionRun, current = false) => {
   if (current) {
@@ -437,7 +331,6 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
   const sorted = [...records].sort((left, right) =>
     String(left.started_at || '').localeCompare(String(right.started_at || '')),
   );
-  const statisticSources = records.flatMap(recordStatisticSources);
   const chronologicalRows = sorted
     .flatMap((record) => {
       const recordRows = [
@@ -480,35 +373,6 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
     cardId: Number(sorted.find((record) => record.card_id)?.card_id || 0),
     startedAt: String(sorted[0]?.started_at || ''),
     endedAt: String(sorted.at(-1)?.ended_at || ''),
-    largeMarginCount: statisticSources.reduce(
-      (sum, source) =>
-        sum +
-        Number(
-          source.large_margin_count ||
-            Object.values(raceCounts(source.large_margin_race_counts)).reduce(
-              (raceTotal, value) => raceTotal + value,
-              0,
-            ),
-        ),
-      0,
-    ),
-    g123RaceCount: statisticSources.reduce(
-      (sum, source) => sum + totalRaceCount(source.g123_race_counts),
-      0,
-    ),
-    g123Races: aggregateG123Races(records),
-    jewelDropCount: statisticSources.reduce(
-      (sum, source) => sum + Number(source.jewel_drop_count || 0),
-      0,
-    ),
-    jewelsEarned: statisticSources.reduce(
-      (sum, source) => sum + Number(source.jewels_earned || 0),
-      0,
-    ),
-    clocksUsed: statisticSources.reduce(
-      (sum, source) => sum + Number(source.clocks_used || 0),
-      0,
-    ),
     errors: [...new Set(records.map((record) => record.error).filter(Boolean))],
     rows,
   };
@@ -529,13 +393,11 @@ export default function HistoryTab({
   downloadTrainingHistory,
   localTrainingHistoryIds,
   openTrainingHistory,
-  races,
 }: HistoryTabProps) {
   const [historyView, setHistoryView] = useState<'day' | 'task' | 'tracking'>(
     'day',
   );
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
-  const [detailTab, setDetailTab] = useState<'runs' | 'races'>('runs');
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const detailRevision = useRef(0);
@@ -578,7 +440,6 @@ export default function HistoryTab({
           throw new Error('服务器未返回育成详情，请刷新重试或更新服务器');
         }
         setSelectedCareerRecords(details);
-        setDetailTab('runs');
       }
     } catch (caught) {
       if (revision === detailRevision.current)
@@ -667,20 +528,6 @@ export default function HistoryTab({
       iconPath: umaSkinIconPath(cardId),
     };
   };
-
-  const raceByProgramId = new Map<number, RaceOption>();
-  const raceByProgramAndTurn = new Map<string, RaceOption>();
-  const raceById = new Map<number, RaceOption>();
-  races.forEach((race) => {
-    const programId = Number(race.program_id);
-    if (programId > 0 && !raceByProgramId.has(programId)) {
-      raceByProgramId.set(programId, race);
-    }
-    if (programId > 0) {
-      raceByProgramAndTurn.set(`${programId}:${Number(race.turn || 0)}`, race);
-    }
-    raceById.set(Number(race.id), race);
-  });
 
   if (selectedCareerRecords?.length) {
     const aggregate = aggregateRecords(selectedCareerRecords);
@@ -788,39 +635,11 @@ export default function HistoryTab({
         </section>
 
         <section className={panelClass('overflow-hidden')}>
-          <div
-            role="tablist"
-            aria-label="历史详情视图"
-            className="flex gap-2 border-b border-slate-200 p-3"
-          >
-            {(
-              [
-                ['runs', '育成记录'],
-                ['races', '比赛掉落'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                id={`history-detail-tab-${key}`}
-                aria-selected={detailTab === key}
-                aria-controls="history-detail-panel"
-                onClick={() => setDetailTab(key)}
-                className={`rounded-lg px-4 py-2 text-data font-semibold ${detailTab === key ? 'bg-sky-100 text-sky-800' : 'text-slate-500 hover:bg-slate-100'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div
-            role="tabpanel"
-            id="history-detail-panel"
-            aria-labelledby={`history-detail-tab-${detailTab}`}
-          >
-            {detailTab === 'races' ? (
-              <RaceJewelStats records={selectedCareerRecords} races={races} />
-            ) : aggregate.rows.length ? (
+          <h3 className="border-b border-slate-200 p-3 text-data font-semibold text-slate-800">
+            育成记录
+          </h3>
+          <div>
+            {aggregate.rows.length ? (
               <>
                 <div className="historyCompactRuns divide-y divide-slate-200">
                   {aggregate.rows.map(
@@ -1075,67 +894,6 @@ export default function HistoryTab({
             )}
           </div>
         </section>
-
-        {!offlineHistory && detailTab === 'runs' ? (
-          <section className={panelClass('p-3 sm:p-5')}>
-            <h3 className="text-section font-semibold text-slate-900">
-              大差情况
-            </h3>
-            {aggregate.g123Races.length ? (
-              <div className="historyRaces mt-3">
-                {aggregate.g123Races.map((raceRow) => {
-                  const race =
-                    raceById.get(raceRow.raceId) ||
-                    raceByProgramAndTurn.get(
-                      `${raceRow.programId}:${raceRow.turn}`,
-                    ) ||
-                    raceByProgramId.get(raceRow.programId);
-                  return (
-                    <div
-                      key={`${raceRow.raceId}:${raceRow.programId}:${raceRow.turn}`}
-                      className="flex min-w-0 items-center gap-3 border-b border-slate-100 py-3"
-                    >
-                      {race?.thumbnail_id ? (
-                        <AssetIcon
-                          path={`race_thumb/${race.thumbnail_id}.png`}
-                          alt={race.name}
-                          className="h-11 w-16 shrink-0 rounded-md bg-slate-100 object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-white text-amber-500">
-                          <Trophy size={20} />
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <strong className="historyLongText block text-data font-semibold text-slate-700">
-                          {race?.name || raceRow.raceName || '未知比赛'}
-                        </strong>
-                        {race ? (
-                          <span className="block text-caption text-slate-500">
-                            {race.date} · {race.type} · {race.terrain} ·{' '}
-                            {race.distance}
-                          </span>
-                        ) : null}
-                        {raceRow.recordedAt ? (
-                          <span className="block text-caption text-slate-500">
-                            比赛时间 {formatReportTime(raceRow.recordedAt)}
-                          </span>
-                        ) : null}
-                      </span>
-                      <strong className="shrink-0 text-label tabular-nums text-amber-700">
-                        {raceRow.largeMarginCount} / {raceRow.raceCount} 场
-                      </strong>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-4 rounded-lg bg-slate-50 px-3 py-6 text-center text-data text-slate-600">
-                当天没有 G1、G2、G3、EX 比赛记录
-              </p>
-            )}
-          </section>
-        ) : null}
       </div>
     );
   }
@@ -1152,13 +910,30 @@ export default function HistoryTab({
   return (
     <section
       className="autoResearchHistory"
-      aria-busy={busy === 'history'}
+      aria-busy={busy === 'history' || detailLoading}
       onTouchStart={beginPull}
       onTouchMove={continuePull}
       onTouchEnd={finishPull}
       onTouchCancel={finishPull}
     >
-      {detailLoading ? <p role="status">正在读取记录详情…</p> : null}
+      {detailLoading
+        ? createPortal(
+            <div
+              className="historyLoadingOverlay"
+              role="status"
+              aria-label="正在读取育成记录"
+            >
+              <div className="historyLoadingSpinner">
+                <LoaderCircle
+                  size={32}
+                  className="animate-spin"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       {detailError ? (
         <p role="alert" className="text-red-600">
           {detailError}

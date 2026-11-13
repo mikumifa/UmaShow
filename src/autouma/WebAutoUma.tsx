@@ -1353,7 +1353,6 @@ export default function WebAutoUma() {
               downloadTrainingHistory={noopAsync}
               localTrainingHistoryIds={new Set()}
               openTrainingHistory={noop}
-              races={races}
             />
           )}
         </div>

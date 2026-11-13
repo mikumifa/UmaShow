@@ -18,6 +18,25 @@
   overflow-wrap: anywhere;
 }
 
+.historyLoadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: grid;
+  place-items: center;
+  background: rgb(15 23 42 / 12%);
+  cursor: progress;
+}
+
+.historyLoadingSpinner {
+  padding: 16px;
+  border: 1px solid var(--uma-clay-border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--uma-clay-surface, #f5efdf);
+  color: var(--uma-clay-accent, #4f46e5);
+  line-height: 0;
+}
+
 .historyContent {
   overflow: hidden;
   border: 1px solid #e2e8f0;

@@ -757,6 +757,11 @@ export default function AutoResearch() {
     useState('');
   const accountsRef = useRef(accounts);
   const sessionTokens = useRef(new Map<string, string>());
+  const startupHostedRestore = useRef({
+    accountId: localStorage.getItem(LAST_ACCOUNT_KEY) || '',
+    server: localStorage.getItem('autoResearch.server') || '',
+    attempted: false,
+  });
   const existingRuntimeAttachAttempts = useRef(new Set<string>());
   const existingRuntimeAttachRequests = useRef(
     new Map<string, Promise<HostedControlResponse>>(),
@@ -3044,6 +3049,22 @@ export default function AutoResearch() {
         return;
       }
 
+      // Reconnect the last successfully used server once on startup so its
+      // existing task can restore the last account without a login click.
+      // An explicit local-login request still follows the manual flow.
+      const startupRestore = startupHostedRestore.current;
+      if (
+        !server &&
+        !startupRestore.attempted &&
+        startupRestore.accountId === accountId &&
+        startupRestore.server &&
+        !pendingLocalLoginRef.current
+      ) {
+        startupRestore.attempted = true;
+        await connect(startupRestore.server);
+        return;
+      }
+
       // With no local SID, ask the hosted service whether a persisted task
       // already owns the account.
       if (server && !sessionTokens.current.has(accountId)) {
@@ -3094,6 +3115,7 @@ export default function AutoResearch() {
   }, [
     attachExistingRuntime,
     clearPendingLocalLogin,
+    connect,
     loadOverview,
     loginLocalAccount,
     pendingLocalLoginReady,
@@ -7860,7 +7882,7 @@ export default function AutoResearch() {
         onAddGroup={addSkillGroup}
         onClose={() => setSkillPickerOpen(false)}
       />
-      <div className="mx-auto flex h-full min-h-0 max-w-none flex-col">
+      <div className="mx-auto flex h-full min-h-0 max-w-6xl flex-col">
         <AppMenuPortal>
           <div className="autoResearchHeaderActions flex min-w-0 items-center gap-1.5">
             <span
@@ -8896,7 +8918,6 @@ export default function AutoResearch() {
                       downloadTrainingHistory={downloadTrainingHistory}
                       localTrainingHistoryIds={localTrainingHistoryIds}
                       openTrainingHistory={openTrainingHistory}
-                      races={races}
                     />
                   ) : (
                     <section className="flex min-h-full flex-1 flex-col items-center justify-center p-8 text-center">
