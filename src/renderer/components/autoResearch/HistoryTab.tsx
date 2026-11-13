@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
-  Gem,
   ListTodo,
   RefreshCw,
   Trash2,
@@ -25,6 +24,12 @@ import { PlannerButton } from 'renderer/components/succession/PlannerComponents'
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
 import RaceJewelStats from './RaceJewelStats';
+import HistoryMetrics, {
+  averageRunMetrics,
+  formatHistoryMetric,
+  historyMetrics,
+  runMetrics,
+} from './HistoryMetrics';
 import './History.css';
 import { characterIconPath, umaSkinIconPath } from './SelectionCards';
 import {
@@ -34,7 +39,6 @@ import {
   panelClass,
 } from './shared';
 import {
-  CareerSessionAttributes,
   CareerSessionRecord,
   CareerSessionRun,
   CareerSetting,
@@ -63,27 +67,6 @@ type HistoryTabProps = {
   localTrainingHistoryIds: Set<string>;
   openTrainingHistory: (recordId: string) => void;
   races: RaceOption[];
-};
-
-const attributeItems = [
-  ['speed', '速度'],
-  ['stamina', '耐力'],
-  ['power', '力量'],
-  ['guts', '根性'],
-  ['wit', '智力'],
-] as const;
-
-const emptyAttributes = (): CareerSessionAttributes => ({
-  speed: 0,
-  stamina: 0,
-  power: 0,
-  guts: 0,
-  wit: 0,
-});
-
-const formatMetric = (value?: number) => {
-  const number = Number(value || 0);
-  return Number.isInteger(number) ? String(number) : number.toFixed(1);
 };
 
 const runIdTimestamp = (runId?: string) => {
@@ -454,22 +437,6 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
       sum + (record.runs?.length ? runs.length : Number(record.count || 0))
     );
   }, 0);
-  const attributesTotal = emptyAttributes();
-  records.forEach((record) => {
-    attributeItems.forEach(([key]) => {
-      const storedTotal = Number(record.attributes_total?.[key]);
-      attributesTotal[key] += Number.isFinite(storedTotal)
-        ? storedTotal
-        : Number(record.attributes_average?.[key] || 0) *
-          Number(record.count || 0);
-    });
-  });
-  const attributesAverage = emptyAttributes();
-  attributeItems.forEach(([key]) => {
-    attributesAverage[key] = count
-      ? Math.round((attributesTotal[key] / count) * 100) / 100
-      : 0;
-  });
   const sorted = [...records].sort((left, right) =>
     String(left.started_at || '').localeCompare(String(right.started_at || '')),
   );
@@ -512,7 +479,7 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
     .reverse();
   return {
     count,
-    attributesAverage,
+    metricsAverage: averageRunMetrics(records),
     cardId: Number(sorted.find((record) => record.card_id)?.card_id || 0),
     startedAt: String(sorted[0]?.started_at || ''),
     endedAt: String(sorted.at(-1)?.ended_at || ''),
@@ -843,56 +810,15 @@ export default function HistoryTab({
             </div>
           ) : null}
 
-          <div className="historySummary">
-            <div>
-              <p className="text-caption text-slate-500 sm:text-caption">
-                完成次数
-              </p>
-              <strong className="mt-1 block text-section text-slate-900">
-                {aggregate.count}
-              </strong>
+          <div className="historyAverageOverview">
+            <div className="historyAverageHeading">
+              <strong>每次育成平均</strong>
+              <span>已完成 {aggregate.count} 次</span>
             </div>
-            {!offlineHistory ? (
-              <div>
-                <p className="text-caption text-slate-500 sm:text-caption">
-                  比赛大差
-                </p>
-                <strong className="mt-1 block text-section text-amber-700">
-                  {aggregate.largeMarginCount} / {aggregate.g123RaceCount} 场
-                </strong>
-              </div>
-            ) : null}
-            {!offlineHistory ? (
-              <div>
-                <p className="text-caption text-slate-500 sm:text-caption">
-                  使用闹钟
-                </p>
-                <strong className="mt-1 block text-section text-sky-700">
-                  {aggregate.clocksUsed} 次
-                </strong>
-              </div>
-            ) : null}
-            <div>
-              <p className="text-caption text-slate-500 sm:text-caption">
-                宝石掉落
-              </p>
-              <strong className="mt-1 block text-section text-violet-700">
-                {aggregate.jewelDropCount} 次 / {aggregate.jewelsEarned} 个
-              </strong>
-            </div>
-          </div>
-          <div className="historyAttributes mt-4">
-            {attributeItems.map(([key, label]) => (
-              <div key={key} className="min-w-0 text-center">
-                <p className="truncate text-caption text-slate-500 sm:text-caption">
-                  <span className="hidden sm:inline">平均</span>
-                  {label}
-                </p>
-                <strong className="mt-1 block text-data font-semibold text-slate-900">
-                  {formatMetric(aggregate.attributesAverage[key])}
-                </strong>
-              </div>
-            ))}
+            <HistoryMetrics values={aggregate.metricsAverage} average />
+            <p className="mt-2 text-caption text-slate-500">
+              仅统计已完成记录；缺失项不计入对应均值。
+            </p>
           </div>
         </section>
 
@@ -979,17 +905,8 @@ export default function HistoryTab({
                               {formatAccountError(run.last_error)}
                             </p>
                           ) : null}
-                          <div className="historyAttributes mt-3">
-                            {attributeItems.map(([key, label]) => (
-                              <span key={key} className="min-w-0 text-center">
-                                <strong className="block text-label font-semibold text-slate-800">
-                                  {run.attributes?.[key] || 0}
-                                </strong>
-                                <span className="text-caption text-slate-500">
-                                  {label}
-                                </span>
-                              </span>
-                            ))}
+                          <div className="mt-3">
+                            <HistoryMetrics values={runMetrics(run)} pending={current} />
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-2 text-caption text-slate-500">
                             <span className="flex flex-wrap gap-x-3 gap-y-1">
@@ -1004,10 +921,6 @@ export default function HistoryTab({
                                   闹钟 {run.clocks_used || 0}
                                 </span>
                               ) : null}
-                              <span className="text-violet-700">
-                                宝石 {run.jewel_drop_count || 0}/
-                                {run.jewels_earned || 0}
-                              </span>
                             </span>
                             {!readOnly &&
                             !offlineHistory &&
@@ -1042,7 +955,7 @@ export default function HistoryTab({
                       <tr>
                         <th className="px-4 py-3 font-medium">次数</th>
                         <th className="px-3 py-3 font-medium">状态</th>
-                        {attributeItems.map(([key, label]) => (
+                        {historyMetrics.map(({ key, label }) => (
                           <th key={key} className="px-3 py-3 font-medium">
                             {label}
                           </th>
@@ -1053,7 +966,6 @@ export default function HistoryTab({
                         {!offlineHistory ? (
                           <th className="px-3 py-3 font-medium">闹钟</th>
                         ) : null}
-                        <th className="px-3 py-3 font-medium">宝石掉落</th>
                         <th className="px-3 py-3 font-medium">开始</th>
                         <th className="px-3 py-3 font-medium">结束</th>
                         <th className="px-3 py-3 font-medium">持续</th>
@@ -1093,12 +1005,12 @@ export default function HistoryTab({
                                   </span>
                                 ) : null}
                               </td>
-                              {attributeItems.map(([key]) => (
+                              {historyMetrics.map(({ key }) => (
                                 <td
                                   key={key}
                                   className="px-3 py-3 text-slate-700"
                                 >
-                                  {run.attributes?.[key] || 0}
+                                  {formatHistoryMetric(runMetrics(run)[key])}
                                 </td>
                               ))}
                               {!offlineHistory ? (
@@ -1112,10 +1024,6 @@ export default function HistoryTab({
                                   {run.clocks_used || 0} 次
                                 </td>
                               ) : null}
-                              <td className="px-3 py-3 text-violet-700">
-                                {run.jewel_drop_count || 0} 次 /{' '}
-                                {run.jewels_earned || 0} 个
-                              </td>
                               <td className="whitespace-nowrap px-3 py-3 text-caption text-slate-600">
                                 {historyView === 'task'
                                   ? formatRunDateTime(startedAt)
@@ -1498,43 +1406,14 @@ export default function HistoryTab({
                       {formatReportTime(aggregate.startedAt)} 至{' '}
                       {formatReportTime(aggregate.endedAt)}
                     </span>
-                  </span>
-                </span>
-
-                <span className="historyAttributes text-center text-caption text-slate-500">
-                  {attributeItems.map(([attributeKey, label]) => (
-                    <span key={attributeKey} className="min-w-0">
-                      <strong className="block text-data font-semibold text-slate-700">
-                        {formatMetric(
-                          aggregate.attributesAverage[attributeKey],
-                        )}
-                      </strong>
-                      {label}
+                    <span className="mt-1 block text-caption text-slate-500">
+                      已完成 {aggregate.count} 次 · 下方为每次平均
                     </span>
-                  ))}
+                  </span>
                 </span>
 
-                <span className="historyResults grid grid-cols-3 gap-2 text-center text-caption text-slate-500">
-                  <span>
-                    <strong className="block text-data text-slate-800">
-                      {aggregate.count}
-                    </strong>
-                    完成
-                  </span>
-                  <span>
-                    <strong className="block text-data text-amber-700">
-                      {aggregate.largeMarginCount}
-                    </strong>
-                    大差
-                  </span>
-                  <span>
-                    <strong className="flex items-center justify-center gap-1 text-data text-violet-700">
-                      <Gem size={12} />
-                      {aggregate.jewelDropCount}/{aggregate.jewelsEarned}
-                    </strong>
-                    掉落/宝石
-                  </span>
-                </span>
+                <HistoryMetrics values={aggregate.metricsAverage} average />
+
                 <ChevronRight
                   size={16}
                   className="historyRowChevron text-slate-400"

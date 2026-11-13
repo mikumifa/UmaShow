@@ -334,6 +334,7 @@ export type AutoResearchTab =
   | 'presets'
   | 'career'
   | 'daily'
+  | 'planning'
   | 'history';
 
 export type DailyTaskResult = {
@@ -483,6 +484,9 @@ export type G123RaceRecord = {
 };
 
 export type CareerSessionRun = {
+  chara_score?: number | null;
+  win_count?: number | null;
+  race_count?: number | null;
   unattributed_jewels?: number;
   run_id?: string;
   training_history_id?: string;
@@ -514,6 +518,8 @@ export type CareerSessionRun = {
 };
 
 export type CareerSessionRecord = {
+  metric_totals?: Partial<Record<CareerHistoryMetric, number | null>>;
+  metric_samples?: Partial<Record<CareerHistoryMetric, number>>;
   summary_only?: boolean;
   aggregation_type?: 'day' | 'task';
   id: string;
@@ -567,6 +573,13 @@ export type CareerSessionRecord = {
   runs: CareerSessionRun[];
   current?: CareerSessionRun | null;
 };
+
+export type CareerHistoryMetric =
+  | 'chara_score'
+  | 'jewel_drop_count'
+  | 'win_count'
+  | 'race_count'
+  | 'jewels_earned';
 
 export type OfflineFactorTarget = {
   factor_group_id: number;
