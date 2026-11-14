@@ -879,57 +879,6 @@ export default function RacePlanningTab() {
           </>
         )}
       </section>
-      <section className={panelClass('p-4 text-caption text-slate-500')}>
-        <p className="flex items-center gap-2 font-semibold text-slate-700">
-          <CalendarDays size={15} />
-          规划口径
-        </p>
-        <p className="mt-2">
-          以回合和连续出赛次数做动态规划；休息会重置连战，固定目标赛必须参加。期望粉丝采用胜率
-          × 冠军基础粉丝 ×（1 + 支援卡粉丝加成）× 1.10
-          经验修正；比赛外剧本粉丝暂按 0 计算。胜场仅计所选重赏级别，EX 不算
-          GIII 以上。
-        </p>
-        <p className="mt-2">
-          普通赛程获胜后掉钻率：第 1～5 连战依次为 4%、4%、3%、1%、1%，第 6
-          连战及以后为 0%。马娘自身的生涯目标赛在当前连战胜率上加 10
-          个百分点，最高 100%。期望掉落次数为胜率乘以获胜后掉钻率。
-        </p>
-        <p className="mt-2">
-          女神杯三场年末赛按必成功、每场 5%
-          掉落计算，计入粉丝和重赏胜场，不影响普通赛程连战。模型不模拟属性成长、训练效果、目标通关概率或报名门槛。
-        </p>
-        <p className="mt-2">
-          方法参考：
-          <a
-            className="underline"
-            href="https://tma.main.jp/uma/maximize_fan_independent_training.php"
-            target="_blank"
-            rel="noreferrer"
-          >
-            自主训练最优粉丝赛程
-          </a>{' '}
-          ·{' '}
-          <a
-            className="underline"
-            href="https://tma.main.jp/uma/maximize_win_independent_training.php"
-            target="_blank"
-            rel="noreferrer"
-          >
-            胜场优化与完整胜率表
-          </a>{' '}
-          ·{' '}
-          <a
-            className="underline"
-            href="https://ja.wikipedia.org/wiki/%E5%8B%95%E7%9A%84%E8%A8%88%E7%94%BB%E6%B3%95"
-            target="_blank"
-            rel="noreferrer"
-          >
-            动态规划
-          </a>
-          。赛历、冠军粉丝数和生涯目标来自本地国服主数据库。
-        </p>
-      </section>
     </div>
   );
 }

@@ -110,10 +110,16 @@ export default function AutoUmaApp() {
               overflow: hidden;
             }
             .autouma-content:has(> .autoResearchPage) {
-              overflow-y: hidden;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
               padding-right: 0;
               padding-bottom: 0;
               padding-left: 0;
+            }
+            .autouma-content > .autoResearchPage {
+              flex: 1 1 0%;
+              min-height: 0;
             }
             html[data-autouma]:has(
                 .autoResearchNestedView,

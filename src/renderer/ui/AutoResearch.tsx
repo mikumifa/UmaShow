@@ -6199,15 +6199,24 @@ export default function AutoResearch() {
             --auto-research-gutter: max(1rem, calc((100% - 72rem) / 2 + 1rem));
           }
           .autoResearchContentGrid:not(.overflow-hidden) {
-            padding: 3.5rem var(--auto-research-gutter) 1.25rem;
+            padding: 3.5rem var(--auto-research-gutter) 0;
             scrollbar-gutter: stable;
+          }
+          .autoResearchContentGrid:not(.overflow-hidden) > .autoResearchMain,
+          .autoResearchContentGrid:not(.overflow-hidden) > aside {
+            padding-bottom: 1.25rem;
           }
           .autoResearchMain.autoResearchTabScroll {
             padding: 3.5rem var(--auto-research-gutter) 1.25rem;
             scrollbar-gutter: stable;
           }
           .autoResearchNestedView .autoResearchContentGrid:not(.overflow-hidden) {
-            padding: 0 0 1.5rem;
+            padding: 0;
+          }
+          .autoResearchNestedView
+            .autoResearchContentGrid:not(.overflow-hidden)
+            > .autoResearchMain {
+            padding-bottom: 1.5rem;
           }
           .autoResearchNestedView .autoResearchMain.autoResearchTabScroll {
             padding: 0 0 1.5rem;
@@ -6279,9 +6288,13 @@ export default function AutoResearch() {
               gap: 0.75rem;
             }
             html[data-autouma] .autoResearchContentGrid:not(.overflow-hidden) {
-              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right))
-                calc(5rem + var(--autouma-safe-bottom))
+              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right)) 0
                 calc(0.75rem + var(--autouma-safe-left));
+            }
+            html[data-autouma]
+              .autoResearchContentGrid:not(.overflow-hidden)
+              > .autoResearchMain {
+              padding-bottom: 1rem;
             }
             html[data-autouma] .autoResearchContentGrid.overflow-hidden {
               padding: 0;
@@ -6299,19 +6312,34 @@ export default function AutoResearch() {
               scrollbar-gutter: auto;
             }
             html[data-autouma] .autoResearchMain.autoResearchTabScroll {
-              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right))
-                calc(5rem + var(--autouma-safe-bottom))
+              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right)) 0
                 calc(0.75rem + var(--autouma-safe-left));
+            }
+            html[data-autouma] .autoResearchMain.autoResearchTabScroll::after {
+              content: '';
+              display: block;
+              flex: 0 0 0.25rem;
             }
             html[data-autouma]
               .autoResearchNestedView
               .autoResearchContentGrid:not(.overflow-hidden) {
-              padding: 0 0 calc(1.25rem + var(--autouma-safe-bottom));
+              padding: 0;
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchContentGrid:not(.overflow-hidden)
+              > .autoResearchMain {
+              padding-bottom: calc(1.25rem + var(--autouma-safe-bottom));
             }
             html[data-autouma]
               .autoResearchNestedView
               .autoResearchMain.autoResearchTabScroll {
-              padding: 0 0 calc(1.5rem + var(--autouma-safe-bottom));
+              padding: 0;
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchMain.autoResearchTabScroll::after {
+              flex-basis: calc(1rem + var(--autouma-safe-bottom));
             }
             .autoResearchNestedView .autoResearchForm > section {
               padding-right: calc(0.75rem + var(--autouma-safe-right, 0px));
@@ -6363,12 +6391,10 @@ export default function AutoResearch() {
               height: 1.125rem;
             }
             html[data-autouma] .autoResearchMobileTabs {
-              position: fixed;
-              right: 0;
-              bottom: 0;
-              left: 0;
-              z-index: 120;
+              position: relative;
+              z-index: 30;
               display: grid;
+              flex-shrink: 0;
               grid-template-columns: repeat(3, minmax(0, 1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: 0.375rem calc(0.5rem + var(--autouma-safe-right))
@@ -6376,7 +6402,10 @@ export default function AutoResearch() {
                 calc(0.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226, 232, 240, 0.96);
               background: rgb(var(--uma-clay-surface-rgb) / 0.98);
-              box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+              box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+            }
+            html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs {
+              display: none;
             }
             html[data-autouma] .autoResearchMobileTab {
               display: flex;

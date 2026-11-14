@@ -1084,7 +1084,7 @@ export default function WebAutoUma() {
             html[data-autouma] .autoResearchContentGrid {
               margin-top: 0;
               padding: .625rem calc(.75rem + var(--autouma-safe-right))
-                calc(5rem + var(--autouma-safe-bottom))
+                1rem
                 calc(.75rem + var(--autouma-safe-left));
             }
             html[data-autouma] .autoResearchNestedView .autoResearchContentGrid {
@@ -1110,7 +1110,7 @@ export default function WebAutoUma() {
               overflow: hidden;
             }
             html[data-autouma] .autoResearchMobileTabs {
-              position: fixed; right: 0; bottom: 0; left: 0; z-index: 120;
+              position: relative; z-index: 30; flex-shrink: 0;
               display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
               min-height: calc(4rem + var(--autouma-safe-bottom));
               padding: .375rem calc(.5rem + var(--autouma-safe-right))
@@ -1118,8 +1118,9 @@ export default function WebAutoUma() {
                 calc(.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226,232,240,.96);
               background: rgb(var(--uma-clay-surface-rgb) / .98);
-              box-shadow: 0 -8px 24px rgba(15,23,42,.08);
+              box-shadow: 0 -4px 16px rgba(15,23,42,.06);
             }
+            html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs { display: none; }
             html[data-autouma] .autoResearchMobileTab {
               display: flex; min-height: 3.25rem; flex-direction: column;
               align-items: center; justify-content: center; gap: .1875rem;
@@ -1350,25 +1351,25 @@ export default function WebAutoUma() {
             />
           )}
         </div>
-      </div>
 
-      <nav className="autoResearchMobileTabs" aria-label="自动育成设置">
-        {tabs.map((tab) => {
-          const IconComponent = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={activeTab === tab.id ? 'page' : undefined}
-              className="autoResearchMobileTab"
-            >
-              <IconComponent size={20} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+        <nav className="autoResearchMobileTabs" aria-label="自动育成设置">
+          {tabs.map((tab) => {
+            const IconComponent = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                className="autoResearchMobileTab"
+              >
+                <IconComponent size={20} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       {loginSettingsOpen ? (
         <div className="autoResearchAccountOverlay successionPickerCompactOverlay successionPickerTheme successionPickerOverlay z-[60]">
