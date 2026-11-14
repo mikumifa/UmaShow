@@ -40,6 +40,10 @@ import {
   X,
 } from 'lucide-react';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import {
+  HistoryPage,
+  TrackingPage,
+} from 'renderer/components/autoResearch/useHistoryPages';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import PresetsTab from 'renderer/components/autoResearch/PresetsTab';
 import CareerTab from 'renderer/components/autoResearch/CareerTab';
@@ -114,7 +118,6 @@ import {
   CareerRunQueueItem,
   CareerSetting,
   DailyTasksConfig,
-  DailyAssetSnapshot,
   DailyTasksResponse,
   HostedControlResponse,
   LoginProgress,
@@ -899,12 +902,6 @@ export default function AutoResearch() {
   >([]);
   const [offlineSkillSettings, setOfflineSkillSettings] =
     useState<OfflineSkillSettings>(() => createDefaultOfflineSkillSettings());
-  const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
-  const [assetSnapshots, setAssetSnapshots] = useState<DailyAssetSnapshot[]>(
-    [],
-  );
-  const historyLoadRevision = useRef(0);
-  const loadedHistoryKeyRef = useRef('');
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
     CareerSessionRecord[] | null
   >(null);
@@ -2015,52 +2012,11 @@ export default function AutoResearch() {
     [commitOverviewResponse, request, server],
   );
 
-  const loadCareerHistory = useCallback(
-    async (accountId: string) => {
-      if (!accountId) return;
-      historyLoadRevision.current += 1;
-      const revision = historyLoadRevision.current;
-      setBusy('history');
-      try {
-        if (!server) throw new Error('查看记录前，请先连接自动育成服务器');
-        const account = accountsRef.current.find(
-          (item) => item.id === accountId,
-        );
-        if (!account) throw new Error('本地账号不存在');
-        const result = await request<{
-          success: boolean;
-          reports: CareerSessionRecord[];
-          task_reports?: CareerSessionRecord[];
-          asset_snapshots?: DailyAssetSnapshot[];
-        }>('/api/account/career/history/query', {
-          method: 'POST',
-          body: JSON.stringify({
-            uid: account.uid,
-            view: 'day',
-            days: 50,
-            summary_only: true,
-          }),
-        });
-        if (
-          revision !== historyLoadRevision.current ||
-          selectedAccountIdRef.current !== accountId
-        )
-          return;
-        setCareerHistory([
-          ...(result.reports || []),
-          ...(result.task_reports || []),
-        ]);
-        setAssetSnapshots(result.asset_snapshots || []);
-        setLocalTrainingHistoryIds(new Set());
-      } catch (caught) {
-        if (revision === historyLoadRevision.current)
-          setError((caught as Error).message);
-      } finally {
-        if (revision === historyLoadRevision.current) setBusy('');
-      }
-    },
-    [request, server],
-  );
+  const loadCareerHistory = useCallback(async (accountId: string) => {
+    if (!accountId) return;
+    setSelectedCareerRecords(null);
+    setHistoryRefreshRevision((value) => value + 1);
+  }, []);
 
   const loadCloudConfiguration = useCallback(
     async (accountId: string) => {
@@ -2858,7 +2814,6 @@ export default function AutoResearch() {
         setServerAddress(nextServer);
         setServer(nextServer);
         setServerConnectionRevision((current) => current + 1);
-        setCareerHistory([]);
         setSelectedCareerRecords(null);
         return true;
       } catch (caught) {
@@ -3193,7 +3148,6 @@ export default function AutoResearch() {
     setCareerPresetName('');
     setCareerSaveOpen(false);
     setNewCareerSaveName('');
-    setCareerHistory([]);
     setCloudCareerConfigIds(new Set());
     setSelectedCareerRecords(null);
     setDailyTasksOverview(null);
@@ -3206,29 +3160,6 @@ export default function AutoResearch() {
     setOfflineRaceDeckNum(0);
     setOfflineDesign(normalizeOfflineDesign());
   }, [selectedAccountId]);
-
-  useEffect(() => {
-    historyLoadRevision.current += 1;
-    loadedHistoryKeyRef.current = '';
-    setAssetSnapshots([]);
-    setBusy((current) => (current === 'history' ? '' : current));
-  }, [selectedAccountId, server]);
-
-  useEffect(() => {
-    if (activeTab !== 'history') return;
-    if (!selectedAccountId || !server) return;
-    const autoLoadKey = `${selectedAccountId}|${server}|${historyRefreshRevision}|${serverConnectionRevision}`;
-    if (loadedHistoryKeyRef.current === autoLoadKey) return;
-    loadedHistoryKeyRef.current = autoLoadKey;
-    loadCareerHistory(selectedAccountId).catch(() => undefined);
-  }, [
-    activeTab,
-    historyRefreshRevision,
-    loadCareerHistory,
-    selectedAccountId,
-    server,
-    serverConnectionRevision,
-  ]);
 
   useEffect(() => {
     if (
@@ -3832,7 +3763,6 @@ export default function AutoResearch() {
     }
     setServer('');
     setSession(null);
-    setCareerHistory([]);
     setSelectedCareerRecords(null);
   };
 
@@ -9075,7 +9005,38 @@ export default function AutoResearch() {
                       selectedCareerRecords={selectedCareerRecords}
                       setSelectedCareerRecords={setSelectedCareerRecords}
                       busy={busy}
-                      loadCareerHistory={loadCareerHistory}
+                      key={`${server}:${selectedAccountId}`}
+                      refreshRevision={`${historyRefreshRevision}:${serverConnectionRevision}`}
+                      loadHistoryPage={async (view, offset) => {
+                        const account = accountsRef.current.find(
+                          (item) => item.id === selectedAccountId,
+                        );
+                        if (!account) throw new Error('本地账号不存在');
+                        return request<HistoryPage>(
+                          '/api/account/career/history/page/query',
+                          {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              uid: account.uid, view, offset, limit: 10, days: 50,
+                            }),
+                          },
+                        );
+                      }}
+                      loadTrackingPage={async (metric, offset) => {
+                        const account = accountsRef.current.find(
+                          (item) => item.id === selectedAccountId,
+                        );
+                        if (!account) throw new Error('本地账号不存在');
+                        return request<TrackingPage>(
+                          '/api/account/career/history/tracking/query',
+                          {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              uid: account.uid, metric, offset, limit: 30, days: 50,
+                            }),
+                          },
+                        );
+                      }}
                       loadCareerHistoryDetail={async (reportId) => {
                         const account = accountsRef.current.find(
                           (item) => item.id === selectedAccountId,
@@ -9094,8 +9055,6 @@ export default function AutoResearch() {
                       }}
                       selectedAccountId={selectedAccountId}
                       accountCareerSettings={accountCareerSettings}
-                      careerHistory={careerHistory}
-                      assetSnapshots={assetSnapshots}
                       downloadCareerSetting={downloadCareerSetting}
                       downloadTrainingHistory={downloadTrainingHistory}
                       localTrainingHistoryIds={localTrainingHistoryIds}

@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { DailyAssetSnapshot } from './types';
+import { AssetMetric, AssetTrackingRow } from './useHistoryPages';
 import './History.css';
 
 const items = [
@@ -64,14 +65,24 @@ const desktopCaptureFormatter = new Intl.DateTimeFormat('zh-CN', {
 function AssetTracking({
   snapshots,
   loading,
+  metric,
+  onMetricChange,
+  pagedRows,
+  error,
 }: {
   snapshots: DailyAssetSnapshot[];
   loading: boolean;
+  metric?: AssetMetric;
+  onMetricChange?: (metric: AssetMetric) => void;
+  pagedRows?: AssetTrackingRow[];
+  error?: string;
 }) {
-  const [selected, setSelected] = useState<AssetKey>('jewels');
+  const [localSelected, setLocalSelected] = useState<AssetKey>('jewels');
+  const selected = metric ?? localSelected;
+  const setSelected = onMetricChange ?? setLocalSelected;
   const chartRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState(320);
-  const hasSnapshots = snapshots.length > 0;
+  const hasSnapshots = (pagedRows ?? snapshots).length > 0;
   useEffect(() => {
     const element = chartRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return undefined;
@@ -82,8 +93,13 @@ function AssetTracking({
     return () => observer.disconnect();
   }, [hasSnapshots]);
   const rows = useMemo(
-    () => assetHistoryRows(snapshots, selected),
-    [selected, snapshots],
+    () =>
+      pagedRows
+        ? [...pagedRows].sort((a, b) =>
+            a.business_day.localeCompare(b.business_day),
+          )
+        : assetHistoryRows(snapshots, selected),
+    [selected, snapshots, pagedRows],
   );
   const reversedRows = useMemo(() => [...rows].reverse(), [rows]);
   const latest = rows.at(-1);
@@ -290,11 +306,11 @@ function AssetTracking({
             </table>
           </div>
         </>
-      ) : (
+      ) : !error ? (
         <p role="status" className="py-14 text-center text-data text-slate-600">
           {loading ? '读取中…' : '暂无追踪记录'}
         </p>
-      )}
+      ) : null}
     </section>
   );
 }

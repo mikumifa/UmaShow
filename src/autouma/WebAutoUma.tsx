@@ -31,6 +31,10 @@ import {
   offlineScheduleError,
 } from 'renderer/utils/offlineCareerDesign';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
+import {
+  HistoryPage,
+  TrackingPage,
+} from 'renderer/components/autoResearch/useHistoryPages';
 import ProgressTab from 'renderer/components/autoResearch/ProgressTab';
 import RunTargetInput from 'renderer/components/autoResearch/RunTargetInput';
 import {
@@ -53,7 +57,6 @@ import {
   CloudCareerConfig,
   CloudConfigurationResponse,
   Dashboard,
-  DailyAssetSnapshot,
   HostedControlResponse,
   RaceOption,
   RunnerStats,
@@ -75,8 +78,6 @@ type WebTab = 'career' | 'history';
 type CareerHistoryResponse = {
   success: boolean;
   reports: CareerSessionRecord[];
-  task_reports?: CareerSessionRecord[];
-  asset_snapshots?: DailyAssetSnapshot[];
 };
 type RunnableCloudConfig = CloudCareerConfig & {
   payload: CloudCareerConfig['payload'] & { setting: CareerSetting };
@@ -283,10 +284,7 @@ export default function WebAutoUma() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loginSettingsOpen, setLoginSettingsOpen] = useState(true);
   const [cloudConfigs, setCloudConfigs] = useState<CloudCareerConfig[]>([]);
-  const [careerHistory, setCareerHistory] = useState<CareerSessionRecord[]>([]);
-  const [assetSnapshots, setAssetSnapshots] = useState<DailyAssetSnapshot[]>(
-    [],
-  );
+  const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0);
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
     CareerSessionRecord[] | null
   >(null);
@@ -444,7 +442,7 @@ export default function WebAutoUma() {
       return;
     }
     setBusy('cloud-config-pull');
-    setAssetSnapshots([]);
+    setHistoryRefreshRevision((value) => value + 1);
     setError('');
     setSuccessMessage('');
     try {
@@ -471,6 +469,7 @@ export default function WebAutoUma() {
       }
 
       const enterAccount = () => {
+        setSelectedCareerRecords(null);
         setServer(normalizedServer);
         setConnectedAccountId(selectedAccountId);
         setConnectedUid(credential.uid);
@@ -486,7 +485,7 @@ export default function WebAutoUma() {
         enterAccount();
       }
 
-      const [configurationResult, historyResult] = await Promise.allSettled([
+      const [configurationResult] = await Promise.allSettled([
         serverRequest<CloudConfigurationResponse>(
           normalizedServer,
           '/api/account/configuration/query',
@@ -498,19 +497,6 @@ export default function WebAutoUma() {
             }),
           },
         ),
-        serverRequest<CareerHistoryResponse>(
-          normalizedServer,
-          '/api/account/career/history/query',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              uid: credential.uid,
-              view: 'day',
-              days: 50,
-              summary_only: true,
-            }),
-          },
-        ),
       ]);
 
       if (configurationResult.status === 'fulfilled') {
@@ -518,23 +504,10 @@ export default function WebAutoUma() {
       } else if (!attached) {
         throw configurationResult.reason;
       }
-      if (historyResult.status === 'fulfilled') {
-        setCareerHistory([
-          ...(historyResult.value.reports || []),
-          ...(historyResult.value.task_reports || []),
-        ]);
-        setAssetSnapshots(historyResult.value.asset_snapshots || []);
-      }
       setSelectedCareerRecords(null);
       if (!attached) enterAccount();
-      if (
-        attached &&
-        (configurationResult.status === 'rejected' ||
-          historyResult.status === 'rejected')
-      ) {
-        setError('已进入正在运行的养马；部分云端详设或记录暂时加载失败');
-      } else if (historyResult.status === 'rejected') {
-        setError('云端详设已加载，但养马记录暂时加载失败');
+      if (attached && configurationResult.status === 'rejected') {
+        setError('已进入正在运行的养马；云端详设暂时加载失败');
       }
     } catch (caught) {
       setError(String((caught as Error)?.message || caught));
@@ -690,38 +663,13 @@ export default function WebAutoUma() {
     }
   };
 
-  const refreshHistory = async () => {
+  const refreshHistory = () => {
     if (!server || !connectedUid) {
       setLoginSettingsOpen(true);
       return;
     }
-    setBusy('history');
-    setError('');
-    try {
-      const result = await serverRequest<CareerHistoryResponse>(
-        server,
-        '/api/account/career/history/query',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            uid: connectedUid,
-            view: 'day',
-            days: 50,
-            summary_only: true,
-          }),
-        },
-      );
-      setCareerHistory([
-        ...(result.reports || []),
-        ...(result.task_reports || []),
-      ]);
-      setAssetSnapshots(result.asset_snapshots || []);
-      setSelectedCareerRecords(null);
-    } catch (caught) {
-      setError(String((caught as Error)?.message || caught));
-    } finally {
-      setBusy('');
-    }
+    setSelectedCareerRecords(null);
+    setHistoryRefreshRevision((value) => value + 1);
   };
 
   const commitHostedSession = (next: SessionResponse) => {
@@ -1338,7 +1286,32 @@ export default function WebAutoUma() {
               selectedCareerRecords={selectedCareerRecords}
               setSelectedCareerRecords={setSelectedCareerRecords}
               busy={busy}
-              loadCareerHistory={async () => refreshHistory()}
+              key={`${server}:${connectedUid}`}
+              refreshRevision={historyRefreshRevision}
+              loadHistoryPage={(view, offset) =>
+                serverRequest<HistoryPage>(
+                  server,
+                  '/api/account/career/history/page/query',
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      uid: connectedUid, view, offset, limit: 10, days: 50,
+                    }),
+                  },
+                )
+              }
+              loadTrackingPage={(metric, offset) =>
+                serverRequest<TrackingPage>(
+                  server,
+                  '/api/account/career/history/tracking/query',
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      uid: connectedUid, metric, offset, limit: 30, days: 50,
+                    }),
+                  },
+                )
+              }
               loadCareerHistoryDetail={async (reportId) => {
                 const result = await serverRequest<CareerHistoryResponse>(
                   server,
@@ -1355,8 +1328,6 @@ export default function WebAutoUma() {
               }}
               selectedAccountId={connectedUid}
               accountCareerSettings={careerSettings}
-              careerHistory={careerHistory}
-              assetSnapshots={assetSnapshots}
               downloadCareerSetting={noopAsync}
               downloadTrainingHistory={noopAsync}
               localTrainingHistoryIds={new Set()}

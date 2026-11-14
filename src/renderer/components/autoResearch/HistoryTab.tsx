@@ -24,6 +24,11 @@ import {
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
+import useHistoryPages, {
+  AssetMetric,
+  LoadHistoryPage,
+  LoadTrackingPage,
+} from './useHistoryPages';
 import HistoryMetrics, {
   totalRunMetrics,
   formatHistoryMetric,
@@ -52,17 +57,23 @@ type HistoryTabProps = {
     SetStateAction<CareerSessionRecord[] | null>
   >;
   busy: string;
-  loadCareerHistory: (accountId: string) => Promise<void>;
+  loadCareerHistory?: (accountId: string) => Promise<void>;
+  loadHistoryPage?: LoadHistoryPage;
+  loadTrackingPage?: LoadTrackingPage;
+  refreshRevision?: string | number;
   loadCareerHistoryDetail: (reportId: string) => Promise<CareerSessionRecord[]>;
   selectedAccountId: string;
   accountCareerSettings: CareerSetting[];
-  careerHistory: CareerSessionRecord[];
-  assetSnapshots: DailyAssetSnapshot[];
+  careerHistory?: CareerSessionRecord[];
+  assetSnapshots?: DailyAssetSnapshot[];
   downloadCareerSetting: (records: CareerSessionRecord[]) => Promise<void>;
   downloadTrainingHistory: (recordId: string) => Promise<void>;
   localTrainingHistoryIds: Set<string>;
   openTrainingHistory: (recordId: string) => void;
 };
+
+const EMPTY_HISTORY: CareerSessionRecord[] = [];
+const EMPTY_SNAPSHOTS: DailyAssetSnapshot[] = [];
 
 const runIdTimestamp = (runId?: string) => {
   const match = String(runId || '').match(
@@ -389,11 +400,14 @@ function HistoryTab({
   setSelectedCareerRecords,
   busy,
   loadCareerHistory,
+  loadHistoryPage,
+  loadTrackingPage,
+  refreshRevision = 0,
   loadCareerHistoryDetail,
   selectedAccountId,
   accountCareerSettings,
-  careerHistory,
-  assetSnapshots,
+  careerHistory: legacyHistory = EMPTY_HISTORY,
+  assetSnapshots = EMPTY_SNAPSHOTS,
   downloadCareerSetting,
   downloadTrainingHistory,
   localTrainingHistoryIds,
@@ -402,6 +416,39 @@ function HistoryTab({
   const [historyView, setHistoryView] = useState<'day' | 'task' | 'tracking'>(
     'day',
   );
+  const [assetMetric, setAssetMetric] = useState<AssetMetric>('jewels');
+  const historyPages = useHistoryPages({
+    scope: selectedAccountId,
+    activeKey: historyView === 'task' ? 'task' : 'day',
+    enabled: Boolean(
+      loadHistoryPage && historyView !== 'tracking' && !selectedCareerRecords,
+    ),
+    refreshRevision,
+    load: async (view: 'day' | 'task', offset) => {
+      const result = await loadHistoryPage!(view, offset);
+      return { ...result, rows: result.reports };
+    },
+    identify: (record: CareerSessionRecord) => record.id,
+  });
+  const trackingPages = useHistoryPages({
+    scope: selectedAccountId,
+    activeKey: assetMetric,
+    enabled: Boolean(
+      loadTrackingPage && historyView === 'tracking' && !selectedCareerRecords,
+    ),
+    refreshRevision,
+    load: (metric, offset) => loadTrackingPage!(metric, offset),
+    identify: (row) => row.business_day,
+  });
+  const careerHistory = loadHistoryPage ? historyPages.rows : legacyHistory;
+  const paged = historyView === 'tracking'
+    ? Boolean(loadTrackingPage)
+    : Boolean(loadHistoryPage);
+  const activePage = historyView === 'tracking' ? trackingPages : historyPages;
+  const historyLoading = paged ? activePage.loading : busy === 'history';
+  const pageError = paged ? activePage.error : '';
+  const refreshHistory = () =>
+    paged ? activePage.refresh() : loadCareerHistory?.(selectedAccountId);
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -413,7 +460,7 @@ function HistoryTab({
     return () => {
       detailRevision.current += 1;
     };
-  }, [selectedAccountId, careerHistory]);
+  }, [selectedAccountId, refreshRevision, historyView]);
   const openDetails = async (records: CareerSessionRecord[]) => {
     const revision = ++detailRevision.current;
     setDetailLoading(true);
@@ -884,7 +931,7 @@ function HistoryTab({
   return (
     <section
       className="autoResearchHistory"
-      aria-busy={busy === 'history' || detailLoading}
+      aria-busy={historyLoading || detailLoading}
     >
       {detailLoading
         ? createPortal(
@@ -944,21 +991,25 @@ function HistoryTab({
           </div>
           <button
             type="button"
-            onClick={() => loadCareerHistory(selectedAccountId)}
-            disabled={busy === 'history'}
+            onClick={() => void refreshHistory()}
+            disabled={historyLoading}
             className="uma-clay-button historyToolbarRefresh historyAction inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 text-label font-semibold disabled:opacity-50"
           >
             <RefreshCw
               size={14}
-              className={busy === 'history' ? 'animate-spin' : ''}
+              className={historyLoading ? 'animate-spin' : ''}
             />
-            {busy === 'history' ? '刷新中…' : '刷新'}
+            {historyLoading ? '刷新中…' : '刷新'}
           </button>
         </div>
         {historyView === 'tracking' ? (
           <AssetTracking
             snapshots={assetSnapshots}
-            loading={busy === 'history'}
+            loading={historyLoading}
+            metric={assetMetric}
+            onMetricChange={setAssetMetric}
+            pagedRows={loadTrackingPage ? trackingPages.rows : undefined}
+            error={pageError}
           />
         ) : null}
         {visibleGroups.map(
@@ -1075,8 +1126,32 @@ function HistoryTab({
           );
           },
         )}
-        {historyView !== 'tracking' && !groups.length ? (
-          busy === 'history' ? (
+        {pageError ? (
+          <div role="alert" className="py-4 text-center text-label text-red-600">
+            <p>{pageError}</p>
+            <button
+              type="button"
+              className="historyAction mt-2 px-3 py-2 font-semibold underline"
+              disabled={historyLoading}
+              onClick={() => void activePage.loadMore()}
+            >
+              重试
+            </button>
+          </div>
+        ) : paged && activePage.hasMore && activePage.rows.length > 0 ? (
+          <div className="flex justify-center py-4">
+            <button
+              type="button"
+              className="uma-clay-button historyAction px-4 py-2 text-label font-semibold disabled:opacity-50"
+              disabled={historyLoading}
+              onClick={() => void activePage.loadMore()}
+            >
+              {historyLoading ? '读取中…' : '加载更多'}
+            </button>
+          </div>
+        ) : null}
+        {historyView !== 'tracking' && !groups.length && !pageError ? (
+          historyLoading ? (
             <div
               role="status"
               className="uma-task-card flex min-h-48 flex-col items-center justify-center p-8 text-center text-data text-slate-600"
