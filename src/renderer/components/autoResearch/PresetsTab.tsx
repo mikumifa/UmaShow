@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
 import { Dispatch, memo, SetStateAction, useMemo } from 'react';
 import {
-  ArrowLeft,
   Check,
+  ChevronLeft,
   Download,
   GripVertical,
   Plus,
@@ -380,14 +380,18 @@ function PresetsTab(props: PresetsTabProps) {
   ) : (
     <div className="autoResearchForm contents">
       <header className="autoResearchEditorToolbar">
-        <button
-          type="button"
-          onClick={() => setPresetEditorOpen(false)}
-          className="autoResearchBackButton"
-        >
-          <ArrowLeft size={16} />
-          <span>返回</span>
-        </button>
+        <div className="autoResearchEditorNav">
+          <button
+            type="button"
+            aria-label="返回"
+            onClick={() => setPresetEditorOpen(false)}
+            className="autoResearchBackButton"
+          >
+            <ChevronLeft size={20} strokeWidth={2.25} />
+            <span className="autoResearchBackLabel">返回</span>
+          </button>
+          <span className="autoResearchEditorTitle">预设设置</span>
+        </div>
 
         <nav className="autoResearchEditorTabs">
           {[

@@ -10,6 +10,7 @@ import {
 } from 'renderer/components/succession/SuccessionPicker';
 import { umaSkinIconPath } from './SelectionCards';
 import { DailyTasksOptions } from './types';
+import useScrollLoadMore from './useScrollLoadMore';
 
 type Horse = DailyTasksOptions['trained_charas'][number];
 type Race =
@@ -164,6 +165,14 @@ function DailyHorsePicker({
     search,
     sortKey,
   ]);
+  const displayedHorses = visibleHorses.slice(0, visibleLimit);
+  const horseLoadMoreRef = useScrollLoadMore({
+    enabled: visibleHorses.length > visibleLimit,
+    onLoadMore: () =>
+      setVisibleLimit((current) => current + HORSE_BATCH_STEP),
+    itemCount: displayedHorses.length,
+    resetKey: `${race.id}:${visibleHorses.length}:${sortKey}:${distanceMinimum}:${groundMinimum}:${search}`,
+  });
 
   return (
     <SuccessionPickerDialog
@@ -263,7 +272,7 @@ function DailyHorsePicker({
 
       <div className="plannerDailyHorseBody">
         <div className="plannerDailyHorseGrid">
-          {visibleHorses.slice(0, visibleLimit).map((horse) => {
+          {displayedHorses.map((horse) => {
             const iconPath = umaSkinIconPath(
               horse.card_id,
               horse.rarity,
@@ -337,17 +346,7 @@ function DailyHorsePicker({
           })}
         </div>
         {visibleHorses.length > visibleLimit ? (
-          <div className="flex justify-center py-3">
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleLimit((current) => current + HORSE_BATCH_STEP)
-              }
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-caption font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
-            >
-              加载更多（剩余 {visibleHorses.length - visibleLimit} 匹）
-            </button>
-          </div>
+          <div ref={horseLoadMoreRef} className="h-4" aria-hidden="true" />
         ) : null}
         {!visibleHorses.length ? (
           <div className="py-16 text-center text-data text-slate-400">

@@ -195,11 +195,19 @@ html
   .autoResearchForm
   > section:not(.autoResearchSettingsList):not(.uma-task-card):not(
     .dailyTaskPanel
-  ),
+  ):not(#career-task):not(#preset-basic),
 html .uma-clay-card,
-html .autoResearchForm section[id^='career-'] {
+html .autoResearchForm section[id^='career-']:not(#career-task) {
   border: 0;
   border-top: 1px solid var(--uma-clay-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html .autoResearchForm > #career-task,
+html .autoResearchForm > #preset-basic,
+html #career-uma > section.uma-clay-panel:first-child {
+  border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -252,6 +260,18 @@ html .autoResearchSettingsList {
   }
   html .autoResearchSettingsList {
     padding-bottom: 12px;
+  }
+  html #career-task section.uma-clay-panel,
+  html #career-task section[id^='career-'],
+  html #career-task section#offline-career-setup,
+  html .autoResearchForm > section[id^='preset-'] > div.rounded-lg.border.p-4 {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  html .autoResearchForm > section[id^='preset-'] > div.rounded-lg.border.p-4 {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 }
 html .historyContent {
@@ -321,21 +341,26 @@ html .uma-clay-button-primary {
   border-radius: 10px;
 }
 html .plannerButton.secondary,
-html .autoResearchBackButton,
 html .successionPickerFooter button.uma-clay-button,
 html .uma-clay-button {
-  border: 2px solid var(--uma-clay-ink);
-  background: var(--uma-clay-blue);
+  border: 1px solid #bfd0dc;
+  background: var(--uma-clay-surface);
   color: var(--uma-clay-text);
-  box-shadow: var(--uma-clay-control-shadow);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
 }
 html .plannerButton.primary,
 html .successionPickerFooter button.uma-clay-button-primary,
 html .uma-clay-button-primary {
-  border: 2px solid var(--uma-clay-ink);
-  background: var(--uma-clay-green);
-  color: #173520;
-  box-shadow: var(--uma-clay-control-shadow);
+  border: 1px solid #1e6834;
+  background: var(--uma-clay-accent);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgb(36 120 61 / 0.2);
+}
+html .autoResearchBackButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--uma-clay-text);
+  box-shadow: none;
 }
 html .historyViewSwitch button.bg-white,
 html .uma-app-header button[aria-current='page'],
@@ -350,24 +375,31 @@ html .uma-side-toolbar button[aria-current='page'] {
     .successionPickerFooter
     button.uma-clay-button-primary:hover:not(:disabled),
   html .uma-clay-button-primary:hover:not(:disabled) {
-    border-color: var(--uma-clay-ink);
-    background: #60d16b;
-    color: #173520;
+    border-color: #18542a;
+    background: #1e6834;
+    color: #ffffff;
   }
   html .plannerButton.secondary:hover:not(:disabled),
   html .successionPickerFooter button.uma-clay-button:hover:not(:disabled),
   html .uma-clay-button:hover:not(:disabled) {
-    border-color: var(--uma-clay-ink);
-    background: #c8e7ef;
+    border-color: #96b4c8;
+    background: #f5fafd;
     color: var(--uma-clay-text);
+  }
+  html .autoResearchBackButton:hover:not(:disabled) {
+    border-color: transparent;
+    background: rgb(15 23 42 / 0.06);
+    color: #0f172a;
   }
 }
 html .plannerButton:is(.primary, .secondary):not(:disabled):active,
 html .uma-clay-button:not(:disabled):active,
 html .uma-clay-button-primary:not(:disabled):active {
-  box-shadow:
-    0 1px 0 var(--uma-clay-ink),
-    inset 0 2px 0 #343b4914;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.12);
+}
+html .autoResearchBackButton:not(:disabled):active {
+  background: rgb(15 23 42 / 0.08);
+  box-shadow: none;
 }
 html
   :is(
@@ -446,7 +478,59 @@ html .autoResearchMobileTab[aria-current='page'] {
 ::placeholder {
   color: var(--uma-clay-muted);
 }
+/* Modern slim pill scrollbars on desktop; replace default Windows arrows & gray tracks. */
+@media (min-width: 640px) {
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(100 116 139 / 0.34) transparent;
+    }
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 4px;
+    margin-inline: 4px;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    min-height: 36px;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: rgb(100 116 139 / 0.3);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    border-width: 1px;
+    background: rgb(36 120 61 / 0.52);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:active {
+    border-width: 1px;
+    background: var(--uma-clay-accent);
+    background-clip: padding-box;
+  }
+}
 @media (max-width: 639px) {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
   html
     .successionPickerOverlay:not(.successionPickerCompactOverlay)
     > .successionPickerDialog {

@@ -10,7 +10,8 @@ import {
 } from 'react';
 import {
   AlertTriangle,
-  ArrowLeft,
+  Check,
+  ChevronLeft,
   CloudDownload,
   CloudUpload,
   Database,
@@ -37,6 +38,7 @@ import {
   inheritedCareerAptitudes,
   OfflineDesign,
 } from 'renderer/utils/offlineCareerDesign';
+import useScrollLoadMore from './useScrollLoadMore';
 import { PLANNER_CATALOG } from 'renderer/utils/racePlannerCatalog';
 import { UmaAptitudeRows } from 'renderer/ui/SuccessionPlanner';
 import {
@@ -506,6 +508,15 @@ function CareerTab(props: CareerTabProps) {
     successionG1SaddleIds,
   ]);
   const visiblePickerParents = pickerParents.slice(0, visibleParentLimit);
+  const parentLoadMoreRef = useScrollLoadMore({
+    enabled: Boolean(
+      parentPickerSlot !== null && pickerParents.length > visibleParentLimit,
+    ),
+    onLoadMore: () =>
+      setVisibleParentLimit((current) => current + PARENT_PICKER_BATCH_SIZE),
+    itemCount: visiblePickerParents.length,
+    resetKey: `${parentPickerSlot ?? 0}:${pickerParents.length}`,
+  });
   const deckReservedCharaIds = useMemo(
     () =>
       new Set([
@@ -964,14 +975,20 @@ function CareerTab(props: CareerTabProps) {
   ) : (
     <div className="autoResearchForm contents">
       <header className="autoResearchEditorToolbar">
-        <button
-          type="button"
-          onClick={closeCareerEditor}
-          className="autoResearchBackButton"
-        >
-          <ArrowLeft size={16} />
-          <span>返回</span>
-        </button>
+        <div className="autoResearchEditorNav">
+          <button
+            type="button"
+            aria-label="返回"
+            onClick={closeCareerEditor}
+            className="autoResearchBackButton"
+          >
+            <ChevronLeft size={20} strokeWidth={2.25} />
+            <span className="autoResearchBackLabel">返回</span>
+          </button>
+          <span className="autoResearchEditorTitle">
+            {careerMode === 'offline' ? '离线育成设置' : '育成设置'}
+          </span>
+        </div>
 
         <nav className="autoResearchEditorTabs">
           {(careerMode === 'offline'
@@ -1023,9 +1040,17 @@ function CareerTab(props: CareerTabProps) {
                 type="button"
                 onClick={saveCareerSetting}
                 disabled={Boolean(busy)}
-                className="uma-clay-button inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 text-label font-semibold disabled:opacity-50"
+                className={
+                  careerDirty || busy === 'career-save'
+                    ? 'uma-clay-button inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 text-label font-semibold disabled:opacity-50'
+                    : 'inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-emerald-200/80 bg-white/80 px-2.5 text-label font-medium text-emerald-700 disabled:opacity-50'
+                }
               >
-                <Save size={14} />
+                {careerDirty || busy === 'career-save' ? (
+                  <Save size={14} />
+                ) : (
+                  <Check size={14} />
+                )}
                 {busy === 'career-save'
                   ? '保存中…'
                   : careerDirty
@@ -1205,7 +1230,7 @@ function CareerTab(props: CareerTabProps) {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 max-w-xl">
+                <div className="mt-3 w-full xl:max-w-xl">
                   <SuccessionPickerTrigger
                     label="育成马娘"
                     selected={Boolean(selectedUma)}
@@ -1324,16 +1349,9 @@ function CareerTab(props: CareerTabProps) {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                      {careerMode === 'offline' ? 2 : 1}
-                    </span>
-                    <div>
-                      <h3 className="text-section font-semibold text-gray-800">
-                        选择继承马娘
-                      </h3>
-                    </div>
-                  </div>
+                  <h3 className="text-section font-semibold text-gray-800">
+                    选择继承马娘
+                  </h3>
                 </div>
 
                 {validationErrors['career-parents'] ? (
@@ -1561,23 +1579,14 @@ function CareerTab(props: CareerTabProps) {
                             />
                           ));
                         })()}
+                        {pickerParents.length > visibleParentLimit ? (
+                          <div
+                            ref={parentLoadMoreRef}
+                            className="col-span-full h-4"
+                            aria-hidden="true"
+                          />
+                        ) : null}
                       </div>
-                      {pickerParents.length > visibleParentLimit ? (
-                        <div className="flex justify-center px-4 pb-4 pt-2">
-                          <PlannerButton
-                            variant="secondary"
-                            size="small"
-                            onClick={() =>
-                              setVisibleParentLimit(
-                                (current) => current + PARENT_PICKER_BATCH_SIZE,
-                              )
-                            }
-                          >
-                            显示更多继承马娘（剩余{' '}
-                            {pickerParents.length - visibleParentLimit} 位）
-                          </PlannerButton>
-                        </div>
-                      ) : null}
                     </>
                   ) : (
                     <div className="successionCapturedPickerEmpty">
@@ -1644,18 +1653,13 @@ function CareerTab(props: CareerTabProps) {
                 </p>
               ) : null}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                    {careerMode === 'offline' ? 3 : 2}
-                  </span>
-                  <div>
-                    <h3 className="text-section font-semibold text-gray-800">
-                      选择好友支援卡
-                    </h3>
-                    <p className="text-label text-gray-500">
-                      只允许借用满破满级支援。
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-section font-semibold text-gray-800">
+                    选择好友支援卡
+                  </h3>
+                  <p className="text-label text-gray-500">
+                    只允许借用满破满级支援。
+                  </p>
                 </div>
                 <label className="relative block w-full sm:w-80">
                   <Search

@@ -186,3 +186,155 @@ test('history uses unified toolbar refresh, empty loading state, and sticky deta
   fireEvent.click(backButton);
   expect(setSelectedCareerRecords).toHaveBeenCalledWith(null);
 });
+
+test('history and tracking auto-load next page on scroll threshold without manual load-more button', async () => {
+  const makeRecord = (id: string, date: string): CareerSessionRecord =>
+    ({
+      id,
+      uid: '123',
+      count: 1,
+      career_setting_name: `详设-${id}`,
+      started_at: `${date}T12:00:00+08:00`,
+      ended_at: `${date}T12:30:00+08:00`,
+      runs: [{ run_id: `run-${id}`, completed: true } as CareerSessionRun],
+    }) as CareerSessionRecord;
+
+  let resolveSecondPage!: (value: {
+    reports: CareerSessionRecord[];
+    has_more: boolean;
+    next_offset: number | null;
+  }) => void;
+
+  const loadHistoryPage = jest.fn((view: 'day' | 'task', offset: number) => {
+    if (offset === 0) {
+      return Promise.resolve({
+        reports: [makeRecord(`${view}-1`, '2026-11-14')],
+        has_more: true,
+        next_offset: 10,
+      });
+    }
+    return new Promise<{
+      reports: CareerSessionRecord[];
+      has_more: boolean;
+      next_offset: number | null;
+    }>((resolve) => {
+      resolveSecondPage = resolve;
+    });
+  });
+
+  const loadTrackingPage = jest.fn((_metric: string, offset: number) => {
+    if (offset === 0) {
+      return Promise.resolve({
+        rows: [
+          {
+            business_day: '2026-11-14',
+            captured_at: '2026-11-14T12:00:00+08:00',
+            value: 1500,
+            delta: 50,
+          },
+        ],
+        has_more: true,
+        next_offset: 30,
+      });
+    }
+    return Promise.resolve({
+      rows: [
+        {
+          business_day: '2026-11-13',
+          captured_at: '2026-11-13T12:00:00+08:00',
+          value: 1450,
+          delta: null,
+        },
+      ],
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  const { getByTestId } = render(
+    <div
+      data-testid="scroll-host"
+      style={{ overflowY: 'auto', height: '500px' }}
+    >
+      <HistoryTab
+        readOnly
+        selectedCareerRecords={null}
+        setSelectedCareerRecords={jest.fn()}
+        busy=""
+        loadHistoryPage={loadHistoryPage}
+        loadTrackingPage={loadTrackingPage}
+        loadCareerHistoryDetail={jest.fn()}
+        selectedAccountId="123"
+        accountCareerSettings={[]}
+        downloadCareerSetting={jest.fn()}
+        downloadTrainingHistory={jest.fn()}
+        localTrainingHistoryIds={new Set()}
+        openTrainingHistory={jest.fn()}
+      />
+    </div>,
+  );
+
+  await waitFor(() => expect(screen.getByText('详设-day-1')).toBeInTheDocument());
+  expect(loadHistoryPage).toHaveBeenCalledTimes(1);
+  expect(loadHistoryPage).toHaveBeenLastCalledWith('day', 0);
+  expect(
+    screen.queryByRole('button', { name: /加载更多/ }),
+  ).not.toBeInTheDocument();
+  expect(getByTestId('history-scroll-sentinel')).toBeInTheDocument();
+
+  const scrollHost = getByTestId('scroll-host');
+  let scrollTop = 0;
+  Object.defineProperty(scrollHost, 'clientHeight', {
+    configurable: true,
+    get: () => 500,
+  });
+  Object.defineProperty(scrollHost, 'scrollHeight', {
+    configurable: true,
+    get: () => 1200,
+  });
+  Object.defineProperty(scrollHost, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+  });
+
+  // Far from bottom (1200 - (100 + 500) = 600 > 320): should not load next page yet
+  scrollTop = 100;
+  fireEvent.scroll(scrollHost);
+  expect(loadHistoryPage).toHaveBeenCalledTimes(1);
+
+  // Within threshold (1200 - (450 + 500) = 250 <= 320): auto-loads next_offset=10 once
+  scrollTop = 450;
+  fireEvent.scroll(scrollHost);
+  fireEvent.scroll(scrollHost);
+  await waitFor(() => expect(loadHistoryPage).toHaveBeenCalledTimes(2));
+  expect(loadHistoryPage).toHaveBeenLastCalledWith('day', 10);
+  expect(
+    screen.getByRole('status', { name: '正在加载更多' }),
+  ).toBeInTheDocument();
+
+  await act(async () => {
+    resolveSecondPage({
+      reports: [makeRecord('day-2', '2026-11-13')],
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  await waitFor(() => expect(screen.getByText('详设-day-2')).toBeInTheDocument());
+  expect(
+    screen.queryByTestId('history-scroll-sentinel'),
+  ).not.toBeInTheDocument();
+
+  // Switch to tracking view and verify scroll threshold auto-loads next_offset=30
+  scrollTop = 0;
+  fireEvent.click(screen.getByRole('button', { name: '追踪' }));
+  await waitFor(() => expect(loadTrackingPage).toHaveBeenCalledTimes(1));
+  expect(loadTrackingPage).toHaveBeenLastCalledWith('jewels', 0);
+
+  scrollTop = 450;
+  fireEvent.scroll(scrollHost);
+  await waitFor(() => expect(loadTrackingPage).toHaveBeenCalledTimes(2));
+  expect(loadTrackingPage).toHaveBeenLastCalledWith('jewels', 30);
+  await waitFor(() => expect(screen.getByText('2026-11-13')).toBeInTheDocument());
+});
+

@@ -19,6 +19,7 @@ import {
   SuccessionPickerDialog,
   SuccessionPickerFilterSheet,
 } from 'renderer/components/succession/SuccessionPicker';
+import useScrollLoadMore from './useScrollLoadMore';
 
 export type AutoResearchSkill = {
   id: number;
@@ -348,8 +349,6 @@ export default function SkillSelector({
   const [runningStyleFilters, setRunningStyleFilters] = useState<number[]>([]);
   const [distanceFilters, setDistanceFilters] = useState<number[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SKILL_BATCH);
-  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const onToggleRef = useRef(onToggle);
   onToggleRef.current = onToggle;
   const handleSelectSkill = useCallback((skill: AutoResearchSkill) => {
@@ -436,33 +435,19 @@ export default function SkillSelector({
 
   const hasMore = visibleCount < filteredEntries.length;
 
-  useEffect(() => {
-    if (!open || !hasMore || typeof IntersectionObserver === 'undefined') {
-      return undefined;
-    }
-    const sentinel = loadMoreRef.current;
-    if (!sentinel) return undefined;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisibleCount((count) =>
-            Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
-          );
-        }
-      },
-      {
-        root: scrollBodyRef.current,
-        rootMargin: '280px 0px',
-      },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [filteredEntries.length, hasMore, open]);
-
   const visibleEntries = useMemo(
     () => filteredEntries.slice(0, visibleCount),
     [filteredEntries, visibleCount],
   );
+  const loadMoreRef = useScrollLoadMore({
+    enabled: Boolean(open && hasMore),
+    onLoadMore: () =>
+      setVisibleCount((count) =>
+        Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
+      ),
+    itemCount: visibleEntries.length,
+    resetKey: `${open}:${filteredEntries.length}:${skillKind}:${rarity}:${deferredSearch}`,
+  });
 
   const unselectedFilteredSkills = useMemo(
     () =>
@@ -696,7 +681,7 @@ export default function SkillSelector({
         </div>
       </SuccessionPickerFilterSheet>
 
-      <div ref={scrollBodyRef} className="plannerSkillGridBody">
+      <div className="plannerSkillGridBody">
         <div className="plannerSkillGrid">
           {visibleEntries.map((entry) => {
             const selected = selectedSet.has(entry.skill.name);
@@ -714,19 +699,7 @@ export default function SkillSelector({
           })}
         </div>
         {hasMore ? (
-          <div ref={loadMoreRef} className="mt-3 flex justify-center py-2">
-            <PlannerButton
-              variant="secondary"
-              size="small"
-              onClick={() =>
-                setVisibleCount((count) =>
-                  Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
-                )
-              }
-            >
-              加载更多（剩余 {filteredEntries.length - visibleCount} 项）
-            </PlannerButton>
-          </div>
+          <div ref={loadMoreRef} className="h-4" aria-hidden="true" />
         ) : null}
         {!filteredEntries.length ? (
           <div className="py-16 text-center text-sm text-slate-400">

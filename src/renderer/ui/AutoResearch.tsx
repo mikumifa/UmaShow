@@ -6186,41 +6186,48 @@ export default function AutoResearch() {
 
   return (
     <div
-      className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
+      className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent text-gray-800 ${
         isNestedView ? 'autoResearchNestedView' : ''
       } ${isStandaloneView ? 'autoResearchStandaloneView' : ''}`}
     >
       <style>
         {`
-          .autoResearchTabScroll {
+          html:has(.autoResearchNestedView) .autoResearchDesktopTabs {
+            display: none;
+          }
+          .autoResearchPage {
+            --auto-research-gutter: max(1rem, calc((100% - 72rem) / 2 + 1rem));
+          }
+          .autoResearchContentGrid:not(.overflow-hidden) {
+            padding: 3.5rem var(--auto-research-gutter) 1.25rem;
             scrollbar-gutter: stable;
           }
-          .autoResearchTabScroll::-webkit-scrollbar {
-            width: 12px;
+          .autoResearchMain.autoResearchTabScroll {
+            padding: 3.5rem var(--auto-research-gutter) 1.25rem;
+            scrollbar-gutter: stable;
           }
-          .autoResearchTabScroll::-webkit-scrollbar-track {
-            background: transparent;
-            margin-block: 10px;
+          .autoResearchNestedView .autoResearchContentGrid:not(.overflow-hidden) {
+            padding: 0 0 1.5rem;
           }
-          .autoResearchTabScroll::-webkit-scrollbar-thumb {
-            min-height: 48px;
-            border: 4px solid transparent;
-            border-radius: 999px;
-            background: rgba(148, 163, 184, 0.55);
-            background-clip: padding-box;
+          .autoResearchNestedView .autoResearchMain.autoResearchTabScroll {
+            padding: 0 0 1.5rem;
           }
-          .autoResearchTabScroll::-webkit-scrollbar-thumb:hover {
-            border-width: 3px;
-            background: var(--uma-clay-accent);
-            background-clip: padding-box;
+          .autoResearchNestedView .autoResearchForm > section {
+            padding-right: var(--auto-research-gutter);
+            padding-left: var(--auto-research-gutter);
           }
-          .autoResearchTabScroll::-webkit-scrollbar-thumb:active {
-            border-width: 3px;
-            background: var(--uma-clay-accent);
-            background-clip: padding-box;
+          .autoResearchNestedView .autoResearchForm > #career-task,
+          .autoResearchNestedView .autoResearchForm > #preset-basic {
+            padding-top: 1rem;
           }
-          .autoResearchTabScroll::-webkit-scrollbar-button {
-            display: none;
+          .autoResearchNestedView .autoResearchHistoryDetail > section {
+            margin-right: var(--auto-research-gutter);
+            margin-left: var(--auto-research-gutter);
+          }
+          @media (min-width: 1280px) {
+            .autoResearchPage {
+              --auto-research-gutter: max(1.5rem, calc((100% - 72rem) / 2 + 1.5rem));
+            }
           }
           .successionPickerTheme .autoResearchAccountDialogButton {
             font-size: var(--uma-type-caption);
@@ -6243,6 +6250,10 @@ export default function AutoResearch() {
           }
 
           @media (max-width: 639px) {
+            .autoResearchContentGrid:not(.overflow-hidden),
+            .autoResearchMain.autoResearchTabScroll {
+              scrollbar-gutter: auto;
+            }
             html[data-autouma]:has(.autoResearchNestedView)
               .app-drag-region {
               display: none;
@@ -6256,26 +6267,9 @@ export default function AutoResearch() {
             html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs {
               display: none;
             }
-            html[data-autouma]
-              .autoResearchNestedView
-              .autoResearchContentGrid {
-              padding-top: 0;
-              padding-bottom: calc(1rem + var(--autouma-safe-bottom));
-            }
-            html[data-autouma]
-              .autoResearchNestedView
-              .autoResearchContentGrid.overflow-hidden {
-              padding-bottom: 0;
-            }
-            html[data-autouma]
-              .autoResearchNestedView
-              .autoResearchMain.autoResearchTabScroll {
-              padding-top: 0;
-              padding-bottom: calc(1.25rem + var(--autouma-safe-bottom));
-            }
             html[data-autouma] .autoResearchPage {
-              padding-right: 0.75rem;
-              padding-left: 0.75rem;
+              padding-right: 0;
+              padding-left: 0;
             }
             html[data-autouma] .autoResearchDesktopTabs {
               display: none;
@@ -6283,12 +6277,14 @@ export default function AutoResearch() {
             html[data-autouma] .autoResearchContentGrid {
               margin-top: 0;
               gap: 0.75rem;
-              padding-top: 0.625rem;
-              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
+            }
+            html[data-autouma] .autoResearchContentGrid:not(.overflow-hidden) {
+              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right))
+                calc(5rem + var(--autouma-safe-bottom))
+                calc(0.75rem + var(--autouma-safe-left));
             }
             html[data-autouma] .autoResearchContentGrid.overflow-hidden {
-              padding-top: 0;
-              padding-bottom: 0;
+              padding: 0;
             }
             html[data-autouma]:has(#app-page-secondary-tabs > *)
               .autoResearchContentGrid,
@@ -6303,8 +6299,31 @@ export default function AutoResearch() {
               scrollbar-gutter: auto;
             }
             html[data-autouma] .autoResearchMain.autoResearchTabScroll {
-              padding-top: 0.625rem;
-              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
+              padding: 0.625rem calc(0.75rem + var(--autouma-safe-right))
+                calc(5rem + var(--autouma-safe-bottom))
+                calc(0.75rem + var(--autouma-safe-left));
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchContentGrid:not(.overflow-hidden) {
+              padding: 0 0 calc(1.25rem + var(--autouma-safe-bottom));
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchMain.autoResearchTabScroll {
+              padding: 0 0 calc(1.5rem + var(--autouma-safe-bottom));
+            }
+            .autoResearchNestedView .autoResearchForm > section {
+              padding-right: calc(0.75rem + var(--autouma-safe-right, 0px));
+              padding-left: calc(0.75rem + var(--autouma-safe-left, 0px));
+            }
+            .autoResearchNestedView .autoResearchForm > #career-task,
+            .autoResearchNestedView .autoResearchForm > #preset-basic {
+              padding-top: 0.75rem;
+            }
+            .autoResearchNestedView .autoResearchHistoryDetail > section {
+              margin-right: calc(0.75rem + var(--autouma-safe-right, 0px));
+              margin-left: calc(0.75rem + var(--autouma-safe-left, 0px));
             }
             html[data-autouma] .autoResearchHeaderActions {
               gap: 0.375rem;
@@ -6657,9 +6676,13 @@ export default function AutoResearch() {
             }
             html[data-autouma] .autoResearchPage,
             html[data-autouma] .autoResearchContentGrid,
-            html[data-autouma] .autoResearchMain {
+            html[data-autouma] .autoResearchMain.autoResearchTabScroll {
               max-width: 100vw;
               overflow-x: hidden;
+            }
+            html[data-autouma] .autoResearchMain:not(.autoResearchTabScroll) {
+              max-width: 100%;
+              overflow-x: clip;
             }
             html[data-autouma] .autoResearchMain > *,
             html[data-autouma] .autoResearchMain section,
@@ -7910,7 +7933,7 @@ export default function AutoResearch() {
         onAddGroup={addSkillGroup}
         onClose={() => setSkillPickerOpen(false)}
       />
-      <div className="mx-auto flex h-full min-h-0 max-w-6xl flex-col">
+      <div className="flex h-full min-h-0 w-full flex-col">
         <AppMenuPortal targetId="app-page-title">
           <span>
             {autoResearchTabs.find((tab) => tab.id === activeTab)?.label ||
@@ -8138,7 +8161,7 @@ export default function AutoResearch() {
         </AppMenuPortal>
 
         <div
-          className={`autoResearchContentGrid mt-14 grid min-h-0 flex-1 gap-4 bg-transparent pb-5 ${
+          className={`autoResearchContentGrid grid min-h-0 flex-1 gap-4 bg-transparent ${
             activeTab === 'presets' || activeTab === 'career'
               ? 'overflow-hidden'
               : 'overflow-y-auto overscroll-contain'
@@ -8461,7 +8484,7 @@ export default function AutoResearch() {
           <main
             className={`autoResearchMain flex min-h-0 min-w-0 flex-col gap-4 ${
               activeTab === 'presets' || activeTab === 'career'
-                ? 'autoResearchTabScroll -mr-4 overflow-y-auto overscroll-contain pr-4 xl:-mr-6 xl:pr-6'
+                ? 'autoResearchTabScroll overflow-y-auto overscroll-contain'
                 : ''
             }`}
           >

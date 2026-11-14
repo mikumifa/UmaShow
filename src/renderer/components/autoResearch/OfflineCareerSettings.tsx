@@ -57,6 +57,7 @@ import {
 import RaceSchedulePicker from './RaceSchedulePicker';
 import ReorderControls from './ReorderControls';
 import ParentFactorFilters from './ParentFactorFilters';
+import useScrollLoadMore from './useScrollLoadMore';
 
 type Props = {
   factorOnly?: boolean;
@@ -635,6 +636,18 @@ function OfflineCareerSettings({
     0,
     visibleLineageLimit,
   );
+  const lineageLoadMoreRef = useScrollLoadMore({
+    enabled: Boolean(
+      specificLineagePickerOpen &&
+        filteredLineageParents.length > visibleLineageLimit,
+    ),
+    onLoadMore: () =>
+      setVisibleLineageLimit(
+        (current) => current + LINEAGE_PARENT_BATCH_SIZE,
+      ),
+    itemCount: visibleLineageParents.length,
+    resetKey: `${specificLineagePickerOpen}:${filteredLineageParents.length}`,
+  });
   const specificLineageHasFilters = Boolean(
     specificLineageSource !== 'all' ||
       specificLineageFactorFilters.length ||
@@ -2146,23 +2159,14 @@ function OfflineCareerSettings({
                     }}
                   />
                 ))}
+                {filteredLineageParents.length > visibleLineageLimit ? (
+                  <div
+                    ref={lineageLoadMoreRef}
+                    className="col-span-full h-4"
+                    aria-hidden="true"
+                  />
+                ) : null}
               </div>
-              {filteredLineageParents.length > visibleLineageLimit ? (
-                <div className="flex justify-center px-4 pb-4 pt-2">
-                  <PlannerButton
-                    variant="secondary"
-                    size="small"
-                    onClick={() =>
-                      setVisibleLineageLimit(
-                        (current) => current + LINEAGE_PARENT_BATCH_SIZE,
-                      )
-                    }
-                  >
-                    显示更多马娘（剩余{' '}
-                    {filteredLineageParents.length - visibleLineageLimit} 位）
-                  </PlannerButton>
-                </div>
-              ) : null}
             </>
           ) : (
             <div className="successionCapturedPickerEmpty">

@@ -1042,7 +1042,7 @@ export default function WebAutoUma() {
 
   return (
     <div
-      className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
+      className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent text-gray-800 ${
         activeTab === 'career' ? 'autoResearchCareerPage' : ''
       } ${selectedCareerRecords ? 'autoResearchNestedView' : ''} ${
         !server && !selectedCareerRecords ? 'autoResearchStandaloneView' : ''
@@ -1050,14 +1050,20 @@ export default function WebAutoUma() {
     >
       <style>
         {`
+          html:has(.autoResearchNestedView) .autoResearchDesktopTabs { display: none; }
+          .autoResearchPage { --auto-research-gutter: max(1rem, calc((100% - 72rem) / 2 + 1rem)); }
+          .autoResearchContentGrid { padding: 3.5rem var(--auto-research-gutter) 1.25rem; scrollbar-gutter: stable; }
+          .autoResearchNestedView .autoResearchContentGrid { padding: 0 0 1.5rem; }
+          .autoResearchNestedView .autoResearchHistoryDetail > section { margin-right: var(--auto-research-gutter); margin-left: var(--auto-research-gutter); }
+          @media (min-width: 1280px) {
+            .autoResearchPage { --auto-research-gutter: max(1.5rem, calc((100% - 72rem) / 2 + 1.5rem)); }
+          }
           .autoResearchMobileTabs { display: none; }
           @media (max-width: 639px) {
+            .autoResearchContentGrid { scrollbar-gutter: auto; }
             html[data-autouma]:has(.autoResearchNestedView) .app-drag-region { display: none; }
             html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs { display: none; }
-            html[data-autouma] .autoResearchNestedView .autoResearchContentGrid {
-              padding-top: 0; padding-bottom: calc(1rem + var(--autouma-safe-bottom));
-            }
-            html[data-autouma] .autoResearchPage { padding-right: .75rem; padding-left: .75rem; }
+            html[data-autouma] .autoResearchPage { padding-right: 0; padding-left: 0; }
             html[data-autouma] .autoResearchDesktopTabs { display: none; }
             html[data-autouma] .autoResearchHeaderServer,
             html[data-autouma] .autoResearchHeaderActionLabel { display: none; }
@@ -1076,8 +1082,17 @@ export default function WebAutoUma() {
               border-radius: .75rem;
             }
             html[data-autouma] .autoResearchContentGrid {
-              margin-top: 0; padding-top: .625rem;
-              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
+              margin-top: 0;
+              padding: .625rem calc(.75rem + var(--autouma-safe-right))
+                calc(5rem + var(--autouma-safe-bottom))
+                calc(.75rem + var(--autouma-safe-left));
+            }
+            html[data-autouma] .autoResearchNestedView .autoResearchContentGrid {
+              padding: 0 0 calc(1.25rem + var(--autouma-safe-bottom));
+            }
+            .autoResearchNestedView .autoResearchHistoryDetail > section {
+              margin-right: calc(.75rem + var(--autouma-safe-right, 0px));
+              margin-left: calc(.75rem + var(--autouma-safe-left, 0px));
             }
             html[data-autouma] .autoResearchCareerPage,
             html[data-autouma] .autoResearchCareerPage .autoResearchContentGrid,
@@ -1202,7 +1217,7 @@ export default function WebAutoUma() {
       ) : null}
 
       <div className="mx-auto flex h-full min-h-0 max-w-none flex-col">
-        <div className="autoResearchContentGrid mt-14 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
+        <div className="autoResearchContentGrid min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {!server ? (
             <section className="flex min-h-full flex-col items-center justify-center p-8 text-center">
               <Users size={42} className="text-slate-300" />

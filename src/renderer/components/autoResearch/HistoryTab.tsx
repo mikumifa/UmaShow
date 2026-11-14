@@ -10,8 +10,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft,
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
@@ -29,6 +29,7 @@ import useHistoryPages, {
   LoadHistoryPage,
   LoadTrackingPage,
 } from './useHistoryPages';
+import useScrollLoadMore from './useScrollLoadMore';
 import HistoryMetrics, {
   totalRunMetrics,
   formatHistoryMetric,
@@ -449,6 +450,19 @@ function HistoryTab({
   const pageError = paged ? activePage.error : '';
   const refreshHistory = () =>
     paged ? activePage.refresh() : loadCareerHistory?.(selectedAccountId);
+  const loadMoreSentinelRef = useScrollLoadMore({
+    enabled: Boolean(
+      paged &&
+        !selectedCareerRecords?.length &&
+        activePage.hasMore &&
+        activePage.rows.length > 0 &&
+        !pageError,
+    ),
+    loading: historyLoading,
+    onLoadMore: activePage.loadMore,
+    itemCount: activePage.rows.length,
+    resetKey: `${selectedAccountId}:${refreshRevision}:${historyView}:${assetMetric}`,
+  });
   const [umaDatabase, setUmaDatabase] = useState(UMDB.data);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -579,19 +593,23 @@ function HistoryTab({
     return (
       <div className="autoResearchHistory autoResearchHistoryDetail space-y-3 sm:space-y-4">
         <header className="autoResearchEditorToolbar">
-          <button
-            type="button"
-            className="autoResearchBackButton historyAction"
-            onClick={() => setSelectedCareerRecords(null)}
-          >
-            <ArrowLeft size={16} />
-            <span>返回</span>
-          </button>
+          <div className="autoResearchEditorNav">
+            <button
+              type="button"
+              aria-label="返回"
+              className="autoResearchBackButton"
+              onClick={() => setSelectedCareerRecords(null)}
+            >
+              <ChevronLeft size={20} strokeWidth={2.25} />
+              <span className="autoResearchBackLabel">返回</span>
+            </button>
+            <span className="autoResearchEditorTitle">{settingName}</span>
+          </div>
           <div className="autoResearchEditorActions">
             {!readOnly && canDownloadSetting ? (
               <button
                 type="button"
-                className="uma-clay-button historyAction inline-flex items-center gap-1.5 px-3 text-label font-semibold disabled:opacity-50"
+                className="uma-clay-button inline-flex items-center gap-1.5 px-2.5 text-label font-semibold disabled:opacity-50"
                 disabled={
                   settingDownloaded ||
                   busy.startsWith('history-setting-download:')
@@ -1139,15 +1157,25 @@ function HistoryTab({
             </button>
           </div>
         ) : paged && activePage.hasMore && activePage.rows.length > 0 ? (
-          <div className="flex justify-center py-4">
-            <button
-              type="button"
-              className="uma-clay-button historyAction px-4 py-2 text-label font-semibold disabled:opacity-50"
-              disabled={historyLoading}
-              onClick={() => void activePage.loadMore()}
-            >
-              {historyLoading ? '读取中…' : '加载更多'}
-            </button>
+          <div
+            ref={loadMoreSentinelRef}
+            data-testid="history-scroll-sentinel"
+            aria-live="polite"
+            className="flex min-h-8 items-center justify-center py-2"
+          >
+            {historyLoading ? (
+              <span
+                role="status"
+                aria-label="正在加载更多"
+                className="inline-flex items-center justify-center text-emerald-600"
+              >
+                <LoaderCircle
+                  size={16}
+                  className="animate-spin"
+                  aria-hidden="true"
+                />
+              </span>
+            ) : null}
           </div>
         ) : null}
         {historyView !== 'tracking' && !groups.length && !pageError ? (

@@ -83,7 +83,12 @@ export default function useHistoryPages<K extends string, T>({
       );
       cache.current[key] = {
         rows: [...merged.values()],
-        nextOffset: result.has_more ? result.next_offset : null,
+        nextOffset:
+          result.has_more &&
+          result.next_offset !== null &&
+          result.next_offset !== offset
+            ? result.next_offset
+            : null,
         loading: false,
         error: '',
       };
@@ -113,13 +118,22 @@ export default function useHistoryPages<K extends string, T>({
       void fetchPage(activeKey);
   }, [scope, refreshRevision, activeKey, enabled, fetchPage]);
 
+  const loadMore = useCallback(
+    () => fetchPage(activeKey),
+    [activeKey, fetchPage],
+  );
+  const refresh = useCallback(
+    () => fetchPage(activeKey, true),
+    [activeKey, fetchPage],
+  );
+
   const page = cache.current[activeKey];
   return {
     rows: page?.rows || [],
     loading: Boolean(enabled && scope && (!page || page.loading)),
     error: page?.error || '',
     hasMore: page?.nextOffset != null,
-    loadMore: () => fetchPage(activeKey),
-    refresh: () => fetchPage(activeKey, true),
+    loadMore,
+    refresh,
   };
 }
