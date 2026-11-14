@@ -189,6 +189,45 @@ test('one-click uses persisted planner bonus including zero and migrates legacy 
   expect(storedPlannerFanBonus('{"version":2,"fanBonus":80}')).toBe(80);
 });
 
+test('one-click applies goal bonus at the actual streak and zero drops after five consecutive races', () => {
+  const original = catalog.buildPlanningCalendar(character.id, 5, 0);
+  const races = [1, 2, 3, 4, 5, 6, 7].map((turn) => ({
+    ...planningInput.races[0],
+    id: turn,
+    turn,
+    isCareerGoal: turn === 4,
+  }));
+  const extraIds = [1, 2, 3, 5, 6, 7];
+  const spy = jest.spyOn(catalog, 'buildPlanningCalendar').mockReturnValue({
+    ...original,
+    races,
+    startTurn: 1,
+    fixedRaces: { 4: [4] },
+    blockedTurns: [],
+    automaticRaces: [],
+    errors: [],
+  });
+  try {
+    const result = designOfflineCareer(
+      aptitudeCharacter,
+      normalizeOfflineDesign({ goal: 'jewels', fixedIds: extraIds }),
+      [
+        parent('own1', character.id + 1, 'own', 3),
+        parent('own2', character.id + 2, 'own', 3),
+      ],
+    );
+    expect(result.best).toBeDefined();
+    expect(result.raceIds).toEqual(extraIds);
+    const steps = result.schedule.steps.filter((step) => step.race);
+    expect(steps.map((step) => step.streak)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(steps[3].winProbability).toBeCloseTo(0.9);
+    expect(steps[5].winProbability).toBeCloseTo(0.5);
+    expect(result.schedule.expectedDrops).toBeCloseTo(0.1245);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 test('one-click parent selection excludes rentals even when they have better factors', () => {
   const own1 = parent('own-1', character.id + 1, 'own', 1);
   const own2 = parent('own-2', character.id + 2, 'own', 1);

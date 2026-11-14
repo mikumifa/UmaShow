@@ -7,6 +7,7 @@ import {
 import { recommendRaceInheritance } from './raceInheritanceRecommendation';
 import { buildPlanningCalendar, PLANNER_CATALOG } from './racePlannerCatalog';
 import { REFERENCE_WIN_RATE_MODEL_VERSION } from './raceWinRateModel';
+import { JEWEL_MODEL_VERSION } from './raceJewelModel';
 import rankings from '../data/race_planner_rankings.json';
 
 const race: PlanningRace = {
@@ -50,7 +51,7 @@ test('fans applies support bonus and the 1.10 correction once to regular and aut
   expect(result.automaticRaces[0].expectedFans).toBeCloseTo(1155);
   expect(result.automaticRaces[0].totalExpectedFans).toBeCloseTo(1188);
   expect(result.expectedFans).toBeCloseTo(1188);
-  expect(result.expectedDrops).toBeCloseTo(0.06);
+  expect(result.expectedDrops).toBeCloseTo(0.058);
   const empty = optimizeRaceSchedule({
     ...input,
     races: [],
@@ -59,7 +60,7 @@ test('fans applies support bonus and the 1.10 correction once to regular and aut
   expect(empty.expectedFans).toBe(0);
 });
 
-test('career goal win rates ignore streak while ordinary fixed races and subsequent races keep their real streak', () => {
+test('career goals add 10 points at the real streak while ordinary fixed and subsequent races receive no bonus', () => {
   const races = [1, 2, 3, 4, 5].map((turn) => ({
     ...race,
     id: turn,
@@ -75,10 +76,41 @@ test('career goal win rates ignore streak while ordinary fixed races and subsequ
   });
   expect(result.error).toBeUndefined();
   expect(result.steps.map((step) => step.winProbability)).toEqual([
-    0.8, 0.8, 0.6, 0.8, 0.2,
+    0.8, 0.8, 0.6, 0.5, 0.2,
   ]);
   expect(result.steps.map((step) => step.streak)).toEqual([1, 2, 3, 4, 5]);
-  expect(result.expectedDrops).toBeCloseTo(0.15);
+  expect(result.expectedDrops).toBeCloseTo(0.089);
+});
+
+test('jewel optimization rests to reset the new drop rates', () => {
+  const result = optimizeRaceSchedule({
+    ...input,
+    endTurn: 5,
+    races: [1, 2, 3, 4, 5].map((turn) => ({ ...race, id: turn, turn })),
+    winRates: { '7:6': [1, 1, 1, 1, 1] },
+  });
+  expect(result.steps.map((step) => step.streak)).toEqual([1, 2, 0, 1, 2]);
+  expect(result.expectedDrops).toBeCloseTo(0.16);
+});
+
+test('forced sixth and later races give zero drops, including goals; resting restores the first-race rate', () => {
+  const races = [1, 2, 3, 4, 5, 6, 7, 9].map((turn) => ({
+    ...race,
+    id: turn,
+    turn,
+    isCareerGoal: turn === 6,
+  }));
+  const result = optimizeRaceSchedule({
+    ...input,
+    endTurn: 9,
+    races,
+    fixedRaces: Object.fromEntries(races.map((item) => [item.turn, [item.id]])),
+    winRates: { '7:6': [1, 1, 1, 1, 1] },
+  });
+  expect(result.steps.map((step) => step.streak)).toEqual([
+    1, 2, 3, 4, 5, 6, 7, 0, 1,
+  ]);
+  expect(result.expectedDrops).toBeCloseTo(0.17);
 });
 
 test('catalog marks career goals independently of manually fixed races', () => {
@@ -169,7 +201,7 @@ test('inheritance recommends the minimum stars for an actual benefit and no fact
   expect(result.demands).toEqual([
     { type: 'mile', base: 6, target: 7, stars: 1, slots: 1 },
   ]);
-  expect(result.schedule.expectedDrops).toBe(0.05);
+  expect(result.schedule.expectedDrops).toBe(0.04);
   const tied = recommendRaceInheritance({
     ...input,
     winRates: { '7:6': [1, 1, 1, 1, 1], '7:7': [1, 1, 1, 1, 1] },
@@ -268,7 +300,7 @@ test('jewels never trades away expected drops for a larger fan reward', () => {
     winRates: { ...input.winRates, '7:1': [1, 1, 1, 1, 1] },
   });
   expect(result.steps[0].race?.id).toBe(300);
-  expect(result.expectedDrops).toBe(0.05);
+  expect(result.expectedDrops).toBe(0.04);
   expect(result.expectedFans).toBeCloseTo(110);
 });
 
@@ -291,6 +323,7 @@ test('jewel rankings prioritize fans when expected drops tie', () => {
 test('precomputed rankings cover every horse, match the catalog, and descend by each objective', () => {
   expect(rankings.masterSha256).toBe(PLANNER_CATALOG.masterSha256);
   expect(rankings.winRateModelVersion).toBe(REFERENCE_WIN_RATE_MODEL_VERSION);
+  expect(rankings.jewelModelVersion).toBe(JEWEL_MODEL_VERSION);
   expect(rankings.fanModel).toEqual(FAN_MODEL);
   expect(rankings.gradeThreshold).toBe(100);
   const metrics = {

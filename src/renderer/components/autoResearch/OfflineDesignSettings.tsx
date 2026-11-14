@@ -220,6 +220,12 @@ export default function OfflineDesignSettings({
           </PlannerButton>
         )}
       </div>
+      {design.goal !== 'breeding' && (
+        <p className="text-caption text-gray-500">
+          普通赛程获胜后掉钻率：第 1～5 连战为 4%、4%、3%、1%、1%，第 6
+          连战及以后为 0%；生涯目标赛在当前连战胜率上加 10 个百分点，最高 100%。
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-label text-red-600">
           {error}

@@ -5,6 +5,7 @@ import {
   PLANNER_CATALOG,
 } from '../../src/renderer/utils/racePlannerCatalog';
 import { recommendRaceInheritance } from '../../src/renderer/utils/raceInheritanceRecommendation';
+import { JEWEL_MODEL_VERSION } from '../../src/renderer/utils/raceJewelModel';
 import {
   REFERENCE_WIN_RATES,
   REFERENCE_WIN_RATE_MODEL_VERSION,
@@ -78,7 +79,7 @@ const output = path.resolve(
 );
 fs.writeFileSync(
   output,
-  `${JSON.stringify({ masterSha256: PLANNER_CATALOG.masterSha256, winRateModelVersion: REFERENCE_WIN_RATE_MODEL_VERSION, fanModel: FAN_MODEL, scenarioId: 5, gradeThreshold: 100, fanBonus: 0, rankings })}\n`,
+  `${JSON.stringify({ masterSha256: PLANNER_CATALOG.masterSha256, winRateModelVersion: REFERENCE_WIN_RATE_MODEL_VERSION, jewelModelVersion: JEWEL_MODEL_VERSION, fanModel: FAN_MODEL, scenarioId: 5, gradeThreshold: 100, fanBonus: 0, rankings })}\n`,
   'utf8',
 );
 console.log(

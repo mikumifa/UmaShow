@@ -32,7 +32,7 @@ export type PlanningRace = {
   distance: number;
   fans: number;
   requiredFans: number;
-  /** Career goals ignore streak penalties when looking up win probability. */
+  /** Character career goals add 10 percentage points after streak penalties. */
   isCareerGoal?: boolean;
 };
 export type WinRates = Record<string, ReadonlyArray<number | null>>;
@@ -131,13 +131,13 @@ export function raceWinProbability(
 ): number | null {
   const value =
     rates[rateKey(aptitudes[race.ground], aptitudes[race.distanceType])]?.[
-      streakBucket(race.isCareerGoal ? 1 : streak)
+      streakBucket(streak)
     ];
   return typeof value === 'number' &&
     Number.isFinite(value) &&
     value >= 0 &&
     value <= 1
-    ? value
+    ? Math.min(1, value + (race.isCareerGoal ? 0.1 : 0))
     : null;
 }
 

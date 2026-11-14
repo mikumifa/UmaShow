@@ -41,7 +41,7 @@ test('all 49 aptitude pairs use the combined rank and are symmetric', () => {
   expect(REFERENCE_WIN_RATES['6:3']).toEqual(REFERENCE_WIN_RATES['7:2']);
 });
 
-test('a career goal uses the aptitude base rate even if streak columns are unknown; manually fixed races do not', () => {
+test('career goals add 10 percentage points to the actual streak rate, capped at 100%; other races do not', () => {
   const race: PlanningRace = {
     id: 1,
     programId: 1,
@@ -55,9 +55,35 @@ test('a career goal uses the aptitude base rate even if streak columns are unkno
     requiredFans: 0,
   };
   const aptitudes = { turf: 7, dirt: 1, short: 1, mile: 6, middle: 1, long: 1 };
-  const rates = { '7:6': [0.8, null, null, null, null] };
-  expect(
-    raceWinProbability({ ...race, isCareerGoal: true }, 6, aptitudes, rates),
-  ).toBe(0.8);
-  expect(raceWinProbability(race, 6, aptitudes, rates)).toBeNull();
+  [
+    [1, 1, 1],
+    [2, 1, 1],
+    [3, 0.95, 1],
+    [4, 0.8, 0.9],
+    [5, 0.7, 0.8],
+    [6, 0.5, 0.6],
+    [9, 0.5, 0.6],
+  ].forEach(([streak, normal, goal]) => {
+    expect(
+      raceWinProbability(race, streak, aptitudes, REFERENCE_WIN_RATES),
+    ).toBeCloseTo(normal);
+    expect(
+      raceWinProbability(
+        { ...race, isCareerGoal: true },
+        streak,
+        aptitudes,
+        REFERENCE_WIN_RATES,
+      ),
+    ).toBeCloseTo(goal);
+  });
+  [null, undefined, NaN, -0.1, 1.1, 0].forEach((value) => {
+    const probability = raceWinProbability(
+      { ...race, isCareerGoal: true },
+      6,
+      aptitudes,
+      { '7:6': value === undefined ? [0.8] : [0.8, 0.7, 0.6, 0.5, value] },
+    );
+    if (value === 0) expect(probability).toBeCloseTo(0.1);
+    else expect(probability).toBeNull();
+  });
 });

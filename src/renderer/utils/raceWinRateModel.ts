@@ -56,7 +56,7 @@ export const DEFAULT_WIN_RATES: WinRates = Object.fromEntries(
 // Representatives for each total rank deficit from AA: AA, AB, AC, AD, AE,
 // AF, AG, BG, CG, DG, EG, FG, GG. Swap ground/distance without changing rates.
 // Preserve 110%/105% in the underlying model, then clamp actual probabilities.
-export const REFERENCE_WIN_RATE_MODEL_VERSION = 'aptitude-sum-streak-v2';
+export const REFERENCE_WIN_RATE_MODEL_VERSION = 'aptitude-sum-streak-goal-v3';
 const BASE_PERCENT_BY_DEFICIT = [
   110, 100, 90, 80, 70, 50, 20, 10, 0, 0, 0, 0, 0,
 ];
