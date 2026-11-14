@@ -248,10 +248,10 @@ html .autoResearchSettingsList {
 }
 @media (max-width: 639px) {
   html .uma-floating-action {
-    right: calc(16px + env(safe-area-inset-right, 0px));
+    display: none;
   }
-  html[data-autouma] .uma-floating-action {
-    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  html .autoResearchSettingsList {
+    padding-bottom: 12px;
   }
 }
 html .historyContent {
@@ -314,12 +314,14 @@ html .plannerButton,
 html .uma-app-header button,
 html .uma-side-toolbar button,
 html .autoResearchEditorToolbar button,
+html .autoResearchBackButton,
 html .historyViewSwitch button,
 html .uma-clay-button,
 html .uma-clay-button-primary {
   border-radius: 10px;
 }
 html .plannerButton.secondary,
+html .autoResearchBackButton,
 html .successionPickerFooter button.uma-clay-button,
 html .uma-clay-button {
   border: 2px solid var(--uma-clay-ink);

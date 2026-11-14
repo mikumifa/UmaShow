@@ -332,7 +332,7 @@ export default function RacePlanningTab() {
             }}
           >
             <strong>{character.name}</strong>
-            <small>角色 ID {character.id} · 点击切换</small>
+            <small>点击切换</small>
           </SuccessionPickerTrigger>
           <label className="text-label text-slate-700">
             优化目标
@@ -421,7 +421,7 @@ export default function RacePlanningTab() {
           description="选择角色后自动计算继承需求与赛程。切换角色会清空手动比赛和休息安排。"
           onClose={() => setCharacterPickerOpen(false)}
           searchValue={search}
-          searchPlaceholder="输入马娘名称或 ID"
+          searchPlaceholder="搜索马娘名称"
           searchAriaLabel="搜索规划马娘"
           onSearchChange={setSearch}
           meta={<span>找到 {matchedCharacters.length} 位马娘</span>}
@@ -440,7 +440,6 @@ export default function RacePlanningTab() {
                   />
                 }
                 title={item.name}
-                subtitle={`角色 ID ${item.id}`}
                 onClick={() => {
                   if (item.id !== character.id)
                     resetCalendar({
@@ -453,7 +452,7 @@ export default function RacePlanningTab() {
           ) : (
             <div className="successionPickerEmpty">
               <strong>没有符合条件的马娘</strong>
-              <p>尝试修改名称、ID，或清空搜索。</p>
+              <p>尝试修改搜索词，或清空搜索。</p>
               <button type="button" onClick={() => setSearch('')}>
                 清空搜索
               </button>

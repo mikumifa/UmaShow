@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { DailyAssetSnapshot } from './types';
 import './History.css';
 
@@ -36,7 +36,32 @@ export function assetHistoryRows(
 const formatDelta = (delta: number | null) =>
   delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toLocaleString()}`;
 
-export default function AssetTracking({
+const compactNumberFormatter = new Intl.NumberFormat('zh-CN', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const mobileCaptureFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+const desktopCaptureFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
+function AssetTracking({
   snapshots,
   loading,
 }: {
@@ -56,7 +81,11 @@ export default function AssetTracking({
     observer.observe(element);
     return () => observer.disconnect();
   }, [hasSnapshots]);
-  const rows = assetHistoryRows(snapshots, selected);
+  const rows = useMemo(
+    () => assetHistoryRows(snapshots, selected),
+    [selected, snapshots],
+  );
+  const reversedRows = useMemo(() => [...rows].reverse(), [rows]);
   const latest = rows.at(-1);
   const name = items.find(([key]) => key === selected)![1];
   const maximum = Math.max(
@@ -150,10 +179,7 @@ export default function AssetTracking({
                       dominantBaseline="middle"
                       className="historyChartLabel"
                     >
-                      {(maximum * ratio).toLocaleString('zh-CN', {
-                        notation: 'compact',
-                        maximumFractionDigits: 1,
-                      })}
+                      {compactNumberFormatter.format(maximum * ratio)}
                     </text>
                   </g>
                 ))}
@@ -205,9 +231,7 @@ export default function AssetTracking({
                   </text>
                 ) : null}
               </svg>
-              <p className="historyChartNote">
-                按游戏日记录 · 缺失日期不连线，详细数量见下表
-              </p>
+              <p className="historyChartNote">按游戏日记录 · 缺失日期不连线</p>
             </div>
           </div>
           <div className="historyAssetTableScroll">
@@ -228,51 +252,51 @@ export default function AssetTracking({
                 </tr>
               </thead>
               <tbody>
-                {[...rows].reverse().map((row) => (
-                  <tr
-                    key={row.business_day}
-                    className="border-b border-slate-100 last:border-0"
-                  >
-                    <td className="text-slate-600">
-                      {row.business_day}
-                      <span className="historyAssetCaptureMobile">
-                        {new Date(row.captured_at).toLocaleString('zh-CN', {
-                          timeZone: 'Asia/Shanghai',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false,
-                        })}
-                      </span>
-                    </td>
-                    <td className="text-right font-semibold tabular-nums text-slate-800">
-                      {row.value.toLocaleString()}
-                    </td>
-                    <td
-                      className={`text-right font-semibold tabular-nums ${row.delta && row.delta > 0 ? 'text-emerald-700' : row.delta && row.delta < 0 ? 'text-rose-700' : 'text-slate-600'}`}
+                {reversedRows.map((row) => {
+                  const capturedDate = new Date(row.captured_at);
+                  const validCapturedDate = !Number.isNaN(
+                    capturedDate.getTime(),
+                  );
+                  return (
+                    <tr
+                      key={row.business_day}
+                      className="border-b border-slate-100 last:border-0"
                     >
-                      {formatDelta(row.delta)}
-                    </td>
-                    <td className="historyAssetCapture text-right text-caption text-slate-600">
-                      {new Date(row.captured_at).toLocaleString('zh-CN', {
-                        timeZone: 'Asia/Shanghai',
-                        hour12: false,
-                      })}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="text-slate-600">
+                        {row.business_day}
+                        <span className="historyAssetCaptureMobile">
+                          {validCapturedDate
+                            ? mobileCaptureFormatter.format(capturedDate)
+                            : ''}
+                        </span>
+                      </td>
+                      <td className="text-right font-semibold tabular-nums text-slate-800">
+                        {row.value.toLocaleString()}
+                      </td>
+                      <td
+                        className={`text-right font-semibold tabular-nums ${row.delta && row.delta > 0 ? 'text-emerald-700' : row.delta && row.delta < 0 ? 'text-rose-700' : 'text-slate-600'}`}
+                      >
+                        {formatDelta(row.delta)}
+                      </td>
+                      <td className="historyAssetCapture text-right text-caption text-slate-600">
+                        {validCapturedDate
+                          ? desktopCaptureFormatter.format(capturedDate)
+                          : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </>
       ) : (
         <p role="status" className="py-14 text-center text-data text-slate-600">
-          {loading
-            ? '正在读取追踪记录…'
-            : '暂无追踪记录，下次启动任务时会自动记录。'}
+          {loading ? '读取中…' : '暂无追踪记录'}
         </p>
       )}
     </section>
   );
 }
+
+export default memo(AssetTracking);

@@ -127,3 +127,62 @@ test.each([true, false])(
     expect(screen.queryByRole('alert') !== null).toBe(!success);
   },
 );
+
+test('history uses unified toolbar refresh, empty loading state, and sticky detail back bar without pull-to-refresh', () => {
+  const setSelectedCareerRecords = jest.fn();
+  const { rerender, container } = render(
+    <HistoryTab
+      readOnly
+      selectedCareerRecords={null}
+      setSelectedCareerRecords={setSelectedCareerRecords}
+      busy="history"
+      loadCareerHistory={jest.fn()}
+      loadCareerHistoryDetail={jest.fn()}
+      selectedAccountId="123"
+      accountCareerSettings={[]}
+      careerHistory={[]}
+      assetSnapshots={[]}
+      downloadCareerSetting={jest.fn()}
+      downloadTrainingHistory={jest.fn()}
+      localTrainingHistoryIds={new Set()}
+      openTrainingHistory={jest.fn()}
+    />,
+  );
+  expect(screen.getByText('读取中…')).toBeInTheDocument();
+  expect(screen.queryByText('下拉刷新')).not.toBeInTheDocument();
+
+  const record = {
+    id: 'record-2',
+    uid: '123',
+    count: 1,
+    career_setting_name: '统一返回测试',
+    started_at: '2026-11-14T12:00:00+08:00',
+    ended_at: '2026-11-14T12:30:00+08:00',
+    runs: [{ run_id: 'r1', completed: true } as CareerSessionRun],
+  } as CareerSessionRecord;
+
+  rerender(
+    <HistoryTab
+      readOnly
+      selectedCareerRecords={[record]}
+      setSelectedCareerRecords={setSelectedCareerRecords}
+      busy=""
+      loadCareerHistory={jest.fn()}
+      loadCareerHistoryDetail={jest.fn()}
+      selectedAccountId="123"
+      accountCareerSettings={[]}
+      careerHistory={[record]}
+      assetSnapshots={[]}
+      downloadCareerSetting={jest.fn()}
+      downloadTrainingHistory={jest.fn()}
+      localTrainingHistoryIds={new Set()}
+      openTrainingHistory={jest.fn()}
+    />,
+  );
+  const toolbar = container.querySelector('header.autoResearchEditorToolbar');
+  expect(toolbar).not.toBeNull();
+  const backButton = screen.getByRole('button', { name: '返回' });
+  expect(backButton).toHaveClass('autoResearchBackButton');
+  fireEvent.click(backButton);
+  expect(setSelectedCareerRecords).toHaveBeenCalledWith(null);
+});

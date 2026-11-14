@@ -2112,6 +2112,16 @@ export default function RaceStats() {
         <>
           <button
             type="button"
+            onClick={() =>
+              navigate('/races', { state: { archiveId: activeArchiveId } })
+            }
+            className={raceHeaderButtonClass}
+          >
+            <ArrowLeft size={16} />
+            返回
+          </button>
+          <button
+            type="button"
             onClick={refreshStats}
             disabled={loadingStats}
             className={raceHeaderButtonClass}
@@ -2120,17 +2130,7 @@ export default function RaceStats() {
               size={16}
               className={loadingStats ? 'animate-spin' : undefined}
             />
-            刷新统计
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              navigate('/races', { state: { archiveId: activeArchiveId } })
-            }
-            className={raceHeaderButtonClass}
-          >
-            <ArrowLeft size={16} />
-            返回
+            {loadingStats ? '刷新中…' : '刷新统计'}
           </button>
         </>
       }

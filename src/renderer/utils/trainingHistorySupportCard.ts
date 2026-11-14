@@ -114,7 +114,7 @@ const SUPPORT_CARD_SPECIAL_UNIQUE_FORMATTERS: Record<
 };
 
 export function supportCardName(id: number) {
-  return UMDB.supportCards[id]?.name ?? `支援卡 ${id}`;
+  return UMDB.supportCards[id]?.name ?? '未知支援卡';
 }
 
 export function supportCardEffectLabel(type: string) {

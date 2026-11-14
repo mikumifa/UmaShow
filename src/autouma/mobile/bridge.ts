@@ -115,8 +115,15 @@ function localRuntime(dashboard: ReturnType<typeof buildLocalDashboard>) {
   };
 }
 
+async function ensureMasterDatabase() {
+  if (__AUTOUMA_ANDROID__) {
+    await initializeMobileMasterDatabase();
+  }
+}
+
 async function localOverview(accountId: string) {
   requireNativeGameAccess();
+  await ensureMasterDatabase();
   return withAutoResearchLocalGameClient(accountId, async (client) => {
     const index = await client.loadIndex();
     const options = await client.loadSingleModeOptions();
@@ -130,6 +137,7 @@ async function localOverview(accountId: string) {
 
 async function localOptions(accountId: string) {
   requireNativeGameAccess();
+  await ensureMasterDatabase();
   return withAutoResearchLocalGameClient(accountId, async (client) => {
     const index = await client.loadIndex();
     const options = await client.loadSingleModeOptions();
@@ -145,11 +153,14 @@ async function localOptions(accountId: string) {
 
 async function loginSession(accountId: string, loginId: string) {
   requireNativeGameAccess();
-  const result = await loginMobileGameClient(accountId, (progress) => {
-    loginProgressListeners.forEach((listener) =>
-      listener({ loginId, ...progress }),
-    );
-  });
+  const [result] = await Promise.all([
+    loginMobileGameClient(accountId, (progress) => {
+      loginProgressListeners.forEach((listener) =>
+        listener({ loginId, ...progress }),
+      );
+    }),
+    ensureMasterDatabase(),
+  ]);
   const dashboard = buildLocalDashboard(
     mergeDashboardResponses(result.loginIndex, result.optionIndex),
     { source: 'AutoUma Android 本地登录 load/index + pre_single_mode/index' },
@@ -281,20 +292,27 @@ function installBridge() {
       localOverview,
       localOptions,
       clearLocalSession: clearMobileGameClient,
-      dailyTasksOverview: (id: string, config: UnknownRecord) => {
+      dailyTasksOverview: async (id: string, config: UnknownRecord) => {
         requireNativeGameAccess();
+        await ensureMasterDatabase();
         return dailyTasksOverview(id, config as any);
       },
-      runDailyTasks: (id: string, config: UnknownRecord) => {
+      runDailyTasks: async (id: string, config: UnknownRecord) => {
         requireNativeGameAccess();
+        await ensureMasterDatabase();
         return runDailyTasks(id, config as any);
       },
-      prepareIdleSingleMode: (id: string, request: UnknownRecord) => {
+      prepareIdleSingleMode: async (id: string, request: UnknownRecord) => {
         requireNativeGameAccess();
+        await ensureMasterDatabase();
         return prepareIdleSingleMode(id, request);
       },
-      saveIdleSingleModeRaceDeck: (id: string, request: UnknownRecord) => {
+      saveIdleSingleModeRaceDeck: async (
+        id: string,
+        request: UnknownRecord,
+      ) => {
         requireNativeGameAccess();
+        await ensureMasterDatabase();
         return saveIdleSingleModeRaceDeck(id, request);
       },
       abandonCareer: (id: string) => {
@@ -304,8 +322,9 @@ function installBridge() {
           return { ...result, session: client.session };
         });
       },
-      abandonIdleSingleMode: (id: string, currentTurn: number) => {
+      abandonIdleSingleMode: async (id: string, currentTurn: number) => {
         requireNativeGameAccess();
+        await ensureMasterDatabase();
         return withAutoResearchLocalGameClient(id, async (client) => {
           const result = await client.abandonIdleSingleMode(currentTurn);
           const options = await client.loadSingleModeOptions();
@@ -335,6 +354,15 @@ function installBridge() {
 export async function initializeAutoUmaBridge() {
   installBridge();
   if (__AUTOUMA_ANDROID__) {
-    await initializeMobileMasterDatabase();
+    // Warm master.mdb in the background so React can paint immediately;
+    // local game handlers await ensureMasterDatabase() before querying SQLite.
+    const startWarmup = () => {
+      void initializeMobileMasterDatabase().catch(() => undefined);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(startWarmup, { timeout: 600 });
+    } else {
+      window.setTimeout(startWarmup, 80);
+    }
   }
 }

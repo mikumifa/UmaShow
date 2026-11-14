@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary, jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, memo, SetStateAction } from 'react';
 import {
   CalendarClock,
   CircleStop,
@@ -81,7 +81,7 @@ const itemGoalLabel = (
   return `${target} 次`;
 };
 
-export default function AutomationControlCard({
+function AutomationControlCard({
   readOnly = false,
   automation,
   runnerStopping,
@@ -212,7 +212,7 @@ export default function AutomationControlCard({
             </span>
             {countProgress ? (
               <span className={statusBadgeClass('sky')}>
-                {daily ? '今日' : '本计划累计'} {countProgress.completed}/
+                {daily ? '今日' : '累计'} {countProgress.completed}/
                 {countProgress.target} 次
               </span>
             ) : null}
@@ -328,13 +328,7 @@ export default function AutomationControlCard({
               compact
               embedded
               className="automationControlCardTarget w-fit"
-              prefix={
-                repeatDaily
-                  ? '每天完成'
-                  : schedule
-                    ? '本计划累计完成'
-                    : '从现在起完成'
-              }
+              prefix={repeatDaily ? '每天完成' : schedule ? '累计完成' : '完成'}
               value={runCountTarget}
               max={100}
               suffix="次育成"
@@ -347,7 +341,7 @@ export default function AutomationControlCard({
               compact
               embedded
               className="automationControlCardTarget w-fit"
-              prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
+              prefix={repeatDaily ? '每日达到' : '获得'}
               value={jewelDropTarget}
               max={20}
               suffix="次宝石掉落"
@@ -445,7 +439,7 @@ export default function AutomationControlCard({
                 </span>
                 <span className="flex-none font-medium">
                   {item.goal === 'count'
-                    ? `${daily ? '今日' : '本计划累计'} ${progress?.completed_runs || 0}/${item.target} 次`
+                    ? `${daily ? '今日' : '累计'} ${progress?.completed_runs || 0}/${item.target} 次`
                     : item.goal === 'jewel_drops'
                       ? `${progress?.jewel_drops || 0}/${item.target} 钻`
                       : itemGoalLabel(item.goal, item.target, daily)}
@@ -458,3 +452,5 @@ export default function AutomationControlCard({
     </section>
   );
 }
+
+export default memo(AutomationControlCard);

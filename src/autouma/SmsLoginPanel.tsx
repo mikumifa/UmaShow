@@ -25,7 +25,7 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
       if (challengeExpiresAt && challengeExpiresAt <= now) {
         setChallengeId('');
       }
-    }, 250);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [challengeExpiresAt, resendAvailableAt]);
 
@@ -96,9 +96,6 @@ export default function SmsLoginPanel({ onClose, onComplete }: Props) {
             >
               B 站短信登录
             </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              验证码只保存在内存中，登录成功后只保存游戏 access_key。
-            </p>
           </div>
           <button
             type="button"

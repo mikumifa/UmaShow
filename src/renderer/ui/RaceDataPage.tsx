@@ -612,6 +612,14 @@ class RaceDataPageClass extends React.Component<
             <>
               <button
                 type="button"
+                onClick={backToRaces}
+                className={raceHeaderButtonClass}
+              >
+                <ArrowLeft size={16} />
+                返回
+              </button>
+              <button
+                type="button"
                 onClick={this.downloadParsedRaceData}
                 className={raceHeaderButtonClass}
               >
@@ -639,14 +647,6 @@ class RaceDataPageClass extends React.Component<
               >
                 <FileText size={16} />
                 {isDetailPage ? '回放' : '返回详细'}
-              </button>
-              <button
-                type="button"
-                onClick={backToRaces}
-                className={raceHeaderButtonClass}
-              >
-                <ArrowLeft size={16} />
-                返回
               </button>
             </>
           }
@@ -679,8 +679,8 @@ class RaceDataPageClass extends React.Component<
           </button>
         }
       >
-        <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-gray-400">
-          Loading and parsing data...
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-gray-500">
+          读取中…
         </div>
       </RacePageLayout>
     );

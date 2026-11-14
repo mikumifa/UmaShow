@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   CircleStop,
@@ -326,7 +326,9 @@ function automationPhaseLabel(automation?: AccountAutomation) {
   }
 }
 
-export default function ProgressTab({
+const INITIAL_LOG_LIMIT = 80;
+
+function ProgressTab({
   currentCareerActive,
   activeCareerIconPath,
   activeCareerFallbackIconPath,
@@ -349,7 +351,15 @@ export default function ProgressTab({
   const observation = automation?.observation;
   const runnerClosing = busy === 'stop';
   const liveActivity = runner?.live_activity;
-  const runnerLog = visibleRunnerLog(runner);
+  const [showAllLogs, setShowAllLogs] = useState(false);
+  useEffect(() => {
+    setShowAllLogs(false);
+  }, [runner?.run_id]);
+  const runnerLog = useMemo(() => visibleRunnerLog(runner), [runner]);
+  const displayedRunnerLog = useMemo(() => {
+    const reversed = runnerLog.slice().reverse();
+    return showAllLogs ? reversed : reversed.slice(0, INITIAL_LOG_LIMIT);
+  }, [runnerLog, showAllLogs]);
   const statAnimationResetKey =
     runner?.run_id ||
     `${activeCareer?.card_id || currentCareerUma?.id || 'career'}:${activeCareer?.scenario_id || 0}`;
@@ -579,14 +589,6 @@ export default function ProgressTab({
           </div>
         ) : null}
 
-        {runnerStopping ? (
-          <div className="mt-4 border-t border-amber-100 pt-4 text-sm text-amber-700">
-            {runnerClosing
-              ? '正在关闭计划。游戏中的当前育成不会被主动放弃。'
-              : '正在保存计划进度并暂停执行。暂停不会放弃当前育成。'}
-          </div>
-        ) : null}
-
         {!offlineMode && !waitingForCareerStart ? (
           <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(440px,0.65fr)]">
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 xl:grid-cols-3 2xl:grid-cols-6">
@@ -679,25 +681,33 @@ export default function ProgressTab({
 
       {!waitingForCareerStart && !offlineMode ? (
         <section className="cursor-text select-text">
-          {runnerLog
-            .slice()
-            .reverse()
-            .map((row) => (
-              <div
-                key={`${runner?.run_id || 'legacy'}:${row.id}`}
-                className="grid gap-1 border-b border-slate-100 px-1 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
+          {displayedRunnerLog.map((row) => (
+            <div
+              key={`${runner?.run_id || 'legacy'}:${row.id}`}
+              className="grid gap-1 border-b border-slate-100 px-1 py-3 text-sm last:border-0 md:grid-cols-[210px_110px_minmax(0,1fr)] md:gap-3"
+            >
+              <span className="whitespace-nowrap font-medium text-indigo-600">
+                {turnDateLabel(row.turn)}
+              </span>
+              <span className="font-semibold text-slate-700">
+                {describeLogAction(row.action)}
+              </span>
+              <span className="text-slate-500">
+                {describeLogDetail(row.detail)}
+              </span>
+            </div>
+          ))}
+          {!showAllLogs && runnerLog.length > INITIAL_LOG_LIMIT ? (
+            <div className="flex justify-center py-3">
+              <button
+                type="button"
+                onClick={() => setShowAllLogs(true)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-caption font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
               >
-                <span className="whitespace-nowrap font-medium text-indigo-600">
-                  {turnDateLabel(row.turn)}
-                </span>
-                <span className="font-semibold text-slate-700">
-                  {describeLogAction(row.action)}
-                </span>
-                <span className="text-slate-500">
-                  {describeLogDetail(row.detail)}
-                </span>
-              </div>
-            ))}
+                展开全部日志（共 {runnerLog.length} 条）
+              </button>
+            </div>
+          ) : null}
           {!runnerLog.length ? (
             <p className="p-10 text-center text-data text-slate-600">
               暂无流程记录
@@ -722,18 +732,16 @@ export default function ProgressTab({
               : `每日计划：${automationPhaseLabel(automation)}`
             : schedule
               ? '正在准备下一次育成'
-              : '当前没有进行中的养马'}
+              : '暂无进行中的育成'}
         </h2>
-        <p className="uma-prose mt-1 text-data text-slate-600">
-          {schedule?.cadence === 'daily'
-            ? `每日 ${formatDailyJewelScheduleWindow(
-                schedule.start_time,
-                schedule.end_time,
-              )} 运行，${scheduleGoalLabel(automation)}。`
-            : schedule
-              ? '新的育成开始后，这里会显示实时状态。'
-              : '开始或继续育成后，这里会显示当前属性和流程。'}
-        </p>
+        {schedule?.cadence === 'daily' ? (
+          <p className="uma-prose mt-1 text-data text-slate-600">
+            {`每日 ${formatDailyJewelScheduleWindow(
+              schedule.start_time,
+              schedule.end_time,
+            )} · ${scheduleGoalLabel(automation)}`}
+          </p>
+        ) : null}
         {credentialExpired ? (
           <div className="mt-4 flex max-w-xl items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-left text-sm font-medium leading-6 text-amber-900">
             <CircleStop size={18} className="mt-0.5 flex-none" />
@@ -748,3 +756,5 @@ export default function ProgressTab({
     </section>
   );
 }
+
+export default memo(ProgressTab);

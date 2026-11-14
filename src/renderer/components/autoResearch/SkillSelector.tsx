@@ -1,4 +1,14 @@
-import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import {
+  Dispatch,
+  memo,
+  SetStateAction,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Layers3 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -237,6 +247,70 @@ function selectedTagLabels(
     .map((filter) => filter.label);
 }
 
+type IndexedSkillEntry = {
+  skill: AutoResearchSkill;
+  inheritedUnique: boolean;
+  effectId: string;
+  effectLabel: string;
+  rarityLabel: string;
+  iconPath?: string;
+  tagLabels: string[];
+  normalizedName: string;
+  idString: string;
+};
+
+const INITIAL_SKILL_BATCH = 96;
+const SKILL_BATCH_STEP = 120;
+
+const SkillGridItem = memo(function SkillGridItem({
+  entry,
+  selected,
+  blocked,
+  showSkillPoints,
+  onSelect,
+}: {
+  entry: IndexedSkillEntry;
+  selected: boolean;
+  blocked: boolean;
+  showSkillPoints: boolean;
+  onSelect: (skill: AutoResearchSkill) => void;
+}) {
+  const { skill } = entry;
+  const handleClick = useCallback(() => {
+    onSelect(skill);
+  }, [onSelect, skill]);
+
+  return (
+    <PlannerSkillCard
+      disabled={blocked}
+      selected={selected}
+      iconPath={entry.iconPath}
+      name={skill.name}
+      rarity={skill.rarity}
+      meta={
+        <>
+          <span
+            className={
+              skill.rarity === 2 ? 'font-semibold text-amber-700' : ''
+            }
+          >
+            {entry.rarityLabel}
+          </span>
+          {entry.inheritedUnique ? (
+            <span className="font-semibold text-violet-700">继承固有</span>
+          ) : null}
+          {showSkillPoints ? <span>{skill.need_skill_point}pt</span> : null}
+          <span>{entry.effectLabel}</span>
+          {entry.tagLabels.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </>
+      }
+      onClick={handleClick}
+    />
+  );
+});
+
 export default function SkillSelector({
   open,
   title,
@@ -253,7 +327,7 @@ export default function SkillSelector({
 }: {
   open: boolean;
   title: string;
-  description: string;
+  description?: string;
   skills: AutoResearchSkill[];
   selectedNames: string[];
   blockedNames?: string[];
@@ -265,6 +339,7 @@ export default function SkillSelector({
   onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [skillKind, setSkillKind] = useState<'all' | 'unique' | 'normal'>(
     'all',
   );
@@ -272,24 +347,50 @@ export default function SkillSelector({
   const [effectFilters, setEffectFilters] = useState<string[]>([]);
   const [runningStyleFilters, setRunningStyleFilters] = useState<number[]>([]);
   const [distanceFilters, setDistanceFilters] = useState<number[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_SKILL_BATCH);
+  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
+  const handleSelectSkill = useCallback((skill: AutoResearchSkill) => {
+    onToggleRef.current(skill);
+  }, []);
+
+  const indexedSkills = useMemo<IndexedSkillEntry[]>(() => {
+    if (!open) return [];
+    return skills.map((skill) => ({
+      skill,
+      inheritedUnique: isInheritedUniqueSkill(skill),
+      effectId: skillEffectFilterId(skill),
+      effectLabel: skillEffectLabel(skill),
+      rarityLabel: skillRarityLabel(skill),
+      iconPath: skillIconPath(skill),
+      tagLabels: [
+        ...selectedTagLabels(skill, RUNNING_STYLE_FILTERS),
+        ...selectedTagLabels(skill, DISTANCE_FILTERS),
+      ],
+      normalizedName: normalizeSearch(skill.name),
+      idString: String(skill.id),
+    }));
+  }, [open, skills]);
 
   const selectedSet = useMemo(() => new Set(selectedNames), [selectedNames]);
   const blockedSet = useMemo(() => new Set(blockedNames), [blockedNames]);
-  const filteredSkills = useMemo(() => {
-    const keyword = normalizeSearch(search);
-    return skills.filter((skill) => {
-      const inheritedUnique = isInheritedUniqueSkill(skill);
-      if (skillKind === 'unique' && !inheritedUnique) return false;
-      if (skillKind === 'normal' && inheritedUnique) return false;
+  const effectFilterSet = useMemo(
+    () => new Set(effectFilters),
+    [effectFilters],
+  );
+
+  const filteredEntries = useMemo(() => {
+    if (!open) return [];
+    const keyword = normalizeSearch(deferredSearch);
+    return indexedSkills.filter((entry) => {
+      const { skill } = entry;
+      if (skillKind === 'unique' && !entry.inheritedUnique) return false;
+      if (skillKind === 'normal' && entry.inheritedUnique) return false;
       if (rarity === 'white' && skill.rarity !== 1) return false;
       if (rarity === 'gold' && skill.rarity !== 2) return false;
-      if (
-        effectFilters.length &&
-        !EFFECT_FILTERS.some(
-          (filter) =>
-            effectFilters.includes(filter.id) && filter.matches(skill),
-        )
-      ) {
+      if (effectFilterSet.size && !effectFilterSet.has(entry.effectId)) {
         return false;
       }
       if (
@@ -306,23 +407,71 @@ export default function SkillSelector({
       }
       if (!keyword) return true;
       return (
-        normalizeSearch(skill.name).includes(keyword) ||
-        String(skill.id).includes(keyword)
+        entry.normalizedName.includes(keyword) ||
+        entry.idString.includes(keyword)
       );
     });
   }, [
+    deferredSearch,
     distanceFilters,
-    effectFilters,
+    effectFilterSet,
+    indexedSkills,
+    open,
     rarity,
     runningStyleFilters,
-    search,
     skillKind,
-    skills,
   ]);
 
+  useEffect(() => {
+    if (open) setVisibleCount(INITIAL_SKILL_BATCH);
+  }, [
+    deferredSearch,
+    distanceFilters,
+    effectFilters,
+    open,
+    rarity,
+    runningStyleFilters,
+    skillKind,
+  ]);
+
+  const hasMore = visibleCount < filteredEntries.length;
+
+  useEffect(() => {
+    if (!open || !hasMore || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) =>
+            Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
+          );
+        }
+      },
+      {
+        root: scrollBodyRef.current,
+        rootMargin: '280px 0px',
+      },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredEntries.length, hasMore, open]);
+
+  const visibleEntries = useMemo(
+    () => filteredEntries.slice(0, visibleCount),
+    [filteredEntries, visibleCount],
+  );
+
   const unselectedFilteredSkills = useMemo(
-    () => filteredSkills.filter((skill) => !selectedSet.has(skill.name)),
-    [filteredSkills, selectedSet],
+    () =>
+      open
+        ? filteredEntries
+            .map((entry) => entry.skill)
+            .filter((skill) => !selectedSet.has(skill.name))
+        : [],
+    [filteredEntries, open, selectedSet],
   );
 
   const groupLabel = useMemo(() => {
@@ -380,12 +529,14 @@ export default function SkillSelector({
       overlayClassName={elevated ? 'plannerElevatedOverlay' : undefined}
       dialogClassName="plannerSkillDialog"
       searchValue={search}
-      searchPlaceholder="搜索技能名称或技能 ID"
-      searchAriaLabel="搜索技能名称或技能 ID"
+      searchPlaceholder="搜索技能名称"
+      searchAriaLabel="搜索技能名称"
       onSearchChange={setSearch}
       footer={
         <>
-          <span>选择顺序会保留在当前配置中</span>
+          <span className="tabular-nums">
+            已选 {selectedNames.length} · 共 {filteredEntries.length} 项
+          </span>
           <div className="plannerSkillFooterActions">
             {onAddGroup ? (
               <PlannerButton
@@ -545,54 +696,39 @@ export default function SkillSelector({
         </div>
       </SuccessionPickerFilterSheet>
 
-      <div className="plannerSkillGridBody">
+      <div ref={scrollBodyRef} className="plannerSkillGridBody">
         <div className="plannerSkillGrid">
-          {filteredSkills.map((skill) => {
-            const selected = selectedSet.has(skill.name);
-            const blocked = blockedSet.has(skill.name) && !selected;
-            const iconPath = skillIconPath(skill);
+          {visibleEntries.map((entry) => {
+            const selected = selectedSet.has(entry.skill.name);
+            const blocked = blockedSet.has(entry.skill.name) && !selected;
             return (
-              <PlannerSkillCard
-                key={skill.id}
-                disabled={blocked}
+              <SkillGridItem
+                key={entry.skill.id}
+                entry={entry}
                 selected={selected}
-                iconPath={iconPath}
-                name={skill.name}
-                rarity={skill.rarity}
-                meta={
-                  <>
-                    <span
-                      className={
-                        skill.rarity === 2 ? 'font-semibold text-amber-700' : ''
-                      }
-                    >
-                      {skillRarityLabel(skill)}
-                    </span>
-                    {isInheritedUniqueSkill(skill) ? (
-                      <span className="font-semibold text-violet-700">
-                        继承固有
-                      </span>
-                    ) : null}
-                    {showSkillPoints ? (
-                      <span>{skill.need_skill_point} 技能点</span>
-                    ) : null}
-                    <span>{skillEffectLabel(skill)}</span>
-                    {selectedTagLabels(skill, RUNNING_STYLE_FILTERS).map(
-                      (label) => (
-                        <span key={label}>{label}</span>
-                      ),
-                    )}
-                    {selectedTagLabels(skill, DISTANCE_FILTERS).map((label) => (
-                      <span key={label}>{label}</span>
-                    ))}
-                  </>
-                }
-                onClick={() => onToggle(skill)}
+                blocked={blocked}
+                showSkillPoints={showSkillPoints}
+                onSelect={handleSelectSkill}
               />
             );
           })}
         </div>
-        {!filteredSkills.length ? (
+        {hasMore ? (
+          <div ref={loadMoreRef} className="mt-3 flex justify-center py-2">
+            <PlannerButton
+              variant="secondary"
+              size="small"
+              onClick={() =>
+                setVisibleCount((count) =>
+                  Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
+                )
+              }
+            >
+              加载更多（剩余 {filteredEntries.length - visibleCount} 项）
+            </PlannerButton>
+          </div>
+        ) : null}
+        {!filteredEntries.length ? (
           <div className="py-16 text-center text-sm text-slate-400">
             没有找到符合条件的技能
           </div>

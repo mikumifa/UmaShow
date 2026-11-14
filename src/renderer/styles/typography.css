@@ -150,6 +150,34 @@
   background: var(--uma-clay-surface, #f5efdf);
 }
 
+.autoResearchBackButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: var(--uma-type-label);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.autoResearchBackButton:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
 .autoResearchEditorTabs,
 .autoResearchEditorActions {
   display: flex;
@@ -277,26 +305,50 @@
     gap: 8px;
   }
 
-  .autoResearchEditorTabs,
+  html[data-autouma] .autoResearchNestedView .autoResearchEditorToolbar {
+    margin-right: -0.75rem;
+    margin-left: -0.75rem;
+    padding: calc(0.5rem + var(--autouma-safe-top, 0px))
+      calc(0.75rem + var(--autouma-safe-right, 0px)) 0.5rem
+      calc(0.75rem + var(--autouma-safe-left, 0px));
+    border-bottom: 1px solid #b8dccc;
+    background: var(--uma-clay-chrome, #dff5ec);
+  }
+
+  .autoResearchBackButton {
+    order: 1;
+    min-height: 40px;
+  }
+
   .autoResearchEditorActions {
-    flex-basis: 100%;
+    order: 2;
+    flex-basis: auto;
+    margin-left: auto;
   }
 
   .autoResearchEditorTabs {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    order: 3;
+    flex-basis: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .autoResearchEditorTabs::-webkit-scrollbar {
+    display: none;
   }
 
   .autoResearchEditorToolbar button {
     min-height: 40px;
   }
 
-  .autoResearchEditorActions > button:first-child {
-    margin-right: auto;
+  .autoResearchEditorTabs button {
+    min-height: 34px;
+    padding-inline: 10px;
   }
 
   .autoResearchForm section[id] {
-    scroll-margin-top: 10rem;
+    scroll-margin-top: calc(7.5rem + var(--autouma-safe-top, 0px));
   }
 
   /* Keep typed values legible and prevent iOS focus zoom in compact forms. */
@@ -307,15 +359,24 @@
   }
   .autoResearchForm
     :where(select, input:not([type='checkbox']):not([type='radio'])) {
-    min-height: 2.5rem;
+    min-height: 2.625rem;
   }
 }
 
-@container daily-task (max-width: 420px) {
+@container daily-task (max-width: 480px) {
   .dailyTaskActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
   .dailyTaskActions > button {
-    flex: 1 1 10rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding-inline: 0.625rem;
+    font-size: var(--uma-type-label);
+  }
+  .dailyTaskActions > .dailyTaskPrimaryAction {
+    grid-column: 1 / -1;
+    order: -1;
   }
 }

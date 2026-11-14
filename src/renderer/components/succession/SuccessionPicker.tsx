@@ -47,6 +47,17 @@ export function SuccessionPickerFilterSheet({
 }: SuccessionPickerFilterSheetProps) {
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleBack = (event: Event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    };
+    window.addEventListener('autouma:back', handleBack, true);
+    return () => window.removeEventListener('autouma:back', handleBack, true);
+  }, [open]);
+
   return (
     <>
       <div className="successionPickerFilterTrigger">
@@ -132,16 +143,28 @@ export function SuccessionPickerDialog({
       if (onEscape) onEscape();
       else dismiss(true);
     };
+    const onAndroidBack = (event: Event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (onEscape) onEscape();
+      else dismiss(true);
+    };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKeyDown, escapePriority);
+    window.addEventListener('autouma:back', onAndroidBack, true);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown, escapePriority);
+      window.removeEventListener('autouma:back', onAndroidBack, true);
     };
   }, [dismiss, escapePriority, onEscape]);
 
   const hasToolbar = onSearchChange || meta;
+  const shouldAutoFocusSearch =
+    typeof window !== 'undefined' &&
+    document.documentElement.dataset.autouma !== 'true' &&
+    !(window.matchMedia?.('(pointer: coarse)').matches ?? false);
 
   return createPortal(
     <div
@@ -182,7 +205,7 @@ export function SuccessionPickerDialog({
                 <input
                   type="text"
                   value={searchValue || ''}
-                  autoFocus
+                  autoFocus={shouldAutoFocusSearch}
                   placeholder={searchPlaceholder}
                   aria-label={searchAriaLabel}
                   onChange={(event) =>
@@ -256,12 +279,7 @@ export function SuccessionFactorDetailModal({
                 {member.subtitle ? <em>{member.subtitle}</em> : null}
               </span>
             </header>
-            <PlannerFactorList
-              factors={member.factors.map((factor) => ({
-                ...factor,
-                title: `因子 ID ${factor.id}`,
-              }))}
-            />
+            <PlannerFactorList factors={member.factors} />
           </article>
         ))}
       </div>

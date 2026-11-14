@@ -36,9 +36,22 @@ export function useAppMotion() {
     const previousInput = root.dataset.umaInput;
     const previousBackground = root.dataset.umaBackground;
     root.dataset.umaInput = 'pointer';
-    const onPointer = () => { root.dataset.umaInput = 'pointer'; };
-    const onKey = () => { root.dataset.umaInput = 'keyboard'; };
-    const onVisibility = () => { root.dataset.umaBackground = String(document.hidden); };
+    const onPointer = () => {
+      if (root.dataset.umaInput !== 'pointer') {
+        root.dataset.umaInput = 'pointer';
+      }
+    };
+    const onKey = () => {
+      if (root.dataset.umaInput !== 'keyboard') {
+        root.dataset.umaInput = 'keyboard';
+      }
+    };
+    const onVisibility = () => {
+      const next = String(document.hidden);
+      if (root.dataset.umaBackground !== next) {
+        root.dataset.umaBackground = next;
+      }
+    };
     onVisibility();
     window.addEventListener('pointerdown', onPointer, true);
     window.addEventListener('keydown', onKey, true);

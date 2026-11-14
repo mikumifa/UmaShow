@@ -175,6 +175,8 @@ const scheduledDateTimeIsFuture = (value: string) => {
 const oneOffStartTime = (timing: ScheduleTiming, scheduledDateTime: string) =>
   timing === 'scheduled' ? `${scheduledDateTime}:00+08:00` : '05:00';
 
+const zhCollator = new Intl.Collator('zh-CN');
+
 const localAutoResearchSkills = (() => {
   const byName = new Map<string, AutoResearchSkill>();
   Object.entries(localCatalog.skills).forEach(([rawId, rawSkill]) => {
@@ -202,7 +204,7 @@ const localAutoResearchSkills = (() => {
     (left, right) =>
       right.rarity - left.rarity ||
       left.skill_category - right.skill_category ||
-      left.name.localeCompare(right.name, 'zh-CN'),
+      zhCollator.compare(left.name, right.name),
   );
 })();
 
@@ -586,7 +588,7 @@ function ErrorToast({
     <div
       role="alert"
       aria-live="assertive"
-      className="fixed right-4 top-4 z-[1600] flex w-[min(420px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-red-200 border-l-4 border-l-red-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-2xl"
+      className="autoResearchToast fixed right-4 top-4 z-[1600] flex w-[min(420px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-red-200 border-l-4 border-l-red-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-2xl"
     >
       <AlertTriangle className="mt-0.5 flex-none text-red-500" size={18} />
       <p className="min-w-0 flex-1 break-words leading-5">
@@ -622,7 +624,7 @@ function SuccessToast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed right-4 top-4 z-[1600] flex w-[min(420px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-2xl"
+      className="autoResearchToast fixed right-4 top-4 z-[1600] flex w-[min(420px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-2xl"
     >
       <CheckCircle2 className="mt-0.5 flex-none text-emerald-500" size={18} />
       <p className="min-w-0 flex-1 break-words leading-5">{message}</p>
@@ -902,6 +904,7 @@ export default function AutoResearch() {
     [],
   );
   const historyLoadRevision = useRef(0);
+  const loadedHistoryKeyRef = useRef('');
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
     CareerSessionRecord[] | null
   >(null);
@@ -2482,7 +2485,7 @@ export default function AutoResearch() {
         setLoginProgress((current) =>
           current?.loginId === loginId ? { ...current, elapsed } : current,
         );
-      }, 250);
+      }, 1000);
       try {
         const loginResult = (await window.electron.autoResearch.loginSession(
           accountId,
@@ -3206,6 +3209,7 @@ export default function AutoResearch() {
 
   useEffect(() => {
     historyLoadRevision.current += 1;
+    loadedHistoryKeyRef.current = '';
     setAssetSnapshots([]);
     setBusy((current) => (current === 'history' ? '' : current));
   }, [selectedAccountId, server]);
@@ -3213,6 +3217,9 @@ export default function AutoResearch() {
   useEffect(() => {
     if (activeTab !== 'history') return;
     if (!selectedAccountId || !server) return;
+    const autoLoadKey = `${selectedAccountId}|${server}|${historyRefreshRevision}|${serverConnectionRevision}`;
+    if (loadedHistoryKeyRef.current === autoLoadKey) return;
+    loadedHistoryKeyRef.current = autoLoadKey;
     loadCareerHistory(selectedAccountId).catch(() => undefined);
   }, [
     activeTab,
@@ -4159,6 +4166,11 @@ export default function AutoResearch() {
     return parts.join(' · ');
   };
 
+  const raceById = useMemo(
+    () => new Map(races.map((race) => [race.id, race])),
+    [races],
+  );
+
   const draftPreset = () => {
     return {
       name: presetName.trim(),
@@ -4190,8 +4202,8 @@ export default function AutoResearch() {
       ),
       extra_race_list: normalizeRaceSelection(selectedRaceIds, races).sort(
         (leftId, rightId) => {
-          const left = races.find((race) => race.id === leftId);
-          const right = races.find((race) => race.id === rightId);
+          const left = raceById.get(leftId);
+          const right = raceById.get(rightId);
           if (left && right) return compareRaces(left, right);
           if (left) return -1;
           if (right) return 1;
@@ -4201,41 +4213,46 @@ export default function AutoResearch() {
     };
   };
 
-  const presetDraft = useFormDraft(
+  const presetDraftScope =
     presetEditorOpen &&
-      loadedPresetKey === `${presetName}:${presetLoadRevision}`
+    loadedPresetKey === `${presetName}:${presetLoadRevision}`
       ? loadedPresetKey
-      : null,
-    draftPreset(),
+      : null;
+  const presetDraft = useFormDraft(
+    presetDraftScope,
+    presetDraftScope ? draftPreset() : null,
   );
   presetDirtyRef.current = presetDraft.dirty;
+  const careerDraftScope = careerSaveOpen
+    ? `${selectedAccountId}:${selectedCareerSettingId || 'new'}`
+    : null;
   const careerDraft = useFormDraft(
-    careerSaveOpen
-      ? `${selectedAccountId}:${selectedCareerSettingId || 'new'}`
+    careerDraftScope,
+    careerDraftScope
+      ? {
+          careerSettingName,
+          careerPresetName,
+          careerMode,
+          cardId,
+          deckId,
+          supportCardIds,
+          friendCardId,
+          parent1,
+          parent2,
+          maxSteps,
+          burnClocks,
+          clockUseLimit,
+          recoverTpWithItem,
+          recoverTpWithJewels,
+          offlineScenarioId,
+          offlineRunningStyle,
+          offlineRaceDeckNum,
+          offlineDesign,
+          offlineFactorSelection,
+          offlinePrioritySkillIds,
+          offlineSkillSettings,
+        }
       : null,
-    {
-      careerSettingName,
-      careerPresetName,
-      careerMode,
-      cardId,
-      deckId,
-      supportCardIds,
-      friendCardId,
-      parent1,
-      parent2,
-      maxSteps,
-      burnClocks,
-      clockUseLimit,
-      recoverTpWithItem,
-      recoverTpWithJewels,
-      offlineScenarioId,
-      offlineRunningStyle,
-      offlineRaceDeckNum,
-      offlineDesign,
-      offlineFactorSelection,
-      offlinePrioritySkillIds,
-      offlineSkillSettings,
-    },
   );
   const careerDirty =
     careerSaveOpen && (careerDraft.dirty || !selectedCareerSettingId);
@@ -5198,85 +5215,88 @@ export default function AutoResearch() {
     }, 'career');
   };
 
+  const androidBackHandlerRef = useRef<(rawEvent: Event) => void>(() => {});
+  androidBackHandlerRef.current = (rawEvent: Event) => {
+    const event = rawEvent;
+    const handled = () => event.preventDefault();
+    if (pendingLeave) {
+      handled();
+      return;
+    }
+
+    if (skillPickerOpen) {
+      setSkillPickerOpen(false);
+      handled();
+      return;
+    }
+    if (editingSkillSelectionId) {
+      setEditingSkillSelectionId('');
+      handled();
+      return;
+    }
+    if (runDialogOpen) {
+      setRunDialogOpen(false);
+      setPendingRun(null);
+      handled();
+      return;
+    }
+    if (appendPlanPickerOpen) {
+      setAppendPlanPickerOpen(false);
+      handled();
+      return;
+    }
+    if (localLoginConfirmationAccountId) {
+      finishLocalLoginConfirmation(false);
+      handled();
+      return;
+    }
+    if (editingAccountAliasId) {
+      setEditingAccountAliasId('');
+      handled();
+      return;
+    }
+    if (deletingAccountId) {
+      setDeletingAccountId('');
+      handled();
+      return;
+    }
+    if (smsLoginOpen) {
+      setSmsLoginOpen(false);
+      handled();
+      return;
+    }
+    if (loginSettingsOpen) {
+      closeLoginSettings();
+      handled();
+      return;
+    }
+    if (selectedCareerRecords?.length) {
+      setSelectedCareerRecords(null);
+      handled();
+      return;
+    }
+    if (presetEditorOpen) {
+      requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
+      handled();
+      return;
+    }
+    if (careerSaveOpen) {
+      closeCareerEditor();
+      handled();
+      return;
+    }
+    if (activeTab !== 'career') {
+      setActiveTab('career');
+      handled();
+    }
+  };
+
   useEffect(() => {
-    const handleAndroidBack = (rawEvent: Event) => {
-      const event = rawEvent;
-      const handled = () => event.preventDefault();
-      if (pendingLeave) {
-        handled();
-        return;
-      }
-
-      if (skillPickerOpen) {
-        setSkillPickerOpen(false);
-        handled();
-        return;
-      }
-      if (editingSkillSelectionId) {
-        setEditingSkillSelectionId('');
-        handled();
-        return;
-      }
-      if (runDialogOpen) {
-        setRunDialogOpen(false);
-        setPendingRun(null);
-        handled();
-        return;
-      }
-      if (appendPlanPickerOpen) {
-        setAppendPlanPickerOpen(false);
-        handled();
-        return;
-      }
-      if (localLoginConfirmationAccountId) {
-        finishLocalLoginConfirmation(false);
-        handled();
-        return;
-      }
-      if (editingAccountAliasId) {
-        setEditingAccountAliasId('');
-        handled();
-        return;
-      }
-      if (deletingAccountId) {
-        setDeletingAccountId('');
-        handled();
-        return;
-      }
-      if (smsLoginOpen) {
-        setSmsLoginOpen(false);
-        handled();
-        return;
-      }
-      if (loginSettingsOpen) {
-        closeLoginSettings();
-        handled();
-        return;
-      }
-      if (selectedCareerRecords?.length) {
-        setSelectedCareerRecords(null);
-        handled();
-        return;
-      }
-      if (presetEditorOpen) {
-        requestEditorLeave(() => setPresetEditorOpen(false), 'preset');
-        handled();
-        return;
-      }
-      if (careerSaveOpen) {
-        closeCareerEditor();
-        handled();
-        return;
-      }
-      if (activeTab !== 'career') {
-        setActiveTab('career');
-        handled();
-      }
-    };
-
+    const handleAndroidBack = (event: Event) =>
+      androidBackHandlerRef.current(event);
     window.addEventListener('autouma:back', handleAndroidBack);
     return () => window.removeEventListener('autouma:back', handleAndroidBack);
-  });
+  }, []);
 
   const editCareerPreset = () => {
     if (careerMode === 'offline') {
@@ -6204,13 +6224,41 @@ export default function AutoResearch() {
     (account) => account.id === deletingAccountId,
   );
 
+  const isNestedView = Boolean(
+    selectedCareerRecords || careerSaveOpen || presetEditorOpen,
+  );
+  const isStandaloneView = Boolean(
+    !isNestedView &&
+      ((activeTab !== 'presets' && !selectedAccount) ||
+        (!['presets', 'history'].includes(activeTab) &&
+          selectedAccount &&
+          (disconnectingAccountId === selectedAccount.id ||
+            loginProgress?.accountId === selectedAccount.id))),
+  );
+  const mobileAccountReady = Boolean(
+    serverHostedMode || localSessionMode || localAccountSessionState === 'ready',
+  );
+  const showMobileHeaderRefresh = Boolean(
+    selectedAccount &&
+      ((activeTab === 'history' && server && selectedAccountId) ||
+        (activeTab === 'daily' &&
+          !serverHostedMode &&
+          localAccountSessionState === 'ready') ||
+        (activeTab === 'career' && mobileAccountReady)),
+  );
+  const mobileHeaderRefreshing =
+    activeTab === 'history'
+      ? busy === 'history'
+      : activeTab === 'daily'
+        ? dailyTasksLoading
+        : busy === `refresh-${selectedAccountId}` ||
+          busy === `login-${selectedAccountId}`;
+
   return (
     <div
       className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
-        selectedCareerRecords || careerSaveOpen || presetEditorOpen
-          ? 'autoResearchNestedView'
-          : ''
-      }`}
+        isNestedView ? 'autoResearchNestedView' : ''
+      } ${isStandaloneView ? 'autoResearchStandaloneView' : ''}`}
     >
       <style>
         {`
@@ -6269,14 +6317,31 @@ export default function AutoResearch() {
               .app-drag-region {
               display: none;
             }
+            html[data-autouma] .autoResearchToast {
+              top: calc(0.625rem + var(--autouma-safe-top));
+              right: calc(0.75rem + var(--autouma-safe-right));
+              left: calc(0.75rem + var(--autouma-safe-left));
+              width: auto;
+            }
             html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs {
               display: none;
             }
             html[data-autouma]
               .autoResearchNestedView
               .autoResearchContentGrid {
-              padding-top: 0.5rem;
-              padding-bottom: calc(0.75rem + var(--autouma-safe-bottom));
+              padding-top: 0;
+              padding-bottom: calc(1rem + var(--autouma-safe-bottom));
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchContentGrid.overflow-hidden {
+              padding-bottom: 0;
+            }
+            html[data-autouma]
+              .autoResearchNestedView
+              .autoResearchMain.autoResearchTabScroll {
+              padding-top: 0;
+              padding-bottom: calc(1.25rem + var(--autouma-safe-bottom));
             }
             html[data-autouma] .autoResearchPage {
               padding-right: 0.75rem;
@@ -6288,8 +6353,12 @@ export default function AutoResearch() {
             html[data-autouma] .autoResearchContentGrid {
               margin-top: 0;
               gap: 0.75rem;
-              padding-top: 0.75rem;
-              padding-bottom: 4.5rem;
+              padding-top: 0.625rem;
+              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
+            }
+            html[data-autouma] .autoResearchContentGrid.overflow-hidden {
+              padding-top: 0;
+              padding-bottom: 0;
             }
             html[data-autouma]:has(#app-page-secondary-tabs > *)
               .autoResearchContentGrid,
@@ -6303,11 +6372,16 @@ export default function AutoResearch() {
               padding-right: 0;
               scrollbar-gutter: auto;
             }
+            html[data-autouma] .autoResearchMain.autoResearchTabScroll {
+              padding-top: 0.625rem;
+              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
+            }
             html[data-autouma] .autoResearchHeaderActions {
               gap: 0.375rem;
             }
             html[data-autouma] .autoResearchHeaderServer,
-            html[data-autouma] .autoResearchHeaderAccountName,
+            html[data-autouma] .autoResearchHeaderStatus,
+            html[data-autouma] .autoResearchHeaderDesktopOnly,
             html[data-autouma] .autoResearchHeaderActionLabel,
             html[data-autouma] .autoResearchHeaderFullLabel {
               display: none;
@@ -6315,10 +6389,19 @@ export default function AutoResearch() {
             html[data-autouma] .autoResearchHeaderCompactLabel {
               display: inline;
             }
+            html[data-autouma] .autoResearchHeaderAccountPill {
+              min-height: 2.25rem;
+              max-width: 9.5rem;
+              padding: 0.25rem 0.625rem;
+              border: 1px solid rgba(148, 163, 184, 0.45);
+              border-radius: 9999px;
+              background: rgba(255, 255, 255, 0.85);
+              touch-action: manipulation;
+            }
             html[data-autouma] .autoResearchHeaderAction {
-              width: 2.75rem;
-              min-width: 2.75rem;
-              height: 2.75rem;
+              width: 2.5rem;
+              min-width: 2.5rem;
+              height: 2.5rem;
               padding-right: 0;
               padding-left: 0;
               justify-content: center;
@@ -6327,8 +6410,8 @@ export default function AutoResearch() {
             }
             html[data-autouma] .autoResearchHeaderAction svg {
               margin-right: 0;
-              width: 1.25rem;
-              height: 1.25rem;
+              width: 1.125rem;
+              height: 1.125rem;
             }
             html[data-autouma] .autoResearchMobileTabs {
               position: fixed;
@@ -6343,9 +6426,8 @@ export default function AutoResearch() {
                 calc(0.375rem + var(--autouma-safe-bottom))
                 calc(0.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226, 232, 240, 0.96);
-              background: rgb(var(--uma-clay-surface-rgb) / 0.96);
+              background: rgb(var(--uma-clay-surface-rgb) / 0.98);
               box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
-              backdrop-filter: blur(18px);
             }
             html[data-autouma] .autoResearchMobileTab {
               display: flex;
@@ -6414,8 +6496,12 @@ export default function AutoResearch() {
               .autoResearchAccountDialog
               .autoResearchAccountDialogButton {
               min-width: 4.5rem;
+              min-height: 2.5rem;
+              font-size: var(--uma-type-label);
+            }
+            html[data-autouma] .autoResearchAccountMiniButton {
               min-height: 2rem;
-              font-size: var(--uma-type-caption);
+              padding: 0.25rem 0.5rem;
             }
             html[data-autouma] .autoResearchLoginPromptTitle {
               font-size: 0.9375rem;
@@ -6468,30 +6554,32 @@ export default function AutoResearch() {
               max-height: none;
             }
             html[data-autouma] .autoResearchHistoryAction {
-              min-height: 1.75rem;
-              padding: 0.25rem 0.5rem;
+              min-height: 2.25rem;
+              padding: 0.375rem 0.625rem;
               gap: 0.25rem;
               font-size: var(--uma-type-caption);
             }
             html[data-autouma]
               .successionPickerOverlay:not(.successionPickerCompactOverlay) {
-              display: block;
-              overflow-x: hidden;
-              overflow-y: auto;
-              padding: var(--autouma-safe-top) var(--autouma-safe-right)
-                var(--autouma-safe-bottom) var(--autouma-safe-left);
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+              padding: 0;
               overscroll-behavior: contain;
-              touch-action: pan-y;
-              -webkit-overflow-scrolling: touch;
             }
             html[data-autouma]
               .successionPickerOverlay:not(.successionPickerCompactOverlay)
               > .successionPickerDialog {
+              display: flex;
+              flex-direction: column;
               width: 100%;
-              height: auto !important;
-              min-height: 100%;
-              max-height: none !important;
-              overflow: visible !important;
+              height: 100dvh !important;
+              min-height: 0;
+              max-height: 100dvh !important;
+              padding-top: var(--autouma-safe-top);
+              padding-right: var(--autouma-safe-right);
+              padding-left: var(--autouma-safe-left);
+              overflow: hidden !important;
               border-radius: 0 !important;
             }
             html[data-autouma] .successionPickerHeader {
@@ -6517,20 +6605,20 @@ export default function AutoResearch() {
               line-height: 1.4;
             }
             html[data-autouma] .successionPickerClose {
-              width: 1.75rem;
-              min-height: 1.75rem;
-              font-size: 1.125rem;
+              width: 2.5rem;
+              min-height: 2.5rem;
+              font-size: 1.25rem;
             }
             html[data-autouma] .successionPickerToolbar {
               flex: 0 0 auto;
               gap: 0.375rem;
-              padding: 0.375rem 0.5rem;
+              padding: 0.375rem 0.625rem;
             }
             html[data-autouma] .successionPickerSearch input {
-              min-height: 2rem;
-              padding: 0.375rem 0.625rem;
+              min-height: 2.5rem;
+              padding: 0.5rem 0.75rem;
               border-radius: 0.625rem;
-              font-size: 0.75rem;
+              font-size: var(--uma-type-data);
             }
             html[data-autouma] .successionPickerMeta {
               min-height: 1.5rem;
@@ -6586,24 +6674,21 @@ export default function AutoResearch() {
               .successionPickerOverlay:not(.successionPickerCompactOverlay)
               > .successionPickerDialog
               > .overflow-y-auto {
-              min-height: auto;
-              flex: 0 0 auto;
+              min-height: 0;
+              flex: 1 1 0;
               max-height: none;
-              overflow: visible !important;
+              overflow-y: auto !important;
+              overscroll-behavior: contain;
+              -webkit-overflow-scrolling: touch;
             }
             html[data-autouma] .successionPickerFooter {
-              position: sticky;
-              z-index: 20;
-              right: 0;
-              bottom: 0;
-              left: 0;
               flex: 0 0 auto;
-              margin-top: auto;
+              margin-top: 0;
               padding: 0.5rem 0.625rem;
               padding-bottom: calc(
                 0.5rem + var(--autouma-safe-bottom)
               );
-              box-shadow: 0 -0.5rem 1.375rem rgba(15, 23, 42, 0.1);
+              box-shadow: 0 -0.5rem 1.375rem rgba(15, 23, 42, 0.08);
             }
             html[data-autouma]
               .successionPickerCompactOverlay
@@ -6622,9 +6707,9 @@ export default function AutoResearch() {
               gap: 0.375rem;
             }
             html[data-autouma] .plannerSkillFooterActions .plannerButton {
-              min-height: 2rem;
-              padding: 0.375rem 0.625rem;
-              font-size: var(--uma-type-caption);
+              min-height: 2.625rem;
+              padding: 0.5rem 0.875rem;
+              font-size: var(--uma-type-label);
             }
             html[data-autouma] .autoResearchCreateDialogOverlay {
               align-items: center !important;
@@ -6779,7 +6864,6 @@ export default function AutoResearch() {
             <header className="successionPickerHeader">
               <div>
                 <h3 id="auto-research-delete-account-title">删除游戏账号</h3>
-                <p>此操作只删除 UmaShow 中保存的本地账号信息</p>
               </div>
             </header>
             <div className="autoResearchAccountDialogBody p-5">
@@ -6796,9 +6880,9 @@ export default function AutoResearch() {
                   </p>
                   <p
                     id="auto-research-delete-account-description"
-                    className="mt-3 text-sm leading-6 text-slate-600"
+                    className="mt-2 text-sm leading-6 text-slate-600"
                   >
-                    删除后，本地保存的登录凭据、别名和会话缓存都会被移除；如需再次使用，必须重新导入或登录捕获。
+                    仅移除本地凭据、别名与缓存，后续可重新导入。
                   </p>
                 </div>
               </div>
@@ -6895,20 +6979,17 @@ export default function AutoResearch() {
             aria-label="自动育成登录设置"
             className="autoResearchAccountDialog autoResearchLoginSettingsDialog successionPickerDialog w-full !max-w-3xl sm:!h-[92vh] sm:!max-h-[880px] sm:!rounded-xl"
           >
-            <div className="successionPickerHeader flex items-start justify-between gap-3">
+            <div className="successionPickerHeader flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">账号与登录</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  导入账号、短信登录，或选择已保存的账号继续。
-                </p>
               </div>
               <button
                 type="button"
                 onClick={closeLoginSettings}
                 aria-label="关闭账号与登录"
-                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 sm:h-8 sm:w-8"
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
             <div className="autoResearchLoginSettingsBody flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
@@ -6934,7 +7015,7 @@ export default function AutoResearch() {
                       读入 users.db
                     </p>
                     <p className="truncate text-caption text-slate-500 sm:text-xs">
-                      可点击导入或拖放手机导出的数据库文件
+                      点击或拖放数据库文件
                     </p>
                   </div>
                   <label className="uma-clay-button-primary inline-flex min-h-9 shrink-0 cursor-pointer items-center px-3 text-xs font-semibold">
@@ -7000,7 +7081,7 @@ export default function AutoResearch() {
                 </button>
                 {captured.length ? (
                   <p className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
-                    UmaShow 已捕获并保存 {captured.length} 个游戏登录凭据。
+                    已捕获 {captured.length} 个登录凭据
                   </p>
                 ) : null}
               </section>
@@ -7052,12 +7133,40 @@ export default function AutoResearch() {
                           className="shrink-0 justify-end"
                         />
                       </div>
+                      {selectedAccountId === account.id &&
+                      mobileAccountReady ? (
+                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-indigo-200/70 pt-2 sm:hidden">
+                          <span className="text-caption font-medium text-indigo-700">
+                            当前状态：
+                            {serverHostedMode ? '服务器托管中' : '本地已登录'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              closeLoginSettings();
+                              if (serverHostedMode) {
+                                exitAutoResearchLogin().catch(() => undefined);
+                                return;
+                              }
+                              logoutLocalAccount(account.id).catch(
+                                () => undefined,
+                              );
+                            }}
+                            disabled={Boolean(
+                              loginProgress || disconnectingAccountId,
+                            )}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-caption font-semibold text-slate-600 disabled:opacity-50"
+                          >
+                            <LogOut size={12} />
+                            退出当前会话
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                   {!accounts.length ? (
                     <p className="col-span-full rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-data text-slate-500">
-                      请在上方导入游戏账号，或在游戏中重新登录后由 Localify
-                      自动捕获。
+                      请先导入账号或通过短信登录添加
                     </p>
                   ) : null}
                 </div>
@@ -7357,13 +7466,10 @@ export default function AutoResearch() {
                 {accountCareerSettings.map((setting) => {
                   const offline = setting.mode === 'offline';
                   const charaId = Number(String(setting.card_id).slice(0, 4));
-                  const databaseUmaName = [
-                    umaDatabase?.cards?.[setting.card_id]?.name,
-                    umaDatabase?.charas?.[charaId]?.name,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ');
-                  const umaName = databaseUmaName || '未知马娘';
+                  const umaName =
+                    umaDatabase?.cards?.[setting.card_id]?.name ||
+                    umaDatabase?.charas?.[charaId]?.name ||
+                    '未知马娘';
                   const settingUma = dashboard?.umas.find(
                     (uma) => uma.id === setting.card_id,
                   );
@@ -7382,9 +7488,7 @@ export default function AutoResearch() {
                   const friendSupportName =
                     setting.friend_support_name ||
                     umaDatabase?.supportCards?.[settingFriendCardId]?.name ||
-                    (settingFriendCardId
-                      ? `支援卡 ${settingFriendCardId}`
-                      : '未选择');
+                    (settingFriendCardId ? '未知支援卡' : '未选择');
                   const settingParent1 = setting.parent_1_snapshot;
                   const settingParent2 = setting.parent_2_snapshot;
                   const invalid = offline
@@ -7403,8 +7507,9 @@ export default function AutoResearch() {
                             {setting.name}
                           </strong>
                           <span className="mt-1 block truncate text-xs text-slate-500">
-                            {umaName} ·{' '}
-                            {offline ? '游戏离线育成' : setting.preset_name}
+                            {offline
+                              ? '游戏离线育成'
+                              : `预设：${setting.preset_name}`}
                           </span>
                         </div>
                         <span className={careerSettingModeBadgeClass(offline)}>
@@ -7417,7 +7522,7 @@ export default function AutoResearch() {
                             {deckSupportIds.map((supportCardId) => {
                               const supportName =
                                 umaDatabase?.supportCards?.[supportCardId]
-                                  ?.name || `支援卡 ${supportCardId}`;
+                                  ?.name || '未知支援卡';
                               return (
                                 <span
                                   key={supportCardId}
@@ -7457,10 +7562,10 @@ export default function AutoResearch() {
                           </div>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="grid grid-cols-3 gap-2">
                           {[
                             {
-                              label: '育成马娘',
+                              label: '育成',
                               name: umaName,
                               iconPath: settingUmaIconPath,
                               rental: false,
@@ -7499,30 +7604,33 @@ export default function AutoResearch() {
                             return (
                               <div
                                 key={label}
-                                className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
+                                title={`${label}：${name}`}
+                                className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2"
                               >
-                                <span className="h-10 w-10 flex-none">
+                                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-slate-50 text-caption text-slate-400">
                                   {iconPath ? (
                                     <AssetIcon
                                       path={iconPath}
                                       alt={name}
                                       className="h-full w-full object-contain"
                                     />
-                                  ) : null}
+                                  ) : (
+                                    '—'
+                                  )}
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                  <span className="block text-caption text-slate-500">
+                                  <span className="block whitespace-nowrap text-caption font-medium text-slate-600">
                                     {label}
                                   </span>
-                                  <span className="flex min-w-0 items-center gap-1">
-                                    <span
-                                      className="min-w-0 truncate font-medium text-slate-600"
-                                      title={name}
-                                    >
-                                      {name}
+                                  {rental ? (
+                                    <span className="mt-0.5 inline-flex">
+                                      <RentalParentBadge />
                                     </span>
-                                    {rental ? <RentalParentBadge /> : null}
-                                  </span>
+                                  ) : !iconPath ? (
+                                    <span className="block whitespace-nowrap text-caption text-slate-400">
+                                      未选
+                                    </span>
+                                  ) : null}
                                 </span>
                               </div>
                             );
@@ -7584,11 +7692,11 @@ export default function AutoResearch() {
               <h3 className="text-lg font-bold text-slate-900">
                 {appendingCareerPlan ? '添加后续计划' : '选择运行方式'}
               </h3>
-              <p className="uma-prose mt-1 text-data text-slate-500">
-                {appendingCareerPlan
-                  ? `后续详设：${pendingRunSetting?.name || '未知详设'}。当前计划完成后才会开始执行。`
-                  : '先选择基础结束条件，再单独决定整个计划是否作为每日任务重复。'}
-              </p>
+              {appendingCareerPlan ? (
+                <p className="uma-prose mt-1 text-data text-slate-500">
+                  后续详设：{pendingRunSetting?.name || '未知详设'}
+                </p>
+              ) : null}
             </div>
             <div className="p-4">
               <div className="grid gap-2 sm:grid-cols-2">
@@ -7597,25 +7705,25 @@ export default function AutoResearch() {
                       {
                         id: 'single' as const,
                         title: '单次',
-                        detail: '使用所选详设完成一次育成，然后进入下一项。',
+                        detail: '完成一次后进入下一项',
                         icon: Play,
                       },
                       {
                         id: 'continuous' as const,
                         title: '持续',
-                        detail: '持续执行所选详设；作为队列最后一项运行。',
+                        detail: '作为队列最后一项持续执行',
                         icon: RefreshCw,
                       },
                       {
                         id: 'count' as const,
                         title: '完成 X 次',
-                        detail: '使用所选详设连续完成指定次数。',
+                        detail: '连续完成指定次数',
                         icon: ListChecks,
                       },
                       {
                         id: 'jewel_drops' as const,
                         title: '获得 X 次',
-                        detail: '获得指定次数的钻石掉落后进入下一项。',
+                        detail: '获得指定次数掉钻后进入下一项',
                         icon: Gem,
                       },
                     ]
@@ -7623,26 +7731,25 @@ export default function AutoResearch() {
                       {
                         id: 'single' as const,
                         title: '单次',
-                        detail: '完成当前这一次育成后停止。',
+                        detail: '完成一次育成后停止',
                         icon: Play,
                       },
                       {
                         id: 'continuous' as const,
                         title: '持续',
-                        detail:
-                          '每次育成结束后自动开始下一次，直到手动停止或无法继续。',
+                        detail: '持续自动开始下一次，直至手动停止',
                         icon: RefreshCw,
                       },
                       {
                         id: 'count' as const,
                         title: '完成 X 次',
-                        detail: '从现在开始完成指定次数的育成后停止。',
+                        detail: '完成指定次数后停止',
                         icon: ListChecks,
                       },
                       {
                         id: 'jewel_drops' as const,
                         title: '获得 X 次',
-                        detail: `从现在起累计指定次数的宝石掉落；本周期还可掉落 ${remainingJewelDrops} 次。`,
+                        detail: `累计指定次数掉钻（本周期剩余 ${remainingJewelDrops} 次）`,
                         icon: Gem,
                       },
                     ]
@@ -7752,9 +7859,7 @@ export default function AutoResearch() {
                         }
                         className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2.5 font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                       />
-                      <span className="text-slate-400">
-                        使用北京时间；任务会先提交给服务器，并等待到指定时间再启动。
-                      </span>
+                      <span className="text-slate-400">北京时间</span>
                     </label>
                   ) : null}
                   {repeatDaily ? (
@@ -7786,8 +7891,7 @@ export default function AutoResearch() {
                         />
                       </label>
                       <p className="text-slate-400">
-                        使用北京时间，支持跨午夜；两者同为 05:00 表示完整的
-                        05:00 至次日 04:59 周期。
+                        北京时间，支持跨日（同设为 05:00 即全天周期）
                       </p>
                     </div>
                   ) : null}
@@ -7799,15 +7903,10 @@ export default function AutoResearch() {
                   compact
                   embedded
                   className="mt-3 w-full"
-                  prefix={repeatDaily ? '每天完成' : '从现在起完成'}
+                  prefix={repeatDaily ? '每天完成' : '完成'}
                   value={runCountTarget}
                   max={100}
                   suffix="次育成"
-                  hint={
-                    repeatDaily && !appendingCareerPlan
-                      ? '每个每日周期都会使用当前详设完成这些次数；达到后等待下一个周期。'
-                      : undefined
-                  }
                   onValueChange={setRunCountTarget}
                 />
               ) : null}
@@ -7817,14 +7916,14 @@ export default function AutoResearch() {
                   compact
                   embedded
                   className="mt-3 w-full"
-                  prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
+                  prefix={repeatDaily ? '每日达到' : '获得'}
                   value={jewelDropTarget}
                   max={20}
                   suffix="次宝石掉落"
                   hint={
                     repeatDaily
-                      ? '今天已经获得的钻石会计入目标；若启动时已经达到，会直接完成今天的计划。'
-                      : `本周期剩余 ${remainingJewelDrops} 次。达到目标后会在当前比赛结束处停止。`
+                      ? '当日已获掉钻计入目标'
+                      : `本周期剩余 ${remainingJewelDrops} 次`
                   }
                   onValueChange={setJewelDropTarget}
                 />
@@ -7874,7 +7973,6 @@ export default function AutoResearch() {
       <SkillSelector
         open={skillPickerOpen}
         title="选择育成中学习的技能"
-        description="只会学习这里选择的技能；新技能添加到队列末尾，可拖动调整购买顺序。"
         skills={skills}
         selectedNames={skillPriorityNames}
         blockedNames={[]}
@@ -7883,6 +7981,13 @@ export default function AutoResearch() {
         onClose={() => setSkillPickerOpen(false)}
       />
       <div className="mx-auto flex h-full min-h-0 max-w-6xl flex-col">
+        <AppMenuPortal targetId="app-page-title">
+          <span>
+            {autoResearchTabs.find((tab) => tab.id === activeTab)?.label ||
+              '自动育成'}
+          </span>
+        </AppMenuPortal>
+
         <AppMenuPortal>
           <div className="autoResearchHeaderActions flex min-w-0 items-center gap-1.5">
             <span
@@ -7922,15 +8027,74 @@ export default function AutoResearch() {
                 <button
                   type="button"
                   onClick={() => openLoginSettings()}
-                  className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100"
+                  className="autoResearchHeaderAccountPill flex h-7 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                   title={`账号：${selectedAccountName}`}
                   aria-label={`账号：${selectedAccountName}`}
                 >
-                  <Users className="mr-1 inline" size={15} />
-                  <span className="autoResearchHeaderAccountName max-w-32 truncate">
+                  <span
+                    aria-hidden="true"
+                    className={`h-2 w-2 shrink-0 rounded-full sm:hidden ${
+                      serverHostedMode
+                        ? 'bg-sky-500'
+                        : localSessionMode ||
+                            localAccountSessionState === 'ready'
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-400'
+                    }`}
+                  />
+                  <Users className="hidden shrink-0 sm:inline" size={15} />
+                  <span className="autoResearchHeaderAccountName max-w-[7.5rem] truncate sm:max-w-32">
                     {selectedAccountName}
                   </span>
                 </button>
+                {showMobileHeaderRefresh ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedAccountId) return;
+                      if (activeTab === 'history') {
+                        loadCareerHistory(selectedAccountId).catch(
+                          () => undefined,
+                        );
+                        return;
+                      }
+                      if (activeTab === 'daily') {
+                        loadDailyTasks(selectedAccountId).catch(
+                          () => undefined,
+                        );
+                        return;
+                      }
+                      if (!serverHostedMode) {
+                        loginAndReadLatest(selectedAccountId).catch(
+                          () => undefined,
+                        );
+                        return;
+                      }
+                      refreshCurrentAccount();
+                    }}
+                    disabled={
+                      !selectedAccountId ||
+                      Boolean(disconnectingAccountId) ||
+                      Boolean(checkingExistingRuntimeAccountId) ||
+                      mobileHeaderRefreshing
+                    }
+                    className="autoResearchHeaderAction flex items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 sm:hidden"
+                    aria-label={
+                      activeTab === 'history'
+                        ? '刷新记录'
+                        : activeTab === 'daily'
+                          ? '刷新日常'
+                          : serverHostedMode
+                            ? '刷新账号'
+                            : '重新登录账号'
+                    }
+                  >
+                    <RefreshCw
+                      className={mobileHeaderRefreshing ? 'animate-spin' : ''}
+                      size={16}
+                    />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {
@@ -7949,7 +8113,7 @@ export default function AutoResearch() {
                     busy === `refresh-${selectedAccountId}` ||
                     busy === `login-${selectedAccountId}`
                   }
-                  className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="autoResearchHeaderDesktopOnly autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={serverHostedMode ? '刷新账号' : '重新登录账号'}
                 >
                   <RefreshCw
@@ -7959,7 +8123,7 @@ export default function AutoResearch() {
                   <span className="autoResearchHeaderActionLabel">
                     {busy === `refresh-${selectedAccountId}`
                       ? serverHostedMode
-                        ? '正在读取服务器…'
+                        ? '刷新中…'
                         : '重新登录中…'
                       : busy === `login-${selectedAccountId}`
                         ? '登录中…'
@@ -7987,7 +8151,7 @@ export default function AutoResearch() {
                       }
                     }}
                     disabled={Boolean(loginProgress || disconnectingAccountId)}
-                    className="autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                    className="autoResearchHeaderDesktopOnly autoResearchHeaderAction flex h-7 items-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                     aria-label="退出登录"
                   >
                     <LogOut className="mr-1 inline" size={15} />
@@ -8215,11 +8379,11 @@ export default function AutoResearch() {
                         className={`rounded-full px-2 py-0.5 text-caption ${disconnectingAccountId === account.id ? 'bg-amber-100 text-amber-700' : runtimeSessionOwner(account.runtime) === 'server' ? 'bg-sky-100 text-sky-800' : runtimeSessionOwner(account.runtime) === 'local' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                       >
                         {disconnectingAccountId === account.id
-                          ? '退出中'
+                          ? '退出中…'
                           : loginProgress?.accountId === account.id
                             ? loginProgress.action === 'refresh'
-                              ? '刷新中'
-                              : '登录中'
+                              ? '刷新中…'
+                              : '登录中…'
                             : runtimeSessionOwner(account.runtime) === 'server'
                               ? '服务器托管'
                               : runtimeSessionOwner(account.runtime) === 'local'
@@ -8260,8 +8424,8 @@ export default function AutoResearch() {
                             {busy === `refresh-${account.id}`
                               ? runtimeSessionOwner(account.runtime) ===
                                 'server'
-                                ? '读取中'
-                                : '重新登录中'
+                                ? '刷新中…'
+                                : '重新登录中…'
                               : runtimeSessionOwner(account.runtime) ===
                                   'server'
                                 ? '刷新服务器'
@@ -8372,8 +8536,19 @@ export default function AutoResearch() {
             }`}
           >
             {activeTab !== 'presets' && !selectedAccount ? (
-              <section className="flex min-h-full items-center justify-center p-12 text-center text-slate-400">
-                <p>请先选择要使用的账号。</p>
+              <section className="flex min-h-full flex-col items-center justify-center p-8 text-center text-slate-500 sm:p-12">
+                <Users className="mx-auto text-slate-300" size={40} />
+                <p className="mt-3 text-data font-medium text-slate-700">
+                  请先选择要使用的账号。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openLoginSettings()}
+                  className="uma-clay-button-primary mt-4 inline-flex min-h-10 items-center gap-1.5 px-5 py-2.5 text-data font-semibold"
+                >
+                  <Users size={16} />
+                  <span>账号与登录</span>
+                </button>
               </section>
             ) : !['presets', 'history'].includes(activeTab) &&
               disconnectingAccountId === selectedAccount?.id ? (
@@ -8557,9 +8732,16 @@ export default function AutoResearch() {
                           disabled={busy === 'idle-single-mode-refresh'}
                           className="flex items-center gap-2 rounded-md bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-50"
                         >
-                          <RefreshCw size={14} />
+                          <RefreshCw
+                            size={14}
+                            className={
+                              busy === 'idle-single-mode-refresh'
+                                ? 'animate-spin'
+                                : ''
+                            }
+                          />
                           {busy === 'idle-single-mode-refresh'
-                            ? '正在刷新…'
+                            ? '刷新中…'
                             : '刷新状态'}
                         </button>
                         <button

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { memo, ReactNode, useState } from 'react';
 import { Check } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import {
@@ -66,7 +66,7 @@ export function supportIconPath(supportCardId: number) {
   return `support_card_s/${supportCardId}.png`;
 }
 
-export function UmaChoiceCard({
+export const UmaChoiceCard = memo(function UmaChoiceCard({
   uma,
   selected,
   onSelect,
@@ -99,7 +99,7 @@ export function UmaChoiceCard({
       ) : null}
     </button>
   );
-}
+});
 
 const APTITUDE_FACTOR_GROUP_IDS = new Set([
   11, 12, 21, 22, 23, 24, 31, 32, 33, 34,
@@ -202,7 +202,7 @@ function factorDetails(factors: FactorInfo[]): SuccessionFactorDetailFactor[] {
     .sort((left, right) => toneOrder[left.tone] - toneOrder[right.tone]);
 }
 
-export function ParentChoiceCard({
+export const ParentChoiceCard = memo(function ParentChoiceCard({
   parent,
   selected,
   disabled,
@@ -303,14 +303,7 @@ export function ParentChoiceCard({
               key: `self:${parent.instance_id}`,
               label: '本体',
               name: UMDB.cards[parent.card_id]?.name || parent.name,
-              subtitle: rental ? (
-                <span className="inline-flex min-w-0 items-center gap-1">
-                  <RentalParentBadge />
-                  <span className="truncate">{parent.name}</span>
-                </span>
-              ) : (
-                parent.name
-              ),
+              subtitle: rental ? <RentalParentBadge /> : undefined,
               portrait: (
                 <PlannerPortrait
                   path={iconPath}
@@ -330,7 +323,6 @@ export function ParentChoiceCard({
                 key: `ancestor:${ancestor.position_id}:${ancestor.card_id}`,
                 label: `父辈 ${index + 1}`,
                 name: UMDB.cards[ancestor.card_id]?.name || ancestor.name,
-                subtitle: ancestor.name,
                 portrait: (
                   <PlannerPortrait
                     path={ancestorIcon}
@@ -347,9 +339,9 @@ export function ParentChoiceCard({
       ) : null}
     </>
   );
-}
+});
 
-export function SupportChoiceCard({
+export const SupportChoiceCard = memo(function SupportChoiceCard({
   support,
   selected,
   disabled,
@@ -386,9 +378,9 @@ export function SupportChoiceCard({
       ) : null}
     </button>
   );
-}
+});
 
-export function DeckChoiceCard({
+export const DeckChoiceCard = memo(function DeckChoiceCard({
   deck,
   selected,
   disabled,
@@ -434,4 +426,4 @@ export function DeckChoiceCard({
       </span>
     </button>
   );
-}
+});

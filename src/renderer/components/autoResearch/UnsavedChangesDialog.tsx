@@ -40,13 +40,13 @@ export default function UnsavedChangesDialog({
       </h2>
       <p
         id="unsaved-changes-description"
-        className="mt-3 text-data leading-relaxed"
+        className="mt-2 text-data leading-relaxed text-slate-600"
       >
-        {label}已修改。离开前可以保存，也可以放弃这次修改。
+        {label}尚未保存。
       </p>
       {failed ? (
         <p role="alert" className="mt-3 text-data text-rose-700">
-          未能完成保存，请继续编辑并处理页面提示后重试。
+          未能完成保存，请检查配置后重试。
         </p>
       ) : null}
       <div className="mt-6 flex flex-wrap justify-end gap-2">

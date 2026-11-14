@@ -182,7 +182,7 @@ test('switching a character uses shared portrait cards and clears manual constra
   });
   fireEvent.click(
     within(picker).getByRole('button', {
-      name: new RegExp(`角色 ID ${character.id}`),
+      name: new RegExp(character.name),
     }),
   );
   expect(savedSettings().charaId).toBe(character.id);

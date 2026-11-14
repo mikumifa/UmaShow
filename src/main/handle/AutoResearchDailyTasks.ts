@@ -66,15 +66,21 @@ function trainedCharas(data: Record<string, any>, database: Database.Database) {
     WHERE card.id = ?
     LIMIT 1
   `);
+  const cardNameCache = new Map<number, string>();
   return (data.trained_chara || [])
     .map((row: Record<string, any>) => {
       const cardId = numberValue(row.card_id);
-      const name = (nameQuery.get(cardId) as { name?: string } | undefined)
-        ?.name;
+      let name = cardNameCache.get(cardId);
+      if (name === undefined) {
+        name =
+          (nameQuery.get(cardId) as { name?: string } | undefined)?.name ||
+          `未知角色 (${cardId})`;
+        cardNameCache.set(cardId, name);
+      }
       return {
         trained_chara_id: numberValue(row.trained_chara_id),
         card_id: cardId,
-        name: name || `未知角色 (${cardId})`,
+        name,
         rank_score: numberValue(row.rank_score),
         running_style: Math.max(1, numberValue(row.running_style, 1)),
         rarity: numberValue(row.rarity),

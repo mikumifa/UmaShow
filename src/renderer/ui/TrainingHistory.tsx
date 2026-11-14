@@ -116,10 +116,18 @@ type GlobalAggregateTableRow = {
   vital: number;
 };
 
+let storyNameMapSourceLength = -1;
+let storyNameMap = new Map<number, string>();
+
 function storyName(storyId?: number) {
   if (storyId == null) return '未知事件';
-  const story = UMDB.stories.find((item: any) => item.id === storyId);
-  return story?.name ?? `事件 ${storyId}`;
+  if (UMDB.stories.length !== storyNameMapSourceLength) {
+    storyNameMapSourceLength = UMDB.stories.length;
+    storyNameMap = new Map(
+      UMDB.stories.map((item: any) => [Number(item.id), String(item.name || '')]),
+    );
+  }
+  return storyNameMap.get(storyId) || `事件 ${storyId}`;
 }
 
 function commandLabel(commandResult: any) {
@@ -602,6 +610,7 @@ function TurnSnapshotCard({
 }: {
   snapshot: TrainingHistoryTurnSnapshot;
 }) {
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const venusGoddessLevels = snapshot.venusGoddessLevels ?? [];
   const venusSpirits = (snapshot.venusSpirits ?? []).filter((item) =>
     isTrackedVenusFragment(item.spiritNum),
@@ -640,7 +649,7 @@ function TurnSnapshotCard({
         </span>
         {snapshot.effectIds.length === 0 ? (
           <span className="rounded bg-white px-2 py-1 text-gray-400">
-            无 effect
+            无状态
           </span>
         ) : (
           snapshot.effectIds.map((effectId) => (
@@ -682,7 +691,10 @@ function TurnSnapshotCard({
         </div>
       )}
 
-      <details className="group mt-2">
+      <details
+        className="group mt-2"
+        onToggle={(event) => setSkillsOpen(event.currentTarget.open)}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50">
           <span className="flex items-center gap-2">
             <Sparkles size={14} />
@@ -696,70 +708,78 @@ function TurnSnapshotCard({
             className="text-gray-400 transition-transform group-open:rotate-180"
           />
         </summary>
-        <div className="mt-2 grid gap-2 md:grid-cols-2">
-          <div className="rounded bg-white p-2">
-            <div className="mb-1 text-xs font-semibold text-gray-500">
-              已有技能
+        {skillsOpen ? (
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div className="rounded bg-white p-2">
+              <div className="mb-1 text-xs font-semibold text-gray-500">
+                已有技能
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {snapshot.skills.length === 0 ? (
+                  <span className="text-xs text-gray-400">无</span>
+                ) : (
+                  snapshot.skills.map((skill) => (
+                    <span
+                      key={`${skill.skillId}-${skill.level}`}
+                      className="rounded bg-sky-50 px-2 py-1 text-xs text-sky-700"
+                    >
+                      {UMDB.skillName(skill.skillId)} Lv.{skill.level}
+                    </span>
+                  ))
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {snapshot.skills.length === 0 ? (
-                <span className="text-xs text-gray-400">无</span>
-              ) : (
-                snapshot.skills.map((skill) => (
-                  <span
-                    key={`${skill.skillId}-${skill.level}`}
-                    className="rounded bg-sky-50 px-2 py-1 text-xs text-sky-700"
-                  >
-                    {UMDB.skillName(skill.skillId)} Lv.{skill.level}
-                  </span>
-                ))
-              )}
+            <div className="rounded bg-white p-2">
+              <div className="mb-1 text-xs font-semibold text-gray-500">
+                技能提示
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {snapshot.skillTips.length === 0 ? (
+                  <span className="text-xs text-gray-400">无</span>
+                ) : (
+                  snapshot.skillTips.map((tip, index) => (
+                    <span
+                      key={`${tip.groupId}-${tip.rarity}-${tip.level}-${index}`}
+                      className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700"
+                    >
+                      {UMDB.skillTipName(tip.groupId, tip.rarity)} / R
+                      {tip.rarity} / Lv.{tip.level}
+                    </span>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-          <div className="rounded bg-white p-2">
-            <div className="mb-1 text-xs font-semibold text-gray-500">
-              技能提示
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {snapshot.skillTips.length === 0 ? (
-                <span className="text-xs text-gray-400">无</span>
-              ) : (
-                snapshot.skillTips.map((tip, index) => (
-                  <span
-                    key={`${tip.groupId}-${tip.rarity}-${tip.level}-${index}`}
-                    className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700"
-                  >
-                    {UMDB.skillTipName(tip.groupId, tip.rarity)} / R{tip.rarity}{' '}
-                    / Lv.{tip.level}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        ) : null}
       </details>
     </div>
   );
 }
 
 function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
+  const [open, setOpen] = useState(false);
   if (entry.type === 'delta') {
     return (
-      <details className="rounded-md border border-gray-200 bg-gray-50 p-3">
+      <details
+        className="rounded-md border border-gray-200 bg-gray-50 p-3"
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
           <div className="min-w-0 truncate whitespace-nowrap text-sm font-semibold text-gray-800">
             {entry.title}：<DeltaText delta={entry.delta} />
           </div>
           <div className="shrink-0 text-xs text-gray-500">
-            包 #{entry.packetIndex + 1}
+            #{entry.packetIndex + 1}
           </div>
         </summary>
-        <div className="mt-3 space-y-2">
-          <DeltaSummary delta={entry.delta} />
-          <div className="text-xs text-gray-500">
-            {formatDate(entry.receivedAt)}
+        {open ? (
+          <div className="mt-3 space-y-2">
+            <DeltaSummary delta={entry.delta} />
+            <div className="text-xs text-gray-500">
+              {formatDate(entry.receivedAt)}
+            </div>
           </div>
-        </div>
+        ) : null}
       </details>
     );
   }
@@ -768,29 +788,31 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
     const commandResult = entry.commandResult as any;
     const resultState = commandResult?.result_state;
     return (
-      <details className="rounded-md border border-blue-100 bg-blue-50 p-3">
+      <details
+        className="rounded-md border border-blue-100 bg-blue-50 p-3"
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
           <div className="min-w-0 truncate whitespace-nowrap text-sm font-semibold text-blue-800">
-            {commandLabel(commandResult)} / {commandResultLabel(resultState)} (
-            {resultState ?? '-'}) / <DeltaText delta={entry.delta} />
+            {commandLabel(commandResult)} / {commandResultLabel(resultState)} /{' '}
+            <DeltaText delta={entry.delta} />
           </div>
           <div className="shrink-0 text-xs text-blue-500">
-            包 #{entry.packetIndex + 1}
+            #{entry.packetIndex + 1}
           </div>
         </summary>
-        <div className="mt-3 space-y-2 text-xs text-blue-900">
-          <DeltaSummary delta={entry.delta} />
-          <TrainingEstimateCard estimate={entry.trainingEstimate} />
-          <div className="flex flex-wrap gap-3">
-            <span>command_id: {commandResult?.command_id ?? '-'}</span>
-            <span>sub_id: {commandResult?.sub_id ?? '-'}</span>
-            <span>result_state: {resultState ?? '-'}</span>
-            <span>{formatDate(entry.receivedAt)}</span>
+        {open ? (
+          <div className="mt-3 space-y-2 text-xs text-blue-900">
+            <DeltaSummary delta={entry.delta} />
+            <TrainingEstimateCard estimate={entry.trainingEstimate} />
+            <div className="text-blue-700/80">
+              {formatDate(entry.receivedAt)}
+            </div>
+            <pre className="overflow-x-auto rounded bg-white/70 p-2 text-caption leading-5 text-blue-950">
+              {JSON.stringify(commandResult, null, 2)}
+            </pre>
           </div>
-          <pre className="overflow-x-auto rounded bg-white/70 p-2 text-caption leading-5 text-blue-950">
-            {JSON.stringify(commandResult, null, 2)}
-          </pre>
-        </div>
+        ) : null}
       </details>
     );
   }
@@ -798,7 +820,10 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
   const event = entry.event as any;
 
   return (
-    <details className="rounded-md border border-amber-100 bg-amber-50 p-3">
+    <details
+      className="rounded-md border border-amber-100 bg-amber-50 p-3"
+      onToggle={(eventElement) => setOpen(eventElement.currentTarget.open)}
+    >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <div className="min-w-0 truncate whitespace-nowrap text-sm font-semibold text-amber-900">
           <span>
@@ -806,21 +831,20 @@ function TrainingEntryCard({ entry }: { entry: TrainingHistoryTurnEntry }) {
           </span>
         </div>
         <div className="shrink-0 text-xs text-amber-600">
-          包 #{entry.packetIndex + 1}
+          #{entry.packetIndex + 1}
         </div>
       </summary>
-      <div className="mt-3 space-y-2 text-xs text-amber-900">
-        <DeltaSummary delta={entry.delta} />
-        <div className="flex flex-wrap gap-3">
-          <span>story_id: {entry.storyId ?? '-'}</span>
-          <span>event_id: {event?.event_id ?? '-'}</span>
-          <span>chara_id: {event?.chara_id ?? '-'}</span>
-          <span>{formatDate(entry.receivedAt)}</span>
+      {open ? (
+        <div className="mt-3 space-y-2 text-xs text-amber-900">
+          <DeltaSummary delta={entry.delta} />
+          <div className="text-amber-700/80">
+            {formatDate(entry.receivedAt)}
+          </div>
+          <pre className="overflow-x-auto rounded bg-white/70 p-2 text-caption leading-5 text-amber-950">
+            {JSON.stringify(event, null, 2)}
+          </pre>
         </div>
-        <pre className="overflow-x-auto rounded bg-white/70 p-2 text-caption leading-5 text-amber-950">
-          {JSON.stringify(event, null, 2)}
-        </pre>
-      </div>
+      ) : null}
     </details>
   );
 }
@@ -963,23 +987,23 @@ export default function TrainingHistory() {
   const load = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(8);
-    setLoadingLabel('正在读取养成记录...');
+    setLoadingLabel('正在读取养成记录…');
 
     const configPromise = window.electron.trainingHistory.getConfig();
     const list = await window.electron.trainingHistory.list();
 
     setLoadingProgress(48);
-    setLoadingLabel('正在读取页面配置...');
+    setLoadingLabel('正在读取配置…');
 
     const nextConfig = await configPromise;
 
     setLoadingProgress(68);
-    setLoadingLabel('正在加载角色资料...');
+    setLoadingLabel('正在加载资料…');
 
     await loadUMDB();
 
     setLoadingProgress(88);
-    setLoadingLabel('正在渲染列表...');
+    setLoadingLabel('正在整理列表…');
 
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
@@ -1183,8 +1207,8 @@ export default function TrainingHistory() {
                   {horseName}
                 </div>
                 <div className="mt-1 text-sm text-gray-500">
-                  {previewRecord.summary.packetCount} 个包，
-                  {previewRecord.summary.turnCount} 个 turn
+                  {previewRecord.summary.packetCount} 个包 ·{' '}
+                  {previewRecord.summary.turnCount} 回合
                 </div>
               </div>
             </div>
@@ -1193,11 +1217,11 @@ export default function TrainingHistory() {
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="text-sm font-medium text-sky-900">
                 {selectedLoading
-                  ? '正在将增量记录展开为完整养成记录...'
+                  ? '正在读取完整养成记录…'
                   : '这局记录已经不存在或读取失败'}
               </div>
               <div className="shrink-0 text-xs font-semibold text-sky-700">
-                {selectedLoading ? '处理中' : '未找到'}
+                {selectedLoading ? '读取中…' : '未找到'}
               </div>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-sky-100">
@@ -1254,8 +1278,11 @@ export default function TrainingHistory() {
               className={raceHeaderButtonClass}
               disabled={recalculating}
             >
-              <RotateCcw size={16} />
-              {recalculating ? '计算中' : '重新计算'}
+              <RotateCcw
+                size={16}
+                className={recalculating ? 'animate-spin' : undefined}
+              />
+              {recalculating ? '计算中…' : '重新计算'}
             </button>
           </>
         }
@@ -1273,7 +1300,8 @@ export default function TrainingHistory() {
               {horseName}
             </div>
             <div className="mt-1 text-sm text-gray-500">
-              card_id: {selected.summary.cardId}
+              {selected.summary.turnCount} 回合 ·{' '}
+              {formatDate(selected.updatedAt)}
             </div>
           </div>
         </div>
@@ -1613,10 +1641,9 @@ export default function TrainingHistory() {
                       <Clock size={12} />
                       {formatDate(item.summary.startTime ?? item.createdAt)}
                     </span>
-                    <span>card_id {item.summary.cardId}</span>
-                    <span>rarity {item.summary.rarity}</span>
+                    <span>★{item.summary.rarity}</span>
                     <span>{item.summary.packetCount} 个包</span>
-                    <span>{item.summary.turnCount} 个 turn</span>
+                    <span>{item.summary.turnCount} 回合</span>
                   </div>
                 </div>
               </button>

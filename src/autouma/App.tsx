@@ -97,8 +97,8 @@ export default function AutoUmaApp() {
 
           @media (max-width: 639px) {
             .autouma-header {
-              height: calc(3.25rem + var(--autouma-safe-top));
-              padding-right: calc(.5rem + var(--autouma-safe-right));
+              height: calc(3rem + var(--autouma-safe-top));
+              padding-right: calc(.625rem + var(--autouma-safe-right));
               padding-left: calc(.75rem + var(--autouma-safe-left));
             }
             .autouma-brand {
@@ -106,14 +106,31 @@ export default function AutoUmaApp() {
               letter-spacing: -0.01em;
             }
             .autouma-actions {
-              gap: 0.25rem;
+              gap: 0.375rem;
               overflow: hidden;
             }
+            .autouma-content:has(> .autoResearchPage) {
+              overflow-y: hidden;
+              padding-bottom: 0;
+            }
+            html[data-autouma]:has(
+                .autoResearchNestedView,
+                .autoResearchStandaloneView,
+                .autoResearchLoginSettingsOverlay,
+                .successionPickerOverlay:not(.successionPickerCompactOverlay)
+              )
+              .autouma-header {
+              display: none;
+            }
+            html[data-autouma]:has(.autoResearchStandaloneView)
+              .autouma-content {
+              padding-top: var(--autouma-safe-top);
+            }
             .autouma-content .min-h-screen {
-              min-height: calc(100dvh - 3.25rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
+              min-height: calc(100dvh - 3rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
             }
             .autouma-content .h-screen {
-              height: calc(100dvh - 3.25rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
+              height: calc(100dvh - 3rem - var(--autouma-safe-top) - var(--autouma-safe-bottom));
             }
           }
 
@@ -145,13 +162,17 @@ export default function AutoUmaApp() {
         <AliveScope>
           <header className="autouma-header relative z-30 flex h-10 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
             <div
-              className="autouma-brand flex shrink-0 items-center"
+              className="autouma-brand flex shrink-0 items-center gap-2"
               title="AutoUma"
             >
               <img
                 src="./app-icons/favicon-32.png"
                 alt="AutoUma"
-                className="h-8 w-8 rounded-lg object-contain"
+                className="h-7 w-7 rounded-lg object-contain sm:h-8 sm:w-8"
+              />
+              <div
+                id="app-page-title"
+                className="autouma-page-title truncate text-data font-bold text-slate-800 sm:hidden"
               />
             </div>
             <div

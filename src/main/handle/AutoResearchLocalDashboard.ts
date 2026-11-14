@@ -218,6 +218,163 @@ function serverTimestamp(data: unknown, options: LocalDashboardOptions) {
   return positiveNumber(headers?.servertime) || Math.floor(Date.now() / 1000);
 }
 
+type StaticMasterCatalog = Omit<MasterCatalog, 'offlineScenarios'> & {
+  scenarioNames: Map<number, string>;
+};
+
+const staticMasterCatalogCache = new Map<string, StaticMasterCatalog>();
+
+function databaseCacheKey(databasePath: string) {
+  try {
+    return `${databasePath}:${fs.statSync(databasePath).mtimeMs}`;
+  } catch {
+    return databasePath;
+  }
+}
+
+function buildStaticMasterCatalog(
+  database: Database.Database,
+): StaticMasterCatalog {
+  const catalog: StaticMasterCatalog = {
+    cardNames: new Map(),
+    cardCharaIds: new Map(),
+    raceDressIds: new Map(),
+    supports: new Map(),
+    factors: new Map(),
+    scenarioNames: new Map(),
+  };
+
+  safeAll(
+    database,
+    `
+      SELECT card.id AS card_id, card.chara_id AS chara_id, text.text AS name
+      FROM card_data AS card
+      LEFT JOIN text_data AS text
+        ON text.category = 6 AND text."index" = card.chara_id
+    `,
+  ).forEach((row) => {
+    const cardId = positiveNumber(row.card_id);
+    if (!cardId) return;
+    const charaId = positiveNumber(row.chara_id);
+    if (charaId) catalog.cardCharaIds.set(cardId, charaId);
+    const name = cleanText(row.name);
+    if (name) catalog.cardNames.set(cardId, name);
+  });
+
+  safeAll(
+    database,
+    'SELECT card_id, rarity, race_dress_id FROM card_rarity_data',
+  ).forEach((row) => {
+    const cardId = positiveNumber(row.card_id);
+    const rarity = positiveNumber(row.rarity);
+    const dressId = positiveNumber(row.race_dress_id);
+    if (cardId && rarity && dressId) {
+      catalog.raceDressIds.set(`${cardId}:${rarity}`, dressId);
+    }
+  });
+
+  const supportLimits = new Map<number, number>();
+  safeAll(
+    database,
+    'SELECT rarity, limit_4 AS max_level FROM support_card_limit',
+  ).forEach((row) => {
+    const rarity = positiveNumber(row.rarity);
+    const level = positiveNumber(row.max_level);
+    if (rarity && level) supportLimits.set(rarity, level);
+  });
+
+  const supportLevels = new Map<
+    number,
+    Array<{ level: number; exp: number }>
+  >();
+  safeAll(
+    database,
+    'SELECT rarity, level, total_exp FROM support_card_level',
+  ).forEach((row) => {
+    const rarity = positiveNumber(row.rarity);
+    const level = positiveNumber(row.level);
+    if (!rarity || !level) return;
+    const rows = supportLevels.get(rarity) || [];
+    rows.push({ level, exp: Math.max(0, numberValue(row.total_exp)) });
+    supportLevels.set(rarity, rows);
+  });
+
+  safeAll(
+    database,
+    `
+      SELECT support.id AS support_id, support.chara_id AS chara_id,
+             support.rarity AS rarity, support.support_card_type AS support_type,
+             support.command_id AS command_id, text.text AS name
+      FROM support_card_data AS support
+      LEFT JOIN text_data AS text
+        ON text.category = 75 AND text."index" = support.id
+    `,
+  ).forEach((row) => {
+    const supportId = positiveNumber(row.support_id);
+    if (!supportId) return;
+    const rarityNumber = positiveNumber(row.rarity);
+    const levels = supportLevels.get(rarityNumber) || [];
+    const maxLevel =
+      supportLimits.get(rarityNumber) ||
+      levels.reduce((maximum, level) => Math.max(maximum, level.level), 0);
+    const maxExp =
+      levels.find((level) => level.level === maxLevel)?.exp ||
+      levels.reduce((maximum, level) => Math.max(maximum, level.exp), 0);
+    const declaredType = SUPPORT_CARD_TYPES[positiveNumber(row.support_type)];
+    const supportType =
+      declaredType ||
+      SUPPORT_COMMAND_TYPES[positiveNumber(row.command_id)] ||
+      '?';
+    catalog.supports.set(supportId, {
+      id: supportId,
+      chara_id: positiveNumber(row.chara_id),
+      name: cleanText(row.name) || `未知支援卡 (${supportId})`,
+      rarity: SUPPORT_RARITIES[rarityNumber] || '?',
+      type: supportType,
+      max_level: maxLevel,
+      max_exp: maxExp,
+    });
+  });
+
+  safeAll(
+    database,
+    `
+      SELECT factor.factor_id AS factor_id,
+             factor.factor_group_id AS factor_group_id,
+             factor.rarity AS rarity,
+             factor.factor_type AS factor_type,
+             text.text AS name
+      FROM succession_factor AS factor
+      LEFT JOIN text_data AS text
+        ON text.category = 147 AND text."index" = factor.factor_id
+    `,
+  ).forEach((row) => {
+    const factorId = positiveNumber(row.factor_id);
+    if (!factorId) return;
+    const factorType = numberValue(row.factor_type);
+    const factorGroupId = numberValue(row.factor_group_id);
+    catalog.factors.set(factorId, {
+      id: factorId,
+      name: cleanText(row.name) || `未知因子 (${factorId})`,
+      stars: positiveNumber(row.rarity) || factorId % 10 || 1,
+      category: factorCategory(factorType),
+      factor_type: factorType,
+      factor_group_id: factorGroupId,
+    });
+  });
+
+  safeAll(
+    database,
+    'SELECT "index" AS scenario_id, text FROM text_data WHERE category = 237',
+  ).forEach((row) => {
+    const scenarioId = positiveNumber(row.scenario_id);
+    const name = cleanText(row.text);
+    if (scenarioId && name) catalog.scenarioNames.set(scenarioId, name);
+  });
+
+  return catalog;
+}
+
 function loadMasterCatalog(
   serverTime: number,
   options: LocalDashboardOptions,
@@ -225,11 +382,13 @@ function loadMasterCatalog(
   const suppliedDatabase = options.database;
   let database = suppliedDatabase;
   let closeDatabase = false;
+  let cacheKey: string | null = null;
   if (!database) {
     const databasePath = resolveLocalMasterDatabasePath(
       options.masterDatabasePath,
     );
     if (!databasePath) return emptyMasterCatalog();
+    cacheKey = databaseCacheKey(databasePath);
     try {
       database = new Database(databasePath, {
         readonly: true,
@@ -241,137 +400,18 @@ function loadMasterCatalog(
     }
   }
 
-  const catalog = emptyMasterCatalog();
   try {
-    safeAll(
-      database,
-      `
-        SELECT card.id AS card_id, card.chara_id AS chara_id, text.text AS name
-        FROM card_data AS card
-        LEFT JOIN text_data AS text
-          ON text.category = 6 AND text."index" = card.chara_id
-      `,
-    ).forEach((row) => {
-      const cardId = positiveNumber(row.card_id);
-      if (!cardId) return;
-      const charaId = positiveNumber(row.chara_id);
-      if (charaId) catalog.cardCharaIds.set(cardId, charaId);
-      const name = cleanText(row.name);
-      if (name) catalog.cardNames.set(cardId, name);
-    });
-
-    safeAll(
-      database,
-      'SELECT card_id, rarity, race_dress_id FROM card_rarity_data',
-    ).forEach((row) => {
-      const cardId = positiveNumber(row.card_id);
-      const rarity = positiveNumber(row.rarity);
-      const dressId = positiveNumber(row.race_dress_id);
-      if (cardId && rarity && dressId) {
-        catalog.raceDressIds.set(`${cardId}:${rarity}`, dressId);
+    let staticCatalog = cacheKey
+      ? staticMasterCatalogCache.get(cacheKey)
+      : undefined;
+    if (!staticCatalog) {
+      staticCatalog = buildStaticMasterCatalog(database);
+      if (cacheKey) {
+        staticMasterCatalogCache.set(cacheKey, staticCatalog);
       }
-    });
-
-    const supportLimits = new Map<number, number>();
-    safeAll(
-      database,
-      'SELECT rarity, limit_4 AS max_level FROM support_card_limit',
-    ).forEach((row) => {
-      const rarity = positiveNumber(row.rarity);
-      const level = positiveNumber(row.max_level);
-      if (rarity && level) supportLimits.set(rarity, level);
-    });
-
-    const supportLevels = new Map<
-      number,
-      Array<{ level: number; exp: number }>
-    >();
-    safeAll(
-      database,
-      'SELECT rarity, level, total_exp FROM support_card_level',
-    ).forEach((row) => {
-      const rarity = positiveNumber(row.rarity);
-      const level = positiveNumber(row.level);
-      if (!rarity || !level) return;
-      const rows = supportLevels.get(rarity) || [];
-      rows.push({ level, exp: Math.max(0, numberValue(row.total_exp)) });
-      supportLevels.set(rarity, rows);
-    });
-
-    safeAll(
-      database,
-      `
-        SELECT support.id AS support_id, support.chara_id AS chara_id,
-               support.rarity AS rarity, support.support_card_type AS support_type,
-               support.command_id AS command_id, text.text AS name
-        FROM support_card_data AS support
-        LEFT JOIN text_data AS text
-          ON text.category = 75 AND text."index" = support.id
-      `,
-    ).forEach((row) => {
-      const supportId = positiveNumber(row.support_id);
-      if (!supportId) return;
-      const rarityNumber = positiveNumber(row.rarity);
-      const levels = supportLevels.get(rarityNumber) || [];
-      const maxLevel =
-        supportLimits.get(rarityNumber) ||
-        levels.reduce((maximum, level) => Math.max(maximum, level.level), 0);
-      const maxExp =
-        levels.find((level) => level.level === maxLevel)?.exp ||
-        levels.reduce((maximum, level) => Math.max(maximum, level.exp), 0);
-      const declaredType = SUPPORT_CARD_TYPES[positiveNumber(row.support_type)];
-      const supportType =
-        declaredType ||
-        SUPPORT_COMMAND_TYPES[positiveNumber(row.command_id)] ||
-        '?';
-      catalog.supports.set(supportId, {
-        id: supportId,
-        chara_id: positiveNumber(row.chara_id),
-        name: cleanText(row.name) || `未知支援卡 (${supportId})`,
-        rarity: SUPPORT_RARITIES[rarityNumber] || '?',
-        type: supportType,
-        max_level: maxLevel,
-        max_exp: maxExp,
-      });
-    });
-
-    safeAll(
-      database,
-      `
-        SELECT factor.factor_id AS factor_id,
-               factor.factor_group_id AS factor_group_id,
-               factor.rarity AS rarity,
-               factor.factor_type AS factor_type,
-               text.text AS name
-        FROM succession_factor AS factor
-        LEFT JOIN text_data AS text
-          ON text.category = 147 AND text."index" = factor.factor_id
-      `,
-    ).forEach((row) => {
-      const factorId = positiveNumber(row.factor_id);
-      if (!factorId) return;
-      const factorType = numberValue(row.factor_type);
-      const factorGroupId = numberValue(row.factor_group_id);
-      catalog.factors.set(factorId, {
-        id: factorId,
-        name: cleanText(row.name) || `未知因子 (${factorId})`,
-        stars: positiveNumber(row.rarity) || factorId % 10 || 1,
-        category: factorCategory(factorType),
-        factor_type: factorType,
-        factor_group_id: factorGroupId,
-      });
-    });
-
-    const scenarioNames = new Map<number, string>();
-    safeAll(
-      database,
-      'SELECT "index" AS scenario_id, text FROM text_data WHERE category = 237',
-    ).forEach((row) => {
-      const scenarioId = positiveNumber(row.scenario_id);
-      const name = cleanText(row.text);
-      if (scenarioId && name) scenarioNames.set(scenarioId, name);
-    });
-    catalog.offlineScenarios = safeAll(
+    }
+    const { scenarioNames, ...restCatalog } = staticCatalog;
+    const offlineScenarios = safeAll(
       database,
       `
         SELECT id, sort_id
@@ -393,10 +433,13 @@ function loadMasterCatalog(
         },
       ];
     });
+    return {
+      ...restCatalog,
+      offlineScenarios,
+    };
   } finally {
     if (closeDatabase) database.close();
   }
-  return catalog;
 }
 
 function payloadData(value: unknown): UnknownRecord {

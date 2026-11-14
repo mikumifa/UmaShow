@@ -10,7 +10,9 @@
 
 /* Independent scale preserves selected-card transforms and anchored controls. */
 html :where(button, [role='button']):not(:disabled):not([aria-disabled='true']) {
-  transition-property: color, background-color, border-color, box-shadow, opacity, transform, scale;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: color, background-color, border-color, opacity, transform, scale;
   transition-duration: var(--uma-motion-fast);
   transition-timing-function: var(--uma-ease-out);
 }
@@ -18,6 +20,12 @@ html :where(button, [role='button']):not(:disabled):not([aria-disabled='true']) 
 html[data-uma-input='pointer'] :where(button, [role='button']):not(:disabled):not([aria-disabled='true']):not([role='switch']):not(.absolute):not(.fixed):active {
   scale: 0.98;
   transition-duration: var(--uma-motion-press);
+}
+
+@media (pointer: coarse) {
+  html[data-uma-input='pointer'] :where(.plannerSelectionCard, .plannerSkillCard, .plannerLineageCard, .successionUmaTrigger):active {
+    scale: 1;
+  }
 }
 
 /* Transform only the surface, never its fullscreen overlay or route container:

@@ -16,8 +16,8 @@
   html[data-autouma] .automationControlCardActions {
     display: grid;
     width: 100%;
-    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
-    gap: 0.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+    gap: 0.5rem;
     padding: 0.5rem 0 0;
     border-top: 1px solid #e2e8f0;
     border-radius: 0;
@@ -27,9 +27,11 @@
 
   html[data-autouma] .automationControlCardActions button {
     min-width: 0;
+    min-height: 2.5rem;
     justify-content: center;
     padding-right: 0.5rem;
     padding-left: 0.5rem;
+    touch-action: manipulation;
   }
 
   html[data-autouma] .automationControlCardEditor {
@@ -53,9 +55,11 @@
 
   html[data-autouma] .automationControlCardModes button {
     min-width: 0;
+    min-height: 2.5rem;
     justify-content: center;
     padding-right: 0.5rem;
     padding-left: 0.5rem;
+    touch-action: manipulation;
   }
 
   html[data-autouma] .automationControlCardTarget {
@@ -100,7 +104,9 @@
   }
 
   html[data-autouma] .automationControlCardTiming button {
+    min-height: 2.5rem;
     justify-content: center;
+    touch-action: manipulation;
   }
 
   html[data-autouma] .automationControlCardDaily {

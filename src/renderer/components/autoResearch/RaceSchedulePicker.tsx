@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import { Dispatch, memo, SetStateAction, useMemo, useState } from 'react';
 import { Coffee, LockKeyhole, Pin } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
@@ -38,7 +38,7 @@ type Props = {
   };
 };
 
-export default function RaceSchedulePicker({
+function RaceSchedulePicker({
   id,
   title,
   description,
@@ -62,9 +62,34 @@ export default function RaceSchedulePicker({
     });
     return result;
   }, [races]);
-  const racesForSelectedDate = selectedRaceTurn
-    ? [...(racesByTurn.get(selectedRaceTurn) || [])].sort(compareRaces)
-    : [];
+  const selectedRaceIdSet = useMemo(
+    () => new Set(selectedRaceIds),
+    [selectedRaceIds],
+  );
+  const restTurnSet = useMemo(
+    () => new Set(planning?.restTurns || []),
+    [planning?.restTurns],
+  );
+  const blockedTurnSet = useMemo(
+    () => new Set(planning?.blockedTurns || []),
+    [planning?.blockedTurns],
+  );
+  const automaticRacesByTurn = useMemo(() => {
+    const result = new Map<number, PlanningScenarioEvent[]>();
+    automaticRaces.forEach((race) => {
+      const list = result.get(race.turn) || [];
+      list.push(race);
+      result.set(race.turn, list);
+    });
+    return result;
+  }, [automaticRaces]);
+  const racesForSelectedDate = useMemo(
+    () =>
+      selectedRaceTurn
+        ? [...(racesByTurn.get(selectedRaceTurn) || [])].sort(compareRaces)
+        : [],
+    [racesByTurn, selectedRaceTurn],
+  );
   const fixedIds = selectedRaceTurn
     ? planning?.fixedRaces[selectedRaceTurn] || lockedRaces?.[selectedRaceTurn]
     : undefined;
@@ -72,9 +97,7 @@ export default function RaceSchedulePicker({
     selectedRaceTurn && lockedRaces?.[selectedRaceTurn],
   );
   const showRaceDetails = Boolean(planning || lockedRaces);
-  const isRest = Boolean(
-    selectedRaceTurn && planning?.restTurns.includes(selectedRaceTurn),
-  );
+  const isRest = Boolean(selectedRaceTurn && restTurnSet.has(selectedRaceTurn));
   const clearDate = () => {
     if (!selectedRaceTurn || readOnly || lockedDate) return;
     if (planning) planning.onChange?.(selectedRaceTurn, 'auto');
@@ -166,18 +189,17 @@ export default function RaceSchedulePicker({
                         planning?.fixedRaces[turn] || lockedRaces?.[turn];
                       const selectedRace = turnRaces.find(
                         (race) =>
-                          selectedRaceIds.includes(race.id) &&
+                          selectedRaceIdSet.has(race.id) &&
                           (!goals || goals.includes(race.id)),
                       );
                       const displayRace =
                         selectedRace ||
                         turnRaces.find((race) => goals?.includes(race.id));
-                      const rest = planning?.restTurns.includes(turn);
+                      const rest = restTurnSet.has(turn);
                       const outside =
                         planning &&
                         (turn < planning.startTurn || turn > planning.endTurn);
-                      const blocked =
-                        planning?.blockedTurns.includes(turn) && !goals;
+                      const blocked = blockedTurnSet.has(turn) && !goals;
                       let stateLabel = planning ? '自动规划' : '未选择比赛';
                       if (selectedRace)
                         stateLabel = `已选择${selectedRace.name}`;
@@ -258,12 +280,11 @@ export default function RaceSchedulePicker({
                       );
                     })}
                   </div>
-                  {automaticRaces
-                    .filter(
-                      (race) =>
-                        race.turn === skillPurchaseTurn(year.offset, month, 2),
-                    )
-                    .map((race) => (
+                  {(
+                    automaticRacesByTurn.get(
+                      skillPurchaseTurn(year.offset, month, 2),
+                    ) || []
+                  ).map((race) => (
                       <div
                         key={race.turn}
                         className="mt-1 flex items-center justify-center gap-1 rounded bg-slate-100 px-1 py-1 text-caption text-slate-700"
@@ -335,22 +356,20 @@ export default function RaceSchedulePicker({
                 {isRest ? '本回合已固定休息，不安排比赛。' : null}
                 {!isRest &&
                 racesForSelectedDate.some((race) =>
-                  selectedRaceIds.includes(race.id),
+                  selectedRaceIdSet.has(race.id),
                 )
                   ? '本回合已手动固定比赛。'
                   : null}
                 {!isRest &&
                 !racesForSelectedDate.some((race) =>
-                  selectedRaceIds.includes(race.id),
+                  selectedRaceIdSet.has(race.id),
                 )
                   ? '本回合由自动规划安排。'
                   : null}
               </span>
             </div>
           ) : null}
-          {racesForSelectedDate.some((race) =>
-            selectedRaceIds.includes(race.id),
-          ) &&
+          {racesForSelectedDate.some((race) => selectedRaceIdSet.has(race.id)) &&
           !readOnly &&
           !lockedDate &&
           (!planning || (fixedIds && fixedIds.length > 1)) ? (
@@ -369,7 +388,7 @@ export default function RaceSchedulePicker({
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {racesForSelectedDate.map((race) => {
                   const checked =
-                    selectedRaceIds.includes(race.id) ||
+                    selectedRaceIdSet.has(race.id) ||
                     Boolean(
                       fixedIds?.length === 1 && fixedIds.includes(race.id),
                     );
@@ -442,3 +461,5 @@ export default function RaceSchedulePicker({
     </section>
   );
 }
+
+export default memo(RaceSchedulePicker);

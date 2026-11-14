@@ -1,5 +1,26 @@
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { UMDB } from 'renderer/utils/umdb';
 import { CareerSessionRecord, RaceOption, RaceTrainingMetadata } from './types';
+
+const SCENARIO_LABELS: Record<number, string> = {
+  1: 'URA',
+  2: '青春杯',
+  3: '巅峰杯',
+  4: '偶像杯',
+  5: '荣耀女神杯',
+  6: '凯旋门',
+};
+const resolveCardLabel = (cardId?: number) => {
+  if (!cardId) return '未知马娘';
+  const charaId = Math.floor(cardId / 100);
+  return (
+    UMDB.charas?.[charaId]?.name ||
+    UMDB.cards?.[cardId]?.name ||
+    '未知马娘'
+  );
+};
+const resolveScenarioLabel = (scenarioId?: number) =>
+  (scenarioId ? SCENARIO_LABELS[scenarioId] : undefined) || '未知剧本';
 
 const rankLabel = (rank?: number | null) =>
   rank == null
@@ -140,7 +161,7 @@ export function aggregateRaceJewels(
   };
 }
 
-export default function RaceJewelStats({
+function RaceJewelStats({
   records,
   races,
 }: {
@@ -148,16 +169,26 @@ export default function RaceJewelStats({
   races: RaceOption[];
 }) {
   const [byFeatures, setByFeatures] = useState(false);
-  const stats = aggregateRaceJewels(records, byFeatures);
+  const stats = useMemo(
+    () => aggregateRaceJewels(records, byFeatures),
+    [byFeatures, records],
+  );
+  const { raceByProgramTurn, raceByProgram } = useMemo(() => {
+    const byTurn = new Map<string, RaceOption>();
+    const byProgram = new Map<number, RaceOption>();
+    races.forEach((item) => {
+      byTurn.set(`${item.program_id}:${item.turn}`, item);
+      if (!byProgram.has(item.program_id)) byProgram.set(item.program_id, item);
+    });
+    return { raceByProgramTurn: byTurn, raceByProgram: byProgram };
+  }, [races]);
   return (
     <div className="p-3 sm:p-5">
       <h3 className="text-section font-semibold text-slate-900">
         比赛胜率与钻石掉落统计
       </h3>
-      <p className="mt-2 text-caption text-slate-500">
-        胜率按名次已知的比赛计算，掉落率按奖励已知的比赛计算。每场最多计 1
-        次掉落，0 钻比赛也计入分母。
-        统计沿用当前日期／任务范围，未知数据不当作失败或零掉落。
+      <p className="mt-1.5 text-caption text-slate-500">
+        仅统计名次或奖励已知的场次（含 0 钻），每场最多计 1 次掉落。
       </p>
       <label className="mt-3 flex items-center gap-2 text-caption">
         <input
@@ -169,8 +200,7 @@ export default function RaceJewelStats({
       </label>
       {stats.missingRuns > 0 ? (
         <p className="mt-2 text-caption text-amber-700">
-          {stats.missingRuns}{' '}
-          次历史育成缺少逐场比赛记录，未计入下表；无法还原这些育成的逐场掉落率。
+          {stats.missingRuns} 次育成缺少逐场记录，未计入下表。
         </p>
       ) : null}
       {stats.unattributedJewels > 0 ? (
@@ -236,11 +266,8 @@ export default function RaceJewelStats({
             <tbody className="divide-y divide-slate-100">
               {stats.rows.map((row) => {
                 const race =
-                  races.find(
-                    (item) =>
-                      item.program_id === row.programId &&
-                      item.turn === row.turn,
-                  ) || races.find((item) => item.program_id === row.programId);
+                  raceByProgramTurn.get(`${row.programId}:${row.turn}`) ||
+                  raceByProgram.get(row.programId);
                 return (
                   <tr key={row.key}>
                     <th
@@ -248,8 +275,8 @@ export default function RaceJewelStats({
                       className="py-3 pr-2 font-medium text-slate-800"
                     >
                       {byFeatures
-                        ? `卡片 ${row.metadata?.card_id || '未知'} · 剧本 ${row.metadata?.scenario_id || '未知'} · ${gradeLabel(row.metadata?.grade)}`
-                        : race?.name || row.raceName || `比赛 ${row.programId}`}
+                        ? `${resolveCardLabel(row.metadata?.card_id)} · ${resolveScenarioLabel(row.metadata?.scenario_id)} · ${gradeLabel(row.metadata?.grade)}`
+                        : race?.name || row.raceName || '未知比赛'}
                       <span className="mt-1 block text-caption font-normal text-slate-500">
                         {row.source === 'offline' ? '离线' : '在线'} ·{' '}
                         {byFeatures
@@ -324,9 +351,11 @@ export default function RaceJewelStats({
         </div>
       ) : (
         <p className="py-10 text-center text-data text-slate-500">
-          暂无逐场比赛记录。新版采集完成的育成会在这里显示统计。
+          暂无逐场比赛记录
         </p>
       )}
     </div>
   );
 }
+
+export default memo(RaceJewelStats);

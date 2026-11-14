@@ -24,6 +24,10 @@
   padding-right: 40px;
 }
 
+.careerUmaPickerGrid .plannerSelectionCard.hasState .plannerSelectionCardCopy > strong {
+  padding-right: 0;
+}
+
 .careerUmaPickerGrid .plannerSelectionState {
   justify-content: center;
   width: 24px;

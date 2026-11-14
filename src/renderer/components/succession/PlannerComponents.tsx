@@ -1,5 +1,6 @@
 /* eslint-disable react/jsx-props-no-spreading, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
 import {
+  memo,
   type ButtonHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
@@ -26,7 +27,7 @@ export type PlannerFactor = {
   title?: string;
 };
 
-export function PlannerPortrait({
+export const PlannerPortrait = memo(function PlannerPortrait({
   path,
   src,
   alt,
@@ -76,9 +77,9 @@ export function PlannerPortrait({
       {fallback || alt.slice(0, 1) || '?'}
     </span>
   );
-}
+});
 
-export function PlannerFactorBadge({
+export const PlannerFactorBadge = memo(function PlannerFactorBadge({
   factor,
   compact = false,
 }: {
@@ -97,9 +98,9 @@ export function PlannerFactorBadge({
       {factor.count !== undefined ? <b>×{factor.count}</b> : null}
     </span>
   );
-}
+});
 
-export function PlannerFactorList({
+export const PlannerFactorList = memo(function PlannerFactorList({
   factors,
   compact = false,
   className = '',
@@ -123,7 +124,7 @@ export function PlannerFactorList({
       ))}
     </div>
   );
-}
+});
 
 type PlannerButtonProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -134,7 +135,7 @@ type PlannerButtonProps = Omit<
   active?: boolean;
 };
 
-export function PlannerButton({
+export const PlannerButton = memo(function PlannerButton({
   variant = 'secondary',
   size = 'medium',
   active = false,
@@ -150,7 +151,7 @@ export function PlannerButton({
       } ${className}`.trim()}
     />
   );
-}
+});
 
 type PlannerSelectionState = 'selected' | 'occupied' | 'disabled';
 
@@ -193,7 +194,7 @@ function PlannerSelectionStateBadge({
   );
 }
 
-export function PlannerSelectionCard({
+export const PlannerSelectionCard = memo(function PlannerSelectionCard({
   portrait,
   title,
   subtitle,
@@ -239,9 +240,9 @@ export function PlannerSelectionCard({
       {state ? <PlannerSelectionStateBadge state={state} /> : null}
     </button>
   );
-}
+});
 
-export function PlannerSkillCard({
+export const PlannerSkillCard = memo(function PlannerSkillCard({
   iconPath,
   name,
   meta,
@@ -288,7 +289,7 @@ export function PlannerSkillCard({
       ) : null}
     </button>
   );
-}
+});
 
 export type PlannerLineageMember = {
   key: string;
@@ -299,7 +300,7 @@ export type PlannerLineageMember = {
   factors: PlannerFactor[];
 };
 
-export function PlannerLineageCard({
+export const PlannerLineageCard = memo(function PlannerLineageCard({
   member,
   parents,
   selected = false,
@@ -412,4 +413,4 @@ export function PlannerLineageCard({
       ) : null}
     </article>
   );
-}
+});

@@ -751,14 +751,14 @@ function SuccessionDetail({
                   {memberName(successionMember)}
                 </div>
                 <div className="truncate font-mono text-gray-500">
-                  owner_viewer_id: {ownerViewerId ?? '-'}
+                  玩家 ID：{ownerViewerId ?? '-'}
                 </div>
               </div>
               {ownerViewerId != null ? (
                 <button
                   type="button"
                   className="flex h-7 w-7 flex-none items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                  title="复制 owner_viewer_id"
+                  title="复制玩家 ID"
                   onClick={(event) => {
                     event.stopPropagation();
                     copyText(ownerViewerId);

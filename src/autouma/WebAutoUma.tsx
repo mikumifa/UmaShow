@@ -1096,7 +1096,9 @@ export default function WebAutoUma() {
     <div
       className={`autoResearchPage h-full min-h-0 overflow-hidden bg-transparent px-4 text-gray-800 xl:px-6 ${
         activeTab === 'career' ? 'autoResearchCareerPage' : ''
-      } ${selectedCareerRecords ? 'autoResearchNestedView' : ''}`}
+      } ${selectedCareerRecords ? 'autoResearchNestedView' : ''} ${
+        !server && !selectedCareerRecords ? 'autoResearchStandaloneView' : ''
+      }`}
     >
       <style>
         {`
@@ -1105,15 +1107,29 @@ export default function WebAutoUma() {
             html[data-autouma]:has(.autoResearchNestedView) .app-drag-region { display: none; }
             html[data-autouma] .autoResearchNestedView .autoResearchMobileTabs { display: none; }
             html[data-autouma] .autoResearchNestedView .autoResearchContentGrid {
-              padding-top: .5rem; padding-bottom: calc(.75rem + var(--autouma-safe-bottom));
+              padding-top: 0; padding-bottom: calc(1rem + var(--autouma-safe-bottom));
             }
             html[data-autouma] .autoResearchPage { padding-right: .75rem; padding-left: .75rem; }
             html[data-autouma] .autoResearchDesktopTabs { display: none; }
             html[data-autouma] .autoResearchHeaderServer,
             html[data-autouma] .autoResearchHeaderActionLabel { display: none; }
+            html[data-autouma] .autoResearchHeaderAccountPill {
+              min-height: 2.25rem;
+              max-width: 9.5rem;
+              padding: .25rem .625rem;
+              border: 1px solid rgba(148,163,184,.45);
+              border-radius: 9999px;
+              background: rgba(255,255,255,.85);
+              color: #334155;
+            }
+            html[data-autouma] .autoResearchHeaderAction {
+              width: 2.5rem; min-width: 2.5rem; height: 2.5rem;
+              padding-right: 0; padding-left: 0; justify-content: center;
+              border-radius: .75rem;
+            }
             html[data-autouma] .autoResearchContentGrid {
-              margin-top: 0; padding-top: .75rem;
-              padding-bottom: 4.5rem;
+              margin-top: 0; padding-top: .625rem;
+              padding-bottom: calc(5rem + var(--autouma-safe-bottom));
             }
             html[data-autouma] .autoResearchCareerPage,
             html[data-autouma] .autoResearchCareerPage .autoResearchContentGrid,
@@ -1138,9 +1154,8 @@ export default function WebAutoUma() {
                 calc(.375rem + var(--autouma-safe-bottom))
                 calc(.5rem + var(--autouma-safe-left));
               border-top: 1px solid rgba(226,232,240,.96);
-              background: rgb(var(--uma-clay-surface-rgb) / .96);
+              background: rgb(var(--uma-clay-surface-rgb) / .98);
               box-shadow: 0 -8px 24px rgba(15,23,42,.08);
-              backdrop-filter: blur(18px);
             }
             html[data-autouma] .autoResearchMobileTab {
               display: flex; min-height: 3.25rem; flex-direction: column;
@@ -1150,28 +1165,13 @@ export default function WebAutoUma() {
             html[data-autouma] .autoResearchMobileTab[aria-current='page'] {
               background: var(--uma-clay-accent-soft); color: var(--uma-clay-accent);
             }
-            html[data-autouma] .autoResearchCloudPullAction {
-              position: fixed; z-index: 125;
-              right: calc(.875rem + var(--autouma-safe-right));
-              bottom: calc(4.75rem + var(--autouma-safe-bottom));
-              width: 3.5rem; height: 3.5rem; justify-content: center;
-              padding: 0; border: 0; border-radius: 9999px;
-              background: var(--uma-clay-accent); color: white;
-              box-shadow: 0 .5rem 1rem rgb(36 120 61 / .18);
-            }
-            html[data-autouma] .autoResearchCloudPullAction:hover {
-              border: 0; background: #1d6033; color: white;
-            }
-            html[data-autouma] .autoResearchCloudPullAction:active {
-              transform: scale(.94);
-            }
-            html[data-autouma] .autoResearchCloudPullAction svg {
-              width: 1.375rem; height: 1.375rem;
-            }
-            html[data-autouma] .autoResearchMobileFabLabel { display: none; }
           }
         `}
       </style>
+
+      <AppMenuPortal targetId="app-page-title">
+        <span>{tabs.find((tab) => tab.id === activeTab)?.label || '育成'}</span>
+      </AppMenuPortal>
 
       <AppMenuPortal>
         <div className="autoResearchHeaderActions flex min-w-0 items-center gap-1.5">
@@ -1184,10 +1184,17 @@ export default function WebAutoUma() {
           <button
             type="button"
             onClick={() => setLoginSettingsOpen(true)}
-            className="autoResearchHeaderAction flex h-7 items-center gap-1 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-xs font-semibold text-white hover:bg-indigo-700"
+            aria-label="账号与服务器"
+            className="autoResearchHeaderAccountPill flex h-7 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 sm:bg-indigo-600 sm:text-white sm:hover:bg-indigo-700"
           >
-            <Users size={15} />
-            <span className="autoResearchHeaderActionLabel">
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 shrink-0 rounded-full sm:hidden ${
+                server && connectedUid ? 'bg-sky-500' : 'bg-slate-400'
+              }`}
+            />
+            <Users className="hidden shrink-0 sm:inline" size={15} />
+            <span className="max-w-[7.5rem] truncate sm:max-w-32">
               {connectedUid
                 ? connectedAccount?.label || `UID ${connectedUid}`
                 : '账号与服务器'}
@@ -1200,9 +1207,10 @@ export default function WebAutoUma() {
                 activeTab === 'history' ? refreshHistory() : loadCloudData()
               }
               disabled={Boolean(busy)}
-              className="autoResearchHeaderAction flex h-7 items-center gap-1 rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              aria-label={activeTab === 'history' ? '刷新记录' : '刷新配置'}
+              className="autoResearchHeaderAction flex h-7 items-center gap-1 rounded-md px-2 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
-              <RefreshCw size={15} className={busy ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
               <span className="autoResearchHeaderActionLabel">刷新</span>
             </button>
           ) : null}
@@ -1386,9 +1394,6 @@ export default function WebAutoUma() {
               <h3 className="text-lg font-bold text-slate-900">
                 账号与自动育成服务器
               </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                这里只连接 UAR，不会在当前设备登录游戏。
-              </p>
             </div>
             <div className="space-y-4 p-5">
               <label className="block text-sm font-medium text-slate-700">
@@ -1416,9 +1421,6 @@ export default function WebAutoUma() {
                 <Database className="mx-auto text-slate-400" size={24} />
                 <p className="mt-2 text-sm font-semibold text-slate-700">
                   导入 users.db
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  会自动读取其中的 UID 和 access_key
                 </p>
                 <label className="relative mt-3 inline-flex cursor-pointer items-center overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
                   {busy === 'users-db' ? '正在导入…' : '选择 users.db'}
@@ -1799,7 +1801,7 @@ export default function WebAutoUma() {
                   compact
                   embedded
                   className="mt-3 w-full"
-                  prefix={repeatDaily ? '每天完成' : '从现在起完成'}
+                  prefix={repeatDaily ? '每天完成' : '完成'}
                   value={runCountTarget}
                   max={100}
                   suffix="次育成"
@@ -1811,7 +1813,7 @@ export default function WebAutoUma() {
                   compact
                   embedded
                   className="mt-3 w-full"
-                  prefix={repeatDaily ? '每天累计达到' : '从现在起获得'}
+                  prefix={repeatDaily ? '每日达到' : '获得'}
                   value={jewelDropTarget}
                   max={20}
                   suffix="次宝石掉落"

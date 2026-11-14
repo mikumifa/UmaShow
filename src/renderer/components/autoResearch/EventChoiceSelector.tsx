@@ -1,7 +1,9 @@
 import {
   Dispatch,
+  memo,
   SetStateAction,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -16,12 +18,13 @@ type EventChoiceSelectorProps = {
   setFixedEventChoices: Dispatch<SetStateAction<Record<string, number>>>;
 };
 
-export default function EventChoiceSelector({
+function EventChoiceSelector({
   stories,
   fixedEventChoices,
   setFixedEventChoices,
 }: EventChoiceSelectorProps) {
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [details, setDetails] = useState<
     Record<string, StoryDetail | null | undefined>
   >({});
@@ -33,7 +36,7 @@ export default function EventChoiceSelector({
     [stories],
   );
   const searchResults = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
+    const query = deferredSearch.trim().toLocaleLowerCase();
     if (!query) return [];
     return stories
       .filter((story) => {
@@ -42,7 +45,7 @@ export default function EventChoiceSelector({
         return id.includes(query) || name.includes(query);
       })
       .slice(0, 30);
-  }, [search, stories]);
+  }, [deferredSearch, stories]);
 
   const loadDetail = useCallback(
     async (storyId: number, force = false) => {
@@ -132,16 +135,11 @@ export default function EventChoiceSelector({
 
   return (
     <section className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
           3
         </span>
-        <div>
-          <p className="text-data font-semibold text-slate-800">事件固定选项</p>
-          <p className="mt-1 text-caption leading-5 text-slate-500">
-            在线育成遇到已配置事件时固定选择指定项；未配置事件继续使用自动策略。
-          </p>
-        </div>
+        <p className="text-data font-semibold text-slate-800">事件固定选项</p>
       </div>
 
       <div className="relative mt-3">
@@ -152,7 +150,7 @@ export default function EventChoiceSelector({
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="搜索事件名称或 story ID"
+          placeholder="搜索事件名称"
           className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-data text-slate-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
         />
       </div>
@@ -166,7 +164,7 @@ export default function EventChoiceSelector({
             const hasNoChoices = messages[key] === '该事件没有可选择选项';
             let actionLabel = '添加';
             if (selected) actionLabel = '已添加';
-            else if (loading) actionLabel = '读取中';
+            else if (loading) actionLabel = '读取中…';
             else if (hasNoChoices) actionLabel = '无可选项';
             return (
               <div
@@ -175,12 +173,13 @@ export default function EventChoiceSelector({
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-data font-medium text-slate-700">
-                    {story.name || `事件 ${story.id}`}
+                    {story.name || '未命名事件'}
                   </p>
-                  <p className="mt-0.5 text-caption text-slate-500">
-                    story_id: {story.id}
-                    {messages[key] ? ` · ${messages[key]}` : ''}
-                  </p>
+                  {messages[key] ? (
+                    <p className="mt-0.5 text-caption text-slate-500">
+                      {messages[key]}
+                    </p>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -212,7 +211,7 @@ export default function EventChoiceSelector({
           const detail = details[storyId];
           const loading = loadingIds.has(storyId);
           let pendingChoiceLabel = `第 ${choiceNumber} 项`;
-          if (loading) pendingChoiceLabel = '正在读取选项…';
+          if (loading) pendingChoiceLabel = '读取中…';
           else if (detail === null) {
             pendingChoiceLabel = `第 ${choiceNumber} 项（详情读取失败）`;
           }
@@ -223,10 +222,7 @@ export default function EventChoiceSelector({
             >
               <div className="min-w-[180px] flex-1">
                 <p className="truncate text-data font-medium text-slate-700">
-                  {story?.name || `事件 ${storyId}`}
-                </p>
-                <p className="mt-0.5 text-caption text-slate-500">
-                  story_id: {storyId}
+                  {story?.name || '未知事件'}
                 </p>
               </div>
               <select
@@ -276,3 +272,5 @@ export default function EventChoiceSelector({
     </section>
   );
 }
+
+export default memo(EventChoiceSelector);

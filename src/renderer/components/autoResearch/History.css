@@ -345,7 +345,7 @@
 
 @container (max-width: 600px) {
   .historyToolbar {
-    padding: 12px;
+    padding: 4px 0;
   }
 
   .historyViewSwitch {
@@ -447,12 +447,22 @@
   }
 }
 
+@media (max-width: 639px) {
+  html[data-autouma] .historyToolbarRefresh {
+    display: none;
+  }
+}
+
 @media (pointer: coarse) {
+  .autoResearchHistory {
+    touch-action: pan-y;
+  }
   .autoResearchHistory .historyAction,
   .historyViewSwitch button,
   .historyTracking button {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: 42px;
+    min-width: 42px;
+    touch-action: manipulation;
   }
 }
 

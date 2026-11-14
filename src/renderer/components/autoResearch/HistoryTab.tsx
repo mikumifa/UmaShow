@@ -1,9 +1,10 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import {
   Dispatch,
+  memo,
   SetStateAction,
-  TouchEvent as ReactTouchEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -21,7 +22,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
-import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import AssetTracking from './AssetTracking';
 import HistoryMetrics, {
@@ -72,33 +72,45 @@ const runIdTimestamp = (runId?: string) => {
   return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}+08:00`;
 };
 
+const runTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  hour12: false,
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+const runDateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  hour12: false,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+const recordDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'long',
+});
+
 const formatRunTime = (value?: string) => {
   if (!value) return '未知';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '未知';
-  return date.toLocaleTimeString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return runTimeFormatter.format(date);
 };
 
 const formatRunDateTime = (value?: string) => {
   if (!value) return '未知';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '未知';
-  return date.toLocaleString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return runDateTimeFormatter.format(date);
 };
 
 const formatRunDuration = (startedAt?: string, endedAt?: string) => {
@@ -179,14 +191,7 @@ const formatRecordDate = (dateKey: string) => {
   if (dateKey === '未知日期') return dateKey;
   const date = new Date(`${dateKey}T00:00:00+08:00`);
   if (Number.isNaN(date.getTime())) return dateKey;
-  const label = date.toLocaleDateString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  });
-  return `${label} · 05:00–次日05:00`;
+  return recordDateFormatter.format(date);
 };
 
 const recordSettingName = (record?: CareerSessionRecord) =>
@@ -378,7 +383,7 @@ const aggregateRecords = (records: CareerSessionRecord[]) => {
   };
 };
 
-export default function HistoryTab({
+function HistoryTab({
   readOnly = false,
   selectedCareerRecords,
   setSelectedCareerRecords,
@@ -448,58 +453,12 @@ export default function HistoryTab({
       if (revision === detailRevision.current) setDetailLoading(false);
     }
   };
-  const [pullDistance, setPullDistance] = useState(0);
-  const pullStartY = useRef<number | null>(null);
-  const pullDistanceRef = useRef(0);
-  const mobilePullToRefresh =
-    document.documentElement.hasAttribute('data-autouma') &&
-    window.matchMedia('(max-width: 639px)').matches;
-
-  const updatePullDistance = (distance: number) => {
-    pullDistanceRef.current = distance;
-    setPullDistance(distance);
-  };
-
-  const beginPull = (event: ReactTouchEvent<HTMLElement>) => {
-    if (!mobilePullToRefresh || busy === 'history') return;
-    const scrollContainer = event.currentTarget.closest(
-      '.autoResearchContentGrid',
-    ) as HTMLElement | null;
-    if ((scrollContainer?.scrollTop || 0) > 0) return;
-    pullStartY.current = event.touches[0]?.clientY ?? null;
-  };
-
-  const continuePull = (event: ReactTouchEvent<HTMLElement>) => {
-    if (pullStartY.current === null) return;
-    const scrollContainer = event.currentTarget.closest(
-      '.autoResearchContentGrid',
-    ) as HTMLElement | null;
-    if ((scrollContainer?.scrollTop || 0) > 0) {
-      pullStartY.current = null;
-      updatePullDistance(0);
-      return;
-    }
-    const distance = (event.touches[0]?.clientY || 0) - pullStartY.current;
-    if (distance <= 0) {
-      updatePullDistance(0);
-      return;
-    }
-    event.preventDefault();
-    updatePullDistance(Math.min(96, distance * 0.55));
-  };
-
-  const finishPull = () => {
-    const shouldRefresh =
-      mobilePullToRefresh &&
-      pullDistanceRef.current >= 56 &&
-      busy !== 'history' &&
-      Boolean(selectedAccountId);
-    pullStartY.current = null;
-    updatePullDistance(0);
-    if (shouldRefresh) {
-      void loadCareerHistory(selectedAccountId);
-    }
-  };
+  const canManageTrainingHistory =
+    !readOnly &&
+    !(
+      typeof document !== 'undefined' &&
+      document.documentElement.hasAttribute('data-autouma')
+    );
 
   useEffect(() => {
     if (!window.electron?.utils?.getUmaDatabase) return undefined;
@@ -529,8 +488,33 @@ export default function HistoryTab({
     };
   };
 
-  if (selectedCareerRecords?.length) {
-    const aggregate = aggregateRecords(selectedCareerRecords);
+  const selectedAggregate = useMemo(
+    () =>
+      selectedCareerRecords?.length
+        ? aggregateRecords(selectedCareerRecords)
+        : null,
+    [selectedCareerRecords],
+  );
+  const groups = useMemo(() => {
+    if (historyView === 'tracking') return [];
+    const grouped =
+      historyView === 'task'
+        ? groupRecordsByTask(
+            careerHistory.filter((record) => record.aggregation_type !== 'day'),
+          )
+        : groupRecordsBySettingAndDate(
+            careerHistory.filter(
+              (record) => record.aggregation_type !== 'task',
+            ),
+          );
+    return grouped.map((group) => ({
+      ...group,
+      aggregate: aggregateRecords(group.records),
+    }));
+  }, [careerHistory, historyView]);
+
+  if (selectedCareerRecords?.length && selectedAggregate) {
+    const aggregate = selectedAggregate;
     const recordUma = resolveRecordUma(aggregate.cardId);
     const dateKey = recordDateKey(selectedCareerRecords[0]);
     const settingName = recordSettingName(selectedCareerRecords[0]);
@@ -546,36 +530,34 @@ export default function HistoryTab({
       historyView === 'task' ? taskPlanSummary(selectedCareerRecords[0]) : '';
 
     return (
-      <div className="autoResearchHistory autoResearchHistoryDetail space-y-4">
-        <section className={panelClass('p-3 sm:p-5')}>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <PlannerButton
-              variant="secondary"
-              size="small"
-              className="historyAction"
-              onClick={() => setSelectedCareerRecords(null)}
-            >
-              <ArrowLeft size={14} />
-              返回
-            </PlannerButton>
-            <div className="flex items-center gap-2">
-              {!readOnly && canDownloadSetting ? (
-                <PlannerButton
-                  variant="secondary"
-                  size="small"
-                  className="historyAction"
-                  disabled={
-                    settingDownloaded ||
-                    busy.startsWith('history-setting-download:')
-                  }
-                  onClick={() => downloadCareerSetting(selectedCareerRecords)}
-                >
-                  <Download size={14} />
-                  {settingDownloaded ? '详设已保存' : '下载详设'}
-                </PlannerButton>
-              ) : null}
-            </div>
+      <div className="autoResearchHistory autoResearchHistoryDetail space-y-3 sm:space-y-4">
+        <header className="autoResearchEditorToolbar">
+          <button
+            type="button"
+            className="autoResearchBackButton historyAction"
+            onClick={() => setSelectedCareerRecords(null)}
+          >
+            <ArrowLeft size={16} />
+            <span>返回</span>
+          </button>
+          <div className="autoResearchEditorActions">
+            {!readOnly && canDownloadSetting ? (
+              <button
+                type="button"
+                className="uma-clay-button historyAction inline-flex items-center gap-1.5 px-3 text-label font-semibold disabled:opacity-50"
+                disabled={
+                  settingDownloaded ||
+                  busy.startsWith('history-setting-download:')
+                }
+                onClick={() => downloadCareerSetting(selectedCareerRecords)}
+              >
+                <Download size={14} />
+                <span>{settingDownloaded ? '详设已保存' : '下载详设'}</span>
+              </button>
+            ) : null}
           </div>
+        </header>
+        <section className={panelClass('uma-task-card p-3 sm:p-5')}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <span className="h-12 w-12 flex-none sm:h-16 sm:w-16">
@@ -634,7 +616,7 @@ export default function HistoryTab({
           </div>
         </section>
 
-        <section className={panelClass('overflow-hidden')}>
+        <section className={panelClass('uma-task-card overflow-hidden')}>
           <h3 className="border-b border-slate-200 p-3 text-data font-semibold text-slate-800">
             育成记录
           </h3>
@@ -706,7 +688,7 @@ export default function HistoryTab({
                                 </span>
                               ) : null}
                             </span>
-                            {!readOnly &&
+                            {canManageTrainingHistory &&
                             !offlineHistory &&
                             trainingHistoryId ? (
                               <button
@@ -753,9 +735,9 @@ export default function HistoryTab({
                         <th className="px-3 py-3 font-medium">开始</th>
                         <th className="px-3 py-3 font-medium">结束</th>
                         <th className="px-3 py-3 font-medium">持续</th>
-                        {!readOnly && !offlineHistory ? (
+                        {canManageTrainingHistory && !offlineHistory ? (
                           <th className="px-3 py-3 text-right font-medium">
-                            Training History
+                            养成记录
                           </th>
                         ) : null}
                       </tr>
@@ -826,7 +808,7 @@ export default function HistoryTab({
                                     ? currentDurationLabel(run)
                                     : '未知')}
                               </td>
-                              {!readOnly && !offlineHistory ? (
+                              {canManageTrainingHistory && !offlineHistory ? (
                                 <td className="px-3 py-3 text-right">
                                   {trainingHistoryId ? (
                                     <button
@@ -853,8 +835,8 @@ export default function HistoryTab({
                                       }`}
                                       title={
                                         downloaded
-                                          ? '打开本机 Training History 记录'
-                                          : '下载到本机 Training History'
+                                          ? '打开本机养成记录'
+                                          : '下载到本机养成记录'
                                       }
                                     >
                                       {downloaded ? (
@@ -898,23 +880,11 @@ export default function HistoryTab({
     );
   }
 
-  const groups =
-    historyView === 'task'
-      ? groupRecordsByTask(
-          careerHistory.filter((record) => record.aggregation_type !== 'day'),
-        )
-      : groupRecordsBySettingAndDate(
-          careerHistory.filter((record) => record.aggregation_type !== 'task'),
-        );
   const visibleGroups = historyView === 'tracking' ? [] : groups;
   return (
     <section
       className="autoResearchHistory"
       aria-busy={busy === 'history' || detailLoading}
-      onTouchStart={beginPull}
-      onTouchMove={continuePull}
-      onTouchEnd={finishPull}
-      onTouchCancel={finishPull}
     >
       {detailLoading
         ? createPortal(
@@ -939,28 +909,6 @@ export default function HistoryTab({
           {detailError}
         </p>
       ) : null}
-      {mobilePullToRefresh && (pullDistance > 0 || busy === 'history') ? (
-        <div
-          className="flex items-center justify-center overflow-hidden text-caption font-medium text-slate-500"
-          style={{ height: busy === 'history' ? 40 : pullDistance }}
-        >
-          <RefreshCw
-            size={15}
-            className={busy === 'history' ? 'mr-2 animate-spin' : 'mr-2'}
-            style={{
-              transform:
-                busy === 'history'
-                  ? undefined
-                  : `rotate(${Math.min(180, pullDistance * 3)}deg)`,
-            }}
-          />
-          {busy === 'history'
-            ? '正在刷新记录…'
-            : pullDistance >= 56
-              ? '松开刷新'
-              : '下拉刷新'}
-        </div>
-      ) : null}
       <div className="historyContent">
         <div className="historyToolbar">
           <div
@@ -979,7 +927,7 @@ export default function HistoryTab({
                 key={value}
                 type="button"
                 aria-pressed={historyView === value}
-                className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-label font-semibold transition-colors ${
+                className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-label font-semibold transition-colors sm:px-4 ${
                   historyView === value
                     ? 'bg-white text-indigo-700 shadow-sm'
                     : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-800'
@@ -994,29 +942,18 @@ export default function HistoryTab({
               </button>
             ))}
           </div>
-          {busy === 'history' && !mobilePullToRefresh ? (
-            <span
-              role="status"
-              className="flex items-center gap-2 text-caption text-slate-500"
-            >
-              <RefreshCw size={14} className="animate-spin" />
-              正在刷新记录…
-            </span>
-          ) : null}
-          {!mobilePullToRefresh ? (
-            <button
-              type="button"
-              onClick={() => loadCareerHistory(selectedAccountId)}
-              disabled={busy === 'history'}
-              className="historyAction inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-label text-gray-700 hover:bg-slate-100 disabled:opacity-50"
-            >
-              <RefreshCw
-                size={14}
-                className={busy === 'history' ? 'animate-spin' : ''}
-              />
-              刷新记录
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => loadCareerHistory(selectedAccountId)}
+            disabled={busy === 'history'}
+            className="uma-clay-button historyToolbarRefresh historyAction inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 text-label font-semibold disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={busy === 'history' ? 'animate-spin' : ''}
+            />
+            {busy === 'history' ? '刷新中…' : '刷新'}
+          </button>
         </div>
         {historyView === 'tracking' ? (
           <AssetTracking
@@ -1024,9 +961,9 @@ export default function HistoryTab({
             loading={busy === 'history'}
           />
         ) : null}
-        {visibleGroups.map(({ key, settingName, dateKey, records }) => {
-          const aggregate = aggregateRecords(records);
-          const recordUma = resolveRecordUma(aggregate.cardId);
+        {visibleGroups.map(
+          ({ key, settingName, dateKey, records, aggregate }) => {
+            const recordUma = resolveRecordUma(aggregate.cardId);
           const offline = records.every(
             (record) => recordCareerMode(record) === 'offline',
           );
@@ -1136,16 +1073,32 @@ export default function HistoryTab({
               </button>
             </section>
           );
-        })}
-        {historyView !== 'tracking' && !groups.length && busy !== 'history' ? (
-          <p
-            role="status"
-            className="py-14 text-center text-data text-slate-600"
-          >
-            当前账号暂无养马记录
-          </p>
+          },
+        )}
+        {historyView !== 'tracking' && !groups.length ? (
+          busy === 'history' ? (
+            <div
+              role="status"
+              className="uma-task-card flex min-h-48 flex-col items-center justify-center p-8 text-center text-data text-slate-600"
+            >
+              <RefreshCw
+                className="mx-auto animate-spin text-emerald-600"
+                size={28}
+              />
+              <p className="mt-3 font-medium text-slate-700">读取中…</p>
+            </div>
+          ) : (
+            <p
+              role="status"
+              className="py-14 text-center text-data text-slate-600"
+            >
+              当前账号暂无养马记录
+            </p>
+          )
         ) : null}
       </div>
     </section>
   );
 }
+
+export default memo(HistoryTab);

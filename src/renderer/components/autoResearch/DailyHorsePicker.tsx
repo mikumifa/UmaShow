@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import {
   PlannerPortrait,
@@ -86,7 +86,10 @@ const automaticMinimum = (values: number[]) => {
 const resolvedMinimum = (value: MinimumGrade, automatic: number) =>
   value === 'auto' ? automatic : Number(value);
 
-export default function DailyHorsePicker({
+const INITIAL_HORSE_BATCH = 60;
+const HORSE_BATCH_STEP = 80;
+
+function DailyHorsePicker({
   title,
   race,
   horses,
@@ -99,6 +102,11 @@ export default function DailyHorsePicker({
   const [sortKey, setSortKey] = useState<SortKey>('suitability');
   const [distanceMinimum, setDistanceMinimum] = useState<MinimumGrade>('auto');
   const [groundMinimum, setGroundMinimum] = useState<MinimumGrade>('auto');
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_HORSE_BATCH);
+
+  useEffect(() => {
+    setVisibleLimit(INITIAL_HORSE_BATCH);
+  }, [distanceMinimum, groundMinimum, race, runningStyle, search, sortKey]);
 
   const autoSuitabilityMinimum = useMemo(
     () =>
@@ -160,7 +168,6 @@ export default function DailyHorsePicker({
   return (
     <SuccessionPickerDialog
       ariaLabel={title}
-      eyebrow="SELECT UMAMUSUME"
       title={title}
       description={`${race.name} · ${race.ground_name} · ${race.distance}m · ${distanceLabels[race.distance_type]}`}
       onClose={onClose}
@@ -171,7 +178,7 @@ export default function DailyHorsePicker({
       onSearchChange={setSearch}
       meta={
         <span>
-          当前显示 {visibleHorses.length}/{horses.length} 匹
+          {visibleHorses.length}/{horses.length} 匹
         </span>
       }
     >
@@ -251,17 +258,12 @@ export default function DailyHorsePicker({
               </select>
             </label>
           </div>
-          <p className="mt-2 text-caption text-slate-500">
-            自动筛选优先要求 A 适应性；没有 A
-            时会放宽到当前账号能够达到的最高等级。当前显示{' '}
-            {visibleHorses.length}/{horses.length} 匹。
-          </p>
         </div>
       </SuccessionPickerFilterSheet>
 
       <div className="plannerDailyHorseBody">
         <div className="plannerDailyHorseGrid">
-          {visibleHorses.map((horse) => {
+          {visibleHorses.slice(0, visibleLimit).map((horse) => {
             const iconPath = umaSkinIconPath(
               horse.card_id,
               horse.rarity,
@@ -271,6 +273,8 @@ export default function DailyHorsePicker({
             const groundGrade = groundAptitude(horse, race);
             const styleGrade = runningStyleAptitude(horse, runningStyle);
             const selected = horse.trained_chara_id === selectedId;
+            const compactName =
+              horse.name.replace(/^\[[^\]]+\]\s*/, '').trim() || horse.name;
             return (
               <PlannerSelectionCard
                 key={horse.trained_chara_id}
@@ -282,7 +286,7 @@ export default function DailyHorsePicker({
                     size="large"
                   />
                 }
-                title={horse.name}
+                title={compactName}
                 subtitle={`评分 ${horse.rank_score}`}
                 details={
                   <>
@@ -332,6 +336,19 @@ export default function DailyHorsePicker({
             );
           })}
         </div>
+        {visibleHorses.length > visibleLimit ? (
+          <div className="flex justify-center py-3">
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleLimit((current) => current + HORSE_BATCH_STEP)
+              }
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-caption font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
+            >
+              加载更多（剩余 {visibleHorses.length - visibleLimit} 匹）
+            </button>
+          </div>
+        ) : null}
         {!visibleHorses.length ? (
           <div className="py-16 text-center text-data text-slate-400">
             没有符合当前筛选条件的已育成马娘，请降低适应性要求。
@@ -341,3 +358,5 @@ export default function DailyHorsePicker({
     </SuccessionPickerDialog>
   );
 }
+
+export default memo(DailyHorsePicker);

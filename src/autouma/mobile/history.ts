@@ -1,4 +1,12 @@
-import { createStore, del, entries, get, set } from 'idb-keyval';
+import {
+  createStore,
+  delMany,
+  get,
+  getMany,
+  keys,
+  set,
+  setMany,
+} from 'idb-keyval';
 import { buildTrainingHistoryAnalysis } from 'main/handle/TrainingHistory';
 import type {
   TrainingHistoryConfig,
@@ -16,6 +24,8 @@ type RemoteTrainingHistory = {
 const store = createStore('autouma', 'training-history');
 const CONFIG_KEY = 'config';
 const RECORD_PREFIX = 'record:';
+const SUMMARY_PREFIX = 'summary:';
+const DETAIL_PREFIX = 'detail:';
 const DEFAULT_CONFIG: TrainingHistoryConfig = {
   maxCachedRuns: 50,
   favoriteIds: [],
@@ -26,16 +36,76 @@ function recordKey(id: string) {
   return `${RECORD_PREFIX}${id}`;
 }
 
-function toClientRecord(record: TrainingHistoryRecord) {
+function summaryKey(id: string) {
+  return `${SUMMARY_PREFIX}${id}`;
+}
+
+function detailKey(id: string) {
+  return `${DETAIL_PREFIX}${id}`;
+}
+
+function toClientRecord(record: TrainingHistoryRecord): TrainingHistoryRecord {
   return { ...record, packets: [] };
 }
 
-async function storedRecords() {
-  const values = await entries<string, unknown>(store);
-  return values.flatMap(([key, value]) =>
-    key.startsWith(RECORD_PREFIX) && value && typeof value === 'object'
-      ? [value as TrainingHistoryRecord]
-      : [],
+function toSummaryRecord(record: TrainingHistoryRecord): TrainingHistoryRecord {
+  return {
+    ...record,
+    analysis: {
+      version: record.analysis?.version ?? 0,
+      summary: record.analysis?.summary || record.summary,
+      turns: [],
+    },
+    packets: [],
+  };
+}
+
+async function persistRecord(record: TrainingHistoryRecord) {
+  await setMany(
+    [
+      [recordKey(record.id), record],
+      [detailKey(record.id), toClientRecord(record)],
+      [summaryKey(record.id), toSummaryRecord(record)],
+    ],
+    store,
+  );
+}
+
+async function storedSummaries(): Promise<TrainingHistoryRecord[]> {
+  const allKeys = (await keys<string>(store)).map(String);
+  const recordIds = allKeys
+    .filter((key) => key.startsWith(RECORD_PREFIX))
+    .map((key) => key.slice(RECORD_PREFIX.length));
+  if (!recordIds.length) return [];
+
+  const summaryKeySet = new Set(
+    allKeys.filter((key) => key.startsWith(SUMMARY_PREFIX)),
+  );
+  const missingMigrationIds = recordIds.filter(
+    (id) => !summaryKeySet.has(summaryKey(id)),
+  );
+  if (missingMigrationIds.length) {
+    const legacyRecords = await getMany<TrainingHistoryRecord>(
+      missingMigrationIds.map(recordKey),
+      store,
+    );
+    const migrationEntries: Array<[string, TrainingHistoryRecord]> = [];
+    legacyRecords.forEach((record) => {
+      if (!record || typeof record !== 'object') return;
+      migrationEntries.push([detailKey(record.id), toClientRecord(record)]);
+      migrationEntries.push([summaryKey(record.id), toSummaryRecord(record)]);
+    });
+    if (migrationEntries.length) {
+      await setMany(migrationEntries, store);
+    }
+  }
+
+  const summaries = await getMany<TrainingHistoryRecord>(
+    recordIds.map(summaryKey),
+    store,
+  );
+  return summaries.filter((item): item is TrainingHistoryRecord =>
+    Boolean(item && typeof item === 'object'),
   );
 }
 
@@ -51,25 +121,39 @@ export async function getMobileTrainingHistoryConfig() {
 
 async function trimMobileTrainingHistory() {
   const config = await getMobileTrainingHistoryConfig();
-  const records = (await storedRecords())
+  const summaries = (await storedSummaries())
     .filter((record) => !record.favorite)
     .sort((left, right) => right.updatedAt - left.updatedAt);
-  await Promise.all(
-    records
-      .slice(Math.max(1, config.maxCachedRuns))
-      .map((record) => del(recordKey(record.id), store)),
+  const expiredIds = summaries
+    .slice(Math.max(1, config.maxCachedRuns))
+    .map((record) => record.id);
+  if (!expiredIds.length) return;
+  await delMany(
+    expiredIds.flatMap((id) => [recordKey(id), detailKey(id), summaryKey(id)]),
+    store,
   );
 }
 
 export async function listMobileTrainingHistory() {
-  return (await storedRecords())
-    .sort((left, right) => right.updatedAt - left.updatedAt)
-    .map(toClientRecord);
+  return (await storedSummaries()).sort(
+    (left, right) => right.updatedAt - left.updatedAt,
+  );
 }
 
 export async function getMobileTrainingHistory(id: string) {
+  const detail = await get<TrainingHistoryRecord>(detailKey(id), store);
+  if (detail) return detail;
   const record = await get<TrainingHistoryRecord>(recordKey(id), store);
-  return record ? toClientRecord(record) : null;
+  if (!record) return null;
+  const clientRecord = toClientRecord(record);
+  await setMany(
+    [
+      [detailKey(id), clientRecord],
+      [summaryKey(id), toSummaryRecord(record)],
+    ],
+    store,
+  );
+  return clientRecord;
 }
 
 export async function importMobileTrainingHistory(
@@ -152,10 +236,11 @@ export async function importMobileTrainingHistory(
   };
   record.analysis = buildTrainingHistoryAnalysis(record);
   record.summary = { ...record.analysis.summary, updatedAt };
-  await set(recordKey(id), record, store);
+  await persistRecord(record);
   await trimMobileTrainingHistory();
-  await notify(toClientRecord(record));
-  return toClientRecord(record);
+  const summaryRecord = toSummaryRecord(record);
+  await notify(summaryRecord);
+  return summaryRecord;
 }
 
 export async function setMobileTrainingHistoryConfig(payload: {
@@ -175,21 +260,34 @@ export async function setMobileTrainingHistoryFavorite(
   id: string,
   favorite: boolean,
 ) {
-  const record = await get<TrainingHistoryRecord>(recordKey(id), store);
-  if (!record) return null;
-  record.favorite = favorite;
-  await set(recordKey(id), record, store);
+  const [summary, detail, record] = await getMany<TrainingHistoryRecord>(
+    [summaryKey(id), detailKey(id), recordKey(id)],
+    store,
+  );
+  const base = summary || detail || record;
+  if (!base) return null;
+  const updates: Array<[string, TrainingHistoryRecord]> = [];
+  if (record) updates.push([recordKey(id), { ...record, favorite }]);
+  if (detail) updates.push([detailKey(id), { ...detail, favorite }]);
+  const nextSummary = toSummaryRecord({ ...base, favorite });
+  updates.push([summaryKey(id), nextSummary]);
+  await setMany(updates, store);
   const current = await getMobileTrainingHistoryConfig();
   const favoriteIds = new Set(current.favoriteIds);
   if (favorite) favoriteIds.add(id);
   else favoriteIds.delete(id);
   await set(CONFIG_KEY, { ...current, favoriteIds: [...favoriteIds] }, store);
   await trimMobileTrainingHistory();
-  return toClientRecord(record);
+  return nextSummary;
 }
 
 export async function deleteMobileTrainingHistory(ids: string[]) {
-  await Promise.all(ids.map((id) => del(recordKey(id), store)));
+  if (ids.length) {
+    await delMany(
+      ids.flatMap((id) => [recordKey(id), detailKey(id), summaryKey(id)]),
+      store,
+    );
+  }
   const current = await getMobileTrainingHistoryConfig();
   const deleted = new Set(ids);
   await set(
@@ -205,20 +303,34 @@ export async function deleteMobileTrainingHistory(ids: string[]) {
 }
 
 export async function recalculateMobileTrainingHistory(ids?: string[]) {
+  const allKeys = (await keys<string>(store)).map(String);
   const wanted = ids?.length ? new Set(ids) : null;
-  const records = (await storedRecords()).filter(
-    (record) => !wanted || wanted.has(record.id),
+  const targetIds = allKeys
+    .filter((key) => key.startsWith(RECORD_PREFIX))
+    .map((key) => key.slice(RECORD_PREFIX.length))
+    .filter((id) => !wanted || wanted.has(id));
+  if (!targetIds.length) {
+    await notify();
+    return [];
+  }
+  const records = await getMany<TrainingHistoryRecord>(
+    targetIds.map(recordKey),
+    store,
   );
   const updated = await Promise.all(
-    records.map(async (record) => {
-      record.analysis = buildTrainingHistoryAnalysis(record);
-      record.summary = {
-        ...record.analysis.summary,
-        updatedAt: record.updatedAt,
-      };
-      await set(recordKey(record.id), record, store);
-      return toClientRecord(record);
-    }),
+    records
+      .filter((record): record is TrainingHistoryRecord =>
+        Boolean(record && typeof record === 'object'),
+      )
+      .map(async (record) => {
+        record.analysis = buildTrainingHistoryAnalysis(record);
+        record.summary = {
+          ...record.analysis.summary,
+          updatedAt: record.updatedAt,
+        };
+        await persistRecord(record);
+        return toSummaryRecord(record);
+      }),
   );
   await notify();
   return updated;

@@ -1,7 +1,16 @@
 /* eslint-disable jsx-a11y/label-has-associated-control, no-nested-ternary */
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import {
+  Dispatch,
+  memo,
+  SetStateAction,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
   CloudDownload,
   CloudUpload,
   Database,
@@ -166,6 +175,13 @@ const PARENT_APTITUDE_FACTOR_GROUP_IDS = new Set(
   ),
 );
 
+const CHARACTER_BY_ID = new Map(
+  PLANNER_CATALOG.characters.map((item) => [item.id, item]),
+);
+
+const INITIAL_PARENT_PICKER_LIMIT = 48;
+const PARENT_PICKER_BATCH_SIZE = 60;
+
 type ParentPickerSource = 'all' | 'own' | 'rental';
 type ParentPickerSort = 'score' | 'compatibility' | 'blue' | 'aptitude';
 type ParentPickerSortDirection = 'desc' | 'asc';
@@ -199,7 +215,7 @@ function parentPickerFactorStars(
   );
 }
 
-export default function CareerTab(props: CareerTabProps) {
+function CareerTab(props: CareerTabProps) {
   const {
     readOnly = false,
     dashboard,
@@ -327,38 +343,84 @@ export default function CareerTab(props: CareerTabProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setNewCareerDialogOpen(false);
     };
+    const handleBack = (event: Event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setNewCareerDialogOpen(false);
+    };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('autouma:back', handleBack, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('autouma:back', handleBack, true);
+    };
   }, [newCareerDialogOpen]);
-  const normalizedUmaSearch = umaPickerSearch.trim().toLowerCase();
-  const selectedUmaBase = PLANNER_CATALOG.characters.find(
-    (uma) => uma.id === selectedUma?.chara_id,
-  );
-  const selectedUmaAptitudes = selectedUmaBase
-    ? inheritedCareerAptitudes(selectedUmaBase.aptitudes, [
-        selectedParent1,
-        selectedParent2,
-      ])
+  const deferredUmaSearch = useDeferredValue(umaPickerSearch);
+  const normalizedUmaSearch = deferredUmaSearch.trim().toLowerCase();
+  const selectedUmaBase = selectedUma
+    ? CHARACTER_BY_ID.get(selectedUma.chara_id)
     : undefined;
-  const pickerUmas = dashboard.umas.filter(
-    (uma) =>
-      !normalizedUmaSearch ||
-      `${uma.name} ${uma.id}`.toLowerCase().includes(normalizedUmaSearch),
+  const selectedUmaAptitudes = useMemo(
+    () =>
+      selectedUmaBase
+        ? inheritedCareerAptitudes(selectedUmaBase.aptitudes, [
+            selectedParent1,
+            selectedParent2,
+          ])
+        : undefined,
+    [selectedParent1, selectedParent2, selectedUmaBase],
   );
-  const normalizedParentSearch = parentPickerSearch.trim().toLowerCase();
+  const umaById = useMemo(
+    () => new Map(dashboard.umas.map((item) => [item.id, item])),
+    [dashboard.umas],
+  );
+  const presetNameSet = useMemo(
+    () => new Set(presets.map((preset) => preset.name)),
+    [presets],
+  );
+  const parentBySelectionId = useMemo(
+    () => new Map(dashboard.parents.map((item) => [item.selection_id, item])),
+    [dashboard.parents],
+  );
+  const pickerUmas = useMemo(() => {
+    if (!umaPickerOpen) return [];
+    return dashboard.umas.filter(
+      (uma) =>
+        !normalizedUmaSearch ||
+        `${uma.name} ${uma.id}`.toLowerCase().includes(normalizedUmaSearch),
+    );
+  }, [dashboard.umas, normalizedUmaSearch, umaPickerOpen]);
+  const deferredParentSearch = useDeferredValue(parentPickerSearch);
+  const normalizedParentSearch = deferredParentSearch.trim().toLowerCase();
   const parentPickerOtherParent =
     parentPickerSlot === 1 ? selectedParent2 : selectedParent1;
-  const parentPickerCompatibility = (parent: Dashboard['parents'][number]) =>
-    selectedUma
-      ? parentCompatibilityPreview(
-          selectedUma.chara_id,
-          parent,
-          parentPickerOtherParent,
-          successionG1SaddleIds,
-        ).total
-      : 0;
-  const pickerParents = dashboard.parents
-    .filter((parent) => {
+  const [visibleParentLimit, setVisibleParentLimit] = useState(
+    INITIAL_PARENT_PICKER_LIMIT,
+  );
+  useEffect(() => {
+    if (parentPickerSlot) {
+      setVisibleParentLimit(INITIAL_PARENT_PICKER_LIMIT);
+    }
+  }, [
+    normalizedParentSearch,
+    parentPickerFactorFilters,
+    parentPickerSlot,
+    parentPickerSort,
+    parentPickerSortDirection,
+    parentPickerSource,
+  ]);
+  const { pickerParents, compatibilityBySelectionId } = useMemo(() => {
+    const compatibilityMap = new Map<
+      string,
+      ReturnType<typeof parentCompatibilityPreview>
+    >();
+    if (!selectedUma || !parentPickerSlot) {
+      return {
+        pickerParents: [] as Dashboard['parents'],
+        compatibilityBySelectionId: compatibilityMap,
+      };
+    }
+    const filtered = dashboard.parents.filter((parent) => {
       if (
         parent.source === 'rental' &&
         parent.friend_state !== undefined &&
@@ -383,38 +445,79 @@ export default function CareerTab(props: CareerTabProps) {
       ]
         .map((factor) => factor.name)
         .join(' ');
-      return `${parent.name} ${parent.card_id} ${parent.owner_name} ${factorText}`
+      return `${parent.name} ${parent.card_id} ${parent.viewer_id || ''} ${parent.owner_name} ${factorText}`
         .toLowerCase()
         .includes(normalizedParentSearch);
-    })
-    .sort((left, right) => {
-      const direction = parentPickerSortDirection === 'asc' ? 1 : -1;
-      const sortValue = (parent: Dashboard['parents'][number]) => {
-        if (parentPickerSort === 'compatibility') {
-          return parentPickerCompatibility(parent);
-        }
-        if (parentPickerSort === 'blue') {
-          return parentPickerFactorStars(
-            parent,
-            'blue',
-            parentPickerBlueFactors,
-          );
-        }
-        if (parentPickerSort === 'aptitude') {
-          return parentPickerFactorStars(
-            parent,
-            'aptitude',
-            parentPickerAptitudeFactors,
-          );
-        }
-        return parent.rank_score;
-      };
-      return (
-        (sortValue(left) - sortValue(right)) * direction ||
-        (left.rank_score - right.rank_score) * direction ||
-        (left.rank - right.rank) * direction
+    });
+    filtered.forEach((parent) => {
+      compatibilityMap.set(
+        parent.selection_id,
+        parentCompatibilityPreview(
+          selectedUma.chara_id,
+          parent,
+          parentPickerOtherParent,
+          successionG1SaddleIds,
+        ),
       );
     });
+    const direction = parentPickerSortDirection === 'asc' ? 1 : -1;
+    const sortValue = (parent: Dashboard['parents'][number]) => {
+      if (parentPickerSort === 'compatibility') {
+        return compatibilityMap.get(parent.selection_id)?.total || 0;
+      }
+      if (parentPickerSort === 'blue') {
+        return parentPickerFactorStars(
+          parent,
+          'blue',
+          parentPickerBlueFactors,
+        );
+      }
+      if (parentPickerSort === 'aptitude') {
+        return parentPickerFactorStars(
+          parent,
+          'aptitude',
+          parentPickerAptitudeFactors,
+        );
+      }
+      return parent.rank_score;
+    };
+    const sorted = [...filtered].sort(
+      (left, right) =>
+        (sortValue(left) - sortValue(right)) * direction ||
+        (left.rank_score - right.rank_score) * direction ||
+        (left.rank - right.rank) * direction,
+    );
+    return {
+      pickerParents: sorted,
+      compatibilityBySelectionId: compatibilityMap,
+    };
+  }, [
+    dashboard.parents,
+    normalizedParentSearch,
+    parentPickerAptitudeFactors,
+    parentPickerBlueFactors,
+    parentPickerFactorFilters,
+    parentPickerOtherParent,
+    parentPickerSlot,
+    parentPickerSort,
+    parentPickerSortDirection,
+    parentPickerSource,
+    selectedUma,
+    successionG1SaddleIds,
+  ]);
+  const visiblePickerParents = pickerParents.slice(0, visibleParentLimit);
+  const deckReservedCharaIds = useMemo(
+    () =>
+      new Set([
+        selectedUma?.chara_id || 0,
+        selectedFriendSupport?.chara_id || 0,
+      ]),
+    [selectedFriendSupport?.chara_id, selectedUma?.chara_id],
+  );
+  const friendReservedCharaIds = useMemo(
+    () => new Set([selectedUma?.chara_id || 0, ...selectedDeckCharaIds]),
+    [selectedDeckCharaIds, selectedUma?.chara_id],
+  );
   const parentPickerHasFilters = Boolean(
     parentPickerSource !== 'all' ||
       parentPickerFactorFilters.length ||
@@ -588,6 +691,32 @@ export default function CareerTab(props: CareerTabProps) {
   ) : !careerSaveOpen && !automationActive ? (
     <div className="autoResearchForm contents">
       <section className="autoResearchSettingsList flex-1">
+        <div className="mb-3 flex items-center gap-2 sm:hidden">
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={() => setNewCareerDialogOpen(true)}
+              className="uma-clay-button-primary inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 px-3 text-data font-semibold"
+            >
+              <Plus size={16} />
+              <span>新建育成设置</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={pullCloudConfiguration}
+            disabled={busy === 'cloud-config-pull'}
+            className={`uma-clay-button inline-flex min-h-10 items-center justify-center gap-1.5 px-3.5 text-data font-semibold disabled:opacity-50 ${readOnly ? 'flex-1' : 'shrink-0'}`}
+          >
+            <CloudDownload
+              size={16}
+              className={busy === 'cloud-config-pull' ? 'animate-spin' : ''}
+            />
+            <span>
+              {busy === 'cloud-config-pull' ? '拉取中…' : '拉取云端'}
+            </span>
+          </button>
+        </div>
         <AppFloatingAction>
           <button
             type="button"
@@ -598,19 +727,16 @@ export default function CareerTab(props: CareerTabProps) {
           >
             <CloudDownload size={15} />
             <span>
-              {busy === 'cloud-config-pull' ? '正在拉取…' : '拉取云端'}
+              {busy === 'cloud-config-pull' ? '拉取中…' : '拉取云端'}
             </span>
           </button>
         </AppFloatingAction>
         <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accountCareerSettings.map((setting) => {
-            const uma = dashboard.umas.find(
-              (item) => item.id === setting.card_id,
-            );
+            const uma = umaById.get(setting.card_id);
             const offline = setting.mode === 'offline';
             const presetExists =
-              offline ||
-              presets.some((preset) => preset.name === setting.preset_name);
+              offline || presetNameSet.has(setting.preset_name);
             // The card id is enough to derive its costume. Once owned-card
             // metadata arrives, prefer the exact rarity and race cloth.
             const iconPath = umaSkinIconPath(
@@ -629,7 +755,7 @@ export default function CareerTab(props: CareerTabProps) {
                   {offline ? '离线' : '在线'}
                 </span>
                 <div className="flex items-start gap-3">
-                  <span className="h-16 w-16 flex-none">
+                  <span className="h-16 w-16 flex-none" title={uma?.name}>
                     {iconPath ? (
                       <AssetIcon
                         path={iconPath}
@@ -644,14 +770,14 @@ export default function CareerTab(props: CareerTabProps) {
                   <div className="min-w-0 flex-1 pr-14">
                     {readOnly ? (
                       <div className="block text-caption text-gray-500">
-                        详设名称
-                        <strong className="mt-1 block truncate py-1.5 text-data text-gray-800">
+                        <span className="sr-only">详设名称</span>
+                        <strong className="block truncate py-1 text-data text-gray-800">
                           {setting.name}
                         </strong>
                       </div>
                     ) : (
                       <label className="block text-label text-gray-500">
-                        详设名称
+                        <span className="sr-only">详设名称</span>
                         <input
                           key={`${setting.id}-${setting.name}`}
                           defaultValue={setting.name}
@@ -663,15 +789,15 @@ export default function CareerTab(props: CareerTabProps) {
                               event.currentTarget.blur();
                             }
                           }}
-                          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-data font-semibold text-gray-800"
+                          className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-data font-semibold text-gray-800"
                         />
                       </label>
                     )}
                     <p className="mt-1 truncate text-label text-gray-500">
-                      {uma?.name || '尚未选择育成马娘'} ·{' '}
+                      {!uma && !iconPath ? '尚未选择育成马娘 · ' : ''}
                       {offline
-                        ? `游戏离线育成 · ${setting.offline_design?.goal === 'jewels' ? '挂钻' : setting.offline_design?.goal === 'fans' ? '刷粉丝' : '种马'} · ${setting.offline_design?.source === 'custom' ? `自定义 ${setting.offline_design.raceIds.length} 场` : `槽位 ${setting.offline_race_deck_num || '-'}`}`
-                        : setting.preset_name}
+                        ? `${setting.offline_design?.goal === 'jewels' ? '挂钻' : setting.offline_design?.goal === 'fans' ? '刷粉丝' : '种马'} · ${setting.offline_design?.source === 'custom' ? `自定义 ${setting.offline_design.raceIds.length} 场` : `槽位 ${setting.offline_race_deck_num || '-'}`}`
+                        : `预设：${setting.preset_name}`}
                     </p>
                     {!presetExists ? (
                       <span className="mt-1 block text-caption font-medium text-red-600">
@@ -689,7 +815,7 @@ export default function CareerTab(props: CareerTabProps) {
                         : applyCareerSetting(setting.id)
                     }
                     disabled={!presetExists}
-                    className="uma-clay-button-primary flex-1 px-3 py-2 text-data font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    className="uma-clay-button-primary min-h-10 flex-1 px-3 py-2 text-data font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
                   >
                     {readOnly ? '选择并设置运行方式' : '进入详设'}
                   </button>
@@ -699,7 +825,7 @@ export default function CareerTab(props: CareerTabProps) {
                         type="button"
                         onClick={() => uploadCareerSetting(setting.id)}
                         disabled={busy === `career-cloud-upload:${setting.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-caption font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-indigo-200 bg-white px-3 py-2 text-caption font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 sm:min-h-9"
                         title={
                           cloudCareerConfigIds.has(setting.id)
                             ? '更新云端详设'
@@ -712,7 +838,7 @@ export default function CareerTab(props: CareerTabProps) {
                       <button
                         type="button"
                         onClick={() => deleteCareerSetting(setting.id)}
-                        className="rounded-md border border-red-200 bg-white px-3 py-2 text-data text-red-600 hover:bg-red-50"
+                        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-red-200 bg-white px-3 py-2 text-data text-red-600 hover:bg-red-50 sm:min-h-9 sm:min-w-0"
                         aria-label={`删除详设${setting.name}`}
                       >
                         <Trash2 size={15} />
@@ -838,6 +964,15 @@ export default function CareerTab(props: CareerTabProps) {
   ) : (
     <div className="autoResearchForm contents">
       <header className="autoResearchEditorToolbar">
+        <button
+          type="button"
+          onClick={closeCareerEditor}
+          className="autoResearchBackButton"
+        >
+          <ArrowLeft size={16} />
+          <span>返回</span>
+        </button>
+
         <nav className="autoResearchEditorTabs">
           {(careerMode === 'offline'
             ? [
@@ -868,26 +1003,19 @@ export default function CareerTab(props: CareerTabProps) {
         </nav>
 
         <div className="autoResearchEditorActions">
-          <button
-            type="button"
-            onClick={closeCareerEditor}
-            className="h-7 whitespace-nowrap rounded-md px-2 text-caption font-medium text-gray-600 hover:bg-slate-100"
-          >
-            返回
-          </button>
           {automationActive && careerMode === 'online' ? (
             <button
               type="button"
               onClick={saveAndApplyCareerSetting}
               disabled={Boolean(busy)}
-              className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-caption font-medium text-white disabled:opacity-50"
+              className="uma-clay-button-primary inline-flex items-center gap-1.5 whitespace-nowrap px-3 text-label font-semibold disabled:opacity-50"
             >
               {busy === 'update-schedule' ? (
                 <RefreshCw size={14} className="animate-spin" />
               ) : (
                 <Save size={14} />
               )}
-              {busy === 'update-schedule' ? '正在应用…' : '保存并应用'}
+              {busy === 'update-schedule' ? '应用中…' : '保存并应用'}
             </button>
           ) : (
             <>
@@ -895,11 +1023,11 @@ export default function CareerTab(props: CareerTabProps) {
                 type="button"
                 onClick={saveCareerSetting}
                 disabled={Boolean(busy)}
-                className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-caption font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                className="uma-clay-button inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 text-label font-semibold disabled:opacity-50"
               >
                 <Save size={14} />
                 {busy === 'career-save'
-                  ? '正在保存…'
+                  ? '保存中…'
                   : careerDirty
                     ? '保存修改'
                     : '已保存'}
@@ -914,7 +1042,7 @@ export default function CareerTab(props: CareerTabProps) {
                     offlineDesign.source === 'api' &&
                     !offlineRaceDeckNum)
                 }
-                className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md bg-indigo-600 px-2 text-caption font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="uma-clay-button-primary inline-flex items-center gap-1.5 whitespace-nowrap px-3 text-label font-semibold disabled:opacity-50"
               >
                 <Play size={14} />
                 {busy === 'run' || busy === 'idle-start'
@@ -1111,12 +1239,10 @@ export default function CareerTab(props: CareerTabProps) {
               {umaPickerOpen ? (
                 <SuccessionPickerDialog
                   ariaLabel="选择育成马娘"
-                  eyebrow="SELECT UMAMUSUME"
                   title="正在选择育成马娘"
-                  description="点击卡片选择，选中后自动关闭。"
                   onClose={() => setUmaPickerOpen(false)}
                   searchValue={umaPickerSearch}
-                  searchPlaceholder="输入马娘名称或 ID"
+                  searchPlaceholder="搜索马娘名称"
                   searchAriaLabel="搜索育成马娘"
                   onSearchChange={setUmaPickerSearch}
                   meta={
@@ -1137,9 +1263,7 @@ export default function CareerTab(props: CareerTabProps) {
                   {pickerUmas.length ? (
                     pickerUmas.map((uma) => {
                       const selected = cardId === uma.id;
-                      const base = PLANNER_CATALOG.characters.find(
-                        (item) => item.id === uma.chara_id,
-                      );
+                      const base = CHARACTER_BY_ID.get(uma.chara_id);
                       return (
                         <PlannerSelectionCard
                           selected={selected}
@@ -1179,7 +1303,7 @@ export default function CareerTab(props: CareerTabProps) {
                   ) : (
                     <div className="successionPickerEmpty">
                       <strong>没有符合条件的马娘</strong>
-                      <p>尝试修改名称、ID，或清空搜索。</p>
+                      <p>尝试修改搜索词，或清空搜索。</p>
                       <button
                         type="button"
                         onClick={() => setUmaPickerSearch('')}
@@ -1296,11 +1420,10 @@ export default function CareerTab(props: CareerTabProps) {
                 <SuccessionPickerDialog
                   ariaLabel={`选择继承马娘 ${parentPickerSlot}`}
                   title={`正在选择继承位 ${parentPickerSlot}`}
-                  description="点击卡片为当前继承位选择，选中后自动关闭。"
                   onClose={() => setParentPickerSlot(null)}
                   dialogClassName="successionCapturedPickerDialog"
                   searchValue={parentPickerSearch}
-                  searchPlaceholder="搜索马娘、因子、玩家或 ID"
+                  searchPlaceholder="搜索马娘、因子、玩家或玩家 ID"
                   searchAriaLabel="搜索已有马娘"
                   onSearchChange={setParentPickerSearch}
                 >
@@ -1400,49 +1523,62 @@ export default function CareerTab(props: CareerTabProps) {
                     </div>
                   </SuccessionPickerFilterSheet>
                   {pickerParents.length ? (
-                    <div className="successionCapturedPickerGrid">
-                      {pickerParents.map((parent) => {
-                        const currentValue =
-                          parentPickerSlot === 1 ? parent1 : parent2;
-                        const otherValue =
-                          parentPickerSlot === 1 ? parent2 : parent1;
-                        const otherParent = dashboard.parents.find(
-                          (item) => item.selection_id === otherValue,
-                        );
-                        const blockedCharaIds = new Set([
-                          selectedUma.chara_id,
-                          otherParent?.chara_id || 0,
-                        ]);
-                        const compatibility = parentCompatibilityPreview(
-                          selectedUma.chara_id,
-                          parent,
-                          otherParent,
-                          successionG1SaddleIds,
-                        );
-                        return (
-                          <ParentChoiceCard
-                            key={parent.selection_id}
-                            parent={parent}
-                            selected={currentValue === parent.selection_id}
-                            disabled={
-                              otherValue === parent.selection_id ||
-                              blockedCharaIds.has(parent.chara_id) ||
-                              (parent.source === 'rental' &&
-                                otherParent?.source === 'rental')
-                            }
-                            compatibility={compatibility}
-                            onSelect={() => {
-                              if (parentPickerSlot === 1) {
-                                setParent1(parent.selection_id);
-                              } else {
-                                setParent2(parent.selection_id);
+                    <>
+                      <div className="successionCapturedPickerGrid">
+                        {(() => {
+                          const currentValue =
+                            parentPickerSlot === 1 ? parent1 : parent2;
+                          const otherValue =
+                            parentPickerSlot === 1 ? parent2 : parent1;
+                          const otherParent =
+                            parentBySelectionId.get(otherValue);
+                          const blockedCharaIds = new Set([
+                            selectedUma.chara_id,
+                            otherParent?.chara_id || 0,
+                          ]);
+                          return visiblePickerParents.map((parent) => (
+                            <ParentChoiceCard
+                              key={parent.selection_id}
+                              parent={parent}
+                              selected={currentValue === parent.selection_id}
+                              disabled={
+                                otherValue === parent.selection_id ||
+                                blockedCharaIds.has(parent.chara_id) ||
+                                (parent.source === 'rental' &&
+                                  otherParent?.source === 'rental')
                               }
-                              setParentPickerSlot(null);
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
+                              compatibility={compatibilityBySelectionId.get(
+                                parent.selection_id,
+                              )}
+                              onSelect={() => {
+                                if (parentPickerSlot === 1) {
+                                  setParent1(parent.selection_id);
+                                } else {
+                                  setParent2(parent.selection_id);
+                                }
+                                setParentPickerSlot(null);
+                              }}
+                            />
+                          ));
+                        })()}
+                      </div>
+                      {pickerParents.length > visibleParentLimit ? (
+                        <div className="flex justify-center px-4 pb-4 pt-2">
+                          <PlannerButton
+                            variant="secondary"
+                            size="small"
+                            onClick={() =>
+                              setVisibleParentLimit(
+                                (current) => current + PARENT_PICKER_BATCH_SIZE,
+                              )
+                            }
+                          >
+                            显示更多继承马娘（剩余{' '}
+                            {pickerParents.length - visibleParentLimit} 位）
+                          </PlannerButton>
+                        </div>
+                      ) : null}
+                    </>
                   ) : (
                     <div className="successionCapturedPickerEmpty">
                       没有符合当前搜索或筛选条件的已有马娘。
@@ -1476,15 +1612,11 @@ export default function CareerTab(props: CareerTabProps) {
                   const deckCharaIds = deck.cards.map(
                     (support) => support.chara_id,
                   );
-                  const reservedCharaIds = new Set([
-                    selectedUma?.chara_id || 0,
-                    selectedFriendSupport?.chara_id || 0,
-                  ]);
                   const disabled =
                     deck.cards.length !== 5 ||
                     new Set(deckCharaIds).size !== deckCharaIds.length ||
                     deckCharaIds.some((charaId) =>
-                      reservedCharaIds.has(charaId),
+                      deckReservedCharaIds.has(charaId),
                     );
                   return (
                     <DeckChoiceCard
@@ -1550,26 +1682,20 @@ export default function CareerTab(props: CareerTabProps) {
                     className={busy === 'options-index' ? 'animate-spin' : ''}
                   />
                   {busy === 'options-index'
-                    ? '正在刷新 …'
-                    : `刷新 好友支援卡列表${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
+                    ? '刷新中…'
+                    : `刷新好友支援卡${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
                 </button>
               </div>
               <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
-                {visibleFriendSupports.map((support) => {
-                  const reservedCharaIds = new Set([
-                    selectedUma?.chara_id || 0,
-                    ...selectedDeckCharaIds,
-                  ]);
-                  return (
-                    <SupportChoiceCard
-                      key={support.id}
-                      support={support}
-                      selected={friendCardId === support.id}
-                      disabled={reservedCharaIds.has(support.chara_id)}
-                      onSelect={() => setFriendCardId(support.id)}
-                    />
-                  );
-                })}
+                {visibleFriendSupports.map((support) => (
+                  <SupportChoiceCard
+                    key={support.id}
+                    support={support}
+                    selected={friendCardId === support.id}
+                    disabled={friendReservedCharaIds.has(support.chara_id)}
+                    onSelect={() => setFriendCardId(support.id)}
+                  />
+                ))}
               </div>
               {!visibleFriendSupports.length && busy !== 'options-index' ? (
                 <div className="py-8 text-center text-data text-gray-500">
@@ -1640,8 +1766,7 @@ export default function CareerTab(props: CareerTabProps) {
                             比赛失败时使用闹钟
                           </strong>
                           <span className="mt-0.5 block text-caption text-slate-500">
-                            失败后有可用闹钟时自动继续；当前有{' '}
-                            {dashboard.account.clocks || 0} 个
+                            当前持有 {dashboard.account.clocks || 0} 个
                           </span>
                         </label>
                         {burnClocks ? (
@@ -1681,9 +1806,6 @@ export default function CareerTab(props: CareerTabProps) {
                       <strong className="block font-medium text-slate-800">
                         养成完成后直接转队
                       </strong>
-                      <span className="mt-0.5 block text-caption text-slate-500">
-                        仅转队本次养成的马娘
-                      </span>
                     </span>
                   </label>
                 ) : null}
@@ -1701,7 +1823,7 @@ export default function CareerTab(props: CareerTabProps) {
                       TP不足时使用体力药
                     </strong>
                     <span className="mt-0.5 block text-caption text-slate-500">
-                      优先使用能量饮料30；当前有{' '}
+                      优先能量饮料 30 · 持有{' '}
                       {dashboard.account.energy_drinks || 0} 个
                     </span>
                   </span>
@@ -1719,9 +1841,6 @@ export default function CareerTab(props: CareerTabProps) {
                     <strong className="block font-medium text-slate-800">
                       仍不足时允许使用宝石
                     </strong>
-                    <span className="mt-0.5 block text-caption text-slate-500">
-                      会实际消耗宝石恢复TP
-                    </span>
                   </span>
                 </label>
               </div>
@@ -1732,3 +1851,5 @@ export default function CareerTab(props: CareerTabProps) {
     </div>
   );
 }
+
+export default memo(CareerTab);

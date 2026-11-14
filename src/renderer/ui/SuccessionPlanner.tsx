@@ -2513,12 +2513,10 @@ function UmaSelect({
       {open ? (
         <SuccessionPickerDialog
           ariaLabel={`选择${label}`}
-          eyebrow="SELECT UMAMUSUME"
           title={`正在选择${label}`}
-          description="点击卡片选择，选中后自动关闭。"
           onClose={() => setOpen(false)}
           searchValue={query}
-          searchPlaceholder="输入马娘名称或 ID"
+          searchPlaceholder="搜索马娘名称"
           searchAriaLabel={`搜索${label}`}
           onSearchChange={setQuery}
           meta={
@@ -2557,7 +2555,7 @@ function UmaSelect({
           ) : (
             <div className="successionPickerEmpty">
               <strong>没有符合条件的马娘</strong>
-              <p>尝试修改名称、ID，或清空搜索。</p>
+              <p>尝试修改搜索词，或清空搜索。</p>
               <button type="button" onClick={clearSearch}>
                 清空搜索
               </button>
@@ -3266,7 +3264,7 @@ function FixedDressPickerModal({
     .flatMap((card: any) => {
       const cardId = Number(card?.id || 0);
       return cardId && baseCharaId(cardId) === umaId
-        ? [{ cardId, name: String(card?.name || `衣装 ${cardId}`) }]
+        ? [{ cardId, name: String(card?.name || '默认衣装') }]
         : [];
     })
     .sort((left, right) => left.cardId - right.cardId);
@@ -3320,7 +3318,6 @@ function FixedDressPickerModal({
                   )}
                 </span>
                 <strong>{dress.name}</strong>
-                <small>{dress.cardId}</small>
                 {selected ? <Check size={15} aria-hidden="true" /> : null}
               </button>
             );
@@ -3441,7 +3438,7 @@ function capturedMemberSummaryFactors(
       name: factor.name,
       stars: factor.stars,
       tone: 'white' as const,
-      title: `剧本因子 · ID ${factor.id}`,
+      title: '剧本因子',
     })),
     ...(otherWhiteFactorCount > 0
       ? [
@@ -3664,7 +3661,7 @@ function CapturedUmaPickerModal({
       }}
       dialogClassName="successionCapturedPickerDialog"
       searchValue={search}
-      searchPlaceholder="搜索马娘、红因子、玩家或 ID"
+      searchPlaceholder="搜索马娘、红因子、玩家或玩家 ID"
       searchAriaLabel="搜索已有马娘"
       onSearchChange={setSearch}
       meta={
@@ -3875,7 +3872,7 @@ function MatchingCapturedUmaModal({
             <input
               autoFocus
               value={search}
-              placeholder="搜索马娘、因子、玩家或 ID"
+              placeholder="搜索马娘、因子、玩家或玩家 ID"
               onChange={(event) => setSearch(event.currentTarget.value)}
             />
           </label>
@@ -4175,9 +4172,10 @@ function LineageUmaSetting({
                 type="button"
                 className="successionUseCapturedUma"
                 onClick={() => setShowTrainedModal(true)}
+                title={trainedSetting ? '更换已有马娘' : '使用已有马娘填充'}
                 aria-label={`为${SLOT_LABELS[slot]}使用已有马娘填充`}
               >
-                {trainedSetting ? '更换已有马娘' : '使用已有马娘填充'}
+                {trainedSetting ? '换已有' : '填充已有'}
               </button>
               {allowPendingTraining && onPendingTrainingChange ? (
                 <button
@@ -4185,30 +4183,31 @@ function LineageUmaSetting({
                   className="successionPendingTrainingSwitch"
                   onClick={onPendingTrainingChange}
                 >
-                  {pendingTraining ? '取消待育成' : '设为待育成'}
+                  {pendingTraining ? '取消待育成' : '待育成'}
                 </button>
               ) : null}
               {trainedSetting ? (
                 <button
                   type="button"
                   className="successionCancelCapturedUma"
+                  title="取消已有马娘填充"
                   onClick={onTrainedSettingClear}
                 >
-                  取消已有填充
+                  取消填充
                 </button>
               ) : null}
               {!capturedCardId ? (
                 <button
                   type="button"
                   className="successionFixedDressSwitch"
-                  title="在计划马娘的基础上进一步选择具体衣装"
+                  title={
+                    fixedDressCardId
+                      ? `当前衣装：${UMDB.cards[fixedDressCardId]?.name || '已指定'}（点击更换）`
+                      : '在计划马娘的基础上进一步选择具体衣装'
+                  }
                   onClick={() => setShowFixedDressModal(true)}
                 >
-                  <span>
-                    {fixedDressCardId
-                      ? `衣装：${UMDB.cards[fixedDressCardId]?.name || fixedDressCardId}`
-                      : '选择衣装'}
-                  </span>
+                  <span>{fixedDressCardId ? '换装' : '衣装'}</span>
                 </button>
               ) : null}
             </Fragment>
@@ -4868,7 +4867,7 @@ function UmaExclusionList({
                   type="text"
                   value={query}
                   autoFocus
-                  placeholder="输入马娘名称或 ID"
+                  placeholder="搜索马娘名称"
                   aria-label="搜索马娘过滤列表"
                   onInput={(event) => setQuery(event.currentTarget.value)}
                 />
@@ -5096,7 +5095,7 @@ function CompleteDesignCapturedFactorSummary({
       name: factor.name,
       stars: factor.stars,
       tone: 'white' as const,
-      title: `剧本因子 · ID ${factor.id}`,
+      title: '剧本因子',
     })),
     ...summary.selectedSkillFactors
       .filter((skill) => skill.count > 0)

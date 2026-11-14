@@ -15,7 +15,7 @@ export function formFingerprint(value: unknown): string {
 }
 
 export default function useFormDraft(scope: string | null, value: unknown) {
-  const fingerprint = formFingerprint(value);
+  const fingerprint = scope === null ? '' : formFingerprint(value);
   const [saved, setSaved] = useState({ scope, fingerprint });
   // Capture a freshly loaded editor before painting, including batched loads.
   if (saved.scope !== scope) setSaved({ scope, fingerprint });

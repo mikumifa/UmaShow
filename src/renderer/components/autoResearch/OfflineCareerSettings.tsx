@@ -1,8 +1,10 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import {
   Dispatch,
+  memo,
   ReactNode,
   SetStateAction,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -199,7 +201,10 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
   ancestor_2: '祖辈 2',
 };
 
-export default function OfflineCareerSettings({
+const INITIAL_LINEAGE_PARENT_LIMIT = 48;
+const LINEAGE_PARENT_BATCH_SIZE = 60;
+
+function OfflineCareerSettings({
   factorOnly = false,
   customSchedule = false,
   setCustomSchedule,
@@ -271,16 +276,21 @@ export default function OfflineCareerSettings({
     () => new Map(races.map((race) => [race.id, race])),
     [races],
   );
-  const requiredRaces = (setup?.required_race_array || [])
-    .map((item) => ({
-      ...item,
-      id: raceKey(item.year, item.program_id),
-      race: raceById.get(raceKey(item.year, item.program_id)),
-    }))
-    .sort((left, right) => {
-      if (left.race && right.race) return compareRaces(left.race, right.race);
-      return left.id - right.id;
-    });
+  const requiredRaces = useMemo(
+    () =>
+      (setup?.required_race_array || [])
+        .map((item) => ({
+          ...item,
+          id: raceKey(item.year, item.program_id),
+          race: raceById.get(raceKey(item.year, item.program_id)),
+        }))
+        .sort((left, right) => {
+          if (left.race && right.race)
+            return compareRaces(left.race, right.race);
+          return left.id - right.id;
+        }),
+    [raceById, setup?.required_race_array],
+  );
 
   const deckOptions = useMemo(() => {
     const serverDecks = new Map(
@@ -409,6 +419,10 @@ export default function OfflineCareerSettings({
     () => new Map(skills.map((skill) => [skill.id, skill])),
     [skills],
   );
+  const whiteSkills = useMemo(
+    () => skills.filter((skill) => skill.rarity === 1),
+    [skills],
+  );
   const selectedPrioritySkillNames = prioritySkillIds
     .map((skillId) => skillById.get(skillId)?.name)
     .filter((name): name is string => Boolean(name));
@@ -518,67 +532,109 @@ export default function OfflineCareerSettings({
         (_, groupIndex) => groupIndex !== index,
       ),
     }));
-  const normalizedSpecificLineageSearch = specificLineageSearch
+  const deferredSpecificLineageSearch = useDeferredValue(specificLineageSearch);
+  const normalizedSpecificLineageSearch = deferredSpecificLineageSearch
     .trim()
     .toLocaleLowerCase('zh-CN');
-  const selectedLineageParent = parents.find(
-    (parent) => parent.selection_id === factorSelection.lineage.selection_id,
+  const selectedLineageParent = useMemo(
+    () =>
+      parents.find(
+        (parent) => parent.selection_id === factorSelection.lineage.selection_id,
+      ),
+    [factorSelection.lineage.selection_id, parents],
   );
   const selectedLineageParentRental = isRentalParent(selectedLineageParent);
-  const filteredLineageParents = parents
-    .filter((parent) => {
-      if (
-        parent.source === 'rental' &&
-        parent.friend_state !== undefined &&
-        ![1, 3].includes(parent.friend_state)
-      ) {
-        return false;
-      }
-      if (
-        specificLineageSource !== 'all' &&
-        parent.source !== specificLineageSource
-      ) {
-        return false;
-      }
-      if (!matchesParentFactorFilters(parent, specificLineageFactorFilters))
-        return false;
-      if (!normalizedSpecificLineageSearch) return true;
-      return [
-        parent.name,
-        parent.owner_name,
-        String(parent.rank_score),
-        ...parent.factors.map((factor) => factor.name),
-        ...parent.ancestors.flatMap((ancestor) => [
-          ancestor.name,
-          ...ancestor.factors.map((factor) => factor.name),
-        ]),
-      ].some((value) =>
-        String(value)
-          .toLocaleLowerCase('zh-CN')
-          .includes(normalizedSpecificLineageSearch),
-      );
-    })
-    .sort((left, right) => {
-      const direction = specificLineageSortDirection === 'asc' ? 1 : -1;
-      const sortValue = (parent: Dashboard['parents'][number]) => {
-        if (specificLineageSort === 'blue') {
-          return parentFactorStars(parent, 'blue', specificLineageBlueFactors);
+  const [visibleLineageLimit, setVisibleLineageLimit] = useState(
+    INITIAL_LINEAGE_PARENT_LIMIT,
+  );
+  useEffect(() => {
+    if (specificLineagePickerOpen) {
+      setVisibleLineageLimit(INITIAL_LINEAGE_PARENT_LIMIT);
+    }
+  }, [
+    normalizedSpecificLineageSearch,
+    specificLineageFactorFilters,
+    specificLineagePickerOpen,
+    specificLineageSort,
+    specificLineageSortDirection,
+    specificLineageSource,
+  ]);
+  const filteredLineageParents = useMemo(() => {
+    if (!specificLineagePickerOpen) return [];
+    return parents
+      .filter((parent) => {
+        if (
+          parent.source === 'rental' &&
+          parent.friend_state !== undefined &&
+          ![1, 3].includes(parent.friend_state)
+        ) {
+          return false;
         }
-        if (specificLineageSort === 'aptitude') {
-          return parentFactorStars(
-            parent,
-            'aptitude',
-            specificLineageAptitudeFactors,
-          );
+        if (
+          specificLineageSource !== 'all' &&
+          parent.source !== specificLineageSource
+        ) {
+          return false;
         }
-        return parent.rank_score;
-      };
-      return (
-        (sortValue(left) - sortValue(right)) * direction ||
-        (left.rank_score - right.rank_score) * direction ||
-        (left.rank - right.rank) * direction
-      );
-    });
+        if (!matchesParentFactorFilters(parent, specificLineageFactorFilters))
+          return false;
+        if (!normalizedSpecificLineageSearch) return true;
+        return [
+          parent.name,
+          parent.owner_name,
+          parent.viewer_id ? String(parent.viewer_id) : '',
+          String(parent.rank_score),
+          ...parent.factors.map((factor) => factor.name),
+          ...parent.ancestors.flatMap((ancestor) => [
+            ancestor.name,
+            ...ancestor.factors.map((factor) => factor.name),
+          ]),
+        ].some((value) =>
+          String(value)
+            .toLocaleLowerCase('zh-CN')
+            .includes(normalizedSpecificLineageSearch),
+        );
+      })
+      .sort((left, right) => {
+        const direction = specificLineageSortDirection === 'asc' ? 1 : -1;
+        const sortValue = (parent: Dashboard['parents'][number]) => {
+          if (specificLineageSort === 'blue') {
+            return parentFactorStars(
+              parent,
+              'blue',
+              specificLineageBlueFactors,
+            );
+          }
+          if (specificLineageSort === 'aptitude') {
+            return parentFactorStars(
+              parent,
+              'aptitude',
+              specificLineageAptitudeFactors,
+            );
+          }
+          return parent.rank_score;
+        };
+        return (
+          (sortValue(left) - sortValue(right)) * direction ||
+          (left.rank_score - right.rank_score) * direction ||
+          (left.rank - right.rank) * direction
+        );
+      });
+  }, [
+    normalizedSpecificLineageSearch,
+    parents,
+    specificLineageAptitudeFactors,
+    specificLineageBlueFactors,
+    specificLineageFactorFilters,
+    specificLineagePickerOpen,
+    specificLineageSort,
+    specificLineageSortDirection,
+    specificLineageSource,
+  ]);
+  const visibleLineageParents = filteredLineageParents.slice(
+    0,
+    visibleLineageLimit,
+  );
   const specificLineageHasFilters = Boolean(
     specificLineageSource !== 'all' ||
       specificLineageFactorFilters.length ||
@@ -589,57 +645,69 @@ export default function OfflineCareerSettings({
     normalizedSpecificLineageSearch || specificLineageHasFilters
       ? '没有找到符合当前搜索或筛选条件的已育成马娘'
       : '没有可选择的已育成马娘';
-  const lineageCharaOptions = Array.from(
-    new Map(
-      [
-        ...successionUmaOptions.map((uma) => ({
-          chara_id: uma.id,
-          card_id: 0,
-          name: uma.name,
-          rarity: 0,
-          race_cloth_id: 0,
-          icon: uma.icon || undefined,
-        })),
-        ...umas.map((uma) => ({
-          chara_id: uma.chara_id,
-          card_id: uma.id,
-          name: uma.name,
-          rarity: uma.rarity,
-          race_cloth_id: uma.race_cloth_id,
-          icon: undefined,
-        })),
-        ...parents.flatMap((parent) => [
-          {
-            chara_id: parent.chara_id,
-            card_id: parent.card_id,
-            name: parent.name,
-            rarity: parent.rarity,
-            race_cloth_id: parent.race_cloth_id,
-            icon: undefined,
-          },
-          ...parent.ancestors.map((ancestor) => ({
-            chara_id: ancestor.chara_id,
-            card_id: ancestor.card_id,
-            name: ancestor.name,
-            rarity: ancestor.rarity,
-            race_cloth_id: ancestor.race_cloth_id,
-            icon: undefined,
-          })),
-        ]),
-      ].map((uma) => [uma.chara_id, uma]),
-    ).values(),
+  const lineageCharaOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [
+            ...successionUmaOptions.map((uma) => ({
+              chara_id: uma.id,
+              card_id: 0,
+              name: uma.name,
+              rarity: 0,
+              race_cloth_id: 0,
+              icon: uma.icon || undefined,
+            })),
+            ...umas.map((uma) => ({
+              chara_id: uma.chara_id,
+              card_id: uma.id,
+              name: uma.name,
+              rarity: uma.rarity,
+              race_cloth_id: uma.race_cloth_id,
+              icon: undefined,
+            })),
+            ...parents.flatMap((parent) => [
+              {
+                chara_id: parent.chara_id,
+                card_id: parent.card_id,
+                name: parent.name,
+                rarity: parent.rarity,
+                race_cloth_id: parent.race_cloth_id,
+                icon: undefined,
+              },
+              ...parent.ancestors.map((ancestor) => ({
+                chara_id: ancestor.chara_id,
+                card_id: ancestor.card_id,
+                name: ancestor.name,
+                rarity: ancestor.rarity,
+                race_cloth_id: ancestor.race_cloth_id,
+                icon: undefined,
+              })),
+            ]),
+          ].map((uma) => [uma.chara_id, uma]),
+        ).values(),
+      ),
+    [parents, umas],
   );
-  const normalizedLineageTreeSearch = lineageTreeSearch
+  const lineageCharaById = useMemo(
+    () => new Map(lineageCharaOptions.map((option) => [option.chara_id, option])),
+    [lineageCharaOptions],
+  );
+  const deferredLineageTreeSearch = useDeferredValue(lineageTreeSearch);
+  const normalizedLineageTreeSearch = deferredLineageTreeSearch
     .trim()
     .toLocaleLowerCase('zh-CN');
-  const filteredLineageCharaOptions = lineageCharaOptions.filter(
-    (uma) =>
-      !normalizedLineageTreeSearch ||
-      uma.name
-        .toLocaleLowerCase('zh-CN')
-        .includes(normalizedLineageTreeSearch) ||
-      String(uma.chara_id).includes(normalizedLineageTreeSearch),
-  );
+  const filteredLineageCharaOptions = useMemo(() => {
+    if (!lineageTreePicker) return [];
+    return lineageCharaOptions.filter(
+      (uma) =>
+        !normalizedLineageTreeSearch ||
+        uma.name
+          .toLocaleLowerCase('zh-CN')
+          .includes(normalizedLineageTreeSearch) ||
+        String(uma.chara_id).includes(normalizedLineageTreeSearch),
+    );
+  }, [lineageCharaOptions, lineageTreePicker, normalizedLineageTreeSearch]);
   const updateLineageTreeSlot = (
     slot: LineageTreeSlot,
     update: Partial<OfflineFactorSelection['lineage']['tree'][LineageTreeSlot]>,
@@ -660,9 +728,7 @@ export default function OfflineCareerSettings({
     tone: 'parent' | 'ancestor',
   ) => {
     const setting = factorSelection.lineage.tree[slot];
-    const uma = lineageCharaOptions.find(
-      (option) => option.chara_id === setting.chara_id,
-    );
+    const uma = lineageCharaById.get(setting.chara_id);
     const iconPath = uma
       ? umaSkinIconPath(uma.card_id, uma.rarity, uma.race_cloth_id) || uma.icon
       : undefined;
@@ -916,8 +982,8 @@ export default function OfflineCareerSettings({
                   </strong>
                   <p className="mt-0.5 text-label text-slate-500">
                     {factorSelection.evaluation_mode === 'ancestor'
-                      ? '每个因子的两次继承判定分别计入期望跳数，再乘对应权重累加。'
-                      : '先比较所选适应性与技能至少继承一次的综合概率，最后以全部白因子的逐次继承概率兜底。'}
+                      ? '按两次继承的期望跳数加权累加。'
+                      : '优先比较目标因子至少继承一次的概率，白因子兜底。'}
                   </p>
                 </div>
                 <button
@@ -1195,9 +1261,9 @@ export default function OfflineCareerSettings({
                       <div className="mx-auto max-w-md">
                         {lineageTreeNode('parent', '另一侧父辈', 'parent')}
                       </div>
-                      <div className="relative pt-7">
-                        <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 h-7 border-l-2 border-r-2 border-t-2 border-slate-200" />
-                        <div className="grid grid-cols-2 gap-3">
+                      <div className="relative pt-4 sm:pt-7">
+                        <span className="pointer-events-none absolute left-1/4 right-1/4 top-0 hidden h-7 border-l-2 border-r-2 border-t-2 border-slate-200 sm:block" />
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           {lineageTreeNode('ancestor_1', '祖辈 1', 'ancestor')}
                           {lineageTreeNode('ancestor_2', '祖辈 2', 'ancestor')}
                         </div>
@@ -1307,7 +1373,7 @@ export default function OfflineCareerSettings({
                           </strong>
                           <span className="text-caption text-slate-500">
                             {busy === 'idle-prepare'
-                              ? '正在读取赛程…'
+                              ? '读取中…'
                               : setup
                                 ? `${deck.race_array.length} 场比赛`
                                 : '暂无数据'}
@@ -1351,9 +1417,6 @@ export default function OfflineCareerSettings({
                 <strong className="block text-section text-slate-900">
                   编辑游戏赛程槽位 {editingDeckNum}
                 </strong>
-                <span className="mt-1 block text-caption text-slate-500">
-                  保存后会覆盖游戏服务器上对应槽位的名称与赛程。
-                </span>
                 <input
                   value={editingDeckName}
                   maxLength={20}
@@ -1378,7 +1441,6 @@ export default function OfflineCareerSettings({
               <RaceSchedulePicker
                 id={`offline-races-${editingDeckNum}`}
                 title="赛程详细"
-                description="选择这个游戏槽位中要保存的比赛。"
                 notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
                 races={races}
                 selectedRaceIds={editingRaceIds}
@@ -1399,7 +1461,7 @@ export default function OfflineCareerSettings({
                         <Check size={12} />{' '}
                         {item.race
                           ? `${item.race.date} · ${item.race.name}`
-                          : `第 ${item.year} 年 · 比赛 ${item.program_id}`}
+                          : `第 ${item.year} 年 · 未知比赛`}
                       </span>
                     ))
                   ) : (
@@ -1435,7 +1497,7 @@ export default function OfflineCareerSettings({
               >
                 <Save size={15} />
                 {busy === 'idle-race-deck'
-                  ? '正在保存…'
+                  ? '保存中…'
                   : `保存槽位 ${editingDeckNum}`}
               </button>
             </footer>
@@ -1456,8 +1518,8 @@ export default function OfflineCareerSettings({
               <h3 className="text-section font-semibold text-gray-800">
                 优先技能
               </h3>
-              <p className="mt-1 text-label text-slate-500">
-                育成事件会优先选择能够获得这些技能启发的选项，越靠前优先级越高。
+              <p className="mt-0.5 text-label text-slate-500">
+                事件优先选择对应启发，越靠前优先级越高。
               </p>
             </div>
           </div>
@@ -1588,9 +1650,6 @@ export default function OfflineCareerSettings({
               <h3 className="text-section font-semibold text-gray-800">
                 结束自动点技能
               </h3>
-              <p className="mt-1 text-label text-slate-500">
-                越靠前优先级越高，可拖动或使用上下移按钮调整顺序。
-              </p>
             </div>
           </div>
           <button
@@ -1745,15 +1804,9 @@ export default function OfflineCareerSettings({
           >
             <header className="successionPickerHeader">
               <div>
-                <span className="text-label font-semibold text-rose-600">
-                  TRAINED RED FACTOR
-                </span>
-                <h3 className="mt-1 text-section font-semibold text-slate-900">
+                <h3 className="text-section font-semibold text-slate-900">
                   {LINEAGE_TREE_SLOT_LABELS[lineageFactorPicker]}的红因子
                 </h3>
-                <p className="uma-prose mt-1 text-data text-slate-500">
-                  选择这匹已育成马娘实际持有的红因子及最低星级。
-                </p>
               </div>
               <button
                 type="button"
@@ -1907,15 +1960,9 @@ export default function OfflineCareerSettings({
           >
             <header className="successionPickerHeader">
               <div>
-                <span className="text-label font-semibold text-sky-600">
-                  RACE SCHEDULE
-                </span>
-                <h3 className="mt-1 text-section font-semibold text-slate-900">
+                <h3 className="text-section font-semibold text-slate-900">
                   {LINEAGE_TREE_SLOT_LABELS[lineageRoutePicker]}赛程设置
                 </h3>
-                <p className="uma-prose mt-1 text-data text-slate-500">
-                  按已育成马娘的实际胜鞍赛程筛选完整谱系。
-                </p>
               </div>
               <button
                 type="button"
@@ -1978,11 +2025,10 @@ export default function OfflineCareerSettings({
         <SuccessionPickerDialog
           ariaLabel="指定已有马娘"
           title="正在选择已有马娘"
-          description="选择一组完整谱系作为另一侧父辈，选中后自动关闭；可查看本体、两位父辈与全部因子。"
           onClose={() => setSpecificLineagePickerOpen(false)}
           dialogClassName="successionCapturedPickerDialog"
           searchValue={specificLineageSearch}
-          searchPlaceholder="搜索马娘、因子、玩家或评价"
+          searchPlaceholder="搜索马娘、因子、玩家或玩家 ID"
           searchAriaLabel="搜索已有马娘"
           onSearchChange={setSpecificLineageSearch}
           meta={<span>找到 {filteredLineageParents.length} 个已有实例</span>}
@@ -2078,27 +2124,46 @@ export default function OfflineCareerSettings({
             </div>
           </SuccessionPickerFilterSheet>
           {filteredLineageParents.length ? (
-            <div className="successionCapturedPickerGrid">
-              {filteredLineageParents.map((parent) => (
-                <ParentChoiceCard
-                  key={parent.selection_id}
-                  parent={parent}
-                  selected={
-                    factorSelection.lineage.selection_id === parent.selection_id
-                  }
-                  disabled={false}
-                  onSelect={() => {
-                    updateFactorSelection({
-                      lineage: {
-                        ...factorSelection.lineage,
-                        selection_id: parent.selection_id,
-                      },
-                    });
-                    setSpecificLineagePickerOpen(false);
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              <div className="successionCapturedPickerGrid">
+                {visibleLineageParents.map((parent) => (
+                  <ParentChoiceCard
+                    key={parent.selection_id}
+                    parent={parent}
+                    selected={
+                      factorSelection.lineage.selection_id ===
+                      parent.selection_id
+                    }
+                    disabled={false}
+                    onSelect={() => {
+                      updateFactorSelection({
+                        lineage: {
+                          ...factorSelection.lineage,
+                          selection_id: parent.selection_id,
+                        },
+                      });
+                      setSpecificLineagePickerOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+              {filteredLineageParents.length > visibleLineageLimit ? (
+                <div className="flex justify-center px-4 pb-4 pt-2">
+                  <PlannerButton
+                    variant="secondary"
+                    size="small"
+                    onClick={() =>
+                      setVisibleLineageLimit(
+                        (current) => current + LINEAGE_PARENT_BATCH_SIZE,
+                      )
+                    }
+                  >
+                    显示更多马娘（剩余{' '}
+                    {filteredLineageParents.length - visibleLineageLimit} 位）
+                  </PlannerButton>
+                </div>
+              ) : null}
+            </>
           ) : (
             <div className="successionCapturedPickerEmpty">
               {emptyLineageParentMessage}
@@ -2110,13 +2175,11 @@ export default function OfflineCareerSettings({
       {lineageTreePicker ? (
         <SuccessionPickerDialog
           ariaLabel="选择谱系树马娘"
-          eyebrow="LINEAGE TREE"
           title={`正在选择${LINEAGE_TREE_SLOT_LABELS[lineageTreePicker]}`}
-          description="点击卡片选择，选中后自动关闭。"
           onClose={() => setLineageTreePicker('')}
           overlayClassName="plannerElevatedOverlay"
           searchValue={lineageTreeSearch}
-          searchPlaceholder="搜索马娘名称或角色 ID"
+          searchPlaceholder="搜索马娘名称"
           searchAriaLabel="搜索谱系树马娘"
           onSearchChange={setLineageTreeSearch}
           meta={
@@ -2163,7 +2226,6 @@ export default function OfflineCareerSettings({
                     />
                   }
                   title={uma.name}
-                  subtitle={`角色 ID ${uma.chara_id}`}
                   onClick={() => {
                     const current =
                       factorSelection.lineage.tree[lineageTreePicker];
@@ -2182,7 +2244,7 @@ export default function OfflineCareerSettings({
           ) : (
             <div className="successionPickerEmpty">
               <strong>没有找到符合搜索条件的马娘</strong>
-              <p>尝试修改名称、角色 ID，或清空搜索。</p>
+              <p>尝试修改搜索词，或清空搜索。</p>
               <PlannerButton
                 variant="secondary"
                 size="small"
@@ -2198,7 +2260,6 @@ export default function OfflineCareerSettings({
       <SkillSelector
         open={prioritySkillPickerOpen}
         title="追加离线育成优先技能"
-        description="选择技能后会按列表顺序发送给游戏；可返回列表拖动调整优先级。"
         skills={skills}
         selectedNames={selectedPrioritySkillNames}
         elevated
@@ -2208,7 +2269,6 @@ export default function OfflineCareerSettings({
       <SkillSelector
         open={!factorOnly && finalSkillPickerOpen}
         title="设置离线结束技能优先级"
-        description="界面和预设技能选择一致。可单独添加技能，也可把当前筛选结果添加为同优先级组。"
         skills={skills}
         selectedNames={selectedFinalSkillNames}
         elevated
@@ -2219,12 +2279,7 @@ export default function OfflineCareerSettings({
       <SkillSelector
         open={factorSkillPickerOpen}
         title="选择目标白因子技能"
-        description={
-          factorSelection.evaluation_mode === 'ancestor'
-            ? '选择后回到列表中设置每个技能因子的权重。'
-            : '选择顺序就是因子比较优先级；也可以回到列表中直接拖动调整。'
-        }
-        skills={skills.filter((skill) => skill.rarity === 1)}
+        skills={whiteSkills}
         selectedNames={selectedSkillNames}
         showRarityFilter={false}
         showSkillPoints={false}
@@ -2242,3 +2297,5 @@ export default function OfflineCareerSettings({
     </div>
   );
 }
+
+export default memo(OfflineCareerSettings);

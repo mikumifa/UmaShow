@@ -53,7 +53,7 @@ export default function RacePlannerLeaderboard({
       title="赛程排行榜"
       onClose={onClose}
       searchValue={search}
-      searchPlaceholder="搜索马娘名称或 ID"
+      searchPlaceholder="搜索马娘名称"
       searchAriaLabel="搜索排行榜马娘"
       onSearchChange={setSearch}
       bodyClassName="min-h-0 overflow-y-auto p-4 sm:p-5"

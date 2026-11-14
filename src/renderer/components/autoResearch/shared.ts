@@ -620,7 +620,7 @@ export function describeLogDetail(value: string) {
     /race_id (\d+), margin_lengths ([\d.]+)/,
   );
   if (largeMarginMatch) {
-    return `比赛 ID ${largeMarginMatch[1]} · 大差 ${largeMarginMatch[2]} 马身`;
+    return `大差获胜 · ${largeMarginMatch[2]} 马身`;
   }
   const trainingMatch = detail.match(
     /^training (Speed|Stamina|Power|Guts|Wit)/,

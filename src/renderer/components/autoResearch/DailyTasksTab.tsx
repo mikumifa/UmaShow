@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   CalendarCheck,
   ChevronsUpDown,
@@ -68,7 +68,7 @@ const editableConfigKey = (config: DailyTasksConfig) =>
   });
 
 const toggleClass = (enabled: boolean) =>
-  `dailyTaskToggle relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+  `dailyTaskToggle relative h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:-inset-2 after:content-[''] ${
     enabled ? 'bg-indigo-600' : 'bg-slate-300'
   }`;
 
@@ -131,12 +131,17 @@ function HorseSelectButton({
   const iconPath = horse
     ? horseIconPath(horse.card_id, horse.rarity, horse.race_cloth_id)
     : undefined;
-  const label = horse?.name || (race && '点击选择已育成马娘') || '请先选择赛事';
+  const compactHorseName = horse
+    ? horse.name.replace(/^\[[^\]]+\]\s*/, '').trim() || horse.name
+    : undefined;
+  const label =
+    compactHorseName || (race && '点击选择已育成马娘') || '请先选择赛事';
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
+      title={horse?.name}
       className={`${fieldClass} flex min-h-[42px] items-center gap-2 text-left disabled:cursor-not-allowed`}
     >
       {horse && iconPath ? (
@@ -233,7 +238,7 @@ function ResultCard({
   );
 }
 
-export default function DailyTasksTab({
+function DailyTasksTab({
   overview,
   loading,
   loadError,
@@ -276,25 +281,25 @@ export default function DailyTasksTab({
     );
   }
 
-  let loadStatus = '正在连接本地日常服务…';
-  if (loading) loadStatus = '正在读取本地日常配置…';
+  let loadStatus = '读取中…';
+  if (loading) loadStatus = '读取中…';
   if (loadError) loadStatus = '每日日常加载失败';
 
   if (!overview) {
     return (
       <section
         className={panelClass(
-          'flex min-h-48 items-center justify-center p-10 text-center text-data text-slate-500',
+          'uma-task-card flex min-h-48 items-center justify-center p-8 text-center text-data text-slate-500 sm:p-10',
         )}
       >
         <div>
           {loading ? (
             <RefreshCw
-              className="mx-auto animate-spin text-indigo-400"
-              size={30}
+              className="mx-auto animate-spin text-emerald-600"
+              size={28}
             />
           ) : (
-            <CalendarCheck className="mx-auto text-slate-300" size={30} />
+            <CalendarCheck className="mx-auto text-slate-300" size={28} />
           )}
           <p className="mt-3 font-medium text-slate-700">{loadStatus}</p>
           {loadError ? (
@@ -305,10 +310,10 @@ export default function DailyTasksTab({
               <button
                 type="button"
                 onClick={onRetry}
-                className="mt-4 inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-caption font-semibold text-indigo-700 hover:bg-indigo-50"
+                className="uma-clay-button mt-4 inline-flex min-h-10 items-center gap-1.5 px-3.5 py-2 text-label font-semibold"
               >
                 <RefreshCw size={14} />
-                重新加载
+                刷新
               </button>
             </>
           ) : null}
@@ -366,11 +371,20 @@ export default function DailyTasksTab({
   return (
     <div className="autoResearchForm autoResearchDaily space-y-4">
       <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <p className="uma-prose text-data text-slate-500">
-            启动后，养马过程中会完成任务。
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <strong className="text-data font-semibold text-slate-800">
+            育成期间自动执行日常
+          </strong>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={disabled || loading}
+              onClick={onRetry}
+              className="uma-clay-button dailyToolbarRefresh hidden min-h-9 items-center gap-1.5 px-3 text-label font-semibold disabled:opacity-50 sm:inline-flex"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              {loading ? '刷新中…' : '刷新'}
+            </button>
             <Toggle
               checked={draft.run_with_career}
               label="养马同时完成日常"
@@ -387,17 +401,12 @@ export default function DailyTasksTab({
 
       <div className="dailyTasksColumns">
         <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <Swords className="mt-1 shrink-0 text-slate-400" size={19} />
-              <div>
-                <h3 className="text-section font-semibold text-slate-800">
-                  每日竞赛
-                </h3>
-                <p className="text-label text-slate-500">
-                  使用所选马娘，一次打完全部现有入场券。
-                </p>
-              </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Swords className="shrink-0 text-slate-400" size={19} />
+              <h3 className="text-section font-semibold text-slate-800">
+                每日竞赛
+              </h3>
             </div>
             <Toggle
               checked={draft.daily_race.enabled}
@@ -413,7 +422,7 @@ export default function DailyTasksTab({
             available={dailyRaceAvailability?.available}
             canRunNow={dailyRaceAvailability?.can_run_now}
             reason={dailyRaceAvailability?.reason}
-            readyDetail={`当前有 ${dailyRaceAvailability?.ticket_count || 0} 张每日竞赛入场券`}
+            readyDetail={`入场券 ${dailyRaceAvailability?.ticket_count || 0} 张`}
           />
           <div className="dailyTaskFields mt-4">
             <select
@@ -471,20 +480,12 @@ export default function DailyTasksTab({
         </section>
 
         <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <CheckCircle2
-                className="mt-1 shrink-0 text-slate-400"
-                size={19}
-              />
-              <div>
-                <h3 className="text-section font-semibold text-slate-800">
-                  每日传奇赛事
-                </h3>
-                <p className="text-label text-slate-500">
-                  选择赛事与马娘，每个游戏日参加一次。
-                </p>
-              </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <CheckCircle2 className="shrink-0 text-slate-400" size={19} />
+              <h3 className="text-section font-semibold text-slate-800">
+                每日传奇赛事
+              </h3>
             </div>
             <Toggle
               checked={draft.daily_legend_race.enabled}
@@ -500,7 +501,7 @@ export default function DailyTasksTab({
             available={legendRaceAvailability?.available}
             canRunNow={legendRaceAvailability?.can_run_now}
             reason={legendRaceAvailability?.reason}
-            readyDetail={`当前有 ${legendRaceAvailability?.ticket_count || 0} 张传奇赛事入场券`}
+            readyDetail={`入场券 ${legendRaceAvailability?.ticket_count || 0} 张`}
           />
           <div className="dailyTaskFields mt-4">
             <select
@@ -568,7 +569,7 @@ export default function DailyTasksTab({
                   竞技场
                 </h3>
                 <p className="text-label text-slate-500">
-                  清空已有 RP，之后按每 2 小时一次的恢复事件继续处理。
+                  自动消耗当前与每 2 小时恢复的 RP
                 </p>
               </div>
             </div>
@@ -591,7 +592,7 @@ export default function DailyTasksTab({
             available={stadiumAvailability?.available}
             canRunNow={stadiumAvailability?.can_run_now}
             reason={stadiumAvailability?.reason}
-            readyDetail={`当前竞技场 RP：${stadiumAvailability?.current_rp || 0}`}
+            readyDetail={`当前 RP：${stadiumAvailability?.current_rp || 0}`}
           />
         </section>
 
@@ -604,7 +605,7 @@ export default function DailyTasksTab({
                   限时商店
                 </h3>
                 <p className="text-label text-slate-500">
-                  赛事完成后检查，竞技场本轮全部完成后统一检查；达到该来源每日刷新上限后停止。
+                  赛事与竞技场结束后检查，余额足够时一次性全买
                 </p>
               </div>
             </div>
@@ -623,9 +624,6 @@ export default function DailyTasksTab({
               }
             />
           </div>
-          <AutoResearchNotice className="mt-4">
-            服务端会先计算全部未购买商品的总价。全部足够时才一次性全买。
-          </AutoResearchNotice>
         </section>
       </div>
 
@@ -656,27 +654,27 @@ export default function DailyTasksTab({
               type="button"
               disabled={disabled}
               onClick={() => onSave(draft)}
-              className="uma-clay-button inline-flex items-center gap-2 px-4 py-2 text-data font-semibold disabled:opacity-50"
+              className="uma-clay-button inline-flex min-h-10 items-center gap-1.5 px-3.5 py-2 text-data font-semibold disabled:opacity-50"
             >
-              <Save size={16} />
+              <Save size={15} />
               {busy === 'daily-save' ? '保存中…' : '保存本地配置'}
             </button>
             <button
               type="button"
               disabled={disabled}
               onClick={() => onUpload(draft)}
-              className="uma-clay-button inline-flex items-center gap-2 px-4 py-2 text-data font-semibold disabled:opacity-50"
+              className="uma-clay-button inline-flex min-h-10 items-center gap-1.5 px-3.5 py-2 text-data font-semibold disabled:opacity-50"
             >
-              <Upload size={16} />
+              <Upload size={15} />
               {busy === 'daily-upload' ? '上传中…' : '上传配置到服务器'}
             </button>
             <button
               type="button"
               disabled={disabled}
               onClick={() => onRun(draft)}
-              className="uma-clay-button-primary inline-flex items-center gap-2 px-4 py-2 text-data font-semibold disabled:opacity-50"
+              className="uma-clay-button-primary dailyTaskPrimaryAction inline-flex min-h-10 items-center gap-1.5 px-4 py-2 text-data font-semibold disabled:opacity-50"
             >
-              <Play size={16} />
+              <Play size={15} />
               {busy === 'daily-run' ? '执行中…' : '单次完成日常'}
             </button>
           </div>
@@ -712,3 +710,5 @@ export default function DailyTasksTab({
     </div>
   );
 }
+
+export default memo(DailyTasksTab);

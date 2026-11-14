@@ -22,6 +22,7 @@ const configuration: webpack.Configuration = {
     path: autoUmaPath,
     publicPath: './',
     filename: 'autouma.[contenthash].js',
+    chunkFilename: 'autouma.[id].[contenthash].js',
     clean: true,
   },
   module: {
@@ -75,7 +76,10 @@ const configuration: webpack.Configuration = {
       },
       {
         test: /\.wasm$/i,
-        type: 'asset/inline',
+        type: 'asset/resource',
+        generator: {
+          filename: '[name].[contenthash][ext]',
+        },
       },
       {
         test: /\.svg$/,

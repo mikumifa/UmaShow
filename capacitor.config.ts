@@ -5,6 +5,10 @@ const config: CapacitorConfig = {
   appName: 'AutoUma',
   webDir: 'release/app/dist/autouma',
   backgroundColor: '#dff3eb',
+  loggingBehavior: 'none',
+  android: {
+    loggingBehavior: 'none',
+  },
   server: {
     androidScheme: 'http',
     cleartext: true,
