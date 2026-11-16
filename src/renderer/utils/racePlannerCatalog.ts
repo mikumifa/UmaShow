@@ -115,7 +115,6 @@ export function buildPlanningCalendar(
     // from freely selectable domestic races. Mandatory goals are added below.
     if (
       program.baseId ||
-      program.programGroup ||
       program.programId >= 2000 ||
       ![100, 200, 300, 400, 700].includes(program.grade)
     )
@@ -157,6 +156,11 @@ export function buildPlanningCalendar(
         const candidates = ids.flatMap((id) => {
           const program = PLANNER_CATALOG.programs[String(id)];
           if (!program) return [];
+          if (program.baseId && !ids.includes(program.baseId)) {
+            races.delete(
+              (Math.floor((goal.turn - 1) / 24) + 1) * 100000 + program.baseId,
+            );
+          }
           const race = {
             ...planningRace(program, goal.turn),
             isCareerGoal: true,

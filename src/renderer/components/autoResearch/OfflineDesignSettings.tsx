@@ -54,7 +54,11 @@ export function OfflineCustomSchedule({
   const options = useMemo<RaceOption[]>(
     () =>
       calendar.races
-        .filter((race) => !calendar.blockedTurns.includes(race.turn))
+        .filter((race) =>
+          calendar.fixedRaces[race.turn]
+            ? calendar.fixedRaces[race.turn].includes(race.id)
+            : !calendar.blockedTurns.includes(race.turn),
+        )
         .map((race) => ({
           id: race.id,
           program_id: race.programId,
@@ -232,10 +236,14 @@ export default function OfflineDesignSettings({
               {result.best ? '已填入种马与赛程' : '赛程已生成 · 待补齐种马'}
             </strong>
             <span>{result.schedule.raceCount} 场（含目标赛）</span>
+            {design.goal === 'jewels' ? (
+              <span>
+                期望掉落 {result.schedule.expectedDrops.toFixed(2)} 次
+              </span>
+            ) : null}
             <span>
-              {design.goal === 'jewels'
-                ? `期望掉落 ${result.schedule.expectedDrops.toFixed(2)} 次`
-                : `期望粉丝 ${Math.round(result.schedule.expectedFans).toLocaleString()}`}
+              期望粉丝{' '}
+              {Math.round(result.schedule.expectedFans).toLocaleString()}
             </span>
           </div>
           {!result.best && (

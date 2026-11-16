@@ -289,3 +289,106 @@ test('one-click selection leaves parents unfilled when only a rental can complet
   ]);
   expect(best).toBeUndefined();
 });
+
+test('one-click jewel design excludes elective OP/Pre-OP races, includes Japan Cup, and picks higher-fan parents when drops tie', () => {
+  const plan = designOfflineCareer(
+    character,
+    normalizeOfflineDesign({ goal: 'jewels' }),
+    [],
+  );
+  const calendar = catalog.buildPlanningCalendar(character.id, 5, 0);
+  const extraRaces = plan.raceIds.map(
+    (id) => calendar.races.find((item) => item.id === id)!,
+  );
+  expect(extraRaces.length).toBeGreaterThan(0);
+  expect(
+    extraRaces.every((item) => [100, 200, 300, 1000].includes(item.grade)),
+  ).toBe(true);
+  expect(extraRaces.some((item) => item.name === '全国杯')).toBe(true);
+
+  // Compare two owned parent pairs that yield identical expectedDrops on a 1-turn schedule,
+  // where only the Middle-upgraded pair unlocks 100% win rate on the higher-fan GI (全国杯 2400m).
+  const dualChara = {
+    ...character,
+    aptitudes: {
+      ...character.aptitudes,
+      turf: 7,
+      short: 6,
+      mile: 7,
+      middle: 5,
+    },
+  };
+  const shortParent = parent('short', character.id + 1, 'own', 1);
+  shortParent.factors = [
+    {
+      ...shortParent.factors[0],
+      factor_group_id: 31,
+      factor_type: 2,
+      category: 'distance',
+      stars: 1,
+    },
+  ];
+  const middleParent = parent('middle', character.id + 2, 'own', 3);
+  middleParent.factors = [
+    {
+      ...middleParent.factors[0],
+      factor_group_id: 33,
+      factor_type: 2,
+      category: 'distance',
+      stars: 3,
+    },
+  ];
+  middleParent.ancestors = [
+    {
+      position_id: 1,
+      card_id: 100301,
+      chara_id: 1003,
+      rarity: 3,
+      race_cloth_id: 0,
+      name: '祖辈',
+      factors: [{ ...middleParent.factors[0], stars: 1 }],
+      factor_summary: middleParent.factor_summary,
+    },
+  ];
+  const neutralParent = parent('neutral', character.id + 3, 'own', 3);
+  const { best } = chooseOfflineParents(
+    dualChara,
+    normalizeOfflineDesign({ goal: 'jewels' }),
+    [shortParent, middleParent, neutralParent],
+    {
+      ...planningInput,
+      objective: 'jewels',
+      aptitudes: dualChara.aptitudes,
+      winRates: REFERENCE_WIN_RATES,
+      races: [
+        {
+          id: 1,
+          programId: 78,
+          turn: 1,
+          name: '英里冠军赛',
+          grade: 100,
+          ground: 'turf',
+          distanceType: 'mile',
+          distance: 1600,
+          fans: 11000,
+          requiredFans: 0,
+        },
+        {
+          id: 2,
+          programId: 79,
+          turn: 1,
+          name: '全国杯',
+          grade: 100,
+          ground: 'turf',
+          distanceType: 'middle',
+          distance: 2400,
+          fans: 30000,
+          requiredFans: 0,
+        },
+      ],
+    },
+  );
+  expect(best?.parents).toEqual([middleParent, neutralParent]);
+  expect(best?.schedule.expectedDrops).toBeCloseTo(0.04);
+  expect(best?.schedule.steps[0].race?.name).toBe('全国杯');
+});

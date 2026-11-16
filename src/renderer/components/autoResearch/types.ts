@@ -366,6 +366,9 @@ export type DailyTasksConfig = {
     enabled: boolean;
     buy_all: true;
   };
+  race_mission?: {
+    enabled: boolean;
+  };
   status?: string;
   current_task?: string;
   schedule_day?: string;
@@ -403,7 +406,20 @@ export type DailyTasksOptions = {
       term_open: boolean;
       reason: string;
     };
+    race_mission?: {
+      available: boolean;
+      can_run_now: boolean;
+      pending_count: number;
+      reason: string;
+    };
   };
+  race_missions?: Array<{
+    mission_id: number;
+    event_title: string;
+    text: string;
+    race_name: string;
+    end_date: string;
+  }>;
   daily_races: Array<{
     id: number;
     group_id: number;

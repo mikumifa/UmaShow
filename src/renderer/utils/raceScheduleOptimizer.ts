@@ -276,6 +276,13 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
           );
           continue;
         }
+        const expectedDrops = expectedJewelDrops(
+          probability,
+          streak,
+          race.grade,
+        );
+        if (input.objective === 'jewels' && !fixedIds && expectedDrops <= 0)
+          continue;
         const expectedFans = race.fans * probability * fanMultiplier;
         const fans = previous.expectedFans + expectedFans;
         const wins =
@@ -289,8 +296,7 @@ export function optimizeRaceSchedule(input: ScheduleInput): ScheduleResult {
         accept({
           expectedFans: fans,
           expectedWins: wins,
-          expectedDrops:
-            previous.expectedDrops + expectedJewelDrops(probability, streak),
+          expectedDrops: previous.expectedDrops + expectedDrops,
           expectedGradeWins,
           count: previous.count + 1,
           streak,

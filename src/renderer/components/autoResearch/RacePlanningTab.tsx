@@ -246,7 +246,7 @@ export default function RacePlanningTab() {
       automatic: false,
       isRace: !!step.race,
       expectedDrops: step.race
-        ? expectedJewelDrops(step.winProbability, step.streak)
+        ? expectedJewelDrops(step.winProbability, step.streak, step.race.grade)
         : 0,
       baseFans: step.race?.fans || 0,
     },

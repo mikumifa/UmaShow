@@ -345,6 +345,7 @@ const defaultDailyTasksConfig = (): DailyTasksConfig => ({
   },
   team_stadium: { enabled: false, opponent_strength: 3 },
   limited_shop: { enabled: false, buy_all: true },
+  race_mission: { enabled: false },
 });
 
 const editableDailyTasksConfig = (
@@ -356,6 +357,7 @@ const editableDailyTasksConfig = (
   daily_legend_race: { ...config.daily_legend_race },
   team_stadium: { ...config.team_stadium },
   limited_shop: { ...config.limited_shop },
+  race_mission: { enabled: Boolean(config.race_mission?.enabled) },
 });
 
 const readLocalDailyTasks = (
@@ -395,7 +397,7 @@ const readCareerDailyTasks = (uid: string): DailyTasksConfig | undefined => {
       getSharedStorageItem(LOCAL_DAILY_TASKS_KEY) || '{}',
     ) as Record<string, DailyTasksConfig>;
     const config = stored[uid];
-    return config?.run_with_career
+    return config?.run_with_career || config?.race_mission?.enabled
       ? editableDailyTasksConfig(config)
       : undefined;
   } catch {
@@ -2664,7 +2666,8 @@ export default function AutoResearch() {
           config.daily_race.enabled ||
           config.daily_legend_race.enabled ||
           config.team_stadium.enabled ||
-          config.limited_shop.enabled,
+          config.limited_shop.enabled ||
+          config.race_mission?.enabled,
       );
       await request('/api/account/configuration/daily/upsert', {
         method: 'POST',

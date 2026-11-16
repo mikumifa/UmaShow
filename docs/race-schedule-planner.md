@@ -7,7 +7,7 @@
 - `src/renderer/utils/raceScheduleOptimizer.ts`：独立核心算法，导出 `optimizeRaceSchedule(input)`；不依赖 React、存储或数据库。
 - `src/renderer/utils/raceWinRateModel.ts`：固定参考胜率表。界面不展示模型，不提供编辑、恢复或来源选择；旧设置中的胜率覆盖值不再加载。
 - `src/renderer/utils/raceInheritanceRecommendation.ts`：枚举六个红因子槽位内的初始适应性改造，比较赛程收益；同收益优先减少因子需求。
-- `src/renderer/utils/racePlannerCatalog.ts`：主数据库资料转换、剧本赛历和固定目标。
+- `src/renderer/utils/racePlannerCatalog.ts`：主数据库资料转换、剧本赛历和固定目标。保留 `base_program_id=0` 的常规赛事（含带有 `program_group` 的全国杯、中山大奖赛、宝冢纪念等重赏），若角色生涯目标使用专属替换赛事则覆盖当回合对应基础赛事。
 - `src/renderer/components/autoResearch/RacePlanningTab.tsx`：头像选择、系统推荐因子、统一的比赛与休息日历、列表／日历结果及导出。复用种马选择、因子星级与赛程组件。
 - `.erb/scripts/generate-race-planner-rankings.ts`：离线预计算所有马娘的三种目标排名，输出 `race_planner_rankings.json`。运行 `npm run update:race-planner-rankings` 可单独重算；`update:race-planner` 会同时更新赛历和排名。
 - `python/generate_race_planner_data.py`：生成赛历、冠军粉丝奖励、初始适应性和生涯目标；运行 `npm run update:race-planner`，也已纳入 `update:game`。
@@ -60,7 +60,7 @@
 
 没有满足条件的组合时，展示所有不同的两侧红因子分配方案和五类蓝因子建议，填入按目标适应性计算的赛程，并清空父辈选择，补齐后才能启动。已匹配时按实际红因子星数推导初始适应性，不假设中途继承成功。
 
-`raceJewelModel.ts` 独立维护掉落模型：期望掉落次数 = 胜率 × 胜利条件下的掉率；暂定前三连战为 5%，第 4 连战起为 4%。它优化的是掉落事件次数，不是钻石数量。此目标也可在「规划」Tab 使用；当前胜率来源仍为参考表。
+`raceJewelModel.ts` 独立维护掉落模型：仅 GI、GII、GIII、SP（EX，数据库级别 1000）及荣耀女神杯年末剧本赛会掉落钻石；出道战（新人赛）、未胜利、PRE-OP、OP 期望掉钻固定为 0，且挂钻目标在非固定回合不会主动安排零掉钻赛事。期望掉落次数 = 胜率 × 胜利条件下的掉率（连战 1–5 场依次为 4%、4%、3%、1%、1%，6 连战起为 0%）。挂钻优化先严格最大化期望掉钻次数（保证胜率与掉率），在期望掉钻相同时选择期望粉丝最多的单日赛事或整体赛程规划。
 
 请求的 `race_source` 为 `api` 时启动读取游戏槽位；为 `custom` 时使用 `race_array`，包括显式空数组。旧客户端不传来源时保留历史行为。结果观察的初始元数据同时保存实际使用的赛程、赛程来源及配置，便于后续分析。
 

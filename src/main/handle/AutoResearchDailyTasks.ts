@@ -145,7 +145,112 @@ function dailyRaceUnlocks(
   };
 }
 
-function buildOptions(data: Record<string, any>) {
+function cleanText(value: unknown) {
+  return String(value || '')
+    .replace(/\\n|\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function beijingNowString(serverTimeSeconds = 0) {
+  const epochMs =
+    (serverTimeSeconds > 0 ? serverTimeSeconds * 1000 : Date.now()) +
+    8 * 60 * 60 * 1000;
+  return new Date(epochMs)
+    .toISOString()
+    .replace('T', ' ')
+    .replace('Z', '')
+    .slice(0, 19);
+}
+
+function pendingRaceMissions(
+  missionData: Record<string, any> | null,
+  database: Database.Database,
+  nowBeijing: string,
+) {
+  const list = Array.isArray(missionData?.mission_list)
+    ? missionData.mission_list
+    : [];
+  const incomplete = new Map<number, Record<string, any>>();
+  list.forEach((row: Record<string, any>) => {
+    const id = numberValue(row?.mission_id);
+    if (id > 0 && numberValue(row?.mission_status, -1) === 0) {
+      incomplete.set(id, row);
+    }
+  });
+  if (!incomplete.size) return [];
+
+  const rows = database
+    .prepare(
+      `
+      SELECT m.id AS mission_id, m.event_id, m.condition_num,
+             m.condition_value_1 AS race_instance_id,
+             m.disp_order, m.date_check_flg, m.start_date, m.end_date,
+             COALESCE(mt.text, '') AS text,
+             COALESCE(et.text, '') AS event_title,
+             COALESCE(rt.text, '') AS race_name
+      FROM mission_data AS m
+      LEFT JOIN text_data AS mt ON mt.category = 67 AND mt."index" = m.id
+      LEFT JOIN text_data AS et ON et.category = 187 AND et."index" = m.event_id
+      LEFT JOIN text_data AS rt ON rt.category = 28 AND rt."index" = m.condition_value_1
+      WHERE m.mission_type IN (1, 4, 16, 17)
+        AND m.condition_type IN (100003, 100025, 100026)
+        AND m.condition_value_1 > 0
+        AND EXISTS (
+          SELECT 1
+          FROM single_mode_program AS p
+          WHERE p.base_program_id = 0
+            AND p.id < 2000
+            AND p.race_permission IN (1, 2, 3, 4)
+            AND (
+              p.race_instance_id = m.condition_value_1
+              OR p.race_instance_id IN (
+                SELECT eq.equate_id
+                FROM mission_race_equate AS eq
+                WHERE eq.input_id = m.condition_value_1
+              )
+            )
+        )
+    `,
+    )
+    .all() as Array<Record<string, any>>;
+
+  return rows
+    .filter((row) => {
+      const progress = incomplete.get(numberValue(row.mission_id));
+      if (!progress) return false;
+      const condNum = Math.max(1, numberValue(row.condition_num, 1));
+      if (numberValue(progress.exec_count) >= condNum) return false;
+      if (numberValue(row.date_check_flg) === 1) {
+        const start = String(row.start_date || '');
+        const end = String(row.end_date || '');
+        if (start && nowBeijing < start) return false;
+        if (end && nowBeijing > end) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const endA = String(a.end_date || '9999-12-31 23:59:59');
+      const endB = String(b.end_date || '9999-12-31 23:59:59');
+      if (endA !== endB) return endA.localeCompare(endB);
+      const dispDiff = numberValue(a.disp_order) - numberValue(b.disp_order);
+      if (dispDiff !== 0) return dispDiff;
+      return numberValue(a.mission_id) - numberValue(b.mission_id);
+    })
+    .map((row) => ({
+      mission_id: numberValue(row.mission_id),
+      event_title: cleanText(row.event_title),
+      text: cleanText(row.text) || `赛事任务 ${numberValue(row.mission_id)}`,
+      race_name:
+        cleanText(row.race_name) || `赛事 ${numberValue(row.race_instance_id)}`,
+      end_date: String(row.end_date || ''),
+    }));
+}
+
+function buildOptions(
+  data: Record<string, any>,
+  missionPacket?: Record<string, any> | null,
+) {
   const database = new Database(masterDatabasePath(), {
     readonly: true,
     fileMustExist: true,
@@ -209,10 +314,18 @@ function buildOptions(data: Record<string, any>) {
     const stadiumAvailable = Boolean(
       data.team_stadium_user && (data.team_data_array || []).length,
     );
+    const raceMissions = missionPacket
+      ? pendingRaceMissions(
+          missionPacket.data || null,
+          database,
+          beijingNowString(numberValue(missionPacket.data_headers?.servertime)),
+        )
+      : undefined;
     return {
       daily_races: dailyRaces,
       daily_legend_races: legendRaces,
       trained_charas: trainedCharas(data, database),
+      ...(raceMissions ? { race_missions: raceMissions } : {}),
       availability: {
         daily_race: {
           available: unlocks.dailyRace,
@@ -236,6 +349,17 @@ function buildOptions(data: Record<string, any>) {
           term_open: stadiumAvailable,
           reason: stadiumAvailable ? '' : '当前账号没有配置竞技场队伍',
         },
+        ...(raceMissions
+          ? {
+              race_mission: {
+                available: true,
+                can_run_now: raceMissions.length > 0,
+                pending_count: raceMissions.length,
+                reason:
+                  raceMissions.length > 0 ? '' : '当前无待完成的限定赛事任务',
+              },
+            }
+          : {}),
       },
     };
   } finally {
@@ -246,10 +370,11 @@ function buildOptions(data: Record<string, any>) {
 export async function overview(id: string, config: DailyConfig) {
   return withAutoResearchLocalGameClient(id, async (client) => {
     const loaded = await client.loadIndex();
+    const missionPacket = await client.call('mission/index').catch(() => null);
     return {
       success: true,
       daily_tasks: { ...config, status: 'paused', task_results: {} },
-      options: buildOptions(loaded.data || {}),
+      options: buildOptions(loaded.data || {}, missionPacket),
     };
   });
 }
@@ -518,8 +643,21 @@ export async function run(id: string, config: DailyConfig) {
       });
     }
 
-    const finishedAt = new Date().toISOString();
+    const missionPacket = await client.call('mission/index').catch(() => null);
     const refreshed = await client.loadIndex();
+    const nextOptions = buildOptions(refreshed.data || {}, missionPacket);
+    if (config.race_mission?.enabled) {
+      const pendingCount = nextOptions.race_missions?.length || 0;
+      results.race_mission = {
+        status: 'skipped',
+        detail:
+          pendingCount > 0
+            ? `将在挂钻／刷粉丝自动育成开始时自动执行（当前待完成 ${pendingCount} 项）`
+            : '当前无待完成的限定赛事任务',
+        finished_at: new Date().toISOString(),
+      };
+    }
+    const finishedAt = new Date().toISOString();
     return {
       success: true,
       daily_tasks: {
@@ -530,7 +668,7 @@ export async function run(id: string, config: DailyConfig) {
         last_error: errors.join('；'),
         task_results: results,
       },
-      options: buildOptions(refreshed.data || {}),
+      options: nextOptions,
     };
   });
 }

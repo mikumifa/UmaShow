@@ -113,7 +113,7 @@ test('forced sixth and later races give zero drops, including goals; resting res
   expect(result.expectedDrops).toBeCloseTo(0.17);
 });
 
-test('catalog marks career goals independently of manually fixed races', () => {
+test('catalog marks career goals independently of manually fixed races and includes programGroup domestic races like Japan Cup', () => {
   const calendar = buildPlanningCalendar(1001, 5);
   const goalIds = Object.values(calendar.fixedRaces).flat();
   expect(goalIds.length).toBeGreaterThan(0);
@@ -123,6 +123,27 @@ test('catalog marks career goals independently of manually fixed races', () => {
       .map((item) => item.id)
       .sort(),
   ).toEqual([...goalIds].sort());
+  // Classic-year Japan Cup (turn 46) is not a mandatory goal for 1001, so it must appear as a selectable domestic GI.
+  expect(calendar.races).toContainEqual(
+    expect.objectContaining({
+      turn: 46,
+      programId: 79,
+      name: '全国杯',
+      grade: 100,
+      fans: 30000,
+    }),
+  );
+  // Senior-year Japan Cup (turn 70) uses story replacement 1081 for 1001 without leaving duplicate base 79 on turn 70.
+  expect(
+    calendar.races.filter((item) => item.turn === 70 && item.name === '全国杯'),
+  ).toHaveLength(1);
+  // Oguri Cap (1006) does not have senior Japan Cup as a mandatory goal, so both Classic and Senior 全国杯 are selectable.
+  const oguriCalendar = buildPlanningCalendar(1006, 5);
+  expect(
+    oguriCalendar.races
+      .filter((item) => item.name === '全国杯')
+      .map((item) => item.turn),
+  ).toEqual([46, 70]);
 });
 
 test('year-end races add three guaranteed wins and 0.15 drops without changing regular slots or streaks', () => {
@@ -286,22 +307,95 @@ test('jewels maximizes fans at equal drop return before preferring GI, but retai
 });
 
 test('jewels never trades away expected drops for a larger fan reward', () => {
-  const highFans = { ...race, id: 100, fans: 10000 };
+  const highFans = { ...race, id: 100, fans: 30000 };
   const highDrops = {
     ...race,
     id: 300,
     grade: 300,
     distanceType: 'short' as const,
+    fans: 3900,
   };
   const result = optimizeRaceSchedule({
     ...input,
     races: [highFans, highDrops],
     endTurn: 1,
-    winRates: { ...input.winRates, '7:1': [1, 1, 1, 1, 1] },
+    winRates: {
+      '7:6': [0.9, 0.9, 0.9, 0.9, 0.9],
+      '7:1': [1, 1, 1, 1, 1],
+    },
   });
   expect(result.steps[0].race?.id).toBe(300);
-  expect(result.expectedDrops).toBe(0.04);
-  expect(result.expectedFans).toBeCloseTo(110);
+  expect(result.expectedDrops).toBeCloseTo(0.04);
+  expect(result.expectedFans).toBeCloseTo(3900 * 1.1);
+});
+
+test('jewels excludes OP and Pre-OP races on elective turns and gives zero drops on Debut and fixed OP goals while allowing SP races', () => {
+  const debut = {
+    ...race,
+    id: 1,
+    turn: 1,
+    grade: 900,
+    fans: 700,
+    isCareerGoal: true,
+  };
+  const electiveOp = { ...race, id: 2, turn: 2, grade: 400, fans: 2500 };
+  const electivePreOp = { ...race, id: 3, turn: 3, grade: 700, fans: 1000 };
+  const spRace = { ...race, id: 4, turn: 4, grade: 1000, fans: 4000 };
+  const fixedOpGoal = {
+    ...race,
+    id: 5,
+    turn: 5,
+    grade: 400,
+    fans: 2000,
+    isCareerGoal: true,
+  };
+  const g3AfterGoal = { ...race, id: 6, turn: 6, grade: 300, fans: 3800 };
+  const result = optimizeRaceSchedule({
+    ...input,
+    startTurn: 1,
+    endTurn: 6,
+    races: [debut, electiveOp, electivePreOp, spRace, fixedOpGoal, g3AfterGoal],
+    fixedRaces: { 1: [1], 5: [5] },
+    winRates: { '7:6': [1, 1, 1, 1, 1] },
+  });
+  expect(result.steps.map((step) => step.race?.id ?? null)).toEqual([
+    1,
+    null,
+    null,
+    4,
+    5,
+    6,
+  ]);
+  expect(result.steps.map((step) => step.streak)).toEqual([1, 0, 0, 1, 2, 3]);
+  // Only turn 4 (SP, streak 1 -> 0.04) and turn 6 (GIII, streak 3 -> 0.03) drop jewels; Debut (turn 1) and OP goal (turn 5) drop 0.
+  expect(result.expectedDrops).toBeCloseTo(0.07);
+});
+
+test('jewels selects the highest-fan multi-turn schedule among distinct plans with equal maximum expected drops', () => {
+  // Over 4 turns with REFERENCE_WIN_RATES['7:6'] = [1, 0.95, 0.8, 0.7, 0.5],
+  // [1, 2, rest, 4] and [1, rest, 3, 4] both achieve the strict maximum 0.12 drops;
+  // resting on turn 2 instead of turn 3 preserves turn 3's 30,000-fan GI.
+  const races = [
+    { ...race, id: 1, turn: 1, grade: 200, fans: 5000 },
+    { ...race, id: 2, turn: 2, grade: 200, fans: 6000 },
+    { ...race, id: 3, turn: 3, grade: 100, fans: 30000 },
+    { ...race, id: 4, turn: 4, grade: 100, fans: 10000 },
+  ];
+  const result = optimizeRaceSchedule({
+    ...input,
+    startTurn: 1,
+    endTurn: 4,
+    races,
+    winRates: { '7:6': [1, 0.95, 0.8, 0.7, 0.5] },
+  });
+  expect(result.expectedDrops).toBeCloseTo(0.12);
+  expect(result.steps.map((step) => step.race?.id ?? null)).toEqual([
+    1,
+    null,
+    3,
+    4,
+  ]);
+  expect(result.expectedFans).toBeCloseTo(45000 * 1.1);
 });
 
 test('jewel rankings prioritize fans when expected drops tie', () => {

@@ -8,6 +8,7 @@ import {
   Save,
   ShoppingBag,
   Swords,
+  Trophy,
   Upload,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
@@ -55,6 +56,7 @@ const emptyConfig = (): DailyTasksConfig => ({
   },
   team_stadium: { enabled: false, opponent_strength: 3 },
   limited_shop: { enabled: false, buy_all: true },
+  race_mission: { enabled: false },
 });
 
 const editableConfigKey = (config: DailyTasksConfig) =>
@@ -65,6 +67,7 @@ const editableConfigKey = (config: DailyTasksConfig) =>
     daily_legend_race: config.daily_legend_race,
     team_stadium: config.team_stadium,
     limited_shop: config.limited_shop,
+    race_mission: { enabled: Boolean(config.race_mission?.enabled) },
   });
 
 const toggleClass = (enabled: boolean) =>
@@ -110,6 +113,7 @@ const taskNames: Record<string, string> = {
   daily_legend_race: '每日传奇赛事',
   team_stadium: '竞技场',
   limited_shop: '限时商店',
+  race_mission: '自动完成比赛任务',
 };
 
 type DailyHorse = DailyTasksOptions['trained_charas'][number];
@@ -265,7 +269,15 @@ function DailyTasksTab({
     if (syncedConfigKey.current === nextConfigKey) return;
 
     syncedConfigKey.current = nextConfigKey;
-    setDraft(structuredClone(overview.daily_tasks));
+    const source = overview.daily_tasks;
+    setDraft({
+      ...source,
+      daily_race: { ...source.daily_race },
+      daily_legend_race: { ...source.daily_legend_race },
+      team_stadium: { ...source.team_stadium },
+      limited_shop: { ...source.limited_shop },
+      race_mission: { enabled: Boolean(source.race_mission?.enabled) },
+    });
   }, [overview]);
 
   if (locked) {
@@ -326,10 +338,21 @@ function DailyTasksTab({
   const dailyRaces = options.daily_races || [];
   const legendRaces = options.daily_legend_races || [];
   const trainedCharas = options.trained_charas || [];
+  const raceMissions = options.race_missions || [];
   const { availability } = options;
   const dailyRaceAvailability = availability?.daily_race;
   const legendRaceAvailability = availability?.daily_legend_race;
   const stadiumAvailability = availability?.team_stadium;
+  const raceMissionAvailability = availability?.race_mission;
+  let raceMissionNotice = '';
+  if (raceMissions.length > 0) {
+    raceMissionNotice = `当前待完成 ${raceMissions.length} 项：${Array.from(
+      new Set(raceMissions.map((item) => item.race_name)),
+    ).join('、')}`;
+  } else if (raceMissionAvailability) {
+    raceMissionNotice =
+      raceMissionAvailability.reason || '当前无待完成的限定赛事任务';
+  }
   const disabled =
     locked || ['daily-save', 'daily-upload', 'daily-run'].includes(busy);
   const taskResults = overview.daily_tasks.task_results || {};
@@ -626,6 +649,39 @@ function DailyTasksTab({
           </div>
         </section>
       </div>
+
+      <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2">
+            <Trophy className="mt-1 shrink-0 text-slate-400" size={19} />
+            <div>
+              <h3 className="text-section font-semibold text-slate-800">
+                自动完成比赛任务
+              </h3>
+              <p className="text-label text-slate-500">
+                挂钻／刷粉丝育成时自动安排期间限定赛事任务（种马配置不触发）；若胜率低于
+                80% 或与生涯目标冲突，自动临时切换不冲突马娘与自有种马完成
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={Boolean(draft.race_mission?.enabled)}
+            label="启用自动完成比赛任务"
+            disabled={disabled}
+            onChange={(enabled) =>
+              setDraft((current) => ({
+                ...current,
+                race_mission: { enabled },
+              }))
+            }
+          />
+        </div>
+        {raceMissionNotice ? (
+          <AutoResearchNotice compact className="mt-3">
+            {raceMissionNotice}
+          </AutoResearchNotice>
+        ) : null}
+      </section>
 
       <section className={panelClass('dailyTaskPanel p-4 sm:p-5')}>
         <div className="flex flex-wrap items-center justify-between gap-4">
