@@ -51,7 +51,7 @@ test('fans applies support bonus and the 1.10 correction once to regular and aut
   expect(result.automaticRaces[0].expectedFans).toBeCloseTo(1155);
   expect(result.automaticRaces[0].totalExpectedFans).toBeCloseTo(1188);
   expect(result.expectedFans).toBeCloseTo(1188);
-  expect(result.expectedDrops).toBeCloseTo(0.058);
+  expect(result.expectedDrops).toBeCloseTo(0.06);
   const empty = optimizeRaceSchedule({
     ...input,
     races: [],
@@ -79,7 +79,7 @@ test('career goals add 10 points at the real streak while ordinary fixed and sub
     0.8, 0.8, 0.6, 0.5, 0.2,
   ]);
   expect(result.steps.map((step) => step.streak)).toEqual([1, 2, 3, 4, 5]);
-  expect(result.expectedDrops).toBeCloseTo(0.089);
+  expect(result.expectedDrops).toBeCloseTo(0.117);
 });
 
 test('jewel optimization rests to reset the new drop rates', () => {
@@ -89,8 +89,8 @@ test('jewel optimization rests to reset the new drop rates', () => {
     races: [1, 2, 3, 4, 5].map((turn) => ({ ...race, id: turn, turn })),
     winRates: { '7:6': [1, 1, 1, 1, 1] },
   });
-  expect(result.steps.map((step) => step.streak)).toEqual([1, 2, 0, 1, 2]);
-  expect(result.expectedDrops).toBeCloseTo(0.16);
+  expect(result.steps.map((step) => step.streak)).toEqual([1, 2, 3, 0, 1]);
+  expect(result.expectedDrops).toBeCloseTo(0.2);
 });
 
 test('forced sixth and later races give zero drops, including goals; resting restores the first-race rate', () => {
@@ -110,7 +110,7 @@ test('forced sixth and later races give zero drops, including goals; resting res
   expect(result.steps.map((step) => step.streak)).toEqual([
     1, 2, 3, 4, 5, 6, 7, 0, 1,
   ]);
-  expect(result.expectedDrops).toBeCloseTo(0.17);
+  expect(result.expectedDrops).toBeCloseTo(0.22);
 });
 
 test('catalog marks career goals independently of manually fixed races and includes programGroup domestic races like Japan Cup', () => {
@@ -222,7 +222,7 @@ test('inheritance recommends the minimum stars for an actual benefit and no fact
   expect(result.demands).toEqual([
     { type: 'mile', base: 6, target: 7, stars: 1, slots: 1 },
   ]);
-  expect(result.schedule.expectedDrops).toBe(0.04);
+  expect(result.schedule.expectedDrops).toBe(0.05);
   const tied = recommendRaceInheritance({
     ...input,
     winRates: { '7:6': [1, 1, 1, 1, 1], '7:7': [1, 1, 1, 1, 1] },
@@ -325,7 +325,7 @@ test('jewels never trades away expected drops for a larger fan reward', () => {
     },
   });
   expect(result.steps[0].race?.id).toBe(300);
-  expect(result.expectedDrops).toBeCloseTo(0.04);
+  expect(result.expectedDrops).toBeCloseTo(0.05);
   expect(result.expectedFans).toBeCloseTo(3900 * 1.1);
 });
 
@@ -367,13 +367,14 @@ test('jewels excludes OP and Pre-OP races on elective turns and gives zero drops
     6,
   ]);
   expect(result.steps.map((step) => step.streak)).toEqual([1, 0, 0, 1, 2, 3]);
-  // Only turn 4 (SP, streak 1 -> 0.04) and turn 6 (GIII, streak 3 -> 0.03) drop jewels; Debut (turn 1) and OP goal (turn 5) drop 0.
-  expect(result.expectedDrops).toBeCloseTo(0.07);
+  // Only turn 4 (SP, streak 1 -> 0.05) and turn 6 (GIII, streak 3 -> 0.05) drop jewels; Debut (turn 1) and OP goal (turn 5) drop 0.
+  expect(result.expectedDrops).toBeCloseTo(0.1);
 });
 
 test('jewels selects the highest-fan multi-turn schedule among distinct plans with equal maximum expected drops', () => {
-  // Over 4 turns with REFERENCE_WIN_RATES['7:6'] = [1, 0.95, 0.8, 0.7, 0.5],
-  // [1, 2, rest, 4] and [1, rest, 3, 4] both achieve the strict maximum 0.12 drops;
+  // Use win rates that make racing all 4 turns worse than taking one rest:
+  // 0.05 + 0.05 + 0.8 * 0.05 + 0.7 * 0.01 = 0.147 drops.
+  // [1, 2, rest, 4] and [1, rest, 3, 4] both achieve the strict maximum 0.15 drops;
   // resting on turn 2 instead of turn 3 preserves turn 3's 30,000-fan GI.
   const races = [
     { ...race, id: 1, turn: 1, grade: 200, fans: 5000 },
@@ -386,9 +387,9 @@ test('jewels selects the highest-fan multi-turn schedule among distinct plans wi
     startTurn: 1,
     endTurn: 4,
     races,
-    winRates: { '7:6': [1, 0.95, 0.8, 0.7, 0.5] },
+    winRates: { '7:6': [1, 0.8, 0.7, 0.5, 0.3] },
   });
-  expect(result.expectedDrops).toBeCloseTo(0.12);
+  expect(result.expectedDrops).toBeCloseTo(0.15);
   expect(result.steps.map((step) => step.race?.id ?? null)).toEqual([
     1,
     null,

@@ -222,7 +222,7 @@ test('one-click applies goal bonus at the actual streak and zero drops after fiv
     expect(steps.map((step) => step.streak)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(steps[3].winProbability).toBeCloseTo(0.9);
     expect(steps[5].winProbability).toBeCloseTo(0.5);
-    expect(result.schedule.expectedDrops).toBeCloseTo(0.1245);
+    expect(result.schedule.expectedDrops).toBeCloseTo(0.1635);
   } finally {
     spy.mockRestore();
   }
@@ -389,6 +389,6 @@ test('one-click jewel design excludes elective OP/Pre-OP races, includes Japan C
     },
   );
   expect(best?.parents).toEqual([middleParent, neutralParent]);
-  expect(best?.schedule.expectedDrops).toBeCloseTo(0.04);
+  expect(best?.schedule.expectedDrops).toBeCloseTo(0.05);
   expect(best?.schedule.steps[0].race?.name).toBe('全国杯');
 });
