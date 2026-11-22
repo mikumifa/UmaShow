@@ -43,8 +43,10 @@ import { compareRaces } from './shared';
 import SkillSelector, {
   AutoResearchSkill,
   isInheritedUniqueSkill,
+  PrioritySkillName,
   skillIconPath,
   SkillMetadata,
+  type SkillTiers,
 } from './SkillSelector';
 import {
   isRentalParent,
@@ -94,6 +96,9 @@ type Props = {
 
 const raceKey = (year: number, programId: number) => year * 100000 + programId;
 const EMPTY_SKILL_GROUPS: SkillSourcesByGroup = new Map();
+
+// A saved double-circle target uses the single-circle row in the picker.
+const visibleTargetName = (name: string) => name.replace(/◎$/, '○');
 
 const BLUE_FACTORS = [
   ['speed', '速度'],
@@ -396,7 +401,7 @@ function OfflineCareerSettings({
       const existing = current.targets.find(
         (item) => item.factor_group_id === target.factor_group_id,
       );
-      if (existing && existing.name !== target.name) {
+      if (existing && visibleTargetName(existing.name) !== visibleTargetName(target.name)) {
         return {
           ...current,
           targets: current.targets.map((item) =>
@@ -456,17 +461,28 @@ function OfflineCareerSettings({
   };
   const selectedSkillNames = factorSelection.targets
     .filter((target) => target.kind === 'skill')
-    .map((target) => target.name);
+    .map((target) => visibleTargetName(target.name));
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
   );
-  const whiteSkills = useMemo(
+  const prioritySkills = useMemo(
     () => skills.filter(
-      (skill) => skill.rarity === 1 && !isInheritedUniqueSkill(skill),
+      (skill) => skill.rarity === 2 ||
+        (skill.rarity === 1 && !isInheritedUniqueSkill(skill) && !skill.name.endsWith('◎')),
     ),
     [skills],
   );
+  const tiersByGroup = useMemo(() => {
+    const groups = new Map<number, SkillTiers>();
+    for (const skill of prioritySkills) {
+      if (!skill.group_id) continue;
+      const tiers = groups.get(skill.group_id) ?? {};
+      tiers[skill.rarity === 2 ? 'gold' : 'white'] = skill.name;
+      groups.set(skill.group_id, tiers);
+    }
+    return groups;
+  }, [prioritySkills]);
   const deferredSpecificLineageSearch = useDeferredValue(specificLineageSearch);
   const normalizedSpecificLineageSearch = deferredSpecificLineageSearch
     .trim()
@@ -862,7 +878,9 @@ function OfflineCareerSettings({
       <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
         {factorSelection.targets.map((target, index) => {
           const targetKey = `${target.kind}:${target.factor_group_id}`;
-          const skill = target.kind === 'skill' ? skillByName.get(target.name) : undefined;
+          const skill = target.kind === 'skill'
+            ? skillByName.get(visibleTargetName(target.name)) ?? skillByName.get(target.name)
+            : undefined;
           const iconPath =
             target.kind === 'aptitude'
               ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
@@ -908,7 +926,9 @@ function OfflineCareerSettings({
               <div className="flex min-w-0 flex-[1_1_14rem] items-center gap-[11px]">
                 <PlannerSkillCardContent
                   iconPath={iconPath}
-                  name={target.name}
+                  name={skill
+                    ? <PrioritySkillName skill={skill} tiers={tiersByGroup.get(skill.group_id)} />
+                    : target.name}
                   meta={
                     skill ? <SkillMetadata skill={skill} /> : target.kind === 'aptitude' && '适应性因子'
                   }
@@ -1907,8 +1927,9 @@ function OfflineCareerSettings({
 
       <SkillSelector
         open={filteringFactors && factorSkillPickerOpen}
-        title="选择目标白因子技能"
-        skills={whiteSkills}
+        title="选择目标技能"
+        skills={prioritySkills}
+        tiersByGroup={tiersByGroup}
         obtainableGroups={factorOnly ? undefined : obtainableGroups}
         showKindFilter={false}
         selectedNames={selectedSkillNames}

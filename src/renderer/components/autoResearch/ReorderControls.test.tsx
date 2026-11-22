@@ -58,10 +58,10 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
         parents={[]}
         umas={[]}
         obtainableGroups={new Map([
-          [20001, [{ label: '种马' }, { label: '事件', supportId: 30001, supportName: '特别周' }]],
-          [90001, [{ label: '种马' }]],
+          [20001, { white: [{ label: '种马' }, { label: '事件', supportId: 30001, supportName: '特别周' }], gold: [] }],
+          [90001, { white: [{ label: '种马' }], gold: [] }],
         ])}
-        skills={[200011, 200012, 201192, 201191, 900011].map(
+        skills={[200011, 200012, 200014, 201192, 201191, 900011].map(
           (id) => localAutoResearchSkillById.get(id)!,
         )}
       />
@@ -155,11 +155,18 @@ test('disabling factor filtering collapses both editors and keeps score maximiza
   expect(screen.queryByText('优先技能')).toBeNull();
   fireEvent.click(button('添加技能'));
   const picker = within(
-    screen.getByRole('dialog', { name: '选择目标白因子技能' }),
+    screen.getByRole('dialog', { name: '选择目标技能' }),
   );
   expect(picker.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
-  fireEvent.click(picker.getByRole('button', { name: /顺时针◎/ }));
-  fireEvent.click(picker.getByRole('button', { name: /顺时针○/ }));
+  expect(picker.queryByRole('button', { name: /顺时针◎/ })).toBeNull();
+  const gold = picker.getByRole('button', { name: /^顺时针恶煞/ });
+  expect(gold).toHaveTextContent('下位 · 顺时针○');
+  expect(within(gold).getByText('顺时针恶煞')).toHaveClass('plannerSkillGoldText');
+  fireEvent.click(gold);
+  expect(offlineSkillRequest(readState().factorSelection).priority_skill_array).toEqual([
+    { priority: 1, skill_id: 200014 },
+  ]);
+  fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
   const request = offlineSkillRequest(readState().factorSelection);
   expect(request.priority_skill_array).toEqual([
     { priority: 1, skill_id: 200012 },
@@ -183,16 +190,17 @@ test('disabling factor filtering collapses both editors and keeps score maximiza
 test('skill scopes preserve selections and search, and both views show the game description', () => {
   render(<OfflineForm />);
   fireEvent.click(button('添加技能'));
-  const dialog = within(screen.getByRole('dialog', { name: '选择目标白因子技能' }));
+  const dialog = within(screen.getByRole('dialog', { name: '选择目标技能' }));
   const all = dialog.getByRole('tab', { name: '全部技能' });
   const obtainable = dialog.getByRole('tab', { name: '可获得技能' });
   const search = dialog.getByRole('textbox', { name: '搜索技能名称' });
   const description = '在赛事中期领先一段距离时\n速度略微提升<长距离>';
   expect(all).toHaveAttribute('aria-selected', 'true');
-  expect(dialog.queryByRole('button', { name: /璀璨流星|领头心得/ })).toBeNull();
-  const skill = dialog.getByRole('button', { name: /保持领先/ });
+  expect(dialog.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
+  const skill = dialog.getByRole('button', { name: /^保持领先/ });
+  expect(skill).toHaveTextContent('上位 · 领头心得');
   expect(skill.textContent).toContain(description);
-  const pickerCopy = within(skill).getByText('保持领先').parentElement!;
+  const pickerCopy = within(skill).getByText('保持领先').closest<HTMLElement>('.plannerSkillCardCopy')!;
   expect(within(pickerCopy).getByText('白')).toBeVisible();
   expect(within(pickerCopy).getByText('长距离')).toBeVisible();
   fireEvent.click(skill);
@@ -202,16 +210,17 @@ test('skill scopes preserve selections and search, and both views show the game 
   expect(dialog.queryByRole('button', { name: /保持领先/ })).toBeNull();
   expect(search).toHaveValue('保持领先');
   fireEvent.change(search, { target: { value: '' } });
-  const availableCard = within(dialog.getByRole('button', { name: /顺时针○/ }));
+  expect(dialog.queryByRole('button', { name: /^顺时针恶煞/ })).toBeNull();
+  const availableCard = within(dialog.getByRole('button', { name: /^顺时针○/ }));
   expect(availableCard.getByText('种马')).toBeVisible();
   expect(availableCard.getByTitle('特别周 · 事件')).toBeVisible();
   expect(dialog.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
   fireEvent.click(all);
   expect(dialog.queryByTitle('特别周 · 事件')).toBeNull();
-  expect(dialog.getByRole('button', { name: /保持领先/ })).toHaveAttribute('aria-pressed', 'true');
+  expect(dialog.getByRole('button', { name: /^保持领先/ })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(dialog.getByRole('button', { name: '完成' }));
   const target = button('下移因子：保持领先').closest<HTMLElement>('[draggable]')!;
-  const selectedCopy = within(target).getByText('保持领先').parentElement!;
+  const selectedCopy = within(target).getByText('保持领先').closest('.plannerSkillCardCopy')!;
   expect(selectedCopy.textContent).toBe(pickerCopy.textContent);
 });
 

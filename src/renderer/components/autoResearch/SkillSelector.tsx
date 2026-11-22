@@ -229,6 +229,23 @@ export function skillIconPath(skill?: AutoResearchSkill) {
   return `skill_icons/${skill.icon_id}.png`;
 }
 
+export type SkillTiers = { white?: string; gold?: string };
+
+export function PrioritySkillName({ skill, tiers }: { skill: AutoResearchSkill; tiers?: SkillTiers }) {
+  const gold = skill.rarity === 2;
+  const related = gold ? tiers?.white : tiers?.gold;
+  return (
+    <>
+      <span className={gold ? 'plannerSkillGoldText' : undefined}>{skill.name}</span>
+      {related && (
+        <span className="ml-1.5 text-caption font-normal text-slate-600">
+          {gold ? '下位' : '上位'} · <span className={gold ? undefined : 'plannerSkillGoldText'}>{related}</span>
+        </span>
+      )}
+    </>
+  );
+}
+
 function normalizeSearch(value: string) {
   return value.trim().toLocaleLowerCase('zh-CN');
 }
@@ -262,7 +279,7 @@ export function SkillMetadata({ skill, showSkillPoints = false }: {
   ];
   return (
     <>
-      <span className={skill.rarity === 2 ? 'font-semibold text-amber-700' : ''}>
+      <span className={skill.rarity === 2 ? 'plannerSkillGoldText font-semibold' : ''}>
         {skillRarityLabel(skill)}
       </span>
       {isInheritedUniqueSkill(skill) && (
@@ -317,6 +334,7 @@ const SkillGridItem = memo(function SkillGridItem({
   blocked,
   showSkillPoints,
   showDescription,
+  tiers,
   sources,
   onSelect,
 }: {
@@ -325,6 +343,7 @@ const SkillGridItem = memo(function SkillGridItem({
   blocked: boolean;
   showSkillPoints: boolean;
   showDescription: boolean;
+  tiers?: SkillTiers;
   sources?: readonly SkillSource[];
   onSelect: (skill: AutoResearchSkill) => void;
 }) {
@@ -338,7 +357,7 @@ const SkillGridItem = memo(function SkillGridItem({
       disabled={blocked}
       selected={selected}
       iconPath={skillIconPath(skill)}
-      name={skill.name}
+      name={tiers ? <PrioritySkillName skill={skill} tiers={tiers} /> : skill.name}
       description={showDescription ? skill.description || '暂无技能说明' : undefined}
       rarity={skill.rarity}
       meta={<SkillMetadata skill={skill} showSkillPoints={showSkillPoints} />}
@@ -354,6 +373,7 @@ export default function SkillSelector({
   description,
   skills,
   obtainableGroups,
+  tiersByGroup,
   selectedNames,
   blockedNames = [],
   showKindFilter = true,
@@ -369,6 +389,7 @@ export default function SkillSelector({
   description?: string;
   skills: AutoResearchSkill[];
   obtainableGroups?: SkillSourcesByGroup;
+  tiersByGroup?: ReadonlyMap<number, SkillTiers>;
   selectedNames: string[];
   blockedNames?: string[];
   showKindFilter?: boolean;
@@ -423,7 +444,7 @@ export default function SkillSelector({
       if (
         obtainableGroups &&
         scope === '可获得技能' &&
-        !obtainableGroups.has(skill.group_id)
+        !obtainableGroups.get(skill.group_id)?.[skill.rarity === 2 ? 'gold' : 'white'].length
       ) {
         return false;
       }
@@ -782,7 +803,10 @@ export default function SkillSelector({
                 blocked={blocked}
                 showSkillPoints={showSkillPoints}
                 showDescription={Boolean(obtainableGroups)}
-                sources={scope === '可获得技能' ? obtainableGroups?.get(entry.skill.group_id) : undefined}
+                tiers={tiersByGroup?.get(entry.skill.group_id)}
+                sources={scope === '可获得技能'
+                  ? obtainableGroups?.get(entry.skill.group_id)?.[entry.skill.rarity === 2 ? 'gold' : 'white']
+                  : undefined}
                 onSelect={handleSelectSkill}
               />
             );

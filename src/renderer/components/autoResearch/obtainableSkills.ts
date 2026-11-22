@@ -12,13 +12,14 @@ export type SkillSource = {
   supportId?: number;
   supportName?: string;
 };
-export type SkillSourcesByGroup = ReadonlyMap<number, readonly SkillSource[]>;
+type TierSources = { white: SkillSource[]; gold: SkillSource[] };
+export type SkillSourcesByGroup = ReadonlyMap<number, TierSources>;
 
 function skillGroups(ids: number[] = []) {
-  const groups = new Set<number>();
+  const groups = new Map<number, boolean>();
   for (const id of ids) {
-    const group = localCatalog.skills[id]?.group_id;
-    if (group) groups.add(group);
+    const skill = localCatalog.skills[id];
+    if (skill?.group_id) groups.set(skill.group_id, skill.rarity === 2 || groups.get(skill.group_id) === true);
   }
   return groups;
 }
@@ -38,22 +39,27 @@ export function obtainableSkillGroups({
   scenarioId: number;
   factorMeta?: Record<number, { skillGroupIds: number[] }>;
 }) {
-  const groups = new Map<number, SkillSource[]>();
-  const add = (group: number, source: SkillSource) => {
-    const existing = groups.get(group);
-    if (!existing) groups.set(group, [source]);
-    else if (!existing.some((item) => item.label === source.label && item.supportId === source.supportId)) {
+  const groups = new Map<number, TierSources>();
+  const add = (group: number, source: SkillSource, tier: keyof TierSources = 'white') => {
+    if (!groups.has(group)) groups.set(group, { white: [], gold: [] });
+    const existing = groups.get(group)![tier];
+    if (!existing.some((item) => item.label === source.label && item.supportId === source.supportId)) {
       existing.push(source);
+    }
+  };
+  const addHints = (ids: number[] | undefined, source: SkillSource) => {
+    for (const [group, hasGold] of skillGroups(ids)) {
+      add(group, source);
+      if (hasGold) add(group, source, 'gold');
     }
   };
   if (uma) {
     localCatalog.available_skills_by_card[uma.id]?.forEach(({ need_rank, skill_id }) => {
-      const group = localCatalog.skills[skill_id]?.group_id;
-      if (group && need_rank <= uma.talent_level) {
-        add(group, { label: need_rank ? `觉醒 Lv.${need_rank}` : '初始' });
+      if (need_rank <= uma.talent_level) {
+        addHints([skill_id], { label: need_rank ? `觉醒 Lv.${need_rank}` : '初始' });
       }
     });
-    for (const group of skillGroups(events.uma[uma.id])) add(group, { label: '马娘事件' });
+    addHints(events.uma[uma.id], { label: '马娘事件' });
   }
   for (const parent of parents) {
     if (!parent) continue;
@@ -68,13 +74,15 @@ export function obtainableSkillGroups({
     const training = skillGroups(localCatalog.support_hint_skills[supportId]);
     const event = skillGroups(events.support[supportId]);
     const supportName = supports.find((card) => card.id === supportId)?.name || `支援卡 ${supportId}`;
-    for (const group of new Set([...training, ...event])) {
-      const methods = [];
-      if (training.has(group)) methods.push('训练');
-      if (event.has(group)) methods.push('事件');
-      add(group, { supportId, supportName, label: methods.join(' / ') });
+    for (const group of new Set([...training.keys(), ...event.keys()])) {
+      for (const tier of ['white', 'gold'] as const) {
+        const methods = [];
+        if (tier === 'gold' ? training.get(group) : training.has(group)) methods.push('训练');
+        if (tier === 'gold' ? event.get(group) : event.has(group)) methods.push('事件');
+        if (methods.length) add(group, { supportId, supportName, label: methods.join(' / ') }, tier);
+      }
     }
   }
-  for (const group of skillGroups(events.scenario[scenarioId])) add(group, { label: '剧本事件' });
+  addHints(events.scenario[scenarioId], { label: '剧本事件' });
   return groups;
 }

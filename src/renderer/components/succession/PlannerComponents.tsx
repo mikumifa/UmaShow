@@ -244,7 +244,7 @@ export const PlannerSelectionCard = memo(function PlannerSelectionCard({
 
 type SkillCardContentProps = {
   iconPath?: string | null;
-  name: string;
+  name: ReactNode;
   meta?: ReactNode;
   description?: string;
   sources?: ReactNode;
