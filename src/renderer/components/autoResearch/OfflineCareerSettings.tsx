@@ -969,10 +969,10 @@ function OfflineCareerSettings({
               <X size={15} />
             </button>
           </div>
-          <details>
-            <summary className="w-fit cursor-pointer text-caption text-slate-600">选择适应性</summary>
+          <fieldset className="min-w-0">
+            <legend className="text-caption text-slate-600">适应性</legend>
             {aptitudeChoices(group.targets, group.id)}
-          </details>
+          </fieldset>
           {group.targets.length > 0 && targetCards(group.targets, group.id)}
         </section>
       ))}

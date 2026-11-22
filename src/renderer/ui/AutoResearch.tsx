@@ -6534,39 +6534,6 @@ export default function AutoResearch() {
               max-height: none;
               overflow: visible;
             }
-            html[data-autouma] .plannerSkillFilters {
-              padding: 0.5rem;
-            }
-            html[data-autouma] .plannerSkillFilterRow {
-              flex-wrap: nowrap;
-              gap: 0.375rem;
-              overflow-x: auto;
-              padding-bottom: 0.125rem;
-              overscroll-behavior-x: contain;
-              scrollbar-width: none;
-              -webkit-overflow-scrolling: touch;
-            }
-            html[data-autouma] .plannerSkillFilterRow::-webkit-scrollbar {
-              display: none;
-            }
-            html[data-autouma] .plannerSkillFilterRow > span:first-child {
-              position: sticky;
-              left: 0;
-              z-index: 1;
-              width: 2.25rem;
-              background: #f8fafc;
-              font-size: var(--uma-type-caption);
-            }
-            html[data-autouma] .plannerSkillFilterRow .plannerButton.filter {
-              min-height: 1.75rem;
-              flex: 0 0 auto;
-              padding: 0.25rem 0.5rem;
-              font-size: var(--uma-type-caption);
-            }
-            html[data-autouma] .plannerSkillFilterRow .plannerButton.filter span {
-              width: 1rem;
-              height: 1rem;
-            }
             html[data-autouma] .successionPickerGrid,
             html[data-autouma] .successionCapturedPickerGrid,
             html[data-autouma] .plannerDailyHorseBody,

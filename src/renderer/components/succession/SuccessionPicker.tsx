@@ -36,6 +36,7 @@ type SuccessionPickerFilterSheetProps = {
   title?: string;
   summary?: ReactNode;
   onClear?: () => void;
+  clearLabel?: string;
   children: ReactNode;
 };
 
@@ -43,6 +44,7 @@ export function SuccessionPickerFilterSheet({
   title = '筛选条件',
   summary,
   onClear,
+  clearLabel = '清空筛选',
   children,
 }: SuccessionPickerFilterSheetProps) {
   const [open, setOpen] = useState(false);
@@ -99,7 +101,7 @@ export function SuccessionPickerFilterSheet({
                       className="secondary"
                       onClick={onClear}
                     >
-                      清空筛选
+                      {clearLabel}
                     </button>
                   ) : null}
                   <button type="button" onClick={() => setOpen(false)}>

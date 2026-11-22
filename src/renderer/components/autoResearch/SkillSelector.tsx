@@ -579,6 +579,16 @@ export default function SkillSelector({
 
   if (!open) return null;
 
+  const hasActiveFilters = effectFilters.length > 0 || runningStyleFilters.length > 0 ||
+    distanceFilters.length > 0 || skillKind !== 'all' || rarity !== 'all';
+  const clearFilters = () => {
+    setSkillKind('all');
+    setRarity('all');
+    setEffectFilters([]);
+    setRunningStyleFilters([]);
+    setDistanceFilters([]);
+  };
+
   return (
     <SuccessionPickerDialog
       ariaLabel={title}
@@ -650,7 +660,12 @@ export default function SkillSelector({
           ))}
         </div>
       )}
-      <SuccessionPickerFilterSheet title="筛选技能" summary={groupLabel}>
+      <SuccessionPickerFilterSheet
+        title="筛选技能"
+        summary={groupLabel}
+        clearLabel="清除筛选"
+        onClear={hasActiveFilters ? clearFilters : undefined}
+      >
         <div className="plannerSkillFilters">
           <div className="space-y-2.5">
           {showKindFilter && (
@@ -765,26 +780,6 @@ export default function SkillSelector({
                 </PlannerButton>
               );
             })}
-            {(effectFilters.length ||
-              runningStyleFilters.length ||
-              distanceFilters.length ||
-              skillKind !== 'all' ||
-              rarity !== 'all') && (
-              <PlannerButton
-                variant="ghost"
-                size="small"
-                onClick={() => {
-                  setSkillKind('all');
-                  setRarity('all');
-                  setEffectFilters([]);
-                  setRunningStyleFilters([]);
-                  setDistanceFilters([]);
-                }}
-                className="ml-auto"
-              >
-                清除筛选
-              </PlannerButton>
-            )}
           </div>
           </div>
         </div>

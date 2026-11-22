@@ -260,6 +260,14 @@ test('creates an empty group, adds tied skills there, and moves a target between
   expect(screen.getByRole('region', { name: '优先级 2' }).nextElementSibling).toBe(createButtons[1]);
   fireEvent.click(createButtons[1]);
   const group = priorityGroup(3);
+  const aptitudes = within(group.getByRole('group', { name: '适应性' }));
+  expect(aptitudes.getByRole('button', { name: /草地.*第 1 组已选/ })).toBeDisabled();
+  const frontRunner = aptitudes.getByRole('button', { name: '领跑' });
+  expect(frontRunner).toBeVisible();
+  fireEvent.click(frontRunner);
+  expect(frontRunner).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(frontRunner);
+  expect(frontRunner).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(group.getByRole('button', { name: '添加技能' }));
   const picker = within(screen.getByRole('dialog', { name: '优先级 3 · 添加技能' }));
   fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
