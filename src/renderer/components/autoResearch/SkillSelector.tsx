@@ -5,6 +5,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -20,10 +21,13 @@ import {
   SuccessionPickerFilterSheet,
 } from 'renderer/components/succession/SuccessionPicker';
 import useScrollLoadMore from './useScrollLoadMore';
+import { supportIconPath } from './SelectionCards';
+import type { SkillSource, SkillSourcesByGroup } from './obtainableSkills';
 
 export type AutoResearchSkill = {
   id: number;
   name: string;
+  description?: string;
   rarity: number;
   group_id: number;
   grade_value: number;
@@ -248,32 +252,80 @@ function selectedTagLabels(
     .map((filter) => filter.label);
 }
 
+export function SkillMetadata({ skill, showSkillPoints = false }: {
+  skill: AutoResearchSkill;
+  showSkillPoints?: boolean;
+}) {
+  const tags = [
+    ...selectedTagLabels(skill, RUNNING_STYLE_FILTERS),
+    ...selectedTagLabels(skill, DISTANCE_FILTERS),
+  ];
+  return (
+    <>
+      <span className={skill.rarity === 2 ? 'font-semibold text-amber-700' : ''}>
+        {skillRarityLabel(skill)}
+      </span>
+      {isInheritedUniqueSkill(skill) && (
+        <span className="font-semibold text-violet-700">继承固有</span>
+      )}
+      {showSkillPoints && <span>{skill.need_skill_point}pt</span>}
+      <span>{skillEffectLabel(skill)}</span>
+      {tags.map((label) => <span key={label}>{label}</span>)}
+    </>
+  );
+}
+
 type IndexedSkillEntry = {
   skill: AutoResearchSkill;
   inheritedUnique: boolean;
   effectId: string;
-  effectLabel: string;
-  rarityLabel: string;
-  iconPath?: string;
-  tagLabels: string[];
   normalizedName: string;
   idString: string;
 };
 
 const INITIAL_SKILL_BATCH = 96;
 const SKILL_BATCH_STEP = 120;
+const SKILL_SCOPES = ['全部技能', '可获得技能'] as const;
+
+function SkillSourceBadges({ sources }: { sources: readonly SkillSource[] }) {
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {sources.map(({ label, supportId, supportName }) => (
+        <span
+          key={supportId ?? label}
+          title={supportId ? `${supportName} · ${label}` : undefined}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-label text-slate-700"
+        >
+          {supportId && (
+            <AssetIcon
+              path={supportIconPath(supportId)}
+              alt={supportName || `支援卡 ${supportId}`}
+              className="h-6 w-6 rounded object-contain"
+              fallback={<span>{supportName || `支援卡 ${supportId}`}</span>}
+            />
+          )}
+          {label}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const SkillGridItem = memo(function SkillGridItem({
   entry,
   selected,
   blocked,
   showSkillPoints,
+  showDescription,
+  sources,
   onSelect,
 }: {
   entry: IndexedSkillEntry;
   selected: boolean;
   blocked: boolean;
   showSkillPoints: boolean;
+  showDescription: boolean;
+  sources?: readonly SkillSource[];
   onSelect: (skill: AutoResearchSkill) => void;
 }) {
   const { skill } = entry;
@@ -285,28 +337,12 @@ const SkillGridItem = memo(function SkillGridItem({
     <PlannerSkillCard
       disabled={blocked}
       selected={selected}
-      iconPath={entry.iconPath}
+      iconPath={skillIconPath(skill)}
       name={skill.name}
+      description={showDescription ? skill.description || '暂无技能说明' : undefined}
       rarity={skill.rarity}
-      meta={
-        <>
-          <span
-            className={
-              skill.rarity === 2 ? 'font-semibold text-amber-700' : ''
-            }
-          >
-            {entry.rarityLabel}
-          </span>
-          {entry.inheritedUnique ? (
-            <span className="font-semibold text-violet-700">继承固有</span>
-          ) : null}
-          {showSkillPoints ? <span>{skill.need_skill_point}pt</span> : null}
-          <span>{entry.effectLabel}</span>
-          {entry.tagLabels.map((label) => (
-            <span key={label}>{label}</span>
-          ))}
-        </>
-      }
+      meta={<SkillMetadata skill={skill} showSkillPoints={showSkillPoints} />}
+      sources={sources && <SkillSourceBadges sources={sources} />}
       onClick={handleClick}
     />
   );
@@ -317,8 +353,10 @@ export default function SkillSelector({
   title,
   description,
   skills,
+  obtainableGroups,
   selectedNames,
   blockedNames = [],
+  showKindFilter = true,
   showRarityFilter = true,
   showSkillPoints = true,
   elevated = false,
@@ -330,8 +368,10 @@ export default function SkillSelector({
   title: string;
   description?: string;
   skills: AutoResearchSkill[];
+  obtainableGroups?: SkillSourcesByGroup;
   selectedNames: string[];
   blockedNames?: string[];
+  showKindFilter?: boolean;
   showRarityFilter?: boolean;
   showSkillPoints?: boolean;
   elevated?: boolean;
@@ -340,6 +380,8 @@ export default function SkillSelector({
   onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<(typeof SKILL_SCOPES)[number]>('全部技能');
+  const scopeId = useId();
   const deferredSearch = useDeferredValue(search);
   const [skillKind, setSkillKind] = useState<'all' | 'unique' | 'normal'>(
     'all',
@@ -361,13 +403,6 @@ export default function SkillSelector({
       skill,
       inheritedUnique: isInheritedUniqueSkill(skill),
       effectId: skillEffectFilterId(skill),
-      effectLabel: skillEffectLabel(skill),
-      rarityLabel: skillRarityLabel(skill),
-      iconPath: skillIconPath(skill),
-      tagLabels: [
-        ...selectedTagLabels(skill, RUNNING_STYLE_FILTERS),
-        ...selectedTagLabels(skill, DISTANCE_FILTERS),
-      ],
       normalizedName: normalizeSearch(skill.name),
       idString: String(skill.id),
     }));
@@ -385,6 +420,13 @@ export default function SkillSelector({
     const keyword = normalizeSearch(deferredSearch);
     return indexedSkills.filter((entry) => {
       const { skill } = entry;
+      if (
+        obtainableGroups &&
+        scope === '可获得技能' &&
+        !obtainableGroups.has(skill.group_id)
+      ) {
+        return false;
+      }
       if (skillKind === 'unique' && !entry.inheritedUnique) return false;
       if (skillKind === 'normal' && entry.inheritedUnique) return false;
       if (rarity === 'white' && skill.rarity !== 1) return false;
@@ -415,6 +457,8 @@ export default function SkillSelector({
     distanceFilters,
     effectFilterSet,
     indexedSkills,
+    obtainableGroups,
+    scope,
     open,
     rarity,
     runningStyleFilters,
@@ -428,6 +472,8 @@ export default function SkillSelector({
     distanceFilters,
     effectFilters,
     open,
+    scope,
+    obtainableGroups,
     rarity,
     runningStyleFilters,
     skillKind,
@@ -446,7 +492,7 @@ export default function SkillSelector({
         Math.min(filteredEntries.length, count + SKILL_BATCH_STEP),
       ),
     itemCount: visibleEntries.length,
-    resetKey: `${open}:${filteredEntries.length}:${skillKind}:${rarity}:${deferredSearch}`,
+    resetKey: `${open}:${scope}:${filteredEntries.length}:${skillKind}:${rarity}:${deferredSearch}`,
   });
 
   const unselectedFilteredSkills = useMemo(
@@ -481,13 +527,16 @@ export default function SkillSelector({
       ).map((filter) => filter.groupLabel || filter.label),
     );
     if (search.trim()) labels.push(`“${search.trim()}”`);
-    return labels.length ? labels.join(' · ') : '全部技能';
+    if (labels.length) return labels.join(' · ');
+    return obtainableGroups ? scope : '全部技能';
   }, [
     distanceFilters,
     effectFilters,
     rarity,
     runningStyleFilters,
     search,
+    scope,
+    obtainableGroups,
     skillKind,
   ]);
 
@@ -543,29 +592,63 @@ export default function SkillSelector({
         </>
       }
     >
+      {obtainableGroups && (
+        <div role="tablist" aria-label="技能范围" className="flex gap-2 px-4 py-2">
+          {SKILL_SCOPES.map((label, index) => (
+            <PlannerButton
+              key={label}
+              role="tab"
+              id={`${scopeId}-${label}`}
+              aria-controls={scopeId}
+              aria-selected={scope === label}
+              tabIndex={scope === label ? 0 : -1}
+              variant="filter"
+              active={scope === label}
+              onClick={() => setScope(label)}
+              onKeyDown={(event) => {
+                const destinations: Record<string, number> = {
+                  ArrowLeft: 1 - index,
+                  ArrowRight: 1 - index,
+                  Home: 0,
+                  End: 1,
+                };
+                const next = SKILL_SCOPES[destinations[event.key]];
+                if (!next) return;
+                event.preventDefault();
+                setScope(next);
+                document.getElementById(`${scopeId}-${next}`)?.focus();
+              }}
+            >
+              {label}
+            </PlannerButton>
+          ))}
+        </div>
+      )}
       <SuccessionPickerFilterSheet title="筛选技能" summary={groupLabel}>
         <div className="plannerSkillFilters">
           <div className="space-y-2.5">
-          <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
-            <span className="w-10 flex-none text-xs font-medium text-slate-500">
-              类型
-            </span>
-            {[
-              ['all', '全部'],
-              ['unique', '固有'],
-              ['normal', '普通'],
-            ].map(([value, label]) => (
-              <PlannerButton
-                key={value}
-                variant="filter"
-                size="small"
-                active={skillKind === value}
-                onClick={() => setSkillKind(value as typeof skillKind)}
-              >
-                {label}
-              </PlannerButton>
-            ))}
-          </div>
+          {showKindFilter && (
+            <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
+              <span className="w-10 flex-none text-xs font-medium text-slate-500">
+                类型
+              </span>
+              {[
+                ['all', '全部'],
+                ['unique', '固有'],
+                ['normal', '普通'],
+              ].map(([value, label]) => (
+                <PlannerButton
+                  key={value}
+                  variant="filter"
+                  size="small"
+                  active={skillKind === value}
+                  onClick={() => setSkillKind(value as typeof skillKind)}
+                >
+                  {label}
+                </PlannerButton>
+              ))}
+            </div>
+          )}
           {showRarityFilter ? (
             <div className="plannerSkillFilterRow flex flex-wrap items-center gap-2">
               <span className="w-10 flex-none text-xs font-medium text-slate-500">
@@ -681,8 +764,13 @@ export default function SkillSelector({
         </div>
       </SuccessionPickerFilterSheet>
 
-      <div className="plannerSkillGridBody">
-        <div className="plannerSkillGrid">
+      <div
+        className="plannerSkillGridBody"
+        role={obtainableGroups ? 'tabpanel' : undefined}
+        id={obtainableGroups ? scopeId : undefined}
+        aria-labelledby={obtainableGroups ? `${scopeId}-${scope}` : undefined}
+      >
+        <div className={`plannerSkillGrid${obtainableGroups ? ' careerSkillGrid' : ''}`}>
           {visibleEntries.map((entry) => {
             const selected = selectedSet.has(entry.skill.name);
             const blocked = blockedSet.has(entry.skill.name) && !selected;
@@ -693,6 +781,8 @@ export default function SkillSelector({
                 selected={selected}
                 blocked={blocked}
                 showSkillPoints={showSkillPoints}
+                showDescription={Boolean(obtainableGroups)}
+                sources={scope === '可获得技能' ? obtainableGroups?.get(entry.skill.group_id) : undefined}
                 onSelect={handleSelectSkill}
               />
             );

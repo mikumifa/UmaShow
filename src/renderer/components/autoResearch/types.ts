@@ -644,12 +644,13 @@ export type OfflineFactorSelection = {
   enabled: boolean;
   evaluation_mode: 'parent' | 'ancestor';
   use_skill_priority: boolean;
+  blue_factor_minimums_version?: 2;
   blue_factor_minimums: {
-    speed: number;
-    stamina: number;
-    power: number;
-    guts: number;
-    wit: number;
+    speed?: number;
+    stamina?: number;
+    power?: number;
+    guts?: number;
+    wit?: number;
   };
   targets: OfflineFactorTarget[];
   lineage: {

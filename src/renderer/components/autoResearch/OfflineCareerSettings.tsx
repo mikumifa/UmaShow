@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   CalendarDays,
+  ChevronDown,
   Check,
   GripVertical,
   Pencil,
@@ -30,6 +31,7 @@ import {
   PlannerButton,
   PlannerPortrait,
   PlannerSelectionCard,
+  PlannerSkillCardContent,
 } from 'renderer/components/succession/PlannerComponents';
 import {
   matchesParentFactorFilters,
@@ -38,7 +40,9 @@ import {
 import { compareRaces } from './shared';
 import SkillSelector, {
   AutoResearchSkill,
+  isInheritedUniqueSkill,
   skillIconPath,
+  SkillMetadata,
 } from './SkillSelector';
 import {
   isRentalParent,
@@ -50,21 +54,22 @@ import {
   Dashboard,
   OfflineFactorSelection,
   OfflineFactorTarget,
-  OfflineSkillSettings,
   OfflineSingleModeSetup,
   RaceOption,
 } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import ReorderControls from './ReorderControls';
+import Toggle from './Toggle';
+import type { SkillSourcesByGroup } from './obtainableSkills';
 import ParentFactorFilters from './ParentFactorFilters';
 import useScrollLoadMore from './useScrollLoadMore';
 
 type Props = {
+  obtainableGroups?: SkillSourcesByGroup;
   factorOnly?: boolean;
   customSchedule?: boolean;
   setCustomSchedule?: (custom: boolean) => void;
-  customScheduleContent?: ReactNode;
-  customRaceCount?: number;
+  renderCustomSchedule?: (actionHost: HTMLDivElement | null) => ReactNode;
   setup: OfflineSingleModeSetup | null;
   selectedScenarioId: number;
   races: RaceOption[];
@@ -82,13 +87,10 @@ type Props = {
   parents: Dashboard['parents'];
   umas: Dashboard['umas'];
   skills: AutoResearchSkill[];
-  prioritySkillIds: number[];
-  setPrioritySkillIds: Dispatch<SetStateAction<number[]>>;
-  skillSettings: OfflineSkillSettings;
-  setSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
 
 const raceKey = (year: number, programId: number) => year * 100000 + programId;
+const EMPTY_SKILL_GROUPS: SkillSourcesByGroup = new Map();
 
 const BLUE_FACTORS = [
   ['speed', '速度'],
@@ -206,11 +208,11 @@ const INITIAL_LINEAGE_PARENT_LIMIT = 48;
 const LINEAGE_PARENT_BATCH_SIZE = 60;
 
 function OfflineCareerSettings({
+  obtainableGroups = EMPTY_SKILL_GROUPS,
   factorOnly = false,
   customSchedule = false,
   setCustomSchedule,
-  customScheduleContent,
-  customRaceCount = 0,
+  renderCustomSchedule,
   setup,
   selectedScenarioId,
   races,
@@ -224,21 +226,10 @@ function OfflineCareerSettings({
   parents,
   umas,
   skills,
-  prioritySkillIds,
-  setPrioritySkillIds,
-  skillSettings,
-  setSkillSettings,
 }: Props) {
   const [factorSkillPickerOpen, setFactorSkillPickerOpen] = useState(false);
-  const [prioritySkillPickerOpen, setPrioritySkillPickerOpen] = useState(false);
-  const [finalSkillPickerOpen, setFinalSkillPickerOpen] = useState(false);
   const [draggedFactorTarget, setDraggedFactorTarget] = useState('');
-  const [draggedFinalSkillIndex, setDraggedFinalSkillIndex] = useState<
-    number | null
-  >(null);
-  const [draggedPrioritySkillIndex, setDraggedPrioritySkillIndex] = useState<
-    number | null
-  >(null);
+  const [scheduleActionHost, setScheduleActionHost] = useState<HTMLDivElement | null>(null);
   const [editingDeckNum, setEditingDeckNum] = useState(0);
   const [editingDeckName, setEditingDeckName] = useState('');
   const [editingRaceIds, setEditingRaceIds] = useState<number[]>([]);
@@ -369,12 +360,20 @@ function OfflineCareerSettings({
     setFactorSelection((current) => ({ ...current, ...update }));
   const toggleTarget = (target: OfflineFactorTarget) => {
     setFactorSelection((current) => {
-      const exists = current.targets.some(
+      const existing = current.targets.find(
         (item) => item.factor_group_id === target.factor_group_id,
       );
+      if (existing && existing.name !== target.name) {
+        return {
+          ...current,
+          targets: current.targets.map((item) =>
+            item === existing ? { ...target, weight: existing.weight } : item,
+          ),
+        };
+      }
       return {
         ...current,
-        targets: exists
+        targets: existing
           ? current.targets.filter(
               (item) => item.factor_group_id !== target.factor_group_id,
             )
@@ -411,128 +410,16 @@ function OfflineCareerSettings({
   const selectedSkillNames = factorSelection.targets
     .filter((target) => target.kind === 'skill')
     .map((target) => target.name);
-  const selectedFinalSkillNames = skillSettings.learn_skill_list.flat();
   const skillByName = useMemo(
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
   );
-  const skillById = useMemo(
-    () => new Map(skills.map((skill) => [skill.id, skill])),
-    [skills],
-  );
   const whiteSkills = useMemo(
-    () => skills.filter((skill) => skill.rarity === 1),
+    () => skills.filter(
+      (skill) => skill.rarity === 1 && !isInheritedUniqueSkill(skill),
+    ),
     [skills],
   );
-  const selectedPrioritySkillNames = prioritySkillIds
-    .map((skillId) => skillById.get(skillId)?.name)
-    .filter((name): name is string => Boolean(name));
-  const togglePrioritySkill = (skill: AutoResearchSkill) =>
-    setPrioritySkillIds((current) => {
-      if (current.includes(skill.id)) {
-        return current.filter((skillId) => skillId !== skill.id);
-      }
-      return [...current, skill.id];
-    });
-  const reorderPrioritySkill = (sourceIndex: number, targetIndex: number) => {
-    if (sourceIndex === targetIndex) return;
-    setPrioritySkillIds((current) => {
-      if (
-        sourceIndex < 0 ||
-        targetIndex < 0 ||
-        sourceIndex >= current.length ||
-        targetIndex >= current.length
-      ) {
-        return current;
-      }
-      const next = [...current];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      return next;
-    });
-  };
-  const toggleFinalSkill = (skill: AutoResearchSkill) => {
-    setSkillSettings((current) => {
-      const exists = current.learn_skill_list.some((group) =>
-        group.includes(skill.name),
-      );
-      if (!exists) {
-        return {
-          ...current,
-          learn_skill_list: [...current.learn_skill_list, [skill.name]],
-          learn_skill_group_labels: [
-            ...current.learn_skill_group_labels,
-            skill.name,
-          ],
-        };
-      }
-      const kept = current.learn_skill_list
-        .map((group, index) => ({
-          group: group.filter((name) => name !== skill.name),
-          label: current.learn_skill_group_labels[index] || group.join(' / '),
-        }))
-        .filter((entry) => entry.group.length);
-      return {
-        ...current,
-        learn_skill_list: kept.map((entry) => entry.group),
-        learn_skill_group_labels: kept.map((entry) => entry.label),
-      };
-    });
-  };
-  const addFinalSkillGroup = (
-    selectedSkills: AutoResearchSkill[],
-    label: string,
-  ) => {
-    setSkillSettings((current) => {
-      const owned = new Set(current.learn_skill_list.flat());
-      const names = selectedSkills
-        .map((skill) => skill.name)
-        .filter((name) => !owned.has(name));
-      if (!names.length) return current;
-      return {
-        ...current,
-        learn_skill_list: [...current.learn_skill_list, names],
-        learn_skill_group_labels: [
-          ...current.learn_skill_group_labels,
-          label || names.join(' / '),
-        ],
-      };
-    });
-  };
-  const reorderFinalSkillGroup = (sourceIndex: number, targetIndex: number) => {
-    if (sourceIndex === targetIndex) return;
-    setSkillSettings((current) => {
-      if (
-        sourceIndex < 0 ||
-        targetIndex < 0 ||
-        sourceIndex >= current.learn_skill_list.length ||
-        targetIndex >= current.learn_skill_list.length
-      ) {
-        return current;
-      }
-      const groups = [...current.learn_skill_list];
-      const labels = [...current.learn_skill_group_labels];
-      const [movedGroup] = groups.splice(sourceIndex, 1);
-      const [movedLabel] = labels.splice(sourceIndex, 1);
-      groups.splice(targetIndex, 0, movedGroup);
-      labels.splice(targetIndex, 0, movedLabel);
-      return {
-        ...current,
-        learn_skill_list: groups,
-        learn_skill_group_labels: labels,
-      };
-    });
-  };
-  const removeFinalSkillGroup = (index: number) =>
-    setSkillSettings((current) => ({
-      ...current,
-      learn_skill_list: current.learn_skill_list.filter(
-        (_, groupIndex) => groupIndex !== index,
-      ),
-      learn_skill_group_labels: current.learn_skill_group_labels.filter(
-        (_, groupIndex) => groupIndex !== index,
-      ),
-    }));
   const deferredSpecificLineageSearch = useDeferredValue(specificLineageSearch);
   const normalizedSpecificLineageSearch = deferredSpecificLineageSearch
     .trim()
@@ -875,6 +762,183 @@ function OfflineCareerSettings({
     );
   };
 
+  const filteringFactors =
+    factorSelection.enabled && factorSelection.transfer_mode !== 'direct';
+  const targetEditor = (
+    <div className="lg:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <strong className="text-data text-slate-800">
+            {factorSelection.evaluation_mode === 'ancestor'
+              ? '适应性与技能因子权重'
+              : '适应性与技能优先级'}
+          </strong>
+          <p className="mt-0.5 text-label text-slate-500">
+            {filteringFactors &&
+              (factorSelection.evaluation_mode === 'ancestor'
+                ? '按两次继承的期望跳数加权累加。'
+                : '优先比较目标因子至少继承一次的概率，白因子兜底。')}
+            {!factorOnly &&
+              (factorSelection.evaluation_mode === 'ancestor'
+                ? '事件启发和结束点技能按技能权重从高到低，同权重按列表顺序。'
+                : '事件启发和结束点技能都按列表中的技能顺序。')}
+            {!factorOnly && '结束时优先学同组金技能或双圈，满足条件的技能会自动进化。'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFactorSkillPickerOpen(true)}
+          className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-caption font-semibold text-white hover:bg-indigo-700"
+        >
+          <Plus size={14} /> 添加技能
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {APTITUDE_FACTORS.map((target) => {
+          const selected = factorSelection.targets.some(
+            (item) => item.factor_group_id === target.factor_group_id,
+          );
+          return (
+            <button
+              key={target.factor_group_id}
+              type="button"
+              onClick={() => toggleTarget(target)}
+              className={`rounded-full border px-2.5 py-1 text-caption ${
+                selected
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-200 text-slate-600'
+              }`}
+            >
+              {target.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+        {factorSelection.targets.map((target, index) => {
+          const targetKey = `${target.kind}:${target.factor_group_id}`;
+          const skill = target.kind === 'skill' ? skillByName.get(target.name) : undefined;
+          const iconPath =
+            target.kind === 'aptitude'
+              ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
+              : skillIconPath(skill);
+          const draggable = factorSelection.evaluation_mode === 'parent';
+          return (
+            <div
+              key={targetKey}
+              draggable={draggable}
+              onDragStart={(event) => {
+                if (!draggable) return;
+                setDraggedFactorTarget(targetKey);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData(
+                  'text/plain',
+                  `factor-target:${targetKey}`,
+                );
+              }}
+              onDragOver={(event) => {
+                if (!draggable) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(event) => {
+                if (!draggable) return;
+                event.preventDefault();
+                const transferredKey = event.dataTransfer
+                  .getData('text/plain')
+                  .replace('factor-target:', '');
+                reorderTarget(transferredKey || draggedFactorTarget, targetKey);
+                setDraggedFactorTarget('');
+              }}
+              onDragEnd={() => setDraggedFactorTarget('')}
+              className={`plannerUiTheme flex min-w-0 flex-wrap content-start items-start gap-2 rounded-lg border bg-white px-2.5 py-2 shadow-sm ${
+                draggable ? 'cursor-grab active:cursor-grabbing' : ''
+              } ${
+                draggedFactorTarget === targetKey
+                  ? 'border-indigo-300 opacity-45'
+                  : 'border-slate-200'
+              }`}
+            >
+              <div className="flex min-w-0 flex-[1_1_14rem] items-center gap-[11px]">
+                <PlannerSkillCardContent
+                  iconPath={iconPath}
+                  name={target.name}
+                  meta={
+                    skill ? <SkillMetadata skill={skill} /> : target.kind === 'aptitude' && '适应性因子'
+                  }
+                  description={
+                    target.kind === 'skill' ? skill?.description || '暂无技能说明' : undefined
+                  }
+                />
+              </div>
+              <div className="ml-auto flex flex-none items-center gap-1">
+                <b className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-caption text-slate-600">
+                  {index + 1}
+                </b>
+                {factorSelection.evaluation_mode === 'ancestor' ? (
+                  <label className="flex flex-none flex-col text-label text-slate-500">
+                    权重
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={target.weight}
+                      onChange={(event) =>
+                        updateTargetWeight(
+                          target.factor_group_id,
+                          Number(event.target.value),
+                        )
+                      }
+                      className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-caption text-slate-700"
+                    />
+                  </label>
+                ) : (
+                  <>
+                    <ReorderControls
+                      label={`因子：${target.name}`}
+                      index={index}
+                      count={factorSelection.targets.length}
+                      onMove={(targetIndex) => {
+                        const destination = factorSelection.targets[targetIndex];
+                        reorderTarget(
+                          targetKey,
+                          `${destination.kind}:${destination.factor_group_id}`,
+                        );
+                      }}
+                    />
+                    <GripVertical
+                      size={17}
+                      className="flex-none text-slate-300"
+                      aria-label="拖动调整顺序"
+                    />
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleTarget(target)}
+                  title="移除"
+                  className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {!factorSelection.targets.length ? (
+          <button
+            type="button"
+            onClick={() => setFactorSkillPickerOpen(true)}
+            className="col-span-full flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-label text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+          >
+            <Plus size={15} className="mr-1" />
+            选择适应性或添加技能
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     <div className="autoResearchForm contents">
       <section
@@ -891,13 +955,11 @@ function OfflineCareerSettings({
             </h3>
           </div>
           <label className="flex items-center gap-2 text-label font-medium text-slate-700">
-            <input
-              type="checkbox"
+            <Toggle
+              label="筛选最优因子"
               disabled={factorSelection.transfer_mode === 'direct'}
-              checked={factorSelection.enabled}
-              onChange={(event) =>
-                updateFactorSelection({ enabled: event.target.checked })
-              }
+              checked={filteringFactors}
+              onChange={(enabled) => updateFactorSelection({ enabled })}
             />
             筛选最优因子
           </label>
@@ -954,220 +1016,56 @@ function OfflineCareerSettings({
               </div>
             </div>
 
-            <div className="max-w-3xl">
-              <strong className="text-data text-slate-800">
+            <fieldset className="min-w-0">
+              <legend className="text-data font-semibold text-slate-800">
                 属性因子最低星数
-              </strong>
-              <div className="mt-2 autoResearchStatFields grid gap-2">
-                {BLUE_FACTORS.map(([key, label]) => (
-                  <label key={key} className="text-label text-slate-600">
-                    {label}
-                    <select
-                      value={factorSelection.blue_factor_minimums[key]}
-                      onChange={(event) =>
-                        updateFactorSelection({
-                          blue_factor_minimums: {
-                            ...factorSelection.blue_factor_minimums,
-                            [key]: Number(event.target.value),
-                          },
-                        })
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-data"
-                    >
-                      {[0, 1, 2, 3].map((stars) => (
-                        <option key={stars} value={stars}>
-                          {stars ? `至少 ${stars} 星` : '不要'}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <strong className="text-data text-slate-800">
-                    {factorSelection.evaluation_mode === 'ancestor'
-                      ? '适应性与技能因子权重'
-                      : '适应性与技能优先级'}
-                  </strong>
-                  <p className="mt-0.5 text-label text-slate-500">
-                    {factorSelection.evaluation_mode === 'ancestor'
-                      ? '按两次继承的期望跳数加权累加。'
-                      : '优先比较目标因子至少继承一次的概率，白因子兜底。'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFactorSkillPickerOpen(true)}
-                  className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-caption font-semibold text-white hover:bg-indigo-700"
-                >
-                  <Plus size={14} /> 添加技能
-                </button>
-              </div>
+              </legend>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {APTITUDE_FACTORS.map((target) => {
-                  const selected = factorSelection.targets.some(
-                    (item) => item.factor_group_id === target.factor_group_id,
-                  );
+                {BLUE_FACTORS.map(([key, label]) => {
+                  const stars = factorSelection.blue_factor_minimums[key];
                   return (
-                    <button
-                      key={target.factor_group_id}
-                      type="button"
-                      onClick={() => toggleTarget(target)}
-                      className={`rounded-full border px-2.5 py-1 text-caption ${
-                        selected
-                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                          : 'border-slate-200 text-slate-600'
+                    <label
+                      key={key}
+                      className={`relative inline-flex min-h-11 items-center gap-1 rounded-md border px-2.5 text-caption font-medium focus-within:ring-2 focus-within:ring-indigo-500 sm:min-h-8 ${
+                        stars === undefined
+                          ? 'border-slate-200 bg-white text-slate-600'
+                          : 'border-indigo-400 bg-indigo-50 text-indigo-700'
                       }`}
                     >
-                      {target.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-3 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
-                {factorSelection.targets.map((target, index) => {
-                  const targetKey = `${target.kind}:${target.factor_group_id}`;
-                  const iconPath =
-                    target.kind === 'aptitude'
-                      ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
-                      : skillIconPath(skillByName.get(target.name));
-                  const draggable =
-                    factorSelection.evaluation_mode === 'parent';
-                  return (
-                    <div
-                      key={targetKey}
-                      draggable={draggable}
-                      onDragStart={(event) => {
-                        if (!draggable) return;
-                        setDraggedFactorTarget(targetKey);
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData(
-                          'text/plain',
-                          `factor-target:${targetKey}`,
-                        );
-                      }}
-                      onDragOver={(event) => {
-                        if (!draggable) return;
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = 'move';
-                      }}
-                      onDrop={(event) => {
-                        if (!draggable) return;
-                        event.preventDefault();
-                        const transferredKey = event.dataTransfer
-                          .getData('text/plain')
-                          .replace('factor-target:', '');
-                        reorderTarget(
-                          transferredKey || draggedFactorTarget,
-                          targetKey,
-                        );
-                        setDraggedFactorTarget('');
-                      }}
-                      onDragEnd={() => setDraggedFactorTarget('')}
-                      className={`flex min-w-0 items-center gap-2 rounded-lg border bg-white p-2 shadow-sm ${
-                        draggable ? 'cursor-grab active:cursor-grabbing' : ''
-                      } ${
-                        draggedFactorTarget === targetKey
-                          ? 'border-indigo-300 opacity-45'
-                          : 'border-slate-200'
-                      }`}
-                    >
-                      <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-slate-100 text-caption text-slate-600">
-                        {index + 1}
-                      </b>
-                      <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm">
-                        {iconPath ? (
-                          <AssetIcon
-                            path={iconPath}
-                            alt={target.name}
-                            className={`h-full w-full ${
-                              target.kind === 'aptitude'
-                                ? 'object-contain p-0.5'
-                                : 'object-cover'
-                            }`}
-                          />
-                        ) : (
-                          <span className="text-caption font-bold text-slate-500">
-                            ?
-                          </span>
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-data font-semibold text-slate-800">
-                          {target.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-caption text-slate-500">
-                          {target.kind === 'aptitude'
-                            ? '适应性因子'
-                            : '技能因子'}
-                        </span>
-                      </span>
-                      {factorSelection.evaluation_mode === 'ancestor' ? (
-                        <label className="flex flex-none flex-col text-label text-slate-500">
-                          权重
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.1}
-                            value={target.weight}
-                            onChange={(event) =>
-                              updateTargetWeight(
-                                target.factor_group_id,
-                                Number(event.target.value),
-                              )
-                            }
-                            className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-caption text-slate-700"
-                          />
-                        </label>
-                      ) : (
-                        <>
-                          <ReorderControls
-                            label={`因子：${target.name}`}
-                            index={index}
-                            count={factorSelection.targets.length}
-                            onMove={(targetIndex) => {
-                              const destination =
-                                factorSelection.targets[targetIndex];
-                              reorderTarget(
-                                targetKey,
-                                `${destination.kind}:${destination.factor_group_id}`,
-                              );
-                            }}
-                          />
-                          <GripVertical
-                            size={17}
-                            className="flex-none text-slate-300"
-                            aria-label="拖动调整顺序"
-                          />
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => toggleTarget(target)}
-                        title="移除"
-                        className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      {label}
+                      <span>{stars === undefined ? '不限' : stars ? `${stars}★` : '不要'}</span>
+                      <ChevronDown size={12} aria-hidden="true" />
+                      <select
+                        aria-label={`${label}因子最低星数`}
+                        value={stars ?? ''}
+                        onChange={(event) => {
+                          const { value } = event.target;
+                          const minimums = {
+                            ...factorSelection.blue_factor_minimums,
+                          };
+                          if (value === '') delete minimums[key];
+                          else minimums[key] = Number(value);
+                          updateFactorSelection({
+                            blue_factor_minimums: minimums,
+                          });
+                        }}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       >
-                        <X size={14} />
-                      </button>
-                    </div>
+                        <option value="">不限</option>
+                        {stars === 0 && <option value={0}>不要</option>}
+                        {[1, 2, 3].map((minimum) => (
+                          <option key={minimum} value={minimum}>
+                            至少 {minimum} 星
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   );
                 })}
-                {!factorSelection.targets.length ? (
-                  <button
-                    type="button"
-                    onClick={() => setFactorSkillPickerOpen(true)}
-                    className="col-span-full flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-label text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                  >
-                    <Plus size={15} className="mr-1" />
-                    选择适应性或添加技能
-                  </button>
-                ) : null}
               </div>
-            </div>
+            </fieldset>
+
+            {targetEditor}
 
             {factorSelection.evaluation_mode === 'parent' ? (
               <div className="max-w-5xl lg:col-span-2">
@@ -1209,56 +1107,62 @@ function OfflineCareerSettings({
 
                 {factorSelection.lineage.mode === 'specific' ? (
                   <div className="mt-3 max-w-xl">
-                    <SuccessionPickerTrigger
-                      label="指定已有马娘"
-                      selected={Boolean(selectedLineageParent)}
-                      portrait={
-                        selectedLineageParent ? (
-                          <PlannerPortrait
-                            path={
-                              umaSkinIconPath(
-                                selectedLineageParent.card_id,
-                                selectedLineageParent.rarity,
-                                selectedLineageParent.race_cloth_id,
-                              ) || ''
-                            }
-                            alt={selectedLineageParent.name}
-                          />
-                        ) : null
-                      }
-                      placeholder="点击选择已有马娘"
-                      onOpen={() => setSpecificLineagePickerOpen(true)}
-                      titleActions={
-                        selectedLineageParentRental ? (
-                          <RentalParentBadge />
-                        ) : undefined
-                      }
-                      onClear={
-                        selectedLineageParent
-                          ? () =>
-                              updateFactorSelection({
-                                lineage: {
-                                  ...factorSelection.lineage,
-                                  selection_id: '',
-                                },
-                              })
-                          : undefined
-                      }
-                    >
-                      {selectedLineageParent ? (
-                        <>
-                          <strong>{selectedLineageParent.name}</strong>
-                          <small className="mt-1 block text-gray-500">
-                            {selectedLineageParentRental
-                              ? selectedLineageParent.owner_name || '未知玩家'
-                              : '自己的马娘'}
-                            {selectedLineageParent.rank_score
-                              ? ` · 评分 ${selectedLineageParent.rank_score}`
-                              : ''}
-                          </small>
-                        </>
-                      ) : null}
-                    </SuccessionPickerTrigger>
+                    {selectedLineageParent ? (
+                      <ParentChoiceCard
+                        parent={selectedLineageParent}
+                        selected
+                        viewOnly
+                        disabled={false}
+                        onSelect={() => setSpecificLineagePickerOpen(true)}
+                        heading={
+                          <>
+                            {selectedLineageParent.name}
+                            <small className="mt-1 flex flex-wrap items-center gap-1 text-gray-500">
+                              {selectedLineageParentRental && <RentalParentBadge />}
+                              {selectedLineageParentRental
+                                ? selectedLineageParent.owner_name || '未知玩家'
+                                : '自己的马娘'}
+                              {selectedLineageParent.rank_score
+                                ? ` · 评分 ${selectedLineageParent.rank_score}`
+                                : ''}
+                            </small>
+                          </>
+                        }
+                        headingActions={
+                          <>
+                            <PlannerButton
+                              size="small"
+                              variant="ghost"
+                              aria-label="清除指定已有马娘"
+                              onClick={() =>
+                                updateFactorSelection({
+                                  lineage: {
+                                    ...factorSelection.lineage,
+                                    selection_id: '',
+                                  },
+                                })
+                              }
+                            >
+                              清除
+                            </PlannerButton>
+                            <PlannerButton
+                              size="small"
+                              aria-label="更换指定已有马娘"
+                              onClick={() => setSpecificLineagePickerOpen(true)}
+                            >
+                              更换
+                            </PlannerButton>
+                          </>
+                        }
+                      />
+                    ) : (
+                      <SuccessionPickerTrigger
+                        label="指定已有马娘"
+                        selected={false}
+                        placeholder="点击选择已有马娘"
+                        onOpen={() => setSpecificLineagePickerOpen(true)}
+                      />
+                    )}
                     {!selectedLineageParent &&
                     factorSelection.lineage.selection_id ? (
                       <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-label text-amber-800">
@@ -1288,6 +1192,9 @@ function OfflineCareerSettings({
             ) : null}
           </div>
         )}
+        {!factorOnly && !filteringFactors && (
+          <div className="mt-4">{targetEditor}</div>
+        )}
       </section>
 
       <section
@@ -1295,45 +1202,15 @@ function OfflineCareerSettings({
         className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
               4
             </span>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="text-section font-semibold text-gray-800">
-                赛程设置
-              </h3>
-              {customSchedule && (
-                <span className="text-label text-gray-500">
-                  自定义赛程 · {customRaceCount} 场额外比赛
-                </span>
-              )}
-            </div>
+            <h3 className="text-section font-semibold text-gray-800">赛程设置</h3>
+            {customSchedule && <div ref={setScheduleActionHost} className="contents" />}
           </div>
           {setCustomSchedule && (
             <div className="flex items-center gap-2 text-label">
-              <span
-                className={
-                  customSchedule
-                    ? 'text-slate-500'
-                    : 'font-semibold text-indigo-700'
-                }
-              >
-                游戏内预设赛程
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-label="本体配置"
-                aria-checked={customSchedule}
-                disabled={Boolean(busy)}
-                onClick={() => setCustomSchedule(!customSchedule)}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 ${customSchedule ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <span
-                  className={`absolute left-0 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${customSchedule ? 'translate-x-6' : 'translate-x-1'}`}
-                />
-              </button>
               <span
                 className={
                   customSchedule
@@ -1343,13 +1220,20 @@ function OfflineCareerSettings({
               >
                 本体配置
               </span>
+              <Toggle
+                label="游戏内预设赛程"
+                checked={!customSchedule}
+                disabled={Boolean(busy)}
+                onChange={(useGamePreset) => setCustomSchedule(!useGamePreset)}
+              />
+              <span className={customSchedule ? 'text-slate-500' : 'font-semibold text-indigo-700'}>
+                游戏内预设赛程
+              </span>
             </div>
           )}
         </div>
-
-        {customSchedule ? (
-          <div className="mt-4">{customScheduleContent}</div>
-        ) : (
+        {customSchedule && renderCustomSchedule?.(scheduleActionHost)}
+        {!customSchedule && (
           <div className="mt-4 max-w-7xl">
             <div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -1453,8 +1337,6 @@ function OfflineCareerSettings({
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               <RaceSchedulePicker
                 id={`offline-races-${editingDeckNum}`}
-                title="赛程详细"
-                notice="此为赛程预设，实际比赛安排还需根据马娘生涯目标。"
                 races={races}
                 selectedRaceIds={editingRaceIds}
                 setSelectedRaceIds={setEditingRaceIds}
@@ -1495,6 +1377,9 @@ function OfflineCareerSettings({
               >
                 取消
               </button>
+              <span role="status" className="ml-auto whitespace-nowrap text-data text-slate-500">
+                已选择 {editingRaceIds.length} 场
+              </span>
               <button
                 type="button"
                 onClick={async () => {
@@ -1517,289 +1402,6 @@ function OfflineCareerSettings({
           </section>
         </div>
       ) : null}
-
-      <section
-        id="career-options"
-        className={`${factorOnly ? 'hidden' : 'order-3'} mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
-      >
-        <div className="autoResearchSectionHeader">
-          <div className="flex items-start gap-2">
-            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-              6
-            </span>
-            <div>
-              <h3 className="text-section font-semibold text-gray-800">
-                优先技能
-              </h3>
-              <p className="mt-0.5 text-label text-slate-500">
-                事件优先选择对应启发，越靠前优先级越高。
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPrioritySkillPickerOpen(true)}
-            className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-caption font-semibold text-white hover:bg-indigo-700"
-          >
-            <Plus size={14} />
-            追加优先技能
-          </button>
-        </div>
-
-        <div className="mt-4 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
-          {prioritySkillIds.map((skillId, index) => {
-            const skill = skillById.get(skillId);
-            const name = skill?.name || `技能 ${skillId}`;
-            const iconPath = skillIconPath(skill);
-            return (
-              <div
-                key={skillId}
-                draggable
-                onDragStart={(event) => {
-                  setDraggedPrioritySkillIndex(index);
-                  event.dataTransfer.effectAllowed = 'move';
-                  event.dataTransfer.setData(
-                    'text/plain',
-                    `priority-skill:${index}`,
-                  );
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const transferredValue =
-                    event.dataTransfer.getData('text/plain');
-                  const transferredIndex = transferredValue.startsWith(
-                    'priority-skill:',
-                  )
-                    ? Number(transferredValue.replace('priority-skill:', ''))
-                    : Number.NaN;
-                  const sourceIndex = Number.isInteger(transferredIndex)
-                    ? transferredIndex
-                    : draggedPrioritySkillIndex;
-                  if (sourceIndex !== null) {
-                    reorderPrioritySkill(sourceIndex, index);
-                  }
-                  setDraggedPrioritySkillIndex(null);
-                }}
-                onDragEnd={() => setDraggedPrioritySkillIndex(null)}
-                className={`flex min-w-0 cursor-grab items-center gap-2 rounded-lg border bg-white p-2 shadow-sm active:cursor-grabbing ${
-                  draggedPrioritySkillIndex === index
-                    ? 'border-indigo-300 opacity-45'
-                    : 'border-slate-200'
-                }`}
-              >
-                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-indigo-50 text-caption text-indigo-700">
-                  {index + 1}
-                </b>
-                <span className="h-9 w-9 flex-none overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                  {iconPath ? (
-                    <AssetIcon
-                      path={iconPath}
-                      alt={name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full items-center justify-center text-caption font-bold text-slate-500">
-                      ?
-                    </span>
-                  )}
-                </span>
-                <strong className="min-w-0 flex-1 truncate text-data text-slate-800">
-                  {name}
-                </strong>
-                <ReorderControls
-                  label={`优先技能：${name}`}
-                  index={index}
-                  count={prioritySkillIds.length}
-                  onMove={(targetIndex) =>
-                    reorderPrioritySkill(index, targetIndex)
-                  }
-                />
-                <GripVertical
-                  size={17}
-                  className="flex-none text-slate-300"
-                  aria-label="拖动调整顺序"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPrioritySkillIds((current) =>
-                      current.filter((value) => value !== skillId),
-                    )
-                  }
-                  title="移除"
-                  className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            );
-          })}
-          {!prioritySkillIds.length ? (
-            <button
-              type="button"
-              onClick={() => setPrioritySkillPickerOpen(true)}
-              className="col-span-full flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-label text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-            >
-              <Plus size={15} className="mr-1" />
-              暂无优先技能，点击追加
-            </button>
-          ) : null}
-        </div>
-      </section>
-
-      <section
-        className={`${factorOnly ? 'hidden' : 'order-4'} mt-5 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
-      >
-        <div className="autoResearchSectionHeader">
-          <div className="flex items-start gap-2">
-            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-              6
-            </span>
-            <div>
-              <h3 className="text-section font-semibold text-gray-800">
-                结束自动点技能
-              </h3>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFinalSkillPickerOpen(true)}
-            className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-caption font-semibold text-white hover:bg-indigo-700"
-          >
-            <Plus size={14} />
-            添加技能
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
-            {skillSettings.learn_skill_list.map((group, index) => (
-              <div
-                key={JSON.stringify(group)}
-                draggable
-                onDragStart={(event) => {
-                  setDraggedFinalSkillIndex(index);
-                  event.dataTransfer.effectAllowed = 'move';
-                  event.dataTransfer.setData(
-                    'text/plain',
-                    `final-skill:${index}`,
-                  );
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const transferredValue =
-                    event.dataTransfer.getData('text/plain');
-                  const transferredIndex = transferredValue.startsWith(
-                    'final-skill:',
-                  )
-                    ? Number(transferredValue.replace('final-skill:', ''))
-                    : Number.NaN;
-                  const sourceIndex = Number.isInteger(transferredIndex)
-                    ? transferredIndex
-                    : draggedFinalSkillIndex;
-                  if (sourceIndex !== null) {
-                    reorderFinalSkillGroup(sourceIndex, index);
-                  }
-                  setDraggedFinalSkillIndex(null);
-                }}
-                onDragEnd={() => setDraggedFinalSkillIndex(null)}
-                className={`flex min-w-0 cursor-grab items-center gap-2 rounded-lg border bg-white p-2 shadow-sm active:cursor-grabbing ${
-                  draggedFinalSkillIndex === index
-                    ? 'border-violet-300 opacity-45'
-                    : 'border-slate-200'
-                }`}
-              >
-                <b className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-violet-50 text-caption text-violet-700">
-                  {index + 1}
-                </b>
-                <span className="relative h-9 w-12 flex-none">
-                  {group.slice(0, 3).map((name, iconIndex) => {
-                    const skill = skillByName.get(name);
-                    const iconPath = skillIconPath(skill);
-                    return (
-                      <span
-                        key={name}
-                        className="absolute top-0 h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm"
-                        style={{
-                          left: `${iconIndex * 7}px`,
-                          zIndex: 3 - iconIndex,
-                        }}
-                      >
-                        {iconPath ? (
-                          <AssetIcon
-                            path={iconPath}
-                            alt={name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-full items-center justify-center text-caption font-bold text-slate-500">
-                            ?
-                          </span>
-                        )}
-                      </span>
-                    );
-                  })}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-data font-semibold text-slate-800">
-                    {skillSettings.learn_skill_group_labels[index] ||
-                      group.join(' / ')}
-                  </span>
-                  <span
-                    className="mt-0.5 block truncate text-caption text-slate-500"
-                    title={group.join('、')}
-                  >
-                    {group.length > 1
-                      ? `包含 ${group.length} 个技能`
-                      : group[0]}
-                  </span>
-                </span>
-                <span className="flex flex-none items-center gap-0.5">
-                  <ReorderControls
-                    label={`结束技能：${skillSettings.learn_skill_group_labels[index] || group.join('、')}`}
-                    index={index}
-                    count={skillSettings.learn_skill_list.length}
-                    onMove={(targetIndex) =>
-                      reorderFinalSkillGroup(index, targetIndex)
-                    }
-                  />
-                  <GripVertical
-                    size={17}
-                    className="text-slate-300"
-                    aria-label="拖动调整顺序"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeFinalSkillGroup(index)}
-                    title="移除"
-                    className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X size={14} />
-                  </button>
-                </span>
-              </div>
-            ))}
-            {!skillSettings.learn_skill_list.length ? (
-              <button
-                type="button"
-                onClick={() => setFinalSkillPickerOpen(true)}
-                className="col-span-full flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-label text-slate-500 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
-              >
-                <Plus size={15} className="mr-1" />
-                暂无技能，点击添加
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </section>
 
       {lineageFactorPicker ? (
         <div className="successionPickerTheme successionPickerOverlay plannerElevatedOverlay">
@@ -2262,28 +1864,11 @@ function OfflineCareerSettings({
       ) : null}
 
       <SkillSelector
-        open={prioritySkillPickerOpen}
-        title="追加离线育成优先技能"
-        skills={skills}
-        selectedNames={selectedPrioritySkillNames}
-        elevated
-        onToggle={togglePrioritySkill}
-        onClose={() => setPrioritySkillPickerOpen(false)}
-      />
-      <SkillSelector
-        open={!factorOnly && finalSkillPickerOpen}
-        title="设置离线结束技能优先级"
-        skills={skills}
-        selectedNames={selectedFinalSkillNames}
-        elevated
-        onToggle={toggleFinalSkill}
-        onAddGroup={addFinalSkillGroup}
-        onClose={() => setFinalSkillPickerOpen(false)}
-      />
-      <SkillSelector
         open={factorSkillPickerOpen}
         title="选择目标白因子技能"
         skills={whiteSkills}
+        obtainableGroups={factorOnly ? undefined : obtainableGroups}
+        showKindFilter={false}
         selectedNames={selectedSkillNames}
         showRarityFilter={false}
         showSkillPoints={false}

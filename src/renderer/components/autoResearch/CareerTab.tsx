@@ -19,7 +19,6 @@ import {
   Plus,
   RefreshCw,
   Save,
-  Search,
   Trash2,
 } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
@@ -36,6 +35,7 @@ import {
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
 import {
   inheritedCareerAptitudes,
+  defaultLocalScenario,
   OfflineDesign,
 } from 'renderer/utils/offlineCareerDesign';
 import useScrollLoadMore from './useScrollLoadMore';
@@ -47,6 +47,8 @@ import {
 } from 'renderer/utils/parentFactorFilters';
 import AppFloatingAction from '../AppFloatingAction';
 import OfflineCareerSettings from './OfflineCareerSettings';
+import { localCatalog } from './catalog';
+import type { SkillSourcesByGroup } from './obtainableSkills';
 import OfflineDesignSettings, {
   OfflineCustomSchedule,
 } from './OfflineDesignSettings';
@@ -66,7 +68,6 @@ import {
   CareerSetting,
   Dashboard,
   OfflineFactorSelection,
-  OfflineSkillSettings,
   OfflineSingleModeSetup,
   Preset,
   RaceOption,
@@ -77,6 +78,7 @@ import {
 import './CareerSelection.css';
 
 type CareerTabProps = {
+  careerSkillGroups?: SkillSourcesByGroup;
   readOnly?: boolean;
   careerDirty?: boolean;
   validationErrors?: Record<string, string>;
@@ -122,8 +124,6 @@ type CareerTabProps = {
   setDeckId: Dispatch<SetStateAction<number>>;
   setSupportCardIds: Dispatch<SetStateAction<number[]>>;
   selectedDeckCharaIds: number[];
-  supportSearch: string;
-  setSupportSearch: Dispatch<SetStateAction<string>>;
   friendCardId: number;
   setFriendCardId: Dispatch<SetStateAction<number>>;
   selectedFriendSupport?: SupportInfo;
@@ -165,10 +165,6 @@ type CareerTabProps = {
   skills: AutoResearchSkill[];
   offlineFactorSelection: OfflineFactorSelection;
   setOfflineFactorSelection: Dispatch<SetStateAction<OfflineFactorSelection>>;
-  offlinePrioritySkillIds: number[];
-  setOfflinePrioritySkillIds: Dispatch<SetStateAction<number[]>>;
-  offlineSkillSettings: OfflineSkillSettings;
-  setOfflineSkillSettings: Dispatch<SetStateAction<OfflineSkillSettings>>;
 };
 
 const PARENT_APTITUDE_FACTOR_GROUP_IDS = new Set(
@@ -252,6 +248,7 @@ function CareerTab(props: CareerTabProps) {
     closeCareerEditor,
     presets,
     selectedUma,
+    careerSkillGroups,
     cardId,
     setCardId,
     selectedParent1,
@@ -264,8 +261,6 @@ function CareerTab(props: CareerTabProps) {
     setDeckId,
     setSupportCardIds,
     selectedDeckCharaIds,
-    supportSearch,
-    setSupportSearch,
     friendCardId,
     setFriendCardId,
     selectedFriendSupport,
@@ -303,10 +298,6 @@ function CareerTab(props: CareerTabProps) {
     skills,
     offlineFactorSelection,
     setOfflineFactorSelection,
-    offlinePrioritySkillIds,
-    setOfflinePrioritySkillIds,
-    offlineSkillSettings,
-    setOfflineSkillSettings,
   } = props;
   const [newCareerDialogOpen, setNewCareerDialogOpen] = useState(false);
   const [newCareerGoal, setNewCareerGoal] =
@@ -362,6 +353,9 @@ function CareerTab(props: CareerTabProps) {
   const selectedUmaBase = selectedUma
     ? CHARACTER_BY_ID.get(selectedUma.chara_id)
     : undefined;
+  const initialRunningStyle = selectedUma
+    ? localCatalog.running_style_by_card[selectedUma.id] || 0
+    : 0;
   const selectedUmaAptitudes = useMemo(
     () =>
       selectedUmaBase
@@ -459,6 +453,7 @@ function CareerTab(props: CareerTabProps) {
           parent,
           parentPickerOtherParent,
           successionG1SaddleIds,
+          parentPickerSlot === 1,
         ),
       );
     });
@@ -546,6 +541,7 @@ function CareerTab(props: CareerTabProps) {
   };
   const careerModeSettings = (
     <OfflineCareerSettings
+      obtainableGroups={careerSkillGroups}
       factorOnly={careerMode === 'online'}
       customSchedule={offlineDesign.source === 'custom'}
       setCustomSchedule={(custom) => {
@@ -553,18 +549,20 @@ function CareerTab(props: CareerTabProps) {
           ...current,
           source: custom ? 'custom' : 'api',
         }));
-        if (custom && !offlineScenarioId) changeOfflineScenario(5);
+        if (custom && !offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
       }}
-      customRaceCount={offlineDesign.raceIds.length}
-      customScheduleContent={
+      renderCustomSchedule={(actionHost) => (
         <OfflineCustomSchedule
+          actionHost={actionHost}
+          key={`${selectedUma?.id || 0}:${offlineScenarioId}:${offlineDesign.routeId}`}
           design={offlineDesign}
           setDesign={setOfflineDesign}
           charaId={selectedUma?.chara_id || 0}
           scenarioId={offlineScenarioId}
+          aptitudes={selectedUmaAptitudes}
           disabled={Boolean(busy)}
         />
-      }
+      )}
       setup={offlineSetup}
       selectedScenarioId={offlineScenarioId}
       races={races}
@@ -578,10 +576,6 @@ function CareerTab(props: CareerTabProps) {
       parents={dashboard.parents}
       umas={dashboard.umas}
       skills={skills}
-      prioritySkillIds={offlinePrioritySkillIds}
-      setPrioritySkillIds={setOfflinePrioritySkillIds}
-      skillSettings={offlineSkillSettings}
-      setSkillSettings={setOfflineSkillSettings}
     />
   );
   return activeCareer?.active && !careerSaveOpen ? (
@@ -993,16 +987,15 @@ function CareerTab(props: CareerTabProps) {
         <nav className="autoResearchEditorTabs">
           {(careerMode === 'offline'
             ? [
-                ['career-scenario', '基础'],
-                ['career-uma', '马娘'],
+                ['career-uma', '基础'],
+                ['career-parents', '继承'],
                 ['career-support', '支援卡'],
                 ['offline-career-setup', '赛程'],
-                ['career-factor-options', '因子'],
-                ['career-options', '技能'],
+                ['career-factor-options', '因子与技能'],
                 ['career-other-options', '其他'],
               ]
             : [
-                ['career-uma', '马娘'],
+                ['career-uma', '基础'],
                 ['career-support', '支援卡'],
                 ['career-factor-options', '因子'],
                 ['career-other-options', '其他'],
@@ -1140,74 +1133,6 @@ function CareerTab(props: CareerTabProps) {
                 busy={busy}
               />
             )}
-            {careerMode === 'offline' ? (
-              <section
-                id="career-scenario"
-                className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                    1
-                  </span>
-                  <h3 className="text-section font-semibold text-gray-800">
-                    基础设置
-                  </h3>
-                </div>
-                <div className="mt-3 grid max-w-xl gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-label">
-                      育成剧本
-                      <select
-                        value={offlineScenarioId}
-                        disabled={
-                          Boolean(busy) || offlineDesign.goal !== 'breeding'
-                        }
-                        onChange={(event) =>
-                          changeOfflineScenario(Number(event.target.value))
-                        }
-                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
-                      >
-                        <option value={0}>自动选择最新可用剧本</option>
-                        {!offlineScenarios.some(
-                          (scenario) => scenario.id === 5,
-                        ) && <option value={5}>荣耀女神杯</option>}
-                        {offlineScenarios.map((scenario) => (
-                          <option key={scenario.id} value={scenario.id}>
-                            {scenario.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {offlineSetup ? (
-                      <p className="mt-2 text-label text-slate-500">
-                        当前主剧本：
-                        <strong className="ml-1 text-slate-800">
-                          {offlineSetup.scenario_name ||
-                            `剧本 ${offlineSetup.scenario_id}`}
-                        </strong>
-                      </p>
-                    ) : null}
-                  </div>
-                  <label className="text-label">
-                    跑法
-                    <select
-                      value={offlineRunningStyle}
-                      disabled={Boolean(busy)}
-                      onChange={(event) =>
-                        setOfflineRunningStyle(Number(event.target.value))
-                      }
-                      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
-                    >
-                      <option value={0}>默认（使用马娘初始跑法）</option>
-                      <option value={1}>逃</option>
-                      <option value={2}>先行</option>
-                      <option value={3}>差</option>
-                      <option value={4}>追</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
-            ) : null}
             <div
               id="career-uma"
               className="careerSelection scroll-mt-28 grid gap-5"
@@ -1219,16 +1144,12 @@ function CareerTab(props: CareerTabProps) {
                   </p>
                 ) : null}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                      {careerMode === 'offline' ? 2 : 1}
-                    </span>
-                    <div>
-                      <h3 className="text-section font-semibold text-gray-800">
-                        选择育成马娘
-                      </h3>
-                    </div>
-                  </div>
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
+                    1
+                  </span>
+                  <h3 className="text-section font-semibold text-gray-800">
+                    基础设置
+                  </h3>
                 </div>
                 <div className="mt-3 w-full xl:max-w-xl">
                   <SuccessionPickerTrigger
@@ -1259,6 +1180,56 @@ function CareerTab(props: CareerTabProps) {
                     ) : null}
                   </SuccessionPickerTrigger>
                 </div>
+                {careerMode === 'offline' ? (
+                  <div className="mt-3 grid max-w-xl gap-3 md:grid-cols-2 xl:grid-cols-1">
+                    <label className="text-label">
+                      育成剧本
+                      <select
+                        value={offlineScenarioId}
+                        disabled={
+                          Boolean(busy) || offlineDesign.goal !== 'breeding'
+                        }
+                        onChange={(event) =>
+                          changeOfflineScenario(Number(event.target.value))
+                        }
+                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+                      >
+                        {offlineDesign.source === 'api' && (
+                          <option value={0}>自动选择最新可用剧本</option>
+                        )}
+                        {!offlineScenarios.some(
+                          (scenario) => scenario.id === 5,
+                        ) && <option value={5}>荣耀女神杯</option>}
+                        {offlineScenarios.map((scenario) => (
+                          <option key={scenario.id} value={scenario.id}>
+                            {scenario.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-label">
+                      跑法
+                      <select
+                        value={offlineRunningStyle || initialRunningStyle}
+                        disabled={Boolean(busy)}
+                        onChange={(event) =>
+                          setOfflineRunningStyle(Number(event.target.value))
+                        }
+                        className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-slate-900"
+                      >
+                        {!initialRunningStyle && (
+                          <option value={0}>
+                            {selectedUma ? '使用初始跑法' : '先选择育成马娘'}
+                          </option>
+                        )}
+                        <option value={1}>逃</option>
+                        <option value={2}>先行</option>
+                        <option value={3}>差</option>
+                        <option value={4}>追</option>
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </section>
 
               {umaPickerOpen ? (
@@ -1312,6 +1283,9 @@ function CareerTab(props: CareerTabProps) {
                             ) : undefined
                           }
                           onClick={() => {
+                            if (careerMode === 'offline' && cardId !== uma.id) {
+                              setOfflineRunningStyle(0);
+                            }
                             setCardId(uma.id);
                             setDeckId(0);
                             setSupportCardIds([]);
@@ -1349,6 +1323,11 @@ function CareerTab(props: CareerTabProps) {
                 }`}
               >
                 <div className="flex items-center gap-2">
+                  {careerMode === 'offline' && (
+                    <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
+                      2
+                    </span>
+                  )}
                   <h3 className="text-section font-semibold text-gray-800">
                     选择继承马娘
                   </h3>
@@ -1381,6 +1360,7 @@ function CareerTab(props: CareerTabProps) {
                             selectedParent,
                             otherParent,
                             successionG1SaddleIds,
+                            slotNumber === 1,
                           )
                         : undefined;
                       if (!selectedParent)
@@ -1599,113 +1579,94 @@ function CareerTab(props: CareerTabProps) {
 
             <section
               id="career-support"
-              className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+              className="careerSupportSection scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
             >
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                  {careerMode === 'offline' ? 3 : 2}
-                </span>
-                <div>
-                  <h3 className="text-section font-semibold text-gray-800">
-                    选择支援卡组
-                  </h3>
+              <div className="careerSupportLayout">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
+                      {careerMode === 'offline' ? 3 : 2}
+                    </span>
+                    <div>
+                      <h3 className="text-section font-semibold text-gray-800">
+                        选择支援卡组
+                      </h3>
+                    </div>
+                  </div>
+                  {validationErrors['career-support'] ? (
+                    <p className="mt-3 text-data font-medium text-rose-700">
+                      {validationErrors['career-support']}
+                    </p>
+                  ) : null}
+                  <div className="careerSupportDecks mt-3 grid content-start gap-3">
+                    {dashboard.decks.map((deck) => {
+                      const deckCharaIds = deck.cards.map(
+                        (support) => support.chara_id,
+                      );
+                      const disabled =
+                        deck.cards.length !== 5 ||
+                        new Set(deckCharaIds).size !== deckCharaIds.length ||
+                        deckCharaIds.some((charaId) =>
+                          deckReservedCharaIds.has(charaId),
+                        );
+                      return (
+                        <DeckChoiceCard
+                          key={deck.id}
+                          deck={deck}
+                          selected={deckId === deck.id}
+                          disabled={disabled}
+                          onSelect={() => {
+                            setDeckId(deck.id);
+                            setSupportCardIds(deck.support_card_ids);
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                <div id="career-friend-support" className="min-w-0 scroll-mt-28">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-section font-semibold text-gray-800">
+                      借用
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={refreshOptionsIndex}
+                      disabled={!selectedAccountId || busy === 'options-index'}
+                      className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-caption text-gray-600 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        size={13}
+                        className={busy === 'options-index' ? 'animate-spin' : ''}
+                      />
+                      {busy === 'options-index'
+                        ? '刷新中…'
+                        : `刷新好友支援卡${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
+                    </button>
+                  </div>
+                  {validationErrors['career-friend-support'] ? (
+                    <p className="mt-3 text-data font-medium text-rose-700">
+                      {validationErrors['career-friend-support']}
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
+                    {visibleFriendSupports.map((support) => (
+                      <SupportChoiceCard
+                        key={support.id}
+                        support={support}
+                        selected={friendCardId === support.id}
+                        disabled={friendReservedCharaIds.has(support.chara_id)}
+                        onSelect={() => setFriendCardId(support.id)}
+                      />
+                    ))}
+                  </div>
+                  {!visibleFriendSupports.length && busy !== 'options-index' ? (
+                    <div className="py-8 text-center text-data text-gray-500">
+                      暂无可借用的好友支援卡。
+                    </div>
+                  ) : null}
                 </div>
               </div>
-              {validationErrors['career-support'] ? (
-                <p className="mt-3 text-data font-medium text-rose-700">
-                  {validationErrors['career-support']}
-                </p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap content-start gap-3">
-                {dashboard.decks.map((deck) => {
-                  const deckCharaIds = deck.cards.map(
-                    (support) => support.chara_id,
-                  );
-                  const disabled =
-                    deck.cards.length !== 5 ||
-                    new Set(deckCharaIds).size !== deckCharaIds.length ||
-                    deckCharaIds.some((charaId) =>
-                      deckReservedCharaIds.has(charaId),
-                    );
-                  return (
-                    <DeckChoiceCard
-                      key={deck.id}
-                      deck={deck}
-                      selected={deckId === deck.id}
-                      disabled={disabled}
-                      onSelect={() => {
-                        setDeckId(deck.id);
-                        setSupportCardIds(deck.support_card_ids);
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            <section
-              id="career-friend-support"
-              className="scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
-            >
-              {validationErrors['career-friend-support'] ? (
-                <p className="mb-3 text-data font-medium text-rose-700">
-                  {validationErrors['career-friend-support']}
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-section font-semibold text-gray-800">
-                    选择好友支援卡
-                  </h3>
-                  <p className="text-label text-gray-500">
-                    只允许借用满破满级支援。
-                  </p>
-                </div>
-                <label className="relative block w-full sm:w-80">
-                  <Search
-                    size={15}
-                    className="pointer-events-none absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <input
-                    value={supportSearch}
-                    onChange={(event) => setSupportSearch(event.target.value)}
-                    placeholder="搜索支援卡名称或类型"
-                    className="w-full cursor-text select-text rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-data"
-                  />
-                </label>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={refreshOptionsIndex}
-                  disabled={!selectedAccountId || busy === 'options-index'}
-                  className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-caption text-gray-600 disabled:opacity-50"
-                >
-                  <RefreshCw
-                    size={13}
-                    className={busy === 'options-index' ? 'animate-spin' : ''}
-                  />
-                  {busy === 'options-index'
-                    ? '刷新中…'
-                    : `刷新好友支援卡${availableFriendSupportIds.size ? `（${availableFriendSupportIds.size} 张可借）` : ''}`}
-                </button>
-              </div>
-              <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
-                {visibleFriendSupports.map((support) => (
-                  <SupportChoiceCard
-                    key={support.id}
-                    support={support}
-                    selected={friendCardId === support.id}
-                    disabled={friendReservedCharaIds.has(support.chara_id)}
-                    onSelect={() => setFriendCardId(support.id)}
-                  />
-                ))}
-              </div>
-              {!visibleFriendSupports.length && busy !== 'options-index' ? (
-                <div className="py-8 text-center text-data text-gray-500">
-                  当前没有找到符合条件的满破满级好友支援。
-                </div>
-              ) : null}
             </section>
 
             {selectionConflict ? (
@@ -1722,7 +1683,7 @@ function CareerTab(props: CareerTabProps) {
             >
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-                  {careerMode === 'online' ? 4 : 7}
+                  {careerMode === 'online' ? 4 : 6}
                 </span>
                 <div>
                   <h3 className="text-section font-semibold text-gray-800">

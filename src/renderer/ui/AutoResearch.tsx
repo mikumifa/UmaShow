@@ -12,6 +12,8 @@ import { motionScrollBehavior } from 'renderer/utils/motion';
 import {
   OfflineDesign,
   normalizeOfflineDesign,
+  createOfflineDesign,
+  defaultLocalScenario,
   offlineRaceRequest,
   offlineScheduleError,
 } from 'renderer/utils/offlineCareerDesign';
@@ -68,14 +70,12 @@ import {
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
   AutoResearchRequestError,
-  buildOfflinePrioritySkillArray,
   CAREER_SETTINGS_KEY,
   cloudCareerSetting,
   careerSettingModeBadgeClass,
   careerSettingMatchesCurrent,
   compareRaces,
   createDefaultOfflineFactorSelection,
-  createDefaultOfflineSkillSettings,
   createDefaultPreset,
   createSkillSelectionId,
   DEFAULT_EXPECT_ATTRIBUTE,
@@ -88,8 +88,8 @@ import {
   LOCAL_PRESETS_KEY,
   MONTH_OPTIONS,
   needsRelogin,
+  normalizeBlueFactorMinimums,
   normalizeFixedEventChoices,
-  normalizeOfflinePrioritySkillIds,
   normalizeOnlineScenarioId,
   normalizeRaceSelection,
   normalizeServer,
@@ -123,10 +123,8 @@ import {
   LoginProgress,
   OfflineSingleModeSetup,
   OfflineFactorSelection,
-  OfflineSkillSettings,
   PendingRun,
   Preset,
-  RaceOption,
   RunMode,
   ScheduleGoal,
   ScheduleIntent,
@@ -135,21 +133,26 @@ import {
   SessionAccount,
   SessionResponse,
   SkillLearningSetting,
-  SkillOption,
   SkillSelectionEntry,
   SupportInfo,
   TargetAttributeStage,
 } from 'renderer/components/autoResearch/types';
 
 import { loadUMDB, UMDB } from 'renderer/utils/umdb';
-import autoResearchCatalog from '../../../assets/data/auto_research_catalog.json';
+import { obtainableSkillGroups } from 'renderer/components/autoResearch/obtainableSkills';
+import {
+  localCatalog,
+  localAutoResearchSkills,
+  localAutoResearchSkillById,
+  localAutoResearchSkillByName,
+} from 'renderer/components/autoResearch/catalog';
+import {
+  isInheritedSkillTarget,
+  offlineFactorsFromSetting,
+  offlineSkillRequest,
+} from 'renderer/components/autoResearch/offlineCareerSkills';
 import SmsLoginPanel from 'autouma/SmsLoginPanel';
 import { copyText } from 'autouma/clipboard';
-
-const localCatalog = autoResearchCatalog as {
-  skills: Record<string, SkillOption>;
-  races: RaceOption[];
-};
 
 const autoResearchTabs = [
   { id: 'daily' as const, label: '日常', icon: CalendarCheck },
@@ -177,46 +180,6 @@ const scheduledDateTimeIsFuture = (value: string) => {
 
 const oneOffStartTime = (timing: ScheduleTiming, scheduledDateTime: string) =>
   timing === 'scheduled' ? `${scheduledDateTime}:00+08:00` : '05:00';
-
-const zhCollator = new Intl.Collator('zh-CN');
-
-const localAutoResearchSkills = (() => {
-  const byName = new Map<string, AutoResearchSkill>();
-  Object.entries(localCatalog.skills).forEach(([rawId, rawSkill]) => {
-    const name = String(rawSkill.name || '').trim();
-    const needSkillPoint = Number(rawSkill.need_skill_point || 0);
-    if (!name || needSkillPoint <= 0 || name.endsWith('×')) return;
-    if (!byName.has(name)) {
-      byName.set(name, {
-        id: Number(rawId),
-        name,
-        rarity: Number(rawSkill.rarity || 0),
-        group_id: Number(rawSkill.group_id || 0),
-        grade_value: Number(rawSkill.grade_value || 0),
-        need_skill_point: needSkillPoint,
-        disable_singlemode: Number(rawSkill.disable_singlemode || 0),
-        tags: Array.isArray(rawSkill.tags)
-          ? rawSkill.tags.map(Number).filter(Number.isFinite)
-          : [],
-        icon_id: Number(rawSkill.icon_id || 0),
-        skill_category: Number(rawSkill.skill_category || 0),
-      });
-    }
-  });
-  return [...byName.values()].sort(
-    (left, right) =>
-      right.rarity - left.rarity ||
-      left.skill_category - right.skill_category ||
-      zhCollator.compare(left.name, right.name),
-  );
-})();
-
-const localAutoResearchSkillById = new Map(
-  localAutoResearchSkills.map((skill) => [skill.id, skill]),
-);
-const localAutoResearchSkillByName = new Map(
-  localAutoResearchSkills.map((skill) => [skill.name, skill]),
-);
 
 function skillNameFromPresetToken(value: unknown) {
   const token = String(value || '').trim();
@@ -481,15 +444,6 @@ const normalizeOfflineFactorSelection = (
       ),
     };
   };
-  const legacyBlueMinimums = !value?.evaluation_mode;
-  const normalizeBlueMinimum = (
-    key: keyof OfflineFactorSelection['blue_factor_minimums'],
-  ) => {
-    const raw = Number(value?.blue_factor_minimums?.[key]);
-    if (!Number.isFinite(raw)) return defaults.blue_factor_minimums[key];
-    if (legacyBlueMinimums && raw === 0) return 1;
-    return Math.max(0, Math.min(3, Math.round(raw)));
-  };
   return {
     ...defaults,
     ...(value || {}),
@@ -497,17 +451,12 @@ const normalizeOfflineFactorSelection = (
     evaluation_mode:
       value?.evaluation_mode === 'ancestor' ? 'ancestor' : 'parent',
     use_skill_priority: true,
-    blue_factor_minimums: {
-      speed: normalizeBlueMinimum('speed'),
-      stamina: normalizeBlueMinimum('stamina'),
-      power: normalizeBlueMinimum('power'),
-      guts: normalizeBlueMinimum('guts'),
-      wit: normalizeBlueMinimum('wit'),
-    },
+    blue_factor_minimums_version: 2,
+    blue_factor_minimums: normalizeBlueFactorMinimums(value),
     targets: Array.isArray(value?.targets)
       ? value.targets.flatMap((target) => {
           const factorGroupId = Number(target?.factor_group_id || 0);
-          if (!factorGroupId) return [];
+          if (!factorGroupId || isInheritedSkillTarget(target)) return [];
           const weight = Number(target?.weight ?? 1);
           return [
             {
@@ -551,29 +500,6 @@ const factorSelectionFromSetting = (
   normalizeOfflineFactorSelection(
     setting.factor_selection || setting.offline_factor_selection,
   );
-
-const normalizeOfflineSkillSettings = (
-  value?: Partial<OfflineSkillSettings>,
-): OfflineSkillSettings => {
-  const defaults = createDefaultOfflineSkillSettings();
-  return {
-    ...defaults,
-    ...(value || {}),
-    learn_skill_list: Array.isArray(value?.learn_skill_list)
-      ? value.learn_skill_list
-          .map((group) => (Array.isArray(group) ? group.map(String) : []))
-          .filter((group) => group.length)
-      : [],
-    learn_skill_group_labels: Array.isArray(value?.learn_skill_group_labels)
-      ? value.learn_skill_group_labels.map(String)
-      : [],
-    enabled: true,
-    learn_skill_settings: {},
-    learn_skill_only_user_provided: false,
-    skip_double_circle_unless_high_hint: false,
-    maximize_skill_score_at_end: true,
-  };
-};
 
 function ErrorToast({
   message,
@@ -872,7 +798,6 @@ export default function AutoResearch() {
   const [targetAttributeStageYearOffset, setTargetAttributeStageYearOffset] =
     useState(0);
   const [selectedRaceIds, setSelectedRaceIds] = useState<number[]>([]);
-  const [supportSearch, setSupportSearch] = useState('');
   const [careerSettings, setCareerSettings] = useState<CareerSetting[]>([]);
   const [cloudCareerConfigIds, setCloudCareerConfigIds] = useState<Set<string>>(
     () => new Set(),
@@ -893,17 +818,12 @@ export default function AutoResearch() {
   const [offlineRunningStyle, setOfflineRunningStyle] = useState(0);
   const [offlineRaceDeckNum, setOfflineRaceDeckNum] = useState(0);
   const [offlineDesign, setOfflineDesign] = useState(() =>
-    normalizeOfflineDesign(),
+    createOfflineDesign(),
   );
   const [offlineFactorSelection, setOfflineFactorSelection] =
     useState<OfflineFactorSelection>(() =>
       createDefaultOfflineFactorSelection(),
     );
-  const [offlinePrioritySkillIds, setOfflinePrioritySkillIds] = useState<
-    number[]
-  >([]);
-  const [offlineSkillSettings, setOfflineSkillSettings] =
-    useState<OfflineSkillSettings>(() => createDefaultOfflineSkillSettings());
   const [selectedCareerRecords, setSelectedCareerRecords] = useState<
     CareerSessionRecord[] | null
   >(null);
@@ -1152,6 +1072,39 @@ export default function AutoResearch() {
     (continuingCurrentCareer
       ? Number(selectedCareerSetting?.parent_id_2 || 0)
       : 0);
+  const skillScenarioId = offlineSetup?.scenario_id ?? offlineScenarioId;
+  const careerSkillGroups = useMemo(() => {
+    const parentFor = (key: string, id: number) =>
+      dashboard?.parents.find((parent) =>
+        key
+          ? parent.selection_id === key
+          : parent.source === 'own' && parent.instance_id === id,
+      );
+    return obtainableSkillGroups({
+      uma: dashboard?.umas.find((uma) => uma.id === effectiveCardId),
+      parents: [
+        parentFor(effectiveParentKey1, effectiveParentId1),
+        parentFor(effectiveParentKey2, effectiveParentId2),
+      ],
+      supportIds: [...effectiveSupportCardIds, effectiveFriendCardId],
+      supports: dashboard?.supports,
+      scenarioId: skillScenarioId,
+      factorMeta: umaDatabase?.successionFactorMeta,
+    });
+  }, [
+    dashboard?.parents,
+    dashboard?.supports,
+    dashboard?.umas,
+    effectiveCardId,
+    effectiveParentKey1,
+    effectiveParentId1,
+    effectiveParentKey2,
+    effectiveParentId2,
+    effectiveSupportCardIds,
+    effectiveFriendCardId,
+    skillScenarioId,
+    umaDatabase,
+  ]);
   const careerConfigDifferences = useMemo(() => {
     if (!activeCareer?.active) return [];
     if (!selectedCareerSetting) return ['尚未选择养马详设'];
@@ -1242,18 +1195,6 @@ export default function AutoResearch() {
     () => new Map(skills.map((skill) => [skill.name, skill])),
     [skills],
   );
-  const filteredSupports = useMemo(() => {
-    const keyword = supportSearch.trim().toLowerCase();
-    return (dashboard?.supports || [])
-      .filter(
-        (support) =>
-          !keyword ||
-          `${support.name} ${support.type} ${support.rarity}`
-            .toLowerCase()
-            .includes(keyword),
-      )
-      .sort((left, right) => left.id - right.id);
-  }, [dashboard?.supports, supportSearch]);
   const availableFriendSupportIds = useMemo(() => {
     const supports = new Map(
       (dashboard?.supports || []).map((support) => [support.id, support]),
@@ -1278,10 +1219,10 @@ export default function AutoResearch() {
   }, [dashboard?.friends, dashboard?.supports]);
   const visibleFriendSupports = useMemo(
     () =>
-      filteredSupports.filter((support) =>
-        availableFriendSupportIds.has(support.id),
-      ),
-    [availableFriendSupportIds, filteredSupports],
+      (dashboard?.supports || [])
+        .filter((support) => availableFriendSupportIds.has(support.id))
+        .sort((left, right) => left.id - right.id),
+    [availableFriendSupportIds, dashboard?.supports],
   );
   const selectionConflict = useMemo(() => {
     if (!selectedUma || !selectedFriendSupport) return '';
@@ -3161,7 +3102,7 @@ export default function AutoResearch() {
     setOfflineScenarioId(0);
     setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
-    setOfflineDesign(normalizeOfflineDesign());
+    setOfflineDesign(createOfflineDesign());
   }, [selectedAccountId]);
 
   useEffect(() => {
@@ -4182,8 +4123,6 @@ export default function AutoResearch() {
           offlineRaceDeckNum,
           offlineDesign,
           offlineFactorSelection,
-          offlinePrioritySkillIds,
-          offlineSkillSettings,
         }
       : null,
   );
@@ -5325,12 +5264,10 @@ export default function AutoResearch() {
     setOfflineRunningStyle(Number(setting.running_style || 0));
     setOfflineRaceDeckNum(Number(setting.offline_race_deck_num || 0));
     setOfflineDesign(normalizeOfflineDesign(setting.offline_design));
-    setOfflineFactorSelection(factorSelectionFromSetting(setting));
-    setOfflinePrioritySkillIds(
-      normalizeOfflinePrioritySkillIds(setting.offline_priority_skill_ids),
-    );
-    setOfflineSkillSettings(
-      normalizeOfflineSkillSettings(setting.offline_skill_settings),
+    setOfflineFactorSelection(
+      setting.mode === 'offline'
+        ? normalizeOfflineFactorSelection(offlineFactorsFromSetting(setting))
+        : factorSelectionFromSetting(setting),
     );
     setCareerSaveOpen(true);
   };
@@ -5376,13 +5313,15 @@ export default function AutoResearch() {
     setRecoverTpWithJewels(false);
     setOfflineSetup(null);
     setOfflineSetupAccountId('');
-    setOfflineScenarioId(goal === 'breeding' ? 0 : 5);
+    setOfflineScenarioId(
+      goal === 'breeding' && newCareerMode === 'offline'
+        ? defaultLocalScenario(dashboard?.offline_scenarios)
+        : goal === 'breeding' ? 0 : 5,
+    );
     setOfflineRunningStyle(0);
     setOfflineRaceDeckNum(0);
-    setOfflineDesign(normalizeOfflineDesign({ goal }));
+    setOfflineDesign(createOfflineDesign(goal));
     setOfflineFactorSelection(createDefaultOfflineFactorSelection());
-    setOfflinePrioritySkillIds([]);
-    setOfflineSkillSettings(createDefaultOfflineSkillSettings());
     setCareerSaveOpen(true);
     setNewCareerSaveName('');
     setError('');
@@ -5494,14 +5433,6 @@ export default function AutoResearch() {
       offline_race_deck_num:
         careerMode === 'offline' ? offlineRaceDeckNum : undefined,
       offline_design: careerMode === 'offline' ? offlineDesign : undefined,
-      offline_priority_skill_ids:
-        careerMode === 'offline'
-          ? normalizeOfflinePrioritySkillIds(offlinePrioritySkillIds)
-          : undefined,
-      offline_skill_settings:
-        careerMode === 'offline'
-          ? normalizeOfflineSkillSettings(offlineSkillSettings)
-          : undefined,
       factor_selection: normalizeOfflineFactorSelection(offlineFactorSelection),
       updated_at: new Date().toISOString(),
     };
@@ -5579,6 +5510,7 @@ export default function AutoResearch() {
   });
 
   const offlineSetupRequestKey = JSON.stringify([
+    offlineDesign.source,
     selectedAccountId,
     effectiveCardId,
     offlineScenarioId,
@@ -5766,11 +5698,7 @@ export default function AutoResearch() {
           career_setting_id: selectedCareerSetting?.id || '',
           career_setting_name: selectedCareerSetting?.name || careerSettingName,
           career_config: selectedCareerSetting || {},
-          priority_skill_array: buildOfflinePrioritySkillArray(
-            offlinePrioritySkillIds,
-          ),
-          offline_skill_settings:
-            normalizeOfflineSkillSettings(offlineSkillSettings),
+          ...offlineSkillRequest(offlineFactorSelection),
           factor_selection: normalizeOfflineFactorSelection(
             offlineFactorSelection,
           ),
@@ -5835,6 +5763,9 @@ export default function AutoResearch() {
       recover_tp_with_item: setting.recover_tp_with_item,
       recover_tp_with_jewels: setting.recover_tp_with_jewels,
     };
+    const factors = normalizeOfflineFactorSelection(
+      offlineFactorsFromSetting(setting),
+    );
     setBusy(`idle-start-${setting.id}`);
     setError('');
     try {
@@ -5848,15 +5779,8 @@ export default function AutoResearch() {
           career_setting_id: setting.id,
           career_setting_name: setting.name,
           career_config: setting,
-          priority_skill_array: buildOfflinePrioritySkillArray(
-            setting.offline_priority_skill_ids || [],
-          ),
-          offline_skill_settings: normalizeOfflineSkillSettings(
-            setting.offline_skill_settings,
-          ),
-          factor_selection: normalizeOfflineFactorSelection(
-            setting.factor_selection || setting.offline_factor_selection,
-          ),
+          ...offlineSkillRequest(factors),
+          factor_selection: factors,
           race_deck_num: setting.offline_race_deck_num,
           ...offlineRaceRequest(setting.offline_design),
         },
@@ -5930,6 +5854,9 @@ export default function AutoResearch() {
         `离线详设“${resolved.name}”：${offlineScheduleError(resolved)}`,
       );
     }
+    const factors = offline
+      ? normalizeOfflineFactorSelection(offlineFactorsFromSetting(resolved))
+      : factorSelectionFromSetting(resolved);
     return {
       id: queueItem.id,
       career_setting_id: resolved.id,
@@ -5963,15 +5890,8 @@ export default function AutoResearch() {
         burn_clocks: resolved.burn_clocks,
         clock_use_limit: resolved.clock_use_limit || 1,
         running_style: offline ? Number(resolved.running_style || 0) : 0,
-        priority_skill_array: buildOfflinePrioritySkillArray(
-          resolved.offline_priority_skill_ids || [],
-        ),
-        offline_skill_settings: normalizeOfflineSkillSettings(
-          resolved.offline_skill_settings,
-        ),
-        factor_selection: normalizeOfflineFactorSelection(
-          resolved.factor_selection || resolved.offline_factor_selection,
-        ),
+        ...(offline ? offlineSkillRequest(factors) : {}),
+        factor_selection: factors,
         race_deck_num: resolved.offline_race_deck_num || 0,
         ...(offline ? offlineRaceRequest(resolved.offline_design) : {}),
       },
@@ -8875,6 +8795,7 @@ export default function AutoResearch() {
                     }
                     presets={presets}
                     selectedUma={selectedUma}
+                    careerSkillGroups={careerSkillGroups}
                     cardId={cardId}
                     setCardId={setCardId}
                     selectedParent1={selectedParent1}
@@ -8887,8 +8808,6 @@ export default function AutoResearch() {
                     setDeckId={setDeckId}
                     setSupportCardIds={setSupportCardIds}
                     selectedDeckCharaIds={selectedDeckCharaIds}
-                    supportSearch={supportSearch}
-                    setSupportSearch={setSupportSearch}
                     friendCardId={friendCardId}
                     setFriendCardId={setFriendCardId}
                     selectedFriendSupport={selectedFriendSupport}
@@ -8947,10 +8866,6 @@ export default function AutoResearch() {
                     skills={skills}
                     offlineFactorSelection={offlineFactorSelection}
                     setOfflineFactorSelection={setOfflineFactorSelection}
-                    offlinePrioritySkillIds={offlinePrioritySkillIds}
-                    setOfflinePrioritySkillIds={setOfflinePrioritySkillIds}
-                    offlineSkillSettings={offlineSkillSettings}
-                    setOfflineSkillSettings={setOfflineSkillSettings}
                   />
                 ) : null}
 

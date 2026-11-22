@@ -90,19 +90,33 @@ export const MONTH_OPTIONS = Array.from(
 );
 export const DEFAULT_EXPECT_ATTRIBUTE = [1200, 800, 1000, 600, 1000];
 
+export function normalizeBlueFactorMinimums(selection?: Partial<OfflineFactorSelection>) {
+  const stored = selection?.blue_factor_minimums;
+  const minimums: OfflineFactorSelection['blue_factor_minimums'] = {};
+  if (!stored) return minimums;
+  const keys = ['speed', 'stamina', 'power', 'guts', 'wit'] as const;
+  // Older editors filled every untouched attribute with one star.
+  const prefilled = !selection.blue_factor_minimums_version &&
+    keys.every((key) => stored[key] != null);
+  for (const key of keys) {
+    const value = stored[key];
+    if (value == null || !Number.isFinite(Number(value))) continue;
+    const stars = Math.max(0, Math.min(3, Math.round(Number(value))));
+    if (prefilled && stars === 1) continue;
+    if (!selection.evaluation_mode && stars === 0) continue;
+    minimums[key] = stars;
+  }
+  return minimums;
+}
+
 export function createDefaultOfflineFactorSelection(): OfflineFactorSelection {
   return {
     transfer_mode: 'keep',
     enabled: true,
     evaluation_mode: 'parent',
     use_skill_priority: true,
-    blue_factor_minimums: {
-      speed: 1,
-      stamina: 1,
-      power: 1,
-      guts: 1,
-      wit: 1,
-    },
+    blue_factor_minimums_version: 2,
+    blue_factor_minimums: {},
     targets: [],
     lineage: {
       mode: 'none',

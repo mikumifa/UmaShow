@@ -32,6 +32,7 @@ export type PlanningRace = {
   distance: number;
   fans: number;
   requiredFans: number;
+  saddleId?: number;
   /** Character career goals add 10 percentage points after streak penalties. */
   isCareerGoal?: boolean;
 };

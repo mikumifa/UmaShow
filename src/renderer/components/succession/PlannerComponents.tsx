@@ -242,18 +242,49 @@ export const PlannerSelectionCard = memo(function PlannerSelectionCard({
   );
 });
 
-export const PlannerSkillCard = memo(function PlannerSkillCard({
+type SkillCardContentProps = {
+  iconPath?: string | null;
+  name: string;
+  meta?: ReactNode;
+  description?: string;
+  sources?: ReactNode;
+};
+
+export function PlannerSkillCardContent({
   iconPath,
   name,
   meta,
+  description,
+  sources,
+}: SkillCardContentProps) {
+  return (
+    <>
+      <span className="plannerSkillCardIcon">
+        {iconPath ? (
+          <AssetIcon
+            path={iconPath}
+            alt=""
+            className="plannerSkillCardIconImage"
+          />
+        ) : null}
+      </span>
+      <span className={`plannerSkillCardCopy${description ? ' hasDescription' : ''}`}>
+        <strong>{name}</strong>
+        {meta ? <small>{meta}</small> : null}
+        {description && <span className="careerSkillDescription">{description}</span>}
+        {sources}
+      </span>
+    </>
+  );
+}
+
+export const PlannerSkillCard = memo(function PlannerSkillCard({
   rarity = 1,
   selected = false,
   disabled = false,
   onClick,
-}: {
-  iconPath?: string | null;
-  name: string;
-  meta?: ReactNode;
+  ...content
+}: SkillCardContentProps & {
   rarity?: number;
   selected?: boolean;
   disabled?: boolean;
@@ -269,19 +300,7 @@ export const PlannerSkillCard = memo(function PlannerSkillCard({
       aria-pressed={selected}
       onClick={onClick}
     >
-      <span className="plannerSkillCardIcon">
-        {iconPath ? (
-          <AssetIcon
-            path={iconPath}
-            alt={name}
-            className="plannerSkillCardIconImage"
-          />
-        ) : null}
-      </span>
-      <span className="plannerSkillCardCopy">
-        <strong>{name}</strong>
-        {meta ? <small>{meta}</small> : null}
-      </span>
+      <PlannerSkillCardContent {...content} />
       {selected ? (
         <span className="plannerSkillCardCheck" aria-label="当前选择">
           <Check size={14} strokeWidth={3} />

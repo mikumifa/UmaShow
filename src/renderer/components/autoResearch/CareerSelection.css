@@ -2,6 +2,28 @@
   min-width: 0;
 }
 
+.careerSupportSection {
+  container-type: inline-size;
+  container-name: career-support;
+}
+
+.careerSupportLayout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@container career-support (min-width: 36rem) {
+  .careerSupportDecks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container career-support (min-width: 52rem) {
+  .careerSupportLayout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
 .careerSelection .successionUmaSelect {
   height: 100%;
 }

@@ -30,6 +30,10 @@ import {
   offlineRaceRequest,
   offlineScheduleError,
 } from 'renderer/utils/offlineCareerDesign';
+import {
+  offlineFactorsFromSetting,
+  offlineSkillRequest,
+} from 'renderer/components/autoResearch/offlineCareerSkills';
 import HistoryTab from 'renderer/components/autoResearch/HistoryTab';
 import {
   HistoryPage,
@@ -42,10 +46,8 @@ import {
   umaSkinIconPath,
 } from 'renderer/components/autoResearch/SelectionCards';
 import {
-  buildOfflinePrioritySkillArray,
   cloudCareerSetting,
   createDefaultOfflineFactorSelection,
-  createDefaultOfflineSkillSettings,
   fileToBase64,
   normalizeOnlineScenarioId,
   normalizeServer,
@@ -58,7 +60,6 @@ import {
   CloudConfigurationResponse,
   Dashboard,
   HostedControlResponse,
-  RaceOption,
   RunnerStats,
   RunMode,
   ScheduleGoal,
@@ -67,7 +68,7 @@ import {
   ScheduleTiming,
   SessionResponse,
 } from 'renderer/components/autoResearch/types';
-import autoResearchCatalog from '../../assets/data/auto_research_catalog.json';
+import { localCatalog } from 'renderer/components/autoResearch/catalog';
 import SmsLoginPanel from './SmsLoginPanel';
 import { copyText } from './clipboard';
 
@@ -91,7 +92,7 @@ type ImportedAccount = {
   updatedAt: string;
 };
 
-const races = autoResearchCatalog.races as RaceOption[];
+const { races } = localCatalog;
 const noop = () => undefined;
 const noopAsync = async () => undefined;
 
@@ -212,6 +213,11 @@ function buildScheduleItem(
       `离线详设“${config.name}”：${offlineScheduleError(setting)}`,
     );
   }
+  const factors = offline
+    ? offlineFactorsFromSetting(setting)
+    : setting.factor_selection ||
+      setting.offline_factor_selection ||
+      createDefaultOfflineFactorSelection();
   return {
     id: `web-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     career_setting_id: config.config_id,
@@ -246,15 +252,8 @@ function buildScheduleItem(
       recover_tp_with_jewels: Boolean(setting.recover_tp_with_jewels),
       preset_name: setting.preset_name || config.payload.preset?.name || '',
       running_style: offline ? Number(setting.running_style || 0) : 0,
-      priority_skill_array: buildOfflinePrioritySkillArray(
-        setting.offline_priority_skill_ids || [],
-      ),
-      offline_skill_settings:
-        setting.offline_skill_settings || createDefaultOfflineSkillSettings(),
-      factor_selection:
-        setting.factor_selection ||
-        setting.offline_factor_selection ||
-        createDefaultOfflineFactorSelection(),
+      ...(offline ? offlineSkillRequest(factors) : {}),
+      factor_selection: factors,
       race_deck_num: Number(setting.offline_race_deck_num || 0),
       ...(offline ? offlineRaceRequest(setting.offline_design) : {}),
     },
@@ -992,8 +991,6 @@ export default function WebAutoUma() {
     setDeckId: noop,
     setSupportCardIds: noop,
     selectedDeckCharaIds: [],
-    supportSearch: '',
-    setSupportSearch: noop,
     friendCardId: 0,
     setFriendCardId: noop,
     selectedFriendSupport: undefined,
@@ -1029,10 +1026,6 @@ export default function WebAutoUma() {
     skills: [],
     offlineFactorSelection: createDefaultOfflineFactorSelection(),
     setOfflineFactorSelection: noop,
-    offlinePrioritySkillIds: [],
-    setOfflinePrioritySkillIds: noop,
-    offlineSkillSettings: createDefaultOfflineSkillSettings(),
-    setOfflineSkillSettings: noop,
   } as ComponentProps<typeof CareerTab>;
 
   const tabs = [

@@ -554,6 +554,26 @@
   gap: 8px;
 }
 
+.careerSkillDescription {
+  display: block;
+  min-height: 4.8em;
+  font-size: var(--uma-type-caption);
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.plannerSkillCardCopy.hasDescription > strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 721px) {
+  .plannerSkillGrid.careerSkillGrid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  }
+}
+
 .successionPickerFilterTrigger {
   display: flex;
   min-height: 38px;

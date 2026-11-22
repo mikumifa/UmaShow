@@ -86,6 +86,17 @@ export function normalizeOfflineDesign(
   };
 }
 
+export function createOfflineDesign(goal: OfflineDesign['goal'] = 'breeding') {
+  return normalizeOfflineDesign({ goal, source: 'custom' });
+}
+
+export function defaultLocalScenario(scenarios: Dashboard['offline_scenarios'] = []) {
+  const available = scenarios.filter(({ id }) =>
+    PLANNING_SCENARIOS.some((scenario) => scenario.id === id),
+  );
+  return available.sort((a, b) => b.sort_id - a.sort_id || b.id - a.id)[0]?.id ?? 5;
+}
+
 export function offlineRaceRequest(design?: Partial<OfflineDesign>) {
   const config = normalizeOfflineDesign(design);
   return {

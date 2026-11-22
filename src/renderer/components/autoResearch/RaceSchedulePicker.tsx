@@ -17,9 +17,8 @@ import { RaceOption } from './types';
 
 type Props = {
   id?: string;
-  title: string;
+  title?: string;
   description?: string;
-  notice?: string;
   step?: number;
   races: RaceOption[];
   selectedRaceIds: number[];
@@ -42,7 +41,6 @@ function RaceSchedulePicker({
   id,
   title,
   description,
-  notice,
   step,
   races,
   selectedRaceIds,
@@ -123,27 +121,24 @@ function RaceSchedulePicker({
 
   return (
     <section id={id} className="scroll-mt-28">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {step ? (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-              {step}
-            </span>
-          ) : null}
-          <h3 className="text-section font-semibold text-slate-900">{title}</h3>
-        </div>
-        <div className="text-right">
-          <p className="uma-prose text-data text-slate-500">
+      {title && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {step ? (
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
+                {step}
+              </span>
+            ) : null}
+            <h3 className="text-section font-semibold text-slate-900">{title}</h3>
+          </div>
+          <p className="uma-prose text-right text-data text-slate-500">
             {selectionSummary}
           </p>
         </div>
-      </div>
+      )}
 
       {description ? (
         <p className="uma-prose mt-2 text-data text-slate-600">{description}</p>
-      ) : null}
-      {notice ? (
-        <p className="uma-prose mt-2 text-label text-amber-800">{notice}</p>
       ) : null}
       {planning ? (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-caption text-slate-600">
@@ -201,6 +196,7 @@ function RaceSchedulePicker({
                         (turn < planning.startTurn || turn > planning.endTurn);
                       const blocked = blockedTurnSet.has(turn) && !goals;
                       let stateLabel = planning ? '自动规划' : '未选择比赛';
+                      if (!planning && !turnRaces.length) stateLabel = '无赛事';
                       if (selectedRace)
                         stateLabel = `已选择${selectedRace.name}`;
                       if (rest)
@@ -220,10 +216,6 @@ function RaceSchedulePicker({
                       if (selected)
                         tone =
                           'bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500';
-                      let emptyLabel = turnRaces.length ? '未选择' : '无赛事';
-                      if (planning) emptyLabel = '自动';
-                      if (blocked) emptyLabel = '禁赛';
-                      if (outside) emptyLabel = '—';
                       return (
                         <button
                           key={half}
@@ -237,25 +229,27 @@ function RaceSchedulePicker({
                           onClick={() => setSelectedRaceTurn(turn)}
                           className={`relative flex min-w-0 flex-col overflow-hidden rounded text-caption transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed ${outside || blocked ? 'opacity-50' : ''} ${showRaceDetails ? 'min-h-16' : 'aspect-[2/1]'} ${tone}`}
                         >
-                          {showRaceDetails ? (
-                            <span className="flex w-full items-center justify-between px-1 pt-1 text-caption">
-                              <span>{half === 1 ? '上半' : '下半'}</span>
-                              {goals ? <LockKeyhole size={11} /> : null}
-                              {!goals && selectedRace && !readOnly ? (
+                          {showRaceDetails &&
+                          (goals || (selectedRace && !readOnly)) ? (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute right-0.5 top-0.5 z-10 rounded bg-white/90 p-0.5"
+                            >
+                              {goals ? (
+                                <LockKeyhole size={11} />
+                              ) : (
                                 <Pin size={11} />
-                              ) : null}
+                              )}
                             </span>
                           ) : null}
                           {displayRace ? (
-                            <AssetIcon
-                              path={`race_thumb/${displayRace.thumbnail_id}.png`}
-                              alt={displayRace.name}
-                              className={
-                                showRaceDetails
-                                  ? 'h-8 w-full object-contain'
-                                  : 'absolute inset-0 h-full w-full object-contain'
-                              }
-                            />
+                            <span className="relative w-full flex-1">
+                              <AssetIcon
+                                path={`race_thumb/${displayRace.thumbnail_id}.png`}
+                                alt={displayRace.name}
+                                className="absolute inset-0 h-full w-full object-contain"
+                              />
+                            </span>
                           ) : null}
                           {!displayRace && rest ? (
                             <span className="flex flex-1 items-center justify-center gap-1">
@@ -263,10 +257,8 @@ function RaceSchedulePicker({
                               {readOnly ? '休／练' : '休息'}
                             </span>
                           ) : null}
-                          {!displayRace && !rest ? (
-                            <span className="flex h-full w-full flex-1 items-center justify-center">
-                              {emptyLabel}
-                            </span>
+                          {blocked && !outside && !displayRace && !rest ? (
+                            <span className="m-auto">禁赛</span>
                           ) : null}
                           {showRaceDetails && displayRace ? (
                             <span

@@ -397,7 +397,7 @@ export const DeckChoiceCard = memo(function DeckChoiceCard({
       onClick={onSelect}
       disabled={disabled}
       aria-pressed={selected}
-      className={`w-fit max-w-full flex-none rounded-lg border p-3 text-left transition-ui disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`min-w-0 rounded-lg border p-3 text-left transition-ui disabled:cursor-not-allowed disabled:opacity-30 ${
         selected
           ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100'
           : 'border-gray-200 bg-white hover:border-gray-400'
@@ -409,11 +409,11 @@ export const DeckChoiceCard = memo(function DeckChoiceCard({
         </span>
         {selected ? <Check size={16} className="text-indigo-600" /> : null}
       </span>
-      <span className="flex flex-nowrap gap-1">
+      <span className="grid max-w-64 grid-cols-5 gap-1">
         {deck.cards.map((support) => (
           <span
             key={support.id}
-            className="h-12 w-12 flex-none overflow-hidden rounded bg-gray-100"
+            className="aspect-square min-w-0 overflow-hidden rounded bg-gray-100"
             title={support.name}
           >
             <AssetIcon

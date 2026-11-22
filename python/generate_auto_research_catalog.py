@@ -85,10 +85,13 @@ def generate_skills(connection: sqlite3.Connection) -> dict[str, dict]:
             skill.disable_singlemode,
             skill.tag_id,
             skill.icon_id,
-            skill.skill_category
+            skill.skill_category,
+            description.text
         FROM skill_data AS skill
         LEFT JOIN text_data AS text
           ON text.category = 47 AND text."index" = skill.id
+        LEFT JOIN text_data AS description
+          ON description.category = 48 AND description."index" = skill.id
         LEFT JOIN single_mode_skill_need_point AS cost
           ON cost.id = skill.id
         ORDER BY skill.id
@@ -99,6 +102,7 @@ def generate_skills(connection: sqlite3.Connection) -> dict[str, dict]:
         skill_id = int(row[0])
         skills[str(skill_id)] = {
             "name": str(row[1] or skill_id),
+            "description": (row[11] or "").replace(r"\n", "\n"),
             "rarity": int(row[2] or 0),
             "group_id": int(row[3] or 0),
             "grade_value": int(row[4] or 0),
@@ -140,6 +144,17 @@ def generate_available_skills_by_card(
             }
         )
     return available_skills
+
+
+def generate_support_hint_skills(connection: sqlite3.Connection) -> dict:
+    hints = {}
+    for support, skill in connection.execute(
+        """SELECT DISTINCT support_card_id, hint_value_1
+           FROM single_mode_hint_gain WHERE hint_gain_type = 0
+           ORDER BY support_card_id, hint_value_1"""
+    ):
+        hints.setdefault(support, []).append(skill)
+    return hints
 
 
 def generate_races(connection: sqlite3.Connection) -> list[dict]:
@@ -231,10 +246,15 @@ def main() -> int:
         raise FileNotFoundError(f"master.mdb not found: {args.master}")
     with sqlite3.connect(args.master) as connection:
         catalog = {
+            "running_style_by_card": dict(connection.execute(
+                "SELECT id, running_style FROM card_data "
+                "WHERE running_style BETWEEN 1 AND 4 ORDER BY id"
+            )),
             "skills": generate_skills(connection),
             "available_skills_by_card": generate_available_skills_by_card(
                 connection
             ),
+            "support_hint_skills": generate_support_hint_skills(connection),
             "races": generate_races(connection),
         }
     args.output.parent.mkdir(parents=True, exist_ok=True)

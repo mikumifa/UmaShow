@@ -3,9 +3,34 @@ import {
   describeLogAction,
   formatAccountError,
   needsRelogin,
+  normalizeBlueFactorMinimums,
   normalizeOnlineScenarioId,
   onlineScenarioLabel,
 } from './shared';
+
+describe('attribute factor minimums', () => {
+  const ones = { speed: 1, stamina: 1, power: 1, guts: 1, wit: 1 };
+
+  it('leaves new settings and the old prefilled defaults unrestricted', () => {
+    expect(normalizeBlueFactorMinimums()).toEqual({});
+    expect(normalizeBlueFactorMinimums({ blue_factor_minimums: ones })).toEqual({});
+    expect(normalizeBlueFactorMinimums({
+      evaluation_mode: 'parent',
+      blue_factor_minimums: { ...ones, speed: 3, stamina: 0 },
+    })).toEqual({ speed: 3, stamina: 0 });
+    expect(normalizeBlueFactorMinimums({ blue_factor_minimums: { speed: 0 } })).toEqual({});
+  });
+
+  it('keeps explicitly chosen one-star minimums when reloading', () => {
+    expect(normalizeBlueFactorMinimums({
+      blue_factor_minimums: { wit: 1 },
+    })).toEqual({ wit: 1 });
+    expect(normalizeBlueFactorMinimums({
+      blue_factor_minimums_version: 2,
+      blue_factor_minimums: ones,
+    })).toEqual(ones);
+  });
+});
 
 const cloudConfig = (setting: Record<string, unknown>) => ({
   uid: '10001',

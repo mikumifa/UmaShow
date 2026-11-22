@@ -19,6 +19,15 @@ def generate(master: Path) -> dict:
     with sqlite3.connect(f"file:{master}?mode=ro", uri=True) as db:
         db.row_factory = sqlite3.Row
         programs = {}
+        saddle_groups = {}
+        g1_by_instance = {}
+        for saddle in db.execute('SELECT * FROM single_mode_wins_saddle ORDER BY id'):
+            saddle_groups[saddle['id']] = saddle['group_id']
+            if saddle['win_saddle_type'] == 3:
+                for index in range(1, 9):
+                    instance = saddle[f'race_instance_id_{index}']
+                    if instance:
+                        g1_by_instance[instance] = saddle['id']
         for row in db.execute('''
             SELECT p.*, COALESCE(t.text, CAST(p.id AS TEXT)) name,
                    r.grade, r.thumbnail_id, c.ground, c.distance,
@@ -40,6 +49,8 @@ def generate(master: Path) -> dict:
                 'requiredFans': row['need_fan_count'], 'thumbnailId': row['thumbnail_id'],
                 'permission': row['race_permission'], 'month': row['month'], 'half': row['half'],
                 'baseId': row['base_program_id'], 'programGroup': row['program_group'],
+                **({'saddleId': g1_by_instance[row['race_instance_id']]}
+                   if row['race_instance_id'] in g1_by_instance else {}),
             }
         groups = {}
         for row in db.execute('SELECT * FROM single_mode_race_group ORDER BY id'):
@@ -82,6 +93,7 @@ def generate(master: Path) -> dict:
         'schemaVersion': 1, 'masterSha256': hashlib.sha256(master.read_bytes()).hexdigest(),
         'programs': programs, 'characters': charas, 'routes': routes,
         'scenarioEvents': scenario_events,
+        'saddleGroups': saddle_groups,
     }
 
 

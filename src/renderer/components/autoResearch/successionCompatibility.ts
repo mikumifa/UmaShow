@@ -1,4 +1,5 @@
 import successionData from 'renderer/data/succession_data.json';
+import { detailedCommonG1Count } from 'renderer/utils/saddleCompatibility';
 
 import type { Dashboard } from './types';
 
@@ -54,26 +55,12 @@ function relationScore(...rawIds: number[]) {
   );
 }
 
-function detailedCommonG1Count(
-  firstWinSaddleIds: number[] | undefined,
-  secondWinSaddleIds: number[] | undefined,
-  successionG1SaddleIds: Iterable<number>,
-) {
-  if (!firstWinSaddleIds?.length || !secondWinSaddleIds?.length) {
-    return undefined;
-  }
-  const g1Ids = new Set(successionG1SaddleIds);
-  if (!g1Ids.size) return undefined;
-  const first = new Set(firstWinSaddleIds.filter((id) => g1Ids.has(id)));
-  const second = new Set(secondWinSaddleIds.filter((id) => g1Ids.has(id)));
-  return [...first].filter((id) => second.has(id)).length;
-}
-
 export function parentCompatibilityPreview(
   targetCharaId: number,
   candidate: Dashboard['parents'][number],
   otherParent: Dashboard['parents'][number] | undefined,
   successionG1SaddleIds: Iterable<number>,
+  candidateIsFirst = true,
 ): ParentCompatibilityPreview {
   const candidateId = baseCharaId(candidate.chara_id);
   const targetId = baseCharaId(targetCharaId);
@@ -83,8 +70,8 @@ export function parentCompatibilityPreview(
   if (otherParent) {
     base += relationScore(candidateId, otherParent.chara_id);
     const count = detailedCommonG1Count(
-      candidate.win_saddle_ids,
-      otherParent.win_saddle_ids,
+      (candidateIsFirst ? candidate : otherParent).win_saddle_ids,
+      (candidateIsFirst ? otherParent : candidate).win_saddle_ids,
       successionG1SaddleIds,
     );
     if (count !== undefined) {

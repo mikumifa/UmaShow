@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import successionData from 'renderer/data/succession_data.json';
+import { detailedCommonG1Count } from 'renderer/utils/saddleCompatibility';
 import successionSkillMetaData from 'renderer/data/succession_skill_meta.json';
 import SkillSelector, {
   type AutoResearchSkill,
@@ -1056,20 +1057,7 @@ function capturedInheritanceFactors(rows: any): CapturedInheritanceFactor[] {
   });
 }
 
-export function detailedCommonG1Count(
-  firstWinSaddleIds: number[] | undefined,
-  secondWinSaddleIds: number[] | undefined,
-  successionG1SaddleIds: Iterable<number>,
-) {
-  if (!firstWinSaddleIds?.length || !secondWinSaddleIds?.length) {
-    return undefined;
-  }
-  const g1Ids = new Set(successionG1SaddleIds);
-  if (!g1Ids.size) return undefined;
-  const first = new Set(firstWinSaddleIds.filter((id) => g1Ids.has(id)));
-  const second = new Set(secondWinSaddleIds.filter((id) => g1Ids.has(id)));
-  return [...first].filter((id) => second.has(id)).length;
-}
+export { detailedCommonG1Count };
 
 export function winSaddleCompatibilityBonus(g1Counts: number[]) {
   return (
@@ -6376,8 +6364,7 @@ function SuccessionPlanner({
   };
   const commonG1Count = (first: Route, second: Route) => {
     if (first.id === 'none' || second.id === 'none') return 0;
-    const secondIds = new Set(second.winSaddleIds);
-    return first.winSaddleIds.filter((id) => secondIds.has(id)).length;
+    return detailedCommonG1Count(first.winSaddleIds, second.winSaddleIds, first.winSaddleIds) ?? 0;
   };
   const trainedMemberForSlot = (
     slot: LineageSlot,
@@ -6561,12 +6548,11 @@ function SuccessionPlanner({
     const resolvedSecondMember = secondMember?.winSaddleIds?.length
       ? secondMember
       : trainedMemberForSlot(secondSlot, secondId);
-    const g1 = resolvedCommonG1(
-      resolvedFirstMember,
-      routeSettingForSlot(firstSlot, firstId).route,
-      resolvedSecondMember,
-      routeSettingForSlot(secondSlot, secondId).route,
-    );
+    const firstRoute = routeSettingForSlot(firstSlot, firstId).route;
+    const secondRoute = routeSettingForSlot(secondSlot, secondId).route;
+    const g1 = firstSlot === 'mother'
+      ? resolvedCommonG1(resolvedSecondMember, secondRoute, resolvedFirstMember, firstRoute)
+      : resolvedCommonG1(resolvedFirstMember, firstRoute, resolvedSecondMember, secondRoute);
     return {
       base,
       g1Count: g1.count,

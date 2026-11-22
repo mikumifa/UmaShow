@@ -1,6 +1,9 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { WandSparkles } from 'lucide-react';
+import { designSaddleSchedule } from 'renderer/utils/saddleSchedule';
+import type { PlanningAptitudes } from 'renderer/utils/raceScheduleOptimizer';
 import {
   PlannerButton,
   PlannerFactorBadge,
@@ -13,6 +16,7 @@ import {
 import {
   buildPlanningCalendar,
   PLANNER_CATALOG,
+  PLANNING_SCENARIOS,
   planningDate,
 } from 'renderer/utils/racePlannerCatalog';
 import {
@@ -42,15 +46,40 @@ export function OfflineCustomSchedule({
   setDesign,
   charaId,
   scenarioId,
+  aptitudes,
   disabled = false,
+  actionHost,
 }: Pick<Props, 'design' | 'setDesign' | 'charaId'> & {
   scenarioId: number;
+  aptitudes?: PlanningAptitudes;
   disabled?: boolean;
+  actionHost?: HTMLDivElement | null;
 }) {
+  const [designError, setDesignError] = useState('');
   const calendar = useMemo(
     () => buildPlanningCalendar(charaId, scenarioId || 5, design.routeId),
     [charaId, scenarioId, design.routeId],
   );
+  const ranks =
+    aptitudes ??
+    PLANNER_CATALOG.characters.find((uma) => uma.id === charaId)?.aptitudes;
+  const supported = PLANNING_SCENARIOS.some(
+    (scenario) => scenario.id === scenarioId,
+  );
+  const designSchedule = () => {
+    if (!ranks || !supported) return;
+    try {
+      const { raceIds } = designSaddleSchedule(
+        calendar,
+        ranks,
+        design.fixedIds,
+      );
+      setDesign((current) => ({ ...current, source: 'custom', raceIds }));
+      setDesignError('');
+    } catch (caught) {
+      setDesignError((caught as Error).message);
+    }
+  };
   const options = useMemo<RaceOption[]>(
     () =>
       calendar.races
@@ -91,27 +120,44 @@ export function OfflineCustomSchedule({
         })),
     [calendar],
   );
-  if (!charaId) {
-    return <p className="text-label text-gray-500">先选择育成马娘</p>;
-  }
+  if (!charaId || !supported)
+    return (
+      <p className="mt-4 text-label text-gray-500">
+        {charaId ? '请选择有本地赛历的育成剧本' : '先选择育成马娘'}
+      </p>
+    );
+  const action = (
+    <PlannerButton size="small" onClick={designSchedule} disabled={disabled || !ranks}>
+      <WandSparkles size={15} /> 一键设置
+    </PlannerButton>
+  );
   return (
-    <RaceSchedulePicker
-      title="参赛计划"
-      races={options}
-      lockedRaces={calendar.fixedRaces}
-      selectedRaceIds={design.raceIds}
-      setSelectedRaceIds={
-        disabled
-          ? undefined
-          : (value) => {
-              setDesign((current) => ({
-                ...current,
-                raceIds:
-                  typeof value === 'function' ? value(current.raceIds) : value,
-              }));
-            }
-      }
-    />
+    <>
+      {actionHost ? createPortal(action, actionHost) : action}
+      {designError && (
+        <p role="alert" className="mt-3 text-label text-red-600">
+          {designError}
+        </p>
+      )}
+      <RaceSchedulePicker
+        races={options}
+        lockedRaces={calendar.fixedRaces}
+        selectedRaceIds={design.raceIds}
+        setSelectedRaceIds={
+          disabled
+            ? undefined
+            : (value) => {
+                setDesign((current) => ({
+                  ...current,
+                  raceIds:
+                    typeof value === 'function'
+                      ? value(current.raceIds)
+                      : value,
+                }));
+              }
+        }
+      />
+    </>
   );
 }
 

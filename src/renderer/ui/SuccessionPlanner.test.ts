@@ -998,10 +998,11 @@ describe('normalizeSuccessionIndex', () => {
     });
   });
 
-  test('uses the exact shared G1 saddle intersection when details exist', () => {
-    expect(
-      detailedCommonG1Count([1, 2, 3, 3, 9], [2, 3, 4], [1, 2, 3, 4]),
-    ).toBe(2);
+  test('matches saddle groups and counts G1 entries from the first horse like the backend', () => {
+    expect(detailedCommonG1Count([18], [155], [18])).toBe(1);
+    expect(detailedCommonG1Count([185, 186], [185], [185, 186])).toBe(2);
+    expect(detailedCommonG1Count([185], [185, 186], [185, 186])).toBe(1);
+    expect(detailedCommonG1Count([18, 155], [18], [18])).toBe(1);
   });
 
   test('falls back when either detailed saddle list is missing', () => {

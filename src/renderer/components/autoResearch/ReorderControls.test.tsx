@@ -1,14 +1,15 @@
 /* eslint-disable react/jsx-props-no-spreading */
 import { ComponentProps, ReactNode, useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ReorderControls from './ReorderControls';
 import OfflineCareerSettings from './OfflineCareerSettings';
 import PresetsTab from './PresetsTab';
 import { OfflineFactorSelection } from './types';
+import { localAutoResearchSkillById } from './catalog';
+import { offlineSkillRequest } from './offlineCareerSkills';
 import {
   createDefaultOfflineFactorSelection,
-  createDefaultOfflineSkillSettings,
   createDefaultPreset,
 } from './shared';
 
@@ -19,11 +20,6 @@ jest.mock('./EventChoiceSelector', () => () => null);
 jest.mock('../AppMenuPortal', () => ({
   __esModule: true,
   default: ({ children }: { children: ReactNode }) => children,
-}));
-jest.mock('./SkillSelector', () => ({
-  __esModule: true,
-  default: () => null,
-  skillIconPath: () => '',
 }));
 
 function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
@@ -46,12 +42,6 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
         },
       ],
     }));
-  const [prioritySkillIds, setPrioritySkillIds] = useState([101, 102, 103]);
-  const [skillSettings, setSkillSettings] = useState(() => ({
-    ...createDefaultOfflineSkillSettings(),
-    learn_skill_list: [['甲', '乙'], ['丙'], ['丁']],
-    learn_skill_group_labels: ['组合', '单项', '末项'],
-  }));
   return (
     <>
       <OfflineCareerSettings
@@ -67,21 +57,40 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
         setFactorSelection={setFactorSelection}
         parents={[]}
         umas={[]}
-        skills={[]}
-        prioritySkillIds={prioritySkillIds}
-        setPrioritySkillIds={setPrioritySkillIds}
-        skillSettings={skillSettings}
-        setSkillSettings={setSkillSettings}
+        obtainableGroups={new Map([
+          [20001, [{ label: '种马' }, { label: '事件', supportId: 30001, supportName: '特别周' }]],
+          [90001, [{ label: '种马' }]],
+        ])}
+        skills={[200011, 200012, 201192, 201191, 900011].map(
+          (id) => localAutoResearchSkillById.get(id)!,
+        )}
       />
-      <output data-testid="state">
-        {JSON.stringify({ factorSelection, prioritySkillIds, skillSettings })}
-      </output>
+      <output data-testid="state">{JSON.stringify({ factorSelection })}</output>
     </>
   );
 }
 
 const readState = () => JSON.parse(screen.getByTestId('state').textContent!);
 const button = (name: string) => screen.getByRole('button', { name });
+
+test('attribute star filters only store the selected minimums', () => {
+  render(<OfflineForm />);
+  const filters = within(screen.getByRole('group', { name: '属性因子最低星数' }));
+  const speed = filters.getByRole('combobox', { name: '速度因子最低星数' });
+  const power = filters.getByRole('combobox', { name: '力量因子最低星数' });
+  expect(filters.getAllByRole('combobox').map((item) => (
+    (item as HTMLSelectElement).value
+  ))).toEqual(['', '', '', '', '']);
+  fireEvent.change(power, { target: { value: '2' } });
+  for (const stars of [1, 2, 3]) {
+    fireEvent.change(speed, { target: { value: String(stars) } });
+    expect(readState().factorSelection.blue_factor_minimums).toEqual({
+      speed: stars, power: 2,
+    });
+  }
+  fireEvent.change(speed, { target: { value: '' } });
+  expect(readState().factorSelection.blue_factor_minimums).toEqual({ power: 2 });
+});
 
 test('native keyboard-focusable buttons name their actions and guard both boundaries', () => {
   const onMove = jest.fn();
@@ -113,45 +122,61 @@ test('native keyboard-focusable buttons name their actions and guard both bounda
   expect(onMove).toHaveBeenCalledTimes(2);
 });
 
-test('offline priority skills move in both directions and stop at the boundary', () => {
+test('one skill editor remains accessible when factor filtering is off', () => {
   render(<OfflineForm />);
-  const down = button('下移优先技能：技能 101');
-  down.focus();
-  fireEvent.click(down);
-  expect(readState().prioritySkillIds).toEqual([102, 101, 103]);
-  expect(down).toHaveFocus();
-  fireEvent.click(down);
-  fireEvent.click(down);
-  expect(readState().prioritySkillIds).toEqual([102, 103, 101]);
-  expect(down).toHaveAttribute('aria-disabled', 'true');
-  expect(down).toHaveFocus();
-  fireEvent.click(button('上移优先技能：技能 101'));
-  expect(readState().prioritySkillIds).toEqual([102, 101, 103]);
+  fireEvent.click(screen.getByRole('switch', { name: '筛选最优因子' }));
+  expect(button('添加技能')).toBeVisible();
+  expect(screen.queryByText('结束自动点技能')).toBeNull();
+  expect(screen.queryByText('优先技能')).toBeNull();
+  fireEvent.click(button('添加技能'));
+  const picker = within(
+    screen.getByRole('dialog', { name: '选择目标白因子技能' }),
+  );
+  expect(picker.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
+  fireEvent.click(picker.getByRole('button', { name: /顺时针◎/ }));
+  fireEvent.click(picker.getByRole('button', { name: /顺时针○/ }));
+  const request = offlineSkillRequest(readState().factorSelection);
+  expect(request.priority_skill_array).toEqual([
+    { priority: 1, skill_id: 200012 },
+  ]);
+  expect(request.offline_skill_settings.learn_skill_list).toEqual([
+    ['顺时针○'],
+  ]);
 });
 
-test('final groups retain their members, labels and focused button when reordered', () => {
+test('skill scopes preserve selections and search, and both views show the game description', () => {
   render(<OfflineForm />);
-  const down = button('下移结束技能：组合');
-  down.focus();
-  fireEvent.click(down);
-  fireEvent.click(down);
-  expect(readState().skillSettings.learn_skill_list).toEqual([
-    ['丙'],
-    ['丁'],
-    ['甲', '乙'],
-  ]);
-  expect(readState().skillSettings.learn_skill_group_labels).toEqual([
-    '单项',
-    '末项',
-    '组合',
-  ]);
-  expect(down).toHaveFocus();
-  fireEvent.click(button('上移结束技能：组合'));
-  expect(readState().skillSettings.learn_skill_group_labels).toEqual([
-    '单项',
-    '组合',
-    '末项',
-  ]);
+  fireEvent.click(button('添加技能'));
+  const dialog = within(screen.getByRole('dialog', { name: '选择目标白因子技能' }));
+  const all = dialog.getByRole('tab', { name: '全部技能' });
+  const obtainable = dialog.getByRole('tab', { name: '可获得技能' });
+  const search = dialog.getByRole('textbox', { name: '搜索技能名称' });
+  const description = '在赛事中期领先一段距离时\n速度略微提升<长距离>';
+  expect(all).toHaveAttribute('aria-selected', 'true');
+  expect(dialog.queryByRole('button', { name: /璀璨流星|领头心得/ })).toBeNull();
+  const skill = dialog.getByRole('button', { name: /保持领先/ });
+  expect(skill.textContent).toContain(description);
+  const pickerCopy = within(skill).getByText('保持领先').parentElement!;
+  expect(within(pickerCopy).getByText('白')).toBeVisible();
+  expect(within(pickerCopy).getByText('长距离')).toBeVisible();
+  fireEvent.click(skill);
+  fireEvent.change(search, { target: { value: '保持领先' } });
+  fireEvent.keyDown(all, { key: 'ArrowRight' });
+  expect(obtainable).toHaveFocus();
+  expect(dialog.queryByRole('button', { name: /保持领先/ })).toBeNull();
+  expect(search).toHaveValue('保持领先');
+  fireEvent.change(search, { target: { value: '' } });
+  const availableCard = within(dialog.getByRole('button', { name: /顺时针○/ }));
+  expect(availableCard.getByText('种马')).toBeVisible();
+  expect(availableCard.getByTitle('特别周 · 事件')).toBeVisible();
+  expect(dialog.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
+  fireEvent.click(all);
+  expect(dialog.queryByTitle('特别周 · 事件')).toBeNull();
+  expect(dialog.getByRole('button', { name: /保持领先/ })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(dialog.getByRole('button', { name: '完成' }));
+  const target = button('下移因子：保持领先').closest<HTMLElement>('[draggable]')!;
+  const selectedCopy = within(target).getByText('保持领先').parentElement!;
+  expect(selectedCopy.textContent).toBe(pickerCopy.textContent);
 });
 
 test('factor ordering preserves weights and is unavailable in ancestor mode', () => {
@@ -175,11 +200,10 @@ test('factor ordering preserves weights and is unavailable in ancestor mode', ()
   expect(screen.queryByRole('button', { name: '下移因子：草地' })).toBeNull();
 });
 
-test.each([
-  ['下移优先技能：技能 101', '下移优先技能：技能 103', 'priority-skill:0'],
-  ['下移结束技能：组合', '下移结束技能：末项', 'final-skill:0'],
-  ['下移因子：草地', '下移因子：泥地', 'factor-target:aptitude:11'],
-])('drag-and-drop remains available for %s', (source, target, payload) => {
+test('factor targets support drag-and-drop', () => {
+  const source = '下移因子：草地';
+  const target = '下移因子：泥地';
+  const payload = 'factor-target:aptitude:11';
   render(<OfflineForm />);
   const dataTransfer = { getData: () => payload, setData: jest.fn() };
   const sourceRow = button(source).closest('[draggable]')!;

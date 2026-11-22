@@ -35,6 +35,7 @@ export type PlanningScenarioEvent = {
 };
 export const PLANNER_CATALOG = data as unknown as {
   masterSha256: string;
+  saddleGroups: Record<number, number>;
   programs: Record<string, RaceProgram>;
   characters: Array<{
     id: number;
