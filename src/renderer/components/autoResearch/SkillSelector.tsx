@@ -239,7 +239,7 @@ export function PrioritySkillName({ skill, tiers }: { skill: AutoResearchSkill; 
       <span className={gold ? 'plannerSkillGoldText' : undefined}>{skill.name}</span>
       {related && (
         <span className="ml-1.5 text-caption font-normal text-slate-600">
-          {gold ? '下位' : '上位'} · <span className={gold ? undefined : 'plannerSkillGoldText'}>{related}</span>
+          （<span className={gold ? undefined : 'plannerSkillGoldText'}>{related}</span>）
         </span>
       )}
     </>

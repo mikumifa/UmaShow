@@ -654,6 +654,7 @@ export type OfflineFactorSelection = {
     wit?: number;
   };
   targets: OfflineFactorTarget[];
+  priority_group_ids?: number[];
   lineage: {
     mode: 'none' | 'specific' | 'rules';
     selection_id: string;

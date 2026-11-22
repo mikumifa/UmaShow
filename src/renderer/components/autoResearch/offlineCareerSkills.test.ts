@@ -1,6 +1,8 @@
 import {
   offlineFactorsFromSetting,
   offlineSkillRequest,
+  readPriorityGroups,
+  writePriorityGroups,
 } from './offlineCareerSkills';
 import {
   createDefaultOfflineFactorSelection,
@@ -17,6 +19,21 @@ const selection: OfflineFactorSelection = {
     { kind: 'skill', factor_group_id: 20003, name: '东京赛场○', weight: 3 },
   ],
 };
+
+test('legacy ties become groups and saved empty groups survive reopening the settings', () => {
+  const legacy = { ...selection, targets: selection.targets.map((target, index) => ({
+    ...target, priority: [1, 1, 2, 3][index],
+  })) };
+  const groups = readPriorityGroups(legacy);
+  expect(groups.map((group) => group.targets.length)).toEqual([2, 1, 1]);
+  groups.splice(1, 0, { id: 4, targets: [] });
+  const saved = { ...legacy, ...writePriorityGroups(groups) };
+  const restored = offlineFactorsFromSetting(JSON.parse(JSON.stringify({ factor_selection: saved })));
+  expect(readPriorityGroups(restored).map(({ id, targets }) => [id, targets.length])).toEqual([
+    [1, 2], [4, 0], [2, 1], [3, 1],
+  ]);
+  expect(offlineSkillRequest(restored)).toEqual(offlineSkillRequest(legacy));
+});
 
 test('omits inherited uniques from saved targets and legacy skills', () => {
   const inherited = {

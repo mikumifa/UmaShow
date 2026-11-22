@@ -72,6 +72,7 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
 
 const readState = () => JSON.parse(screen.getByTestId('state').textContent!);
 const button = (name: string) => screen.getByRole('button', { name });
+const priorityGroup = (rank: number) => within(screen.getByRole('region', { name: `优先级 ${rank}` }));
 
 test('mode and priority explanations expand independently of mode selection', () => {
   render(<OfflineForm />);
@@ -150,17 +151,17 @@ test('native keyboard-focusable buttons name their actions and guard both bounda
 test('disabling factor filtering collapses both editors and keeps score maximization', () => {
   render(<OfflineForm />);
   const toggle = screen.getByRole('switch', { name: '免费因子重抽与筛选' });
-  expect(button('添加技能')).toBeVisible();
+  expect(priorityGroup(1).getByRole('button', { name: '添加技能' })).toBeVisible();
   expect(screen.queryByText('结束自动点技能')).toBeNull();
   expect(screen.queryByText('优先技能')).toBeNull();
-  fireEvent.click(button('添加技能'));
+  fireEvent.click(priorityGroup(1).getByRole('button', { name: '添加技能' }));
   const picker = within(
-    screen.getByRole('dialog', { name: '选择目标技能' }),
+    screen.getByRole('dialog', { name: '优先级 1 · 添加技能' }),
   );
   expect(picker.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
   expect(picker.queryByRole('button', { name: /顺时针◎/ })).toBeNull();
   const gold = picker.getByRole('button', { name: /^顺时针恶煞/ });
-  expect(gold).toHaveTextContent('下位 · 顺时针○');
+  expect(gold).toHaveTextContent('顺时针恶煞（顺时针○）');
   expect(within(gold).getByText('顺时针恶煞')).toHaveClass('plannerSkillGoldText');
   fireEvent.click(gold);
   expect(offlineSkillRequest(readState().factorSelection).priority_skill_array).toEqual([
@@ -189,8 +190,8 @@ test('disabling factor filtering collapses both editors and keeps score maximiza
 
 test('skill scopes preserve selections and search, and both views show the game description', () => {
   render(<OfflineForm />);
-  fireEvent.click(button('添加技能'));
-  const dialog = within(screen.getByRole('dialog', { name: '选择目标技能' }));
+  fireEvent.click(priorityGroup(1).getByRole('button', { name: '添加技能' }));
+  const dialog = within(screen.getByRole('dialog', { name: '优先级 1 · 添加技能' }));
   const all = dialog.getByRole('tab', { name: '全部技能' });
   const obtainable = dialog.getByRole('tab', { name: '可获得技能' });
   const search = dialog.getByRole('textbox', { name: '搜索技能名称' });
@@ -198,7 +199,7 @@ test('skill scopes preserve selections and search, and both views show the game 
   expect(all).toHaveAttribute('aria-selected', 'true');
   expect(dialog.queryByRole('button', { name: /璀璨流星/ })).toBeNull();
   const skill = dialog.getByRole('button', { name: /^保持领先/ });
-  expect(skill).toHaveTextContent('上位 · 领头心得');
+  expect(skill).toHaveTextContent('保持领先（领头心得）');
   expect(skill.textContent).toContain(description);
   const pickerCopy = within(skill).getByText('保持领先').closest<HTMLElement>('.plannerSkillCardCopy')!;
   expect(within(pickerCopy).getByText('白')).toBeVisible();
@@ -219,63 +220,57 @@ test('skill scopes preserve selections and search, and both views show the game 
   expect(dialog.queryByTitle('特别周 · 事件')).toBeNull();
   expect(dialog.getByRole('button', { name: /^保持领先/ })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(dialog.getByRole('button', { name: '完成' }));
-  const target = button('下移因子：保持领先').closest<HTMLElement>('[draggable]')!;
+  const target = button('移除保持领先').closest<HTMLElement>('[draggable]')!;
   const selectedCopy = within(target).getByText('保持领先').closest('.plannerSkillCardCopy')!;
   expect(selectedCopy.textContent).toBe(pickerCopy.textContent);
 });
 
-test('factor ordering preserves weights and is unavailable in ancestor mode', () => {
+test('reorders whole priority groups and keeps ancestor weights', () => {
   const { unmount } = render(<OfflineForm />);
-  fireEvent.click(button('下移因子：草地'));
-  expect(
-    readState().factorSelection.targets.map(
-      (target: { name: string; weight: number }) => [
-        target.name,
-        target.weight,
-      ],
-    ),
-  ).toEqual([
-    ['泥地', 3],
-    ['草地', 2],
-  ]);
-  fireEvent.click(button('上移因子：草地'));
-  expect(readState().factorSelection.targets[0].name).toBe('草地');
+  fireEvent.click(button('下移优先级组 1'));
+  expect(readState().factorSelection.targets.map((item: { name: string; weight: number }) =>
+    [item.name, item.weight])).toEqual([['泥地', 3], ['草地', 2]]);
+  fireEvent.click(button('上移优先级组 2'));
+  expect(priorityGroup(1).getByRole('button', { name: '移除草地' })).toBeVisible();
   unmount();
   render(<OfflineForm ancestor />);
-  expect(screen.queryByRole('button', { name: '下移因子：草地' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '新建优先级组' })).toBeNull();
+  expect(button('添加技能')).toBeVisible();
 });
 
-test('factor targets support drag-and-drop', () => {
-  const source = '下移因子：草地';
-  const target = '下移因子：泥地';
-  const payload = 'factor-target:aptitude:11';
+test('creates an empty group, adds tied skills there, and moves a target between groups', () => {
   render(<OfflineForm />);
-  const dataTransfer = { getData: () => payload, setData: jest.fn() };
-  const sourceRow = button(source).closest('[draggable]')!;
-  const targetRow = button(target).closest('[draggable]')!;
-  fireEvent.dragStart(sourceRow, { dataTransfer });
-  fireEvent.dragOver(targetRow, { dataTransfer });
-  fireEvent.drop(targetRow, { dataTransfer });
-  fireEvent.dragEnd(sourceRow, { dataTransfer });
-  expect(button(source)).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(button('新建优先级组'));
+  const group = priorityGroup(3);
+  fireEvent.click(group.getByRole('button', { name: '添加技能' }));
+  const picker = within(screen.getByRole('dialog', { name: '优先级 3 · 添加技能' }));
+  fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
+  fireEvent.click(picker.getByRole('button', { name: /^保持领先/ }));
+  fireEvent.click(picker.getByRole('button', { name: '完成' }));
+  expect(offlineSkillRequest(readState().factorSelection).offline_skill_settings.learn_skill_list)
+    .toEqual([['顺时针○', '保持领先']]);
+  fireEvent.change(group.getByRole('combobox', { name: '移动保持领先到优先级组' }), {
+    target: { value: '1' },
+  });
+  expect(offlineSkillRequest(readState().factorSelection).offline_skill_settings.learn_skill_list)
+    .toEqual([['保持领先'], ['顺时针○']]);
+  fireEvent.click(group.getByRole('button', { name: '移除顺时针○' }));
+  expect(group.getByRole('button', { name: '添加技能' })).toBeVisible();
+  fireEvent.click(button('删除优先级组 3'));
+  expect(screen.queryByRole('region', { name: '优先级 3' })).toBeNull();
 });
 
-test('merges the current priority with the previous tier and splits it on a second click', () => {
+test('dropping a target into another group preserves both groups', () => {
   render(<OfflineForm />);
-  fireEvent.click(button('短距离'));
-  const ranks = () => readState().factorSelection.targets.map((target: { priority: number }) => target.priority);
-  expect(screen.queryByRole('button', { name: '草地与上一项并列' })).toBeNull();
-  fireEvent.click(button('泥地与上一项并列'));
-  expect(ranks()).toEqual([1, 1, 2]);
-  fireEvent.click(button('短距离与上一项并列'));
-  expect(ranks()).toEqual([1, 1, 1]);
-  fireEvent.click(button('泥地与上一项并列'));
-  expect(ranks()).toEqual([1, 2, 2]);
-  fireEvent.click(button('下移因子：草地'));
-  expect(ranks()).toEqual([1, 2, 2]);
-  fireEvent.click(button('泥地'));
-  expect(screen.queryByRole('button', { name: '草地与上一项并列' })).toBeNull();
-  expect(button('短距离与上一项并列')).toHaveAttribute('aria-pressed', 'true');
+  const source = button('移除草地').closest('[draggable]')!;
+  const destination = screen.getByRole('region', { name: '优先级 2' });
+  const dataTransfer = { types: ['application/x-uma-factor-target'], getData: () => '11', setData: jest.fn() };
+  fireEvent.dragStart(source, { dataTransfer });
+  fireEvent.dragOver(destination, { dataTransfer });
+  fireEvent.drop(destination, { dataTransfer });
+  expect(priorityGroup(1).queryByRole('button', { name: '移除草地' })).toBeNull();
+  expect(priorityGroup(2).getByRole('button', { name: '移除草地' })).toBeVisible();
+  expect(readState().factorSelection.targets.map((item: {priority: number}) => item.priority)).toEqual([2, 2]);
 });
 
 function presetProps(): ComponentProps<typeof PresetsTab> {

@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Check,
   CircleAlert,
-  GripVertical,
   Pencil,
   Plus,
   Save,
@@ -63,7 +62,9 @@ import {
 } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import ReorderControls from './ReorderControls';
-import { factorPriorityRanks, usesOfflineFactorTargets } from './offlineCareerSkills';
+import {
+  readPriorityGroups, writePriorityGroups, usesOfflineFactorTargets, type FactorPriorityGroup,
+} from './offlineCareerSkills';
 import Toggle from './Toggle';
 import type { SkillSourcesByGroup } from './obtainableSkills';
 import ParentFactorFilters from './ParentFactorFilters';
@@ -266,8 +267,8 @@ function OfflineCareerSettings({
   umas,
   skills,
 }: Props) {
-  const [factorSkillPickerOpen, setFactorSkillPickerOpen] = useState(false);
-  const [draggedFactorTarget, setDraggedFactorTarget] = useState('');
+  // Zero opens the ancestor weight editor; positive IDs identify parent priority groups.
+  const [skillPickerGroup, setSkillPickerGroup] = useState<number | null>(null);
   const [editingDeckNum, setEditingDeckNum] = useState(0);
   const [editingDeckName, setEditingDeckName] = useState('');
   const [editingRaceIds, setEditingRaceIds] = useState<number[]>([]);
@@ -396,58 +397,48 @@ function OfflineCareerSettings({
 
   const updateFactorSelection = (update: Partial<OfflineFactorSelection>) =>
     setFactorSelection((current) => ({ ...current, ...update }));
-  const toggleTarget = (target: OfflineFactorTarget) => {
-    setFactorSelection((current) => {
-      const existing = current.targets.find(
-        (item) => item.factor_group_id === target.factor_group_id,
-      );
-      if (existing && visibleTargetName(existing.name) !== visibleTargetName(target.name)) {
-        return {
-          ...current,
-          targets: current.targets.map((item) =>
-            item === existing ? { ...existing, name: target.name } : item,
-          ),
-        };
+  const priorityGroups = useMemo(() => readPriorityGroups(factorSelection), [factorSelection]);
+  const editGroups = (edit: (groups: FactorPriorityGroup[]) => FactorPriorityGroup[]) =>
+    setFactorSelection((current) => ({
+      ...current,
+      ...writePriorityGroups(edit(readPriorityGroups(current))),
+    }));
+  const addGroup = () => editGroups((groups) => [
+    ...groups, { id: Math.max(0, ...groups.map((group) => group.id)) + 1, targets: [] },
+  ]);
+  const moveGroup = (groupId: number, destination: number) => editGroups((groups) => {
+    const source = groups.findIndex((group) => group.id === groupId);
+    if (source < 0 || destination < 0 || destination >= groups.length) return groups;
+    const [group] = groups.splice(source, 1);
+    groups.splice(destination, 0, group);
+    return groups;
+  });
+  const moveTarget = (factorGroupId: number, destinationId: number) => editGroups((groups) => {
+    const destination = groups.find((group) => group.id === destinationId);
+    const source = groups.find((group) => group.targets.some((item) => item.factor_group_id === factorGroupId));
+    if (!source || !destination || source === destination) return groups;
+    const index = source.targets.findIndex((item) => item.factor_group_id === factorGroupId);
+    destination.targets.push(...source.targets.splice(index, 1));
+    return groups;
+  });
+  const toggleTarget = (target: OfflineFactorTarget, groupId = 0) => {
+    const toggle = (targets: OfflineFactorTarget[]) => {
+      const existing = targets.find((item) => item.factor_group_id === target.factor_group_id);
+      if (!existing) return [...targets, target];
+      if (visibleTargetName(existing.name) === visibleTargetName(target.name)) {
+        return targets.filter((item) => item !== existing);
       }
-      return {
-        ...current,
-        targets: existing
-          ? current.targets.filter(
-              (item) => item.factor_group_id !== target.factor_group_id,
-            )
-          : [...current.targets, target],
-      };
-    });
-  };
-  const reorderTarget = (sourceKey: string, targetKey: string) => {
-    if (!sourceKey || sourceKey === targetKey) return;
-    setFactorSelection((current) => {
-      const sourceIndex = current.targets.findIndex(
-        (target) => `${target.kind}:${target.factor_group_id}` === sourceKey,
-      );
-      const targetIndex = current.targets.findIndex(
-        (target) => `${target.kind}:${target.factor_group_id}` === targetKey,
-      );
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-      const targets = [...current.targets];
-      const [moved] = targets.splice(sourceIndex, 1);
-      targets.splice(targetIndex, 0, moved);
-      // Move the item to the destination priority slot; keep tier boundaries in place.
-      return { ...current, targets: targets.map((target, index) => ({
-        ...target, priority: current.targets[index].priority,
-      })) };
-    });
-  };
-  const togglePriorityTie = (factorGroupId: number) => {
-    setFactorSelection((current) => {
-      const index = current.targets.findIndex((item) => item.factor_group_id === factorGroupId);
-      if (index < 1) return current;
-      const ranks = factorPriorityRanks(current.targets);
-      const shift = ranks[index] === ranks[index - 1] ? 1 : -1;
-      return { ...current, targets: current.targets.map((target, i) => ({
-        ...target, priority: ranks[i] + (i >= index ? shift : 0),
-      })) };
-    });
+      return targets.map((item) => item === existing ? { ...item, name: target.name } : item);
+    };
+    if (groupId) {
+      editGroups((groups) => {
+        if (groups.some((group) => group.id !== groupId &&
+          group.targets.some((item) => item.factor_group_id === target.factor_group_id))) return groups;
+        return groups.map((group) => group.id === groupId ? { ...group, targets: toggle(group.targets) } : group);
+      });
+    } else {
+      setFactorSelection((current) => ({ ...current, targets: toggle(current.targets) }));
+    }
   };
   const updateTargetWeight = (factorGroupId: number, weight: number) => {
     setFactorSelection((current) => ({
@@ -459,7 +450,8 @@ function OfflineCareerSettings({
       ),
     }));
   };
-  const selectedSkillNames = factorSelection.targets
+  const pickerGroup = priorityGroups.find((group) => group.id === skillPickerGroup);
+  const selectedSkillNames = (pickerGroup?.targets ?? factorSelection.targets)
     .filter((target) => target.kind === 'skill')
     .map((target) => visibleTargetName(target.name));
   const skillByName = useMemo(
@@ -483,6 +475,12 @@ function OfflineCareerSettings({
     }
     return groups;
   }, [prioritySkills]);
+  const blockedSkillNames = useMemo(() => {
+    if (!pickerGroup) return [];
+    const assigned = new Set(priorityGroups.filter((group) => group.id !== pickerGroup.id)
+      .flatMap((group) => group.targets.map((target) => target.factor_group_id)));
+    return prioritySkills.filter((skill) => assigned.has(skill.group_id)).map((skill) => skill.name);
+  }, [pickerGroup, priorityGroups, prioritySkills]);
   const deferredSpecificLineageSearch = useDeferredValue(specificLineageSearch);
   const normalizedSpecificLineageSearch = deferredSpecificLineageSearch
     .trim()
@@ -826,7 +824,6 @@ function OfflineCareerSettings({
   };
 
   const filteringFactors = usesOfflineFactorTargets(factorSelection);
-  const priorityRanks = factorPriorityRanks(factorSelection.targets);
   const ancestorMode = factorSelection.evaluation_mode === 'ancestor';
   const targetTitle = ancestorMode ? '适应性与技能因子权重' : '适应性与技能优先级';
   const targetDescription = [
@@ -838,6 +835,85 @@ function OfflineCareerSettings({
       : '事件启发和结束点技能按优先级分组，同级技能并列。'),
     !factorOnly && '结束时优先学同组金技能或双圈，满足条件的技能会自动进化。',
   ].filter(Boolean).join('');
+  const aptitudeChoices = (targets: OfflineFactorTarget[], groupId = 0) => (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {APTITUDE_FACTORS.map((target) => {
+        const selected = targets.some((item) => item.factor_group_id === target.factor_group_id);
+        const assignedElsewhere = groupId > 0 && !selected && factorSelection.targets.some(
+          (item) => item.factor_group_id === target.factor_group_id,
+        );
+        return (
+          <button
+            key={target.factor_group_id}
+            type="button"
+            aria-pressed={selected}
+            disabled={assignedElsewhere}
+            onClick={() => toggleTarget(target, groupId)}
+            className={`rounded-full border px-2.5 py-1 text-caption disabled:opacity-45 ${
+              selected ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
+            }`}
+          >
+            {target.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+  const targetCards = (targets: OfflineFactorTarget[], groupId = 0) => (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      {targets.map((target) => {
+        const skill = target.kind === 'skill'
+          ? skillByName.get(visibleTargetName(target.name)) ?? skillByName.get(target.name)
+          : undefined;
+        return (
+          <div
+            key={target.factor_group_id}
+            draggable={Boolean(groupId)}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData('application/x-uma-factor-target', String(target.factor_group_id));
+            }}
+            className="plannerUiTheme flex min-w-0 flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm"
+          >
+            <div className="flex min-w-0 flex-[1_1_14rem] items-center gap-[11px]">
+              <PlannerSkillCardContent
+                iconPath={target.kind === 'aptitude' ? RED_FACTOR_ICON_PATHS[target.factor_group_id] : skillIconPath(skill)}
+                name={skill ? <PrioritySkillName skill={skill} tiers={tiersByGroup.get(skill.group_id)} /> : target.name}
+                meta={skill ? <SkillMetadata skill={skill} /> : target.kind === 'aptitude' && '适应性因子'}
+                description={target.kind === 'skill' ? skill?.description || '暂无技能说明' : undefined}
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-1">
+              {ancestorMode ? (
+                <label className="flex flex-col text-label text-slate-500">
+                  权重
+                  <input type="number" min={0} step={0.1} value={target.weight}
+                    onChange={(event) => updateTargetWeight(target.factor_group_id, Number(event.target.value))}
+                    className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-caption text-slate-700"
+                  />
+                </label>
+              ) : priorityGroups.length > 1 && (
+                <select
+                  aria-label={`移动${target.name}到优先级组`}
+                  value={groupId}
+                  onChange={(event) => moveTarget(target.factor_group_id, Number(event.target.value))}
+                  className="rounded-md border border-slate-200 px-1 py-1 text-caption text-slate-600"
+                >
+                  {priorityGroups.map((group, i) => <option key={group.id} value={group.id}>第 {i + 1} 组</option>)}
+                </select>
+              )}
+              <button type="button" aria-label={`移除${target.name}`} title="移除"
+                onClick={() => toggleTarget(target, groupId)}
+                className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
   const targetEditor = (
     <div className="lg:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -846,174 +922,52 @@ function OfflineCareerSettings({
             <strong className="text-data text-slate-800">{targetTitle}</strong>
           </SettingWithHelp>
         </div>
-        <button
-          type="button"
-          onClick={() => setFactorSkillPickerOpen(true)}
-          className="flex flex-none items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-caption font-semibold text-white hover:bg-indigo-700"
+        <PlannerButton size="small" onClick={ancestorMode ? () => setSkillPickerGroup(0) : addGroup}>
+          <Plus size={14} /> {ancestorMode ? '添加技能' : '新建优先级组'}
+        </PlannerButton>
+      </div>
+      {ancestorMode ? (
+        <div className="space-y-2">
+          {aptitudeChoices(factorSelection.targets)}
+          {targetCards(factorSelection.targets)}
+        </div>
+      ) : priorityGroups.map((group, index) => (
+        <section key={group.id} aria-label={`优先级 ${index + 1}`}
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes('application/x-uma-factor-target')) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            const id = Number(event.dataTransfer.getData('application/x-uma-factor-target'));
+            if (id) {
+              event.preventDefault();
+              moveTarget(id, group.id);
+            }
+          }}
+          className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-white/60 p-3"
         >
-          <Plus size={14} /> 添加技能
-        </button>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {APTITUDE_FACTORS.map((target) => {
-          const selected = factorSelection.targets.some(
-            (item) => item.factor_group_id === target.factor_group_id,
-          );
-          return (
-            <button
-              key={target.factor_group_id}
-              type="button"
-              onClick={() => toggleTarget(target)}
-              className={`rounded-full border px-2.5 py-1 text-caption ${
-                selected
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                  : 'border-slate-200 text-slate-600'
-              }`}
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="mr-auto text-data font-semibold text-slate-800">优先级 {index + 1}</h4>
+            <PlannerButton size="small" onClick={() => setSkillPickerGroup(group.id)}>
+              <Plus size={14} /> 添加技能
+            </PlannerButton>
+            <ReorderControls label={`优先级组 ${index + 1}`} index={index} count={priorityGroups.length}
+              onMove={(destination) => moveGroup(group.id, destination)} />
+            <button type="button" aria-label={`删除优先级组 ${index + 1}`}
+              title={group.targets.length ? '移走组内项目后可删除空组' : '删除空组'}
+              disabled={group.targets.length > 0}
+              onClick={() => editGroups((groups) => groups.filter((item) => item.id !== group.id || item.targets.length))}
+              className="rounded-md p-1 text-slate-500 hover:text-red-600 disabled:opacity-40"
             >
-              {target.name}
+              <X size={15} />
             </button>
-          );
-        })}
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-        {factorSelection.targets.map((target, index) => {
-          const targetKey = `${target.kind}:${target.factor_group_id}`;
-          const skill = target.kind === 'skill'
-            ? skillByName.get(visibleTargetName(target.name)) ?? skillByName.get(target.name)
-            : undefined;
-          const iconPath =
-            target.kind === 'aptitude'
-              ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
-              : skillIconPath(skill);
-          const draggable = factorSelection.evaluation_mode === 'parent';
-          const tied = index > 0 && priorityRanks[index] === priorityRanks[index - 1];
-          return (
-            <div
-              key={targetKey}
-              draggable={draggable}
-              onDragStart={(event) => {
-                if (!draggable) return;
-                setDraggedFactorTarget(targetKey);
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData(
-                  'text/plain',
-                  `factor-target:${targetKey}`,
-                );
-              }}
-              onDragOver={(event) => {
-                if (!draggable) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'move';
-              }}
-              onDrop={(event) => {
-                if (!draggable) return;
-                event.preventDefault();
-                const transferredKey = event.dataTransfer
-                  .getData('text/plain')
-                  .replace('factor-target:', '');
-                reorderTarget(transferredKey || draggedFactorTarget, targetKey);
-                setDraggedFactorTarget('');
-              }}
-              onDragEnd={() => setDraggedFactorTarget('')}
-              className={`plannerUiTheme flex min-w-0 flex-wrap content-start items-start gap-2 rounded-lg border bg-white px-2.5 py-2 shadow-sm ${
-                draggable ? 'cursor-grab active:cursor-grabbing' : ''
-              } ${
-                draggedFactorTarget === targetKey
-                  ? 'border-indigo-300 opacity-45'
-                  : 'border-slate-200'
-              }`}
-            >
-              <div className="flex min-w-0 flex-[1_1_14rem] items-center gap-[11px]">
-                <PlannerSkillCardContent
-                  iconPath={iconPath}
-                  name={skill
-                    ? <PrioritySkillName skill={skill} tiers={tiersByGroup.get(skill.group_id)} />
-                    : target.name}
-                  meta={
-                    skill ? <SkillMetadata skill={skill} /> : target.kind === 'aptitude' && '适应性因子'
-                  }
-                  description={
-                    target.kind === 'skill' ? skill?.description || '暂无技能说明' : undefined
-                  }
-                />
-              </div>
-              <div className="ml-auto flex flex-none items-center gap-1">
-                <b className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-caption text-slate-600">
-                  {draggable ? priorityRanks[index] : index + 1}
-                </b>
-                {factorSelection.evaluation_mode === 'ancestor' ? (
-                  <label className="flex flex-none flex-col text-label text-slate-500">
-                    权重
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.1}
-                      value={target.weight}
-                      onChange={(event) =>
-                        updateTargetWeight(
-                          target.factor_group_id,
-                          Number(event.target.value),
-                        )
-                      }
-                      className="mt-0.5 w-16 rounded border border-slate-200 px-1.5 py-1 text-caption text-slate-700"
-                    />
-                  </label>
-                ) : (
-                  <>
-                    {index > 0 && (
-                      <button
-                        type="button"
-                        aria-label={`${target.name}与上一项并列`}
-                        aria-pressed={tied}
-                        title={tied ? '取消与上一项并列' : '与上一项并列'}
-                        onClick={() => togglePriorityTie(target.factor_group_id)}
-                        className="h-8 rounded-md border border-slate-200 px-2 text-caption text-slate-600 hover:border-indigo-300 aria-pressed:border-indigo-300 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700"
-                      >
-                        并列
-                      </button>
-                    )}
-                    <ReorderControls
-                      label={`因子：${target.name}`}
-                      index={index}
-                      count={factorSelection.targets.length}
-                      onMove={(targetIndex) => {
-                        const destination = factorSelection.targets[targetIndex];
-                        reorderTarget(
-                          targetKey,
-                          `${destination.kind}:${destination.factor_group_id}`,
-                        );
-                      }}
-                    />
-                    <GripVertical
-                      size={17}
-                      className="flex-none text-slate-300"
-                      aria-label="拖动调整顺序"
-                    />
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => toggleTarget(target)}
-                  title="移除"
-                  className="flex-none rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {!factorSelection.targets.length ? (
-          <button
-            type="button"
-            onClick={() => setFactorSkillPickerOpen(true)}
-            className="col-span-full flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-label text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-          >
-            <Plus size={15} className="mr-1" />
-            选择适应性或添加技能
-          </button>
-        ) : null}
-      </div>
+          </div>
+          <details>
+            <summary className="w-fit cursor-pointer text-caption text-slate-600">选择适应性</summary>
+            {aptitudeChoices(group.targets, group.id)}
+          </details>
+          {group.targets.length > 0 && targetCards(group.targets, group.id)}
+        </section>
+      ))}
     </div>
   );
 
@@ -1926,13 +1880,14 @@ function OfflineCareerSettings({
       ) : null}
 
       <SkillSelector
-        open={filteringFactors && factorSkillPickerOpen}
-        title="选择目标技能"
+        open={filteringFactors && (ancestorMode ? skillPickerGroup === 0 : Boolean(pickerGroup))}
+        title={pickerGroup ? `优先级 ${priorityGroups.indexOf(pickerGroup) + 1} · 添加技能` : '选择目标技能'}
         skills={prioritySkills}
         tiersByGroup={tiersByGroup}
         obtainableGroups={factorOnly ? undefined : obtainableGroups}
         showKindFilter={false}
         selectedNames={selectedSkillNames}
+        blockedNames={blockedSkillNames}
         showRarityFilter={false}
         showSkillPoints={false}
         elevated
@@ -1942,9 +1897,9 @@ function OfflineCareerSettings({
             name: skill.name,
             kind: 'skill',
             weight: 1,
-          })
+          }, skillPickerGroup ?? 0)
         }
-        onClose={() => setFactorSkillPickerOpen(false)}
+        onClose={() => setSkillPickerGroup(null)}
       />
     </div>
   );

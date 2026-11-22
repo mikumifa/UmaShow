@@ -29,7 +29,7 @@ export function isInheritedSkillTarget(target?: OfflineFactorTarget) {
 }
 
 // Older targets have no explicit rank and each occupies its own tier.
-export function factorPriorityRanks(targets: OfflineFactorTarget[]) {
+function factorPriorityRanks(targets: OfflineFactorTarget[]) {
   let rank = 0;
   return targets.map((target, index) => {
     if (!index || !target.priority || target.priority !== targets[index - 1].priority) {
@@ -37,6 +37,40 @@ export function factorPriorityRanks(targets: OfflineFactorTarget[]) {
     }
     return rank;
   });
+}
+
+export type FactorPriorityGroup = { id: number; targets: OfflineFactorTarget[] };
+
+export function readPriorityGroups(selection: OfflineFactorSelection): FactorPriorityGroup[] {
+  const ids = selection.priority_group_ids;
+  const targets = selection.targets;
+  if (!Array.isArray(ids) || ids.some((id) => !Number.isSafeInteger(id) || id <= 0) ||
+      new Set(ids).size !== ids.length) {
+    const groups: FactorPriorityGroup[] = [];
+    factorPriorityRanks(targets).forEach((rank, index) => {
+      if (rank > groups.length) groups.push({ id: rank, targets: [] });
+      groups[rank - 1].targets.push(targets[index]);
+    });
+    return groups;
+  }
+  const groups = ids.map((id): FactorPriorityGroup => ({ id, targets: [] }));
+  let nextId = Math.max(0, ...ids) + 1;
+  for (const target of targets) {
+    const group = target.priority && target.priority <= ids.length
+      ? groups[target.priority - 1] : undefined;
+    if (group) group.targets.push(target);
+    else groups.push({ id: nextId++, targets: [target] });
+  }
+  return groups;
+}
+
+export function writePriorityGroups(groups: FactorPriorityGroup[]) {
+  return {
+    priority_group_ids: groups.map((group) => group.id),
+    targets: groups.flatMap((group, index) =>
+      group.targets.map((target) => ({ ...target, priority: index + 1 })),
+    ),
+  };
 }
 
 // Older settings can contain skills only in the two former editors.
@@ -56,7 +90,7 @@ export function offlineFactorsFromSetting(
   const storedTargets = Array.isArray(selection.targets)
     ? selection.targets
     : [];
-  if (storedTargets.some((target) => target?.kind === 'skill')) {
+  if (Array.isArray(selection.priority_group_ids) || storedTargets.some((target) => target?.kind === 'skill')) {
     const targets = storedTargets.filter(
       (target) => !isInheritedSkillTarget(target),
     );
