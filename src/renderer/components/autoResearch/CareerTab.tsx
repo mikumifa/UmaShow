@@ -544,13 +544,6 @@ function CareerTab(props: CareerTabProps) {
       obtainableGroups={careerSkillGroups}
       factorOnly={careerMode === 'online'}
       customSchedule={offlineDesign.source === 'custom'}
-      setCustomSchedule={(custom) => {
-        setOfflineDesign((current) => ({
-          ...current,
-          source: custom ? 'custom' : 'api',
-        }));
-        if (custom && !offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
-      }}
       customScheduleContent={
         <OfflineCustomSchedule
           key={`${selectedUma?.id || 0}:${offlineScenarioId}:${offlineDesign.routeId}`}
@@ -558,6 +551,10 @@ function CareerTab(props: CareerTabProps) {
           setDesign={setOfflineDesign}
           charaId={selectedUma?.chara_id || 0}
           scenarioId={offlineScenarioId || defaultLocalScenario(offlineScenarios)}
+          onLocalChange={(local) => {
+            setOfflineDesign((current) => ({ ...current, source: local ? 'custom' : 'api' }));
+            if (local && !offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
+          }}
           onApplySchedule={() => {
             if (!offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
           }}

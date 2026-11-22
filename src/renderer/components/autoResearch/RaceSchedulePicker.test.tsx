@@ -158,12 +158,16 @@ test('one-click design switches a game slot back to local and fills in races', (
     const [design, setDesign] = useState(createOfflineDesign);
     return <OfflineCareerSettings {...props}
       customSchedule={design.source === 'custom'}
-      setCustomSchedule={(local) => setDesign((prev) => ({ ...prev, source: local ? 'custom' : 'api' }))}
-      customScheduleContent={<OfflineCustomSchedule design={design} setDesign={setDesign} charaId={1001} scenarioId={5} />}
+      customScheduleContent={<OfflineCustomSchedule design={design} setDesign={setDesign} charaId={1001} scenarioId={5}
+        onLocalChange={(local) => setDesign((prev) => ({ ...prev, source: local ? 'custom' : 'api' }))}
+      />}
     />;
   }
   render(<ScheduleForm />);
   const toggle = screen.getByRole('switch', { name: '本地' });
+  const header = screen.getByRole('heading', { name: '赛程设置' }).closest('header')!;
+  const action = within(header).getByRole('button', { name: '一键设置' });
+  expect(action.nextElementSibling).toContainElement(toggle);
   expect(toggle).toHaveAttribute('aria-checked', 'true');
   expect(screen.queryByText(/槽位 1 ·/)).toBeNull();
   expect(prepare).not.toHaveBeenCalled();

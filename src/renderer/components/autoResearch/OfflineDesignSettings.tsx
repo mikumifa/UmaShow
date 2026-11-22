@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { WandSparkles } from 'lucide-react';
 import { designSaddleSchedule } from 'renderer/utils/saddleSchedule';
 import type { PlanningAptitudes } from 'renderer/utils/raceScheduleOptimizer';
@@ -26,6 +26,7 @@ import {
 } from 'renderer/utils/offlineCareerDesign';
 import { Dashboard, RaceOption } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
+import Toggle from './Toggle';
 import { getSharedStorageItem } from './shared';
 
 type Props = {
@@ -40,6 +41,20 @@ type Props = {
   busy: string;
 };
 
+export function OfflineScheduleHeader({ children }: { children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
+          4
+        </span>
+        <h3 className="text-section font-semibold text-gray-800">赛程设置</h3>
+      </div>
+      {children}
+    </header>
+  );
+}
+
 export function OfflineCustomSchedule({
   design,
   setDesign,
@@ -47,11 +62,13 @@ export function OfflineCustomSchedule({
   scenarioId,
   aptitudes,
   onApplySchedule,
+  onLocalChange,
   disabled = false,
 }: Pick<Props, 'design' | 'setDesign' | 'charaId'> & {
   scenarioId: number;
   aptitudes?: PlanningAptitudes;
   onApplySchedule?: () => void;
+  onLocalChange?: (local: boolean) => void;
   disabled?: boolean;
 }) {
   const [designError, setDesignError] = useState('');
@@ -122,22 +139,32 @@ export function OfflineCustomSchedule({
   );
   return (
     <>
-      {design.goal === 'breeding' && (
-        <>
-          <PlannerButton
-            className="mt-3"
-            size="small"
-            onClick={designSchedule}
-            disabled={disabled || !charaId || !supported || !ranks}
-          >
-            <WandSparkles size={15} /> 一键设置
-          </PlannerButton>
-          {designError && (
-            <p role="alert" className="mt-3 text-label text-red-600">
-              {designError}
-            </p>
+      <OfflineScheduleHeader>
+        <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
+          {design.goal === 'breeding' && (
+            <PlannerButton
+              size="small"
+              onClick={designSchedule}
+              disabled={disabled || !charaId || !supported || !ranks}
+            >
+              <WandSparkles size={15} /> 一键设置
+            </PlannerButton>
           )}
-        </>
+          {onLocalChange && (
+            <label className="flex min-h-11 items-center gap-2 text-label">
+              本地
+              <Toggle
+                label="本地"
+                checked={design.source === 'custom'}
+                disabled={disabled}
+                onChange={onLocalChange}
+              />
+            </label>
+          )}
+        </div>
+      </OfflineScheduleHeader>
+      {design.goal === 'breeding' && designError && (
+        <p role="alert" className="mt-3 text-label text-red-600">{designError}</p>
       )}
       {design.source === 'custom' && (
         charaId && supported ? (

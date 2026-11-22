@@ -66,6 +66,7 @@ import {
   readPriorityGroups, writePriorityGroups, usesOfflineFactorTargets, type FactorPriorityGroup,
 } from './offlineCareerSkills';
 import Toggle from './Toggle';
+import { OfflineScheduleHeader } from './OfflineDesignSettings';
 import type { SkillSourcesByGroup } from './obtainableSkills';
 import ParentFactorFilters from './ParentFactorFilters';
 import useScrollLoadMore from './useScrollLoadMore';
@@ -74,7 +75,6 @@ type Props = {
   obtainableGroups?: SkillSourcesByGroup;
   factorOnly?: boolean;
   customSchedule?: boolean;
-  setCustomSchedule?: (custom: boolean) => void;
   customScheduleContent?: ReactNode;
   setup: OfflineSingleModeSetup | null;
   selectedScenarioId: number;
@@ -251,7 +251,6 @@ function OfflineCareerSettings({
   obtainableGroups = EMPTY_SKILL_GROUPS,
   factorOnly = false,
   customSchedule = false,
-  setCustomSchedule,
   customScheduleContent,
   setup,
   selectedScenarioId,
@@ -1235,26 +1234,7 @@ function OfflineCareerSettings({
         id="offline-career-setup"
         className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
-        <header className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
-              4
-            </span>
-            <h3 className="text-section font-semibold text-gray-800">赛程设置</h3>
-          </div>
-          {setCustomSchedule && (
-            <label className="ml-auto flex min-h-11 shrink-0 items-center gap-2 text-label">
-              本地
-              <Toggle
-                label="本地"
-                checked={customSchedule}
-                disabled={Boolean(busy)}
-                onChange={setCustomSchedule}
-              />
-            </label>
-          )}
-        </header>
-        {customScheduleContent}
+        {customScheduleContent ?? <OfflineScheduleHeader />}
         {!customSchedule && (
           <div className="mt-4 max-w-7xl">
             <div>
