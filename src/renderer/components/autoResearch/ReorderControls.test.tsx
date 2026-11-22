@@ -163,11 +163,22 @@ test('disabling factor filtering collapses both editors and keeps score maximiza
   const gold = picker.getByRole('button', { name: /^顺时针恶煞/ });
   expect(gold).toHaveTextContent('顺时针恶煞（顺时针○）');
   expect(within(gold).getByText('顺时针恶煞')).toHaveClass('plannerSkillGoldText');
+  const white = picker.getByRole('button', { name: /^顺时针○/ });
   fireEvent.click(gold);
+  expect(white).toHaveClass('selected');
+  expect(white).toHaveAttribute('aria-pressed', 'false');
+  expect(within(white).getByText('已选择（上位）')).toBeVisible();
   expect(offlineSkillRequest(readState().factorSelection).priority_skill_array).toEqual([
     { priority: 1, skill_id: 200014 },
   ]);
+  fireEvent.click(picker.getByRole('tab', { name: '可获得技能' }));
+  expect(within(picker.getByRole('button', { name: /^顺时针○/ })).getByText('已选择（上位）')).toBeVisible();
+  fireEvent.click(picker.getByRole('tab', { name: '全部技能' }));
   fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
+  const relatedGold = picker.getByRole('button', { name: /^顺时针恶煞/ });
+  expect(relatedGold).toHaveClass('selected');
+  expect(within(relatedGold).getByText('已选择（下位）')).toBeVisible();
+  expect(picker.queryByText('已选择（上位）')).toBeNull();
   const request = offlineSkillRequest(readState().factorSelection);
   expect(request.priority_skill_array).toEqual([
     { priority: 1, skill_id: 200012 },
@@ -175,6 +186,10 @@ test('disabling factor filtering collapses both editors and keeps score maximiza
   expect(request.offline_skill_settings.learn_skill_list).toEqual([
     ['顺时针○'],
   ]);
+  fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
+  expect(relatedGold).not.toHaveClass('selected');
+  expect(picker.queryByText('已选择（下位）')).toBeNull();
+  fireEvent.click(picker.getByRole('button', { name: /^顺时针○/ }));
   fireEvent.click(picker.getByRole('button', { name: '完成' }));
   fireEvent.click(toggle);
   expect(screen.queryByText('适应性与技能优先级')).toBeNull();
@@ -240,7 +255,10 @@ test('reorders whole priority groups and keeps ancestor weights', () => {
 
 test('creates an empty group, adds tied skills there, and moves a target between groups', () => {
   render(<OfflineForm />);
-  fireEvent.click(button('新建优先级组'));
+  const createButtons = screen.getAllByRole('button', { name: '新建优先级组' });
+  expect(createButtons).toHaveLength(2);
+  expect(screen.getByRole('region', { name: '优先级 2' }).nextElementSibling).toBe(createButtons[1]);
+  fireEvent.click(createButtons[1]);
   const group = priorityGroup(3);
   fireEvent.click(group.getByRole('button', { name: '添加技能' }));
   const picker = within(screen.getByRole('dialog', { name: '优先级 3 · 添加技能' }));
@@ -254,7 +272,22 @@ test('creates an empty group, adds tied skills there, and moves a target between
   });
   expect(offlineSkillRequest(readState().factorSelection).offline_skill_settings.learn_skill_list)
     .toEqual([['保持领先'], ['顺时针○']]);
+  const checkOccupied = (pickerRank: number, rank: number) => {
+    fireEvent.click(priorityGroup(pickerRank).getByRole('button', { name: '添加技能' }));
+    const otherPicker = within(screen.getByRole('dialog', { name: `优先级 ${pickerRank} · 添加技能` }));
+    for (const name of [/^保持领先/, /^领头心得/]) {
+      const card = otherPicker.getByRole('button', { name });
+      expect(card).toBeDisabled();
+      expect(card).toHaveClass('occupied');
+      expect(card).not.toHaveClass('selected');
+      expect(card).toHaveTextContent(`已被第 ${rank} 组选中`);
+    }
+    fireEvent.click(otherPicker.getByRole('button', { name: '完成' }));
+  };
+  checkOccupied(2, 1);
   fireEvent.click(group.getByRole('button', { name: '移除顺时针○' }));
+  fireEvent.click(button('下移优先级组 1'));
+  checkOccupied(1, 2);
   expect(group.getByRole('button', { name: '添加技能' })).toBeVisible();
   fireEvent.click(button('删除优先级组 3'));
   expect(screen.queryByRole('region', { name: '优先级 3' })).toBeNull();

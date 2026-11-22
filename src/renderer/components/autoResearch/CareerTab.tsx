@@ -1648,7 +1648,7 @@ function CareerTab(props: CareerTabProps) {
                       {validationErrors['career-friend-support']}
                     </p>
                   ) : null}
-                  <div className="mt-3 flex max-h-[460px] flex-wrap content-start gap-1.5 overflow-auto pr-1">
+                  <div className="careerFriendSupportGrid mt-3 grid max-h-[460px] content-start gap-1.5 overflow-y-auto p-0.5">
                     {visibleFriendSupports.map((support) => (
                       <SupportChoiceCard
                         key={support.id}

@@ -281,12 +281,14 @@ export function PlannerSkillCardContent({
 export const PlannerSkillCard = memo(function PlannerSkillCard({
   rarity = 1,
   selected = false,
+  selectionLabel,
   disabled = false,
   onClick,
   ...content
 }: SkillCardContentProps & {
   rarity?: number;
   selected?: boolean;
+  selectionLabel?: string;
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -294,13 +296,23 @@ export const PlannerSkillCard = memo(function PlannerSkillCard({
     <button
       type="button"
       className={`plannerUiTheme plannerSkillCard rarity${rarity} ${
-        selected ? 'selected' : ''
+        disabled && selectionLabel ? 'occupied' : selected || selectionLabel ? 'selected' : ''
       }`}
       disabled={disabled}
       aria-pressed={selected}
       onClick={onClick}
     >
-      <PlannerSkillCardContent {...content} />
+      <PlannerSkillCardContent
+        {...content}
+        meta={selectionLabel ? (
+          <>
+            <span className={disabled ? 'plannerSkillGroupBadge' : 'font-semibold text-green-800'}>
+              {selectionLabel}
+            </span>
+            {content.meta}
+          </>
+        ) : content.meta}
+      />
       {selected ? (
         <span className="plannerSkillCardCheck" aria-label="当前选择">
           <Check size={14} strokeWidth={3} />

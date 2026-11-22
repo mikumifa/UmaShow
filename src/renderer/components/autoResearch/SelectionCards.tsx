@@ -360,7 +360,7 @@ export const SupportChoiceCard = memo(function SupportChoiceCard({
       title={support.name}
       aria-label={`选择好友支援卡${support.name}`}
       aria-pressed={selected}
-      className={`relative h-14 w-14 flex-none overflow-hidden rounded-md border bg-gray-100 transition-ui disabled:cursor-not-allowed disabled:opacity-25 ${
+      className={`relative aspect-square w-full min-w-0 overflow-hidden rounded-md border bg-gray-100 transition-ui disabled:cursor-not-allowed disabled:opacity-25 ${
         selected
           ? 'border-indigo-500 ring-2 ring-indigo-200'
           : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
@@ -409,7 +409,7 @@ export const DeckChoiceCard = memo(function DeckChoiceCard({
         </span>
         {selected ? <Check size={16} className="text-indigo-600" /> : null}
       </span>
-      <span className="grid max-w-64 grid-cols-5 gap-1">
+      <span className="grid w-full grid-cols-5 gap-1">
         {deck.cards.map((support) => (
           <span
             key={support.id}

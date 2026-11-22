@@ -404,6 +404,31 @@
   opacity: 0.4;
 }
 
+.plannerSkillCard.occupied:disabled {
+  opacity: 1;
+  background: #f8fafc;
+  border-color: #dce3e9;
+}
+
+.plannerSkillCard.occupied .plannerSkillCardCopy > :not(small),
+.plannerSkillCard.occupied small > :not(.plannerSkillGroupBadge),
+.plannerSkillCard.occupied .plannerSkillCardIcon {
+  filter: grayscale(1);
+}
+
+.plannerSkillGroupBadge {
+  padding: 0 0.4rem;
+  border-radius: 0.35rem;
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.plannerSkillCard.occupied .plannerSkillCardIcon {
+  opacity: 0.45;
+}
+
 .plannerSelectionCard.hasState .plannerSelectionCardCopy > strong {
   padding-right: 96px;
 }
@@ -508,6 +533,12 @@
 .plannerSkillCard.rarity2 .plannerSkillCardIcon {
   border-color: #fcd34d;
   background: #fffbeb;
+}
+
+.plannerSkillGoldSurface,
+.plannerSkillCard.rarity2:not(.selected):not(:disabled) {
+  background-color: #fff9e8;
+  border-color: #e7d8ad;
 }
 
 .plannerSkillCardIconImage {

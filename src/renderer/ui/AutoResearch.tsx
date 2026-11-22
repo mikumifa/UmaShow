@@ -8625,6 +8625,7 @@ export default function AutoResearch() {
                 ) : null}
 
                 {activeTab === 'career' &&
+                !isNestedView &&
                 currentIdleSingleMode?.active &&
                 !offlinePlanActive ? (
                   <AutoResearchNotice

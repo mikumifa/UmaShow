@@ -331,6 +331,7 @@ function SkillSourceBadges({ sources }: { sources: readonly SkillSource[] }) {
 const SkillGridItem = memo(function SkillGridItem({
   entry,
   selected,
+  selectionLabel,
   blocked,
   showSkillPoints,
   showDescription,
@@ -340,6 +341,7 @@ const SkillGridItem = memo(function SkillGridItem({
 }: {
   entry: IndexedSkillEntry;
   selected: boolean;
+  selectionLabel?: string;
   blocked: boolean;
   showSkillPoints: boolean;
   showDescription: boolean;
@@ -356,6 +358,7 @@ const SkillGridItem = memo(function SkillGridItem({
     <PlannerSkillCard
       disabled={blocked}
       selected={selected}
+      selectionLabel={selectionLabel}
       iconPath={skillIconPath(skill)}
       name={tiers ? <PrioritySkillName skill={skill} tiers={tiers} /> : skill.name}
       description={showDescription ? skill.description || '暂无技能说明' : undefined}
@@ -376,6 +379,7 @@ export default function SkillSelector({
   tiersByGroup,
   selectedNames,
   blockedNames = [],
+  occupiedSkillGroups,
   showKindFilter = true,
   showRarityFilter = true,
   showSkillPoints = true,
@@ -392,6 +396,7 @@ export default function SkillSelector({
   tiersByGroup?: ReadonlyMap<number, SkillTiers>;
   selectedNames: string[];
   blockedNames?: string[];
+  occupiedSkillGroups?: ReadonlyMap<number, number>;
   showKindFilter?: boolean;
   showRarityFilter?: boolean;
   showSkillPoints?: boolean;
@@ -794,16 +799,24 @@ export default function SkillSelector({
         <div className={`plannerSkillGrid${obtainableGroups ? ' careerSkillGrid' : ''}`}>
           {visibleEntries.map((entry) => {
             const selected = selectedSet.has(entry.skill.name);
-            const blocked = blockedSet.has(entry.skill.name) && !selected;
+            const occupiedRank = occupiedSkillGroups?.get(entry.skill.group_id);
+            const blocked = Boolean(occupiedRank) || (blockedSet.has(entry.skill.name) && !selected);
+            const tiers = tiersByGroup?.get(entry.skill.group_id);
+            const isGold = entry.skill.rarity === 2;
+            const counterpart = isGold ? tiers?.white : tiers?.gold;
+            const relatedSelectionLabel = !selected && counterpart && selectedSet.has(counterpart)
+              ? `已选择（${isGold ? '下位' : '上位'}）`
+              : undefined;
             return (
               <SkillGridItem
                 key={entry.skill.id}
                 entry={entry}
                 selected={selected}
+                selectionLabel={occupiedRank ? `已被第 ${occupiedRank} 组选中` : relatedSelectionLabel}
                 blocked={blocked}
                 showSkillPoints={showSkillPoints}
                 showDescription={Boolean(obtainableGroups)}
-                tiers={tiersByGroup?.get(entry.skill.group_id)}
+                tiers={tiers}
                 sources={scope === '可获得技能'
                   ? obtainableGroups?.get(entry.skill.group_id)?.[entry.skill.rarity === 2 ? 'gold' : 'white']
                   : undefined}

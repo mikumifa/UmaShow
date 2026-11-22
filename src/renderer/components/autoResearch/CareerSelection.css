@@ -12,6 +12,10 @@
   gap: 1.5rem;
 }
 
+.careerFriendSupportGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 3.5rem), 1fr));
+}
+
 @container career-support (min-width: 36rem) {
   .careerSupportDecks {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { ReactNode } from 'react';
 import AutoResearch from './AutoResearch';
+import { CAREER_SETTINGS_KEY } from 'renderer/components/autoResearch/shared';
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 
@@ -13,7 +14,6 @@ jest.mock('renderer/components/AppMenuPortal', () => ({
   __esModule: true,
   default: ({ children }: { children: ReactNode }) => children,
 }));
-jest.mock('renderer/components/autoResearch/CareerTab', () => () => null);
 jest.mock(
   'renderer/components/autoResearch/AutomationControlCard',
   () => () => null,
@@ -39,7 +39,7 @@ const options = {
   offline_scenarios: [],
 };
 
-function setup(hosted: boolean, health = true, rememberAccount = true) {
+function setup(hosted: boolean, health = true, rememberAccount = true, idleCareer = false) {
   localStorage.clear();
   localStorage.setItem('autoResearch.server', savedServer);
   if (rememberAccount)
@@ -59,6 +59,7 @@ function setup(hosted: boolean, health = true, rememberAccount = true) {
       dashboard: {
         ...options,
         account: {
+          idle_single_mode: idleCareer ? { active: true, state: 'playing', name: '北部玄驹' } : null,
           tp: { current: 0, max: 100 },
           carrots: { total: 0 },
           gold: 0,
@@ -74,7 +75,10 @@ function setup(hosted: boolean, health = true, rememberAccount = true) {
     loginSession: jest.fn(),
     onCredentialCaptured: jest.fn(() => () => {}),
     onLoginProgress: jest.fn(() => () => {}),
-    getUiSetting: jest.fn().mockReturnValue(null),
+    getUiSetting: jest.fn((key: string) => idleCareer && key === CAREER_SETTINGS_KEY
+      ? JSON.stringify([{ id: 'offline-save', account_uid: account.uid, name: '离线育成', mode: 'offline',
+          preset_name: '', card_id: 0, deck_id: 0, offline_design: { source: 'custom', raceIds: [] } }])
+      : null),
     setUiSetting: jest.fn().mockReturnValue(true),
   };
   Object.defineProperty(window, 'electron', {
@@ -207,4 +211,16 @@ test('restores an existing local session without reconnecting the hosted server'
   expect(fetchMock).not.toHaveBeenCalled();
   expect(api.credential).not.toHaveBeenCalled();
   expect(api.loginSession).not.toHaveBeenCalled();
+});
+
+test('shows the active offline career on the overview and hides it while editing a setting', async () => {
+  const { api } = setup(false, true, true, true);
+  api.currentSession.mockResolvedValue({ sid: 'local-sid', viewer_id: '123' });
+  expect(await screen.findByText('检测到离线自动育成')).toBeVisible();
+  fireEvent.click(await screen.findByRole('button', { name: '进入详设' }));
+  expect(await screen.findByText('离线育成设置')).toBeVisible();
+  expect(screen.queryByText('检测到离线自动育成')).toBeNull();
+  expect(screen.queryByRole('button', { name: '放弃离线育成' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '返回' }));
+  expect(await screen.findByText('检测到离线自动育成')).toBeVisible();
 });

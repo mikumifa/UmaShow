@@ -475,12 +475,15 @@ function OfflineCareerSettings({
     }
     return groups;
   }, [prioritySkills]);
-  const blockedSkillNames = useMemo(() => {
-    if (!pickerGroup) return [];
-    const assigned = new Set(priorityGroups.filter((group) => group.id !== pickerGroup.id)
-      .flatMap((group) => group.targets.map((target) => target.factor_group_id)));
-    return prioritySkills.filter((skill) => assigned.has(skill.group_id)).map((skill) => skill.name);
-  }, [pickerGroup, priorityGroups, prioritySkills]);
+  const occupiedSkillGroups = useMemo(() => {
+    const ranks = new Map<number, number>();
+    if (pickerGroup) priorityGroups.forEach((group, index) => {
+      if (group.id !== pickerGroup.id) {
+        group.targets.forEach((target) => ranks.set(target.factor_group_id, index + 1));
+      }
+    });
+    return ranks;
+  }, [pickerGroup, priorityGroups]);
   const deferredSpecificLineageSearch = useDeferredValue(specificLineageSearch);
   const normalizedSpecificLineageSearch = deferredSpecificLineageSearch
     .trim()
@@ -839,21 +842,22 @@ function OfflineCareerSettings({
     <div className="mt-2 flex flex-wrap gap-1.5">
       {APTITUDE_FACTORS.map((target) => {
         const selected = targets.some((item) => item.factor_group_id === target.factor_group_id);
-        const assignedElsewhere = groupId > 0 && !selected && factorSelection.targets.some(
-          (item) => item.factor_group_id === target.factor_group_id,
-        );
+        const occupiedRank = groupId && !selected ? priorityGroups.findIndex((group) =>
+          group.targets.some((item) => item.factor_group_id === target.factor_group_id),
+        ) + 1 : 0;
         return (
           <button
             key={target.factor_group_id}
             type="button"
             aria-pressed={selected}
-            disabled={assignedElsewhere}
+            disabled={Boolean(occupiedRank)}
             onClick={() => toggleTarget(target, groupId)}
             className={`rounded-full border px-2.5 py-1 text-caption disabled:opacity-45 ${
               selected ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
             }`}
           >
             {target.name}
+            {occupiedRank > 0 && `（第 ${occupiedRank} 组已选）`}
           </button>
         );
       })}
@@ -873,7 +877,9 @@ function OfflineCareerSettings({
               event.dataTransfer.effectAllowed = 'move';
               event.dataTransfer.setData('application/x-uma-factor-target', String(target.factor_group_id));
             }}
-            className="plannerUiTheme flex min-w-0 flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm"
+            className={`plannerUiTheme flex min-w-0 flex-wrap items-start gap-2 rounded-lg border px-2.5 py-2 shadow-sm ${
+              skill?.rarity === 2 ? 'plannerSkillGoldSurface' : 'border-slate-200 bg-white'
+            }`}
           >
             <div className="flex min-w-0 flex-[1_1_14rem] items-center gap-[11px]">
               <PlannerSkillCardContent
@@ -968,6 +974,11 @@ function OfflineCareerSettings({
           {group.targets.length > 0 && targetCards(group.targets, group.id)}
         </section>
       ))}
+      {!ancestorMode && priorityGroups.length > 0 && (
+        <PlannerButton size="small" className="mt-2 w-full" onClick={addGroup}>
+          <Plus size={14} /> 新建优先级组
+        </PlannerButton>
+      )}
     </div>
   );
 
@@ -1887,7 +1898,7 @@ function OfflineCareerSettings({
         obtainableGroups={factorOnly ? undefined : obtainableGroups}
         showKindFilter={false}
         selectedNames={selectedSkillNames}
-        blockedNames={blockedSkillNames}
+        occupiedSkillGroups={occupiedSkillGroups}
         showRarityFilter={false}
         showSkillPoints={false}
         elevated
