@@ -10,7 +10,6 @@ import {
   localAutoResearchSkills,
 } from './catalog';
 import {
-  buildOfflinePrioritySkillArray,
   createDefaultOfflineFactorSelection,
   createDefaultOfflineSkillSettings,
   normalizeOfflinePrioritySkillIds,
@@ -27,6 +26,17 @@ export function isInheritedSkillTarget(target?: OfflineFactorTarget) {
     target?.kind === 'skill' &&
     inheritedGroups.has(Number(target.factor_group_id))
   );
+}
+
+// Older targets have no explicit rank and each occupies its own tier.
+export function factorPriorityRanks(targets: OfflineFactorTarget[]) {
+  let rank = 0;
+  return targets.map((target, index) => {
+    if (!index || !target.priority || target.priority !== targets[index - 1].priority) {
+      rank++;
+    }
+    return rank;
+  });
 }
 
 // Older settings can contain skills only in the two former editors.
@@ -54,55 +64,68 @@ export function offlineFactorsFromSetting(
   }
 
   const legacyGroups = setting.offline_skill_settings?.learn_skill_list;
-  const legacySkills = [
+  const legacyTiers = [
     ...normalizeOfflinePrioritySkillIds(setting.offline_priority_skill_ids).map(
-      (id) => localAutoResearchSkillById.get(id),
+      (id) => [localAutoResearchSkillById.get(id)],
     ),
-    ...(Array.isArray(legacyGroups) ? legacyGroups : [])
-      .flat()
-      .map((name) => localAutoResearchSkillByName.get(name)),
+    ...(Array.isArray(legacyGroups) ? legacyGroups : []).map((group) =>
+      (Array.isArray(group) ? group : [group]).map((name) => localAutoResearchSkillByName.get(name)),
+    ),
   ];
   const groups = new Set(
     storedTargets.map((target) => target?.factor_group_id),
   );
-  const migrated = legacySkills.flatMap((skill) => {
-    if (!skill || isInheritedUniqueSkill(skill)) return [];
-    const group = skill.group_id || Math.floor(skill.id / 10);
-    if (groups.has(group)) return [];
-    groups.add(group);
-    return [
-      {
-        kind: 'skill' as const,
-        factor_group_id: group,
-        name: skill.name,
-        weight: 1,
-      },
-    ];
+  const lastRank = Math.max(0, ...storedTargets.map((target) => target.priority || 0));
+  const migrated: OfflineFactorTarget[] = [];
+  legacyTiers.forEach((tier, index) => {
+    for (const skill of tier) {
+      if (!skill || isInheritedUniqueSkill(skill)) continue;
+      const group = skill.group_id || Math.floor(skill.id / 10);
+      if (groups.has(group)) continue;
+      groups.add(group);
+      migrated.push({
+        kind: 'skill', factor_group_id: group, name: skill.name,
+        weight: 1, priority: lastRank + index + 1,
+      });
+    }
   });
   return { ...selection, targets: [...storedTargets, ...migrated] };
 }
 
+export function usesOfflineFactorTargets(selection: OfflineFactorSelection) {
+  return selection.enabled !== false && selection.transfer_mode !== 'direct';
+}
+
 export function offlineSkillRequest(selection: OfflineFactorSelection) {
-  const targets = (selection.targets || []).filter(
-    (target) =>
-      target?.kind === 'skill' &&
-      target.name &&
-      !isInheritedSkillTarget(target),
-  );
-  if (selection.evaluation_mode === 'ancestor') {
+  const targets = usesOfflineFactorTargets(selection) ? [...(selection.targets || [])] : [];
+  const weighted = selection.evaluation_mode === 'ancestor';
+  if (weighted) {
     targets.sort((a, b) => (b.weight ?? 1) - (a.weight ?? 1));
   }
-  const names = [...new Set(targets.map((target) => target.name))];
-  const ids = names.flatMap((name) => {
-    const skill = localAutoResearchSkillByName.get(name);
-    return skill ? [skill.id] : [];
+  const ranks = factorPriorityRanks(targets);
+  const tiers = new Map<number, string[]>();
+  const seen = new Set<string>();
+  targets.forEach((target, index) => {
+    if (target.kind !== 'skill' || !target.name || seen.has(target.name) || isInheritedSkillTarget(target)) {
+      return;
+    }
+    seen.add(target.name);
+    const rank = weighted ? index + 1 : ranks[index];
+    if (!tiers.has(rank)) tiers.set(rank, []);
+    tiers.get(rank)!.push(target.name);
   });
+  const groups = [...tiers.values()];
   return {
-    priority_skill_array: buildOfflinePrioritySkillArray(ids),
+    priority_skill_array: groups.flatMap((group, index) =>
+      group.flatMap((name) => {
+        const skill = localAutoResearchSkillByName.get(name);
+        return skill ? [{ skill_id: skill.id, priority: index + 1 }] : [];
+      }),
+    ),
     offline_skill_settings: {
       ...createDefaultOfflineSkillSettings(),
-      learn_skill_list: names.map((name) => [name]),
-      learn_skill_group_labels: names,
+      learn_skill_list: groups,
+      learn_skill_group_labels: groups.map((group) => group.join(' / ')),
     },
   };
 }

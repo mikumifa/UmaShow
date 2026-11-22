@@ -95,3 +95,16 @@ test('imports legacy skills once and a subsequently cleared list stays empty', (
     offline_skill_settings: createDefaultOfflineSkillSettings(),
   });
 });
+
+test('saved mixed tiers preserve equal skill priorities for event hints and purchases', () => {
+  const priorities = [1, 1, 1, 2];
+  const saved = offlineFactorsFromSetting({ factor_selection: {
+    ...selection, evaluation_mode: 'parent',
+    targets: selection.targets.map((target, i) => ({ ...target, priority: priorities[i] })),
+  } });
+  const request = offlineSkillRequest(saved);
+  expect(request.priority_skill_array.map((skill) => skill.priority)).toEqual([1, 1, 2]);
+  expect(request.offline_skill_settings.learn_skill_list).toEqual([
+    ['顺时针○', '逆时针○'], ['东京赛场○'],
+  ]);
+});

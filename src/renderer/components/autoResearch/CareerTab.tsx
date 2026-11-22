@@ -551,9 +551,8 @@ function CareerTab(props: CareerTabProps) {
         }));
         if (custom && !offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
       }}
-      renderCustomSchedule={(actionHost) => (
+      customScheduleContent={
         <OfflineCustomSchedule
-          actionHost={actionHost}
           key={`${selectedUma?.id || 0}:${offlineScenarioId}:${offlineDesign.routeId}`}
           design={offlineDesign}
           setDesign={setOfflineDesign}
@@ -562,7 +561,7 @@ function CareerTab(props: CareerTabProps) {
           aptitudes={selectedUmaAptitudes}
           disabled={Boolean(busy)}
         />
-      )}
+      }
       setup={offlineSetup}
       selectedScenarioId={offlineScenarioId}
       races={races}

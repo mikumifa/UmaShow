@@ -73,6 +73,31 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
 const readState = () => JSON.parse(screen.getByTestId('state').textContent!);
 const button = (name: string) => screen.getByRole('button', { name });
 
+test('mode and priority explanations expand independently of mode selection', () => {
+  render(<OfflineForm />);
+  const parent = button('父辈模式');
+  const ancestor = button('祖辈模式');
+  for (const [label, copy] of [
+    ['父辈模式说明', /可以设置另一侧完整父辈/],
+    ['祖辈模式说明', /只按自身因子继承概率/],
+    ['适应性与技能优先级说明', /优先比较目标因子至少继承一次的概率/],
+  ] as const) {
+    const help = button(label);
+    expect(screen.getByText(copy)).not.toBeVisible();
+    fireEvent.click(help);
+    expect(help).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(copy)).toBeVisible();
+    expect(parent).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(help);
+    expect(screen.getByText(copy)).not.toBeVisible();
+  }
+  fireEvent.click(ancestor);
+  const weightHelp = button('适应性与技能因子权重说明');
+  expect(weightHelp).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(weightHelp);
+  expect(screen.getByText(/按两次继承的期望跳数加权累加/)).toBeVisible();
+});
+
 test('attribute star filters only store the selected minimums', () => {
   render(<OfflineForm />);
   const filters = within(screen.getByRole('group', { name: '属性因子最低星数' }));
@@ -122,9 +147,9 @@ test('native keyboard-focusable buttons name their actions and guard both bounda
   expect(onMove).toHaveBeenCalledTimes(2);
 });
 
-test('one skill editor remains accessible when factor filtering is off', () => {
+test('disabling factor filtering collapses both editors and keeps score maximization', () => {
   render(<OfflineForm />);
-  fireEvent.click(screen.getByRole('switch', { name: '筛选最优因子' }));
+  const toggle = screen.getByRole('switch', { name: '免费因子重抽与筛选' });
   expect(button('添加技能')).toBeVisible();
   expect(screen.queryByText('结束自动点技能')).toBeNull();
   expect(screen.queryByText('优先技能')).toBeNull();
@@ -142,6 +167,17 @@ test('one skill editor remains accessible when factor filtering is off', () => {
   expect(request.offline_skill_settings.learn_skill_list).toEqual([
     ['顺时针○'],
   ]);
+  fireEvent.click(picker.getByRole('button', { name: '完成' }));
+  fireEvent.click(toggle);
+  expect(screen.queryByText('适应性与技能优先级')).toBeNull();
+  expect(screen.queryByRole('button', { name: '添加技能' })).toBeNull();
+  expect(screen.queryByText(/已关闭筛选|筛选最优因子/)).toBeNull();
+  const disabled = offlineSkillRequest(readState().factorSelection);
+  expect(disabled.priority_skill_array).toEqual([]);
+  expect(disabled.offline_skill_settings.learn_skill_list).toEqual([]);
+  expect(disabled.offline_skill_settings.maximize_skill_score_at_end).toBe(true);
+  fireEvent.click(toggle);
+  expect(offlineSkillRequest(readState().factorSelection)).toEqual(request);
 });
 
 test('skill scopes preserve selections and search, and both views show the game description', () => {
@@ -213,6 +249,24 @@ test('factor targets support drag-and-drop', () => {
   fireEvent.drop(targetRow, { dataTransfer });
   fireEvent.dragEnd(sourceRow, { dataTransfer });
   expect(button(source)).toHaveAttribute('aria-disabled', 'true');
+});
+
+test('merges the current priority with the previous tier and splits it on a second click', () => {
+  render(<OfflineForm />);
+  fireEvent.click(button('短距离'));
+  const ranks = () => readState().factorSelection.targets.map((target: { priority: number }) => target.priority);
+  expect(screen.queryByRole('button', { name: '草地与上一项并列' })).toBeNull();
+  fireEvent.click(button('泥地与上一项并列'));
+  expect(ranks()).toEqual([1, 1, 2]);
+  fireEvent.click(button('短距离与上一项并列'));
+  expect(ranks()).toEqual([1, 1, 1]);
+  fireEvent.click(button('泥地与上一项并列'));
+  expect(ranks()).toEqual([1, 2, 2]);
+  fireEvent.click(button('下移因子：草地'));
+  expect(ranks()).toEqual([1, 2, 2]);
+  fireEvent.click(button('泥地'));
+  expect(screen.queryByRole('button', { name: '草地与上一项并列' })).toBeNull();
+  expect(button('短距离与上一项并列')).toHaveAttribute('aria-pressed', 'true');
 });
 
 function presetProps(): ComponentProps<typeof PresetsTab> {

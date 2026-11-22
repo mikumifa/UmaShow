@@ -140,18 +140,20 @@ test('local mode exposes the designer and the game preset switch opts into the s
     setSelectedDeckNum: jest.fn(), busy: '', prepare, saveDeck: jest.fn(),
     factorSelection: createDefaultOfflineFactorSelection(), setFactorSelection: jest.fn(),
     parents: [], umas: [], skills: [], setCustomSchedule: switchMode,
-    renderCustomSchedule: (actionHost: HTMLDivElement | null) => (
+    customScheduleContent: (
       <OfflineCustomSchedule
         design={createOfflineDesign()} setDesign={jest.fn()} charaId={1001} scenarioId={5}
-        actionHost={actionHost}
       />
     ),
   };
   const { rerender } = render(<OfflineCareerSettings {...props} customSchedule />);
-  const toggle = screen.getByRole('switch', { name: '游戏内预设赛程' });
+  const toggle = screen.getByRole('switch', { name: '游戏内' });
   expect(toggle).toHaveAttribute('aria-checked', 'false');
   const title = screen.getByRole('heading', { name: '赛程设置' });
-  expect(within(title.parentElement!).getByRole('button', { name: '一键设置' })).toBeVisible();
+  const header = title.closest('header')!;
+  expect(header).toContainElement(toggle);
+  const action = screen.getByRole('button', { name: '一键设置' });
+  expect(header.nextElementSibling).toContainElement(action);
   expect(screen.queryByText(/槽位 1 ·/)).toBeNull();
   expect(prepare).not.toHaveBeenCalled();
   fireEvent.click(toggle);

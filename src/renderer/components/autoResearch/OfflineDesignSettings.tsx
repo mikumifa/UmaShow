@@ -1,6 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { WandSparkles } from 'lucide-react';
 import { designSaddleSchedule } from 'renderer/utils/saddleSchedule';
 import type { PlanningAptitudes } from 'renderer/utils/raceScheduleOptimizer';
@@ -48,12 +47,10 @@ export function OfflineCustomSchedule({
   scenarioId,
   aptitudes,
   disabled = false,
-  actionHost,
 }: Pick<Props, 'design' | 'setDesign' | 'charaId'> & {
   scenarioId: number;
   aptitudes?: PlanningAptitudes;
   disabled?: boolean;
-  actionHost?: HTMLDivElement | null;
 }) {
   const [designError, setDesignError] = useState('');
   const calendar = useMemo(
@@ -126,14 +123,11 @@ export function OfflineCustomSchedule({
         {charaId ? '请选择有本地赛历的育成剧本' : '先选择育成马娘'}
       </p>
     );
-  const action = (
-    <PlannerButton size="small" onClick={designSchedule} disabled={disabled || !ranks}>
-      <WandSparkles size={15} /> 一键设置
-    </PlannerButton>
-  );
   return (
     <>
-      {actionHost ? createPortal(action, actionHost) : action}
+      <PlannerButton size="small" onClick={designSchedule} disabled={disabled || !ranks}>
+        <WandSparkles size={15} /> 一键设置
+      </PlannerButton>
       {designError && (
         <p role="alert" className="mt-3 text-label text-red-600">
           {designError}

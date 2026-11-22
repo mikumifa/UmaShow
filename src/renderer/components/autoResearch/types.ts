@@ -617,6 +617,7 @@ export type CareerHistoryMetric =
 
 export type OfflineFactorTarget = {
   factor_group_id: number;
+  priority?: number;
   name: string;
   kind: 'aptitude' | 'skill';
   weight: number;

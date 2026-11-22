@@ -6,6 +6,7 @@ import {
   SetStateAction,
   useDeferredValue,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from 'react';
@@ -13,6 +14,7 @@ import {
   CalendarDays,
   ChevronDown,
   Check,
+  CircleAlert,
   GripVertical,
   Pencil,
   Plus,
@@ -59,6 +61,7 @@ import {
 } from './types';
 import RaceSchedulePicker from './RaceSchedulePicker';
 import ReorderControls from './ReorderControls';
+import { factorPriorityRanks, usesOfflineFactorTargets } from './offlineCareerSkills';
 import Toggle from './Toggle';
 import type { SkillSourcesByGroup } from './obtainableSkills';
 import ParentFactorFilters from './ParentFactorFilters';
@@ -69,7 +72,7 @@ type Props = {
   factorOnly?: boolean;
   customSchedule?: boolean;
   setCustomSchedule?: (custom: boolean) => void;
-  renderCustomSchedule?: (actionHost: HTMLDivElement | null) => ReactNode;
+  customScheduleContent?: ReactNode;
   setup: OfflineSingleModeSetup | null;
   selectedScenarioId: number;
   races: RaceOption[];
@@ -207,12 +210,43 @@ const LINEAGE_TREE_SLOT_LABELS: Record<LineageTreeSlot, string> = {
 const INITIAL_LINEAGE_PARENT_LIMIT = 48;
 const LINEAGE_PARENT_BATCH_SIZE = 60;
 
+function SettingWithHelp({
+  label, description, children,
+}: {
+  label: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const descriptionId = useId();
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        {children}
+        <button
+          type="button"
+          aria-label={`${label}说明`}
+          aria-expanded={expanded}
+          aria-controls={descriptionId}
+          onClick={() => setExpanded((open) => !open)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-indigo-600"
+        >
+          <CircleAlert size={16} aria-hidden="true" />
+        </button>
+      </div>
+      <p id={descriptionId} hidden={!expanded} className="mt-1 text-label text-slate-600">
+        {description}
+      </p>
+    </>
+  );
+}
+
 function OfflineCareerSettings({
   obtainableGroups = EMPTY_SKILL_GROUPS,
   factorOnly = false,
   customSchedule = false,
   setCustomSchedule,
-  renderCustomSchedule,
+  customScheduleContent,
   setup,
   selectedScenarioId,
   races,
@@ -229,7 +263,6 @@ function OfflineCareerSettings({
 }: Props) {
   const [factorSkillPickerOpen, setFactorSkillPickerOpen] = useState(false);
   const [draggedFactorTarget, setDraggedFactorTarget] = useState('');
-  const [scheduleActionHost, setScheduleActionHost] = useState<HTMLDivElement | null>(null);
   const [editingDeckNum, setEditingDeckNum] = useState(0);
   const [editingDeckName, setEditingDeckName] = useState('');
   const [editingRaceIds, setEditingRaceIds] = useState<number[]>([]);
@@ -367,7 +400,7 @@ function OfflineCareerSettings({
         return {
           ...current,
           targets: current.targets.map((item) =>
-            item === existing ? { ...target, weight: existing.weight } : item,
+            item === existing ? { ...existing, name: target.name } : item,
           ),
         };
       }
@@ -394,7 +427,21 @@ function OfflineCareerSettings({
       const targets = [...current.targets];
       const [moved] = targets.splice(sourceIndex, 1);
       targets.splice(targetIndex, 0, moved);
-      return { ...current, targets };
+      // Move the item to the destination priority slot; keep tier boundaries in place.
+      return { ...current, targets: targets.map((target, index) => ({
+        ...target, priority: current.targets[index].priority,
+      })) };
+    });
+  };
+  const togglePriorityTie = (factorGroupId: number) => {
+    setFactorSelection((current) => {
+      const index = current.targets.findIndex((item) => item.factor_group_id === factorGroupId);
+      if (index < 1) return current;
+      const ranks = factorPriorityRanks(current.targets);
+      const shift = ranks[index] === ranks[index - 1] ? 1 : -1;
+      return { ...current, targets: current.targets.map((target, i) => ({
+        ...target, priority: ranks[i] + (i >= index ? shift : 0),
+      })) };
     });
   };
   const updateTargetWeight = (factorGroupId: number, weight: number) => {
@@ -762,28 +809,26 @@ function OfflineCareerSettings({
     );
   };
 
-  const filteringFactors =
-    factorSelection.enabled && factorSelection.transfer_mode !== 'direct';
+  const filteringFactors = usesOfflineFactorTargets(factorSelection);
+  const priorityRanks = factorPriorityRanks(factorSelection.targets);
+  const ancestorMode = factorSelection.evaluation_mode === 'ancestor';
+  const targetTitle = ancestorMode ? '适应性与技能因子权重' : '适应性与技能优先级';
+  const targetDescription = [
+    filteringFactors && (ancestorMode
+      ? '按两次继承的期望跳数加权累加。'
+      : '优先比较目标因子至少继承一次的概率，白因子兜底。'),
+    !factorOnly && (ancestorMode
+      ? '事件启发和结束点技能按技能权重从高到低，同权重按列表顺序。'
+      : '事件启发和结束点技能按优先级分组，同级技能并列。'),
+    !factorOnly && '结束时优先学同组金技能或双圈，满足条件的技能会自动进化。',
+  ].filter(Boolean).join('');
   const targetEditor = (
     <div className="lg:col-span-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <strong className="text-data text-slate-800">
-            {factorSelection.evaluation_mode === 'ancestor'
-              ? '适应性与技能因子权重'
-              : '适应性与技能优先级'}
-          </strong>
-          <p className="mt-0.5 text-label text-slate-500">
-            {filteringFactors &&
-              (factorSelection.evaluation_mode === 'ancestor'
-                ? '按两次继承的期望跳数加权累加。'
-                : '优先比较目标因子至少继承一次的概率，白因子兜底。')}
-            {!factorOnly &&
-              (factorSelection.evaluation_mode === 'ancestor'
-                ? '事件启发和结束点技能按技能权重从高到低，同权重按列表顺序。'
-                : '事件启发和结束点技能都按列表中的技能顺序。')}
-            {!factorOnly && '结束时优先学同组金技能或双圈，满足条件的技能会自动进化。'}
-          </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <SettingWithHelp key={targetTitle} label={targetTitle} description={targetDescription}>
+            <strong className="text-data text-slate-800">{targetTitle}</strong>
+          </SettingWithHelp>
         </div>
         <button
           type="button"
@@ -823,6 +868,7 @@ function OfflineCareerSettings({
               ? RED_FACTOR_ICON_PATHS[target.factor_group_id]
               : skillIconPath(skill);
           const draggable = factorSelection.evaluation_mode === 'parent';
+          const tied = index > 0 && priorityRanks[index] === priorityRanks[index - 1];
           return (
             <div
               key={targetKey}
@@ -873,7 +919,7 @@ function OfflineCareerSettings({
               </div>
               <div className="ml-auto flex flex-none items-center gap-1">
                 <b className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-caption text-slate-600">
-                  {index + 1}
+                  {draggable ? priorityRanks[index] : index + 1}
                 </b>
                 {factorSelection.evaluation_mode === 'ancestor' ? (
                   <label className="flex flex-none flex-col text-label text-slate-500">
@@ -894,6 +940,18 @@ function OfflineCareerSettings({
                   </label>
                 ) : (
                   <>
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        aria-label={`${target.name}与上一项并列`}
+                        aria-pressed={tied}
+                        title={tied ? '取消与上一项并列' : '与上一项并列'}
+                        onClick={() => togglePriorityTie(target.factor_group_id)}
+                        className="h-8 rounded-md border border-slate-200 px-2 text-caption text-slate-600 hover:border-indigo-300 aria-pressed:border-indigo-300 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700"
+                      >
+                        并列
+                      </button>
+                    )}
                     <ReorderControls
                       label={`因子：${target.name}`}
                       index={index}
@@ -954,30 +1012,19 @@ function OfflineCareerSettings({
               免费因子重抽与筛选
             </h3>
           </div>
-          <label className="flex items-center gap-2 text-label font-medium text-slate-700">
-            <Toggle
-              label="筛选最优因子"
-              disabled={factorSelection.transfer_mode === 'direct'}
-              checked={filteringFactors}
-              onChange={(enabled) => updateFactorSelection({ enabled })}
-            />
-            筛选最优因子
-          </label>
+          <Toggle
+            label="免费因子重抽与筛选"
+            disabled={factorSelection.transfer_mode === 'direct'}
+            checked={filteringFactors}
+            onChange={(enabled) => updateFactorSelection({ enabled })}
+          />
         </div>
 
-        {factorSelection.transfer_mode === 'direct' ? (
-          <p className="mt-3 text-label text-slate-600">
-            已开启养成完成后直接转队，跳过因子评分和额外重抽。
-          </p>
-        ) : !factorSelection.enabled ? (
-          <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-label text-slate-600">
-            已关闭筛选：仍会抽完所有免费次数，然后从候选中随机选择。
-          </p>
-        ) : (
+        {filteringFactors && (
           <div className="mt-4 autoResearchAdaptiveColumns grid items-start gap-x-6 gap-y-5">
             <div className="max-w-2xl">
               <strong className="text-data text-slate-800">使用场景</strong>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="mt-2 grid items-start gap-2 sm:grid-cols-2">
                 {(
                   [
                     [
@@ -992,26 +1039,25 @@ function OfflineCareerSettings({
                     ],
                   ] as const
                 ).map(([mode, label, description]) => (
-                  <button
+                  <div
                     key={mode}
-                    type="button"
-                    aria-pressed={factorSelection.evaluation_mode === mode}
-                    onClick={() =>
-                      updateFactorSelection({ evaluation_mode: mode })
-                    }
-                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                    className={`rounded-lg border pr-1 transition [&>p]:px-3 [&>p]:pb-2 ${
                       factorSelection.evaluation_mode === mode
                         ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100'
                         : 'border-slate-200 bg-white hover:border-indigo-200'
                     }`}
                   >
-                    <strong className="block text-data text-slate-800">
-                      {label}
-                    </strong>
-                    <span className="mt-0.5 block text-caption text-slate-500">
-                      {description}
-                    </span>
-                  </button>
+                    <SettingWithHelp label={label} description={description}>
+                      <button
+                        type="button"
+                        aria-pressed={factorSelection.evaluation_mode === mode}
+                        onClick={() => updateFactorSelection({ evaluation_mode: mode })}
+                        className="flex-1 rounded-md px-3 py-2 text-left text-data font-semibold text-slate-800"
+                      >
+                        {label}
+                      </button>
+                    </SettingWithHelp>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1192,25 +1238,21 @@ function OfflineCareerSettings({
             ) : null}
           </div>
         )}
-        {!factorOnly && !filteringFactors && (
-          <div className="mt-4">{targetEditor}</div>
-        )}
       </section>
 
       <section
         id="offline-career-setup"
         className={`${factorOnly ? 'hidden' : 'order-1 mt-5'} scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4`}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <header className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
               4
             </span>
             <h3 className="text-section font-semibold text-gray-800">赛程设置</h3>
-            {customSchedule && <div ref={setScheduleActionHost} className="contents" />}
           </div>
           {setCustomSchedule && (
-            <div className="flex items-center gap-2 text-label">
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-label">
               <span
                 className={
                   customSchedule
@@ -1218,21 +1260,21 @@ function OfflineCareerSettings({
                     : 'text-slate-500'
                 }
               >
-                本体配置
+                本地
               </span>
               <Toggle
-                label="游戏内预设赛程"
+                label="游戏内"
                 checked={!customSchedule}
                 disabled={Boolean(busy)}
                 onChange={(useGamePreset) => setCustomSchedule(!useGamePreset)}
               />
               <span className={customSchedule ? 'text-slate-500' : 'font-semibold text-indigo-700'}>
-                游戏内预设赛程
+                游戏内
               </span>
             </div>
           )}
-        </div>
-        {customSchedule && renderCustomSchedule?.(scheduleActionHost)}
+        </header>
+        {customSchedule && <div className="mt-3">{customScheduleContent}</div>}
         {!customSchedule && (
           <div className="mt-4 max-w-7xl">
             <div>
@@ -1864,7 +1906,7 @@ function OfflineCareerSettings({
       ) : null}
 
       <SkillSelector
-        open={factorSkillPickerOpen}
+        open={filteringFactors && factorSkillPickerOpen}
         title="选择目标白因子技能"
         skills={whiteSkills}
         obtainableGroups={factorOnly ? undefined : obtainableGroups}

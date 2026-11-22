@@ -166,7 +166,7 @@ function RaceSchedulePicker({
               </h4>
               <span className="h-px flex-1 bg-slate-200" />
             </div>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-6">
               {MONTH_OPTIONS.map((month) => (
                 <div
                   key={month}
