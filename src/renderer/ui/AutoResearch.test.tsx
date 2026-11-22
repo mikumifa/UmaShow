@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import type { ReactNode } from 'react';
 import AutoResearch from './AutoResearch';
 import { CAREER_SETTINGS_KEY } from 'renderer/components/autoResearch/shared';
+import type { DailyTasksConfig } from 'renderer/components/autoResearch/types';
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 
@@ -53,6 +54,9 @@ function setup(hosted: boolean, health = true, rememberAccount = true, idleCaree
       ]),
     credentials: jest.fn().mockResolvedValue([]),
     currentSession: jest.fn().mockResolvedValue(null),
+    dailyTasksOverview: jest.fn(async (_id: string, config: DailyTasksConfig) => ({
+      success: true, daily_tasks: config, options: {},
+    })),
     localOverview: jest.fn().mockResolvedValue({
       success: true,
       runtime: { logged_in: true, session_owner: 'local' },
@@ -97,7 +101,7 @@ function setup(hosted: boolean, health = true, rememberAccount = true, idleCaree
     async (
       input: Parameters<typeof fetch>[0],
       init?: Parameters<typeof fetch>[1],
-    ) => {
+    ): Promise<{ ok: boolean; status?: number; json: () => Promise<unknown> }> => {
       const url = String(input);
       if (url.endsWith('/api/health'))
         return {
@@ -223,4 +227,71 @@ test('shows the active offline career on the overview and hides it while editing
   expect(screen.queryByRole('button', { name: '放弃离线育成' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '返回' }));
   expect(await screen.findByText('检测到离线自动育成')).toBeVisible();
+});
+
+const dailyConfig: DailyTasksConfig = {
+  schema_version: 3,
+  run_with_career: true,
+  daily_race: { enabled: true, daily_race_id: 11, trained_chara_id: 12, running_style: 1 },
+  daily_legend_race: { enabled: false, daily_legend_race_id: 0, trained_chara_id: 0, running_style: 0 },
+  team_stadium: { enabled: false, opponent_strength: 3 },
+  limited_shop: { enabled: false, buy_all: true },
+  race_mission: { enabled: false },
+};
+
+async function openDaily(config: DailyTasksConfig | null, online = true) {
+  const { api, fetchMock } = setup(false);
+  api.currentSession.mockResolvedValue({ sid: 'local-sid', viewer_id: account.uid });
+  api.getUiSetting.mockImplementation((key) => localStorage.getItem(key));
+  localStorage.setItem('autoResearch.dailyTasks.v1', JSON.stringify({
+    [account.uid]: { ...dailyConfig, run_with_career: false },
+  }));
+  await waitFor(() => expect(api.localOverview).toHaveBeenCalledWith(account.id));
+  let remote = config;
+  fetchMock.mockImplementation(async (url) => {
+    if (!online || String(url) !== savedServer + '/api/account/configuration/query')
+      throw new Error('offline');
+    return { ok: true, json: async () => ({
+      success: true, daily_config: remote && { payload: { daily_tasks: remote } },
+    }) };
+  });
+  fireEvent.click((await screen.findAllByRole('button', { name: '日常' }))[0]);
+  const toggle = await screen.findByRole('switch', { name: '养马同时完成日常' });
+  return { api, fetchMock, toggle, changeRemote: (next: DailyTasksConfig) => { remote = next; } };
+}
+
+test('downloads daily settings on entry and preserves local edits until the server settings change', async () => {
+  const { api, fetchMock, toggle, changeRemote } = await openDaily(dailyConfig);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledWith(savedServer + '/api/account/configuration/query',
+    expect.objectContaining({ method: 'POST', body: JSON.stringify({ uid: account.uid, access_key: 'test-key' }) }));
+  expect(api.dailyTasksOverview).toHaveBeenCalledWith(account.id, dailyConfig);
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  fireEvent.click(toggle);
+  const refresh = screen.getAllByRole('button', { name: '刷新' }).at(-1)!;
+  fireEvent.click(refresh);
+  await waitFor(() => expect(api.dailyTasksOverview).toHaveBeenCalledTimes(2));
+  expect(api.dailyTasksOverview).toHaveBeenLastCalledWith(account.id, { ...dailyConfig, run_with_career: false });
+  const updated = { ...dailyConfig, race_mission: { enabled: true } };
+  changeRemote(updated);
+  fireEvent.click(refresh);
+  await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
+  expect(api.dailyTasksOverview).toHaveBeenLastCalledWith(account.id, updated);
+  expect(api.loginSession).not.toHaveBeenCalled();
+});
+
+test.each([true, false])('keeps the saved local daily settings when no cloud config is available (online=%s)', async (online) => {
+  const { api, toggle } = await openDaily(null, online);
+  expect(api.dailyTasksOverview).toHaveBeenCalledWith(account.id, { ...dailyConfig, run_with_career: false });
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+});
+
+test('refreshing the cloud configuration keeps unsaved daily edits on screen', async () => {
+  const { api, changeRemote } = await openDaily(dailyConfig);
+  const race = screen.getByRole('switch', { name: '启用每日竞赛' });
+  fireEvent.click(race);
+  changeRemote({ ...dailyConfig, run_with_career: false });
+  fireEvent.click(screen.getAllByRole('button', { name: '刷新' }).at(-1)!);
+  await waitFor(() => expect(api.dailyTasksOverview).toHaveBeenCalledTimes(2));
+  expect(race).toHaveAttribute('aria-checked', 'false');
 });

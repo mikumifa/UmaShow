@@ -338,19 +338,34 @@ const readLocalDailyTasks = (
   }
 };
 
-const writeLocalDailyTasks = (uid: string, config: DailyTasksConfig) => {
-  let stored: Record<string, DailyTasksConfig> = {};
+const writeLocalDailyTasks = (
+  uid: string,
+  config: DailyTasksConfig,
+  cloud?: { server: string; force?: boolean },
+) => {
+  type CachedConfig = DailyTasksConfig & { lastCloudSnapshot?: string };
+  let stored: Record<string, CachedConfig> = {};
   try {
     stored = JSON.parse(
       getSharedStorageItem(LOCAL_DAILY_TASKS_KEY) || '{}',
-    ) as Record<string, DailyTasksConfig>;
+    ) as Record<string, CachedConfig>;
   } catch {
     stored = {};
   }
   const saved = editableDailyTasksConfig(config);
+  const lastCloudSnapshot = cloud
+    ? JSON.stringify([cloud.server, saved])
+    : stored[uid]?.lastCloudSnapshot;
+  if (
+    cloud &&
+    !cloud.force &&
+    stored[uid]?.lastCloudSnapshot === lastCloudSnapshot
+  ) {
+    return editableDailyTasksConfig(stored[uid]);
+  }
   setSharedStorageItem(
     LOCAL_DAILY_TASKS_KEY,
-    JSON.stringify({ ...stored, [uid]: saved }),
+    JSON.stringify({ ...stored, [uid]: { ...saved, lastCloudSnapshot } }),
   );
   return saved;
 };
@@ -795,6 +810,7 @@ export default function AutoResearch() {
   const [dailyTasksOverview, setDailyTasksOverview] =
     useState<DailyTasksResponse | null>(null);
   const [dailyTasksLoading, setDailyTasksLoading] = useState(false);
+  const dailyLoadVersion = useRef(0);
   const [dailyTasksLoadError, setDailyTasksLoadError] = useState('');
   const [localAccountSessionStates, setLocalAccountSessionStates] = useState<
     Record<string, LocalAccountSessionState>
@@ -1245,8 +1261,9 @@ export default function AutoResearch() {
     async <T,>(
       path: string,
       init?: Parameters<typeof fetch>[1],
+      address = server,
     ): Promise<T> => {
-      const response = await fetch(`${server}${path}`, {
+      const response = await fetch(`${address}${path}`, {
         ...init,
         headers: {
           'Content-Type': 'application/json',
@@ -1926,24 +1943,34 @@ export default function AutoResearch() {
     setHistoryRefreshRevision((value) => value + 1);
   }, []);
 
-  const loadCloudConfiguration = useCallback(
-    async (accountId: string) => {
-      if (!accountId || !server) return;
-      const account = accounts.find((item) => item.id === accountId);
-      if (!account) return;
+  const queryCloudConfiguration = useCallback(
+    async (accountId: string, address: string, signal?: AbortSignal) => {
       const credential = (await window.electron.autoResearch.credential(
         accountId,
       )) as { uid: string; accessKey: string };
-      const result = await request<CloudConfigurationResponse>(
+      return request<CloudConfigurationResponse>(
         '/api/account/configuration/query',
         {
           method: 'POST',
+          signal,
           body: JSON.stringify({
             uid: credential.uid,
             access_key: credential.accessKey,
           }),
         },
+        address,
       );
+    },
+    [request],
+  );
+
+  const loadCloudConfiguration = useCallback(
+    async (accountId: string) => {
+      if (!accountId || !server) return;
+      const account = accounts.find((item) => item.id === accountId);
+      if (!account) return;
+      const result = await queryCloudConfiguration(accountId, server);
+      if (selectedAccountIdRef.current !== accountId) return;
       const cloudSettings = (result.career_configs || []).flatMap((config) => {
         const setting = cloudCareerSetting(config, account.uid);
         return setting ? [setting] : [];
@@ -2000,6 +2027,7 @@ export default function AutoResearch() {
         const saved = writeLocalDailyTasks(
           account.uid,
           dailyConfig.payload.daily_tasks,
+          { server, force: true },
         );
         setDailyTasksOverview((current) =>
           current
@@ -2021,7 +2049,7 @@ export default function AutoResearch() {
         hasDailyConfig: Boolean(dailyConfig?.payload.daily_tasks),
       };
     },
-    [accounts, request, server],
+    [accounts, queryCloudConfiguration, server],
   );
 
   const pullCloudConfiguration = useCallback(async () => {
@@ -2034,6 +2062,7 @@ export default function AutoResearch() {
     setSuccessMessage('');
     try {
       const result = await loadCloudConfiguration(selectedAccountId);
+      if (selectedAccountIdRef.current !== selectedAccountId) return;
       if (result?.careerConfigCount) {
         setSuccessMessage(
           `已拉取 ${result.careerConfigCount} 条云端详设（在线 ${result.onlineConfigCount}、离线 ${result.offlineConfigCount}）、绑定预设和每日配置`,
@@ -2112,6 +2141,10 @@ export default function AutoResearch() {
   const loadDailyTasks = useCallback(
     async (accountId: string): Promise<boolean> => {
       if (!accountId) return false;
+      const version = ++dailyLoadVersion.current;
+      const isCurrent = () =>
+        selectedAccountIdRef.current === accountId &&
+        version === dailyLoadVersion.current;
       const account = accountsRef.current.find((item) => item.id === accountId);
       if (!account) {
         setDailyTasksOverview(null);
@@ -2122,34 +2155,56 @@ export default function AutoResearch() {
       setDailyTasksLoading(true);
       setDailyTasksLoadError('');
       try {
-        const localConfig = readLocalDailyTasks(
+        let localConfig = readLocalDailyTasks(
           account.uid,
           defaultDailyTasksConfig(),
         );
+        const address = server || localStorage.getItem('autoResearch.server');
+        if (address) {
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), 8000);
+          try {
+            const { daily_config } = await queryCloudConfiguration(
+              accountId,
+              address,
+              controller.signal,
+            );
+            if (!isCurrent()) return false;
+            if (daily_config?.payload.daily_tasks) {
+              localConfig = writeLocalDailyTasks(
+                account.uid,
+                daily_config.payload.daily_tasks,
+                { server: address },
+              );
+            }
+          } catch (caught) {
+            if (!isCurrent()) return false;
+            setError(`下载日常配置失败，已使用本地配置：${(caught as Error).message}`);
+          } finally {
+            window.clearTimeout(timeout);
+          }
+        }
         const result = (await window.electron.autoResearch.dailyTasksOverview(
           accountId,
           localConfig,
         )) as DailyTasksResponse;
-        if (selectedAccountIdRef.current === accountId) {
-          const latestLocalConfig = readLocalDailyTasks(
-            account.uid,
-            localConfig,
-          );
-          setDailyTasksOverview((current) => ({
-            ...result,
-            daily_tasks: {
-              ...result.daily_tasks,
-              ...current?.daily_tasks,
-              ...latestLocalConfig,
-            },
-          }));
-        }
+        if (!isCurrent()) return false;
+        const latestConfig = readLocalDailyTasks(account.uid, localConfig);
+        setDailyTasksOverview((current) => ({
+          ...result,
+          daily_tasks: {
+            ...current?.daily_tasks,
+            ...result.daily_tasks,
+            ...latestConfig,
+          },
+        }));
         setLocalAccountSessionStates((current) => ({
           ...current,
           [accountId]: 'ready',
         }));
         return true;
       } catch (caught) {
+        if (!isCurrent()) return false;
         const loginRequired =
           String((caught as Error).message || '').includes('请先登录') ||
           needsRelogin(caught);
@@ -2159,24 +2214,18 @@ export default function AutoResearch() {
             [accountId]: 'missing',
           }));
         }
-        if (selectedAccountIdRef.current === accountId) {
-          const message = String((caught as Error)?.message || caught || '');
-          setDailyTasksOverview(null);
-          if (loginRequired) {
-            setDailyTasksLoadError('');
-          } else {
-            setDailyTasksLoadError(message);
-          }
-          setError(message);
-        }
+        const message = String((caught as Error)?.message || caught || '');
+        setDailyTasksOverview(null);
+        setDailyTasksLoadError(loginRequired ? '' : message);
+        setError(message);
         return false;
       } finally {
-        if (selectedAccountIdRef.current === accountId) {
+        if (isCurrent()) {
           setDailyTasksLoading(false);
         }
       }
     },
-    [],
+    [queryCloudConfiguration, server],
   );
 
   const requestLocalLoginConfirmation = useCallback((accountId: string) => {
@@ -2373,9 +2422,6 @@ export default function AutoResearch() {
           ),
           [accountId]: 'ready',
         }));
-        if (activeTab === 'daily') {
-          await loadDailyTasks(accountId);
-        }
         localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
         setHistoryRefreshRevision((current) => current + 1);
       } catch (caught) {
@@ -2395,10 +2441,8 @@ export default function AutoResearch() {
       }
     },
     [
-      activeTab,
       commitOverviewResponse,
       invalidateOverviewResponses,
-      loadDailyTasks,
       requestLocalLoginConfirmation,
     ],
   );
@@ -2634,6 +2678,8 @@ export default function AutoResearch() {
       try {
         const saved = writeLocalDailyTasks(selectedAccount.uid, config);
         await uploadDailyConfig(saved);
+        writeLocalDailyTasks(selectedAccount.uid, saved, { server, force: true });
+        if (selectedAccountIdRef.current !== selectedAccountId) return;
         setDailyTasksOverview((current) =>
           current
             ? {
@@ -3079,30 +3125,17 @@ export default function AutoResearch() {
     ) {
       return undefined;
     }
-    const accountId = selectedAccountId;
-    let cancelled = false;
-    (async () => {
-      try {
-        await loadDailyTasks(accountId);
-      } catch (caught) {
-        if (cancelled || selectedAccountIdRef.current !== accountId) return;
-        setLocalAccountSessionStates((current) => ({
-          ...current,
-          [accountId]: isMissingLocalGameSession(caught)
-            ? 'missing'
-            : current[accountId] || 'ready',
-        }));
-        setError((caught as Error).message);
-      }
-    })();
+    void loadDailyTasks(selectedAccountId);
     return () => {
-      cancelled = true;
+      dailyLoadVersion.current += 1;
+      setDailyTasksLoading(false);
     };
   }, [
     activeTab,
     loadDailyTasks,
     localAccountSessionState,
     selectedAccountId,
+    serverConnectionRevision,
     serverHostedMode,
   ]);
 
@@ -8885,6 +8918,7 @@ export default function AutoResearch() {
 
                 {activeTab === 'daily' ? (
                   <DailyTasksTab
+                    key={selectedAccountId}
                     overview={dailyTasksOverview}
                     loading={
                       dailyTasksLoading ||

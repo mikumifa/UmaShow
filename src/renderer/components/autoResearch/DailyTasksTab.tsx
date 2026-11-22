@@ -233,17 +233,18 @@ function DailyTasksTab({
     }
 
     const nextConfigKey = editableConfigKey(overview.daily_tasks);
-    if (syncedConfigKey.current === nextConfigKey) return;
+    const previousConfigKey = syncedConfigKey.current;
+    if (previousConfigKey === nextConfigKey) return;
 
     syncedConfigKey.current = nextConfigKey;
     const source = overview.daily_tasks;
-    setDraft({
-      ...source,
-      daily_race: { ...source.daily_race },
-      daily_legend_race: { ...source.daily_legend_race },
-      team_stadium: { ...source.team_stadium },
-      limited_shop: { ...source.limited_shop },
-      race_mission: { enabled: Boolean(source.race_mission?.enabled) },
+    setDraft((current) => {
+      if (previousConfigKey && editableConfigKey(current) !== previousConfigKey)
+        return current;
+      return {
+        ...source,
+        race_mission: { enabled: Boolean(source.race_mission?.enabled) },
+      };
     });
   }, [overview]);
 
