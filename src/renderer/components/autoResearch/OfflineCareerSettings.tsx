@@ -873,6 +873,9 @@ function OfflineCareerSettings({
           <div
             key={target.factor_group_id}
             draggable={Boolean(groupId)}
+            onPointerDown={(event) => {
+              event.currentTarget.draggable = Boolean(groupId) && event.pointerType === 'mouse';
+            }}
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = 'move';
               event.dataTransfer.setData('application/x-uma-factor-target', String(target.factor_group_id));
@@ -988,22 +991,25 @@ function OfflineCareerSettings({
         id="career-factor-options"
         className="order-2 mt-5 scroll-mt-28 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <h3 className="text-section font-semibold text-gray-800">
+          <label className="flex min-h-11 items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-caption font-semibold text-white">
               {factorOnly ? 3 : 5}
             </span>
-            <h3 className="text-section font-semibold text-gray-800">
-              免费因子重抽与筛选
-            </h3>
-          </div>
-          <Toggle
-            label="免费因子重抽与筛选"
-            disabled={factorSelection.transfer_mode === 'direct'}
-            checked={filteringFactors}
-            onChange={(enabled) => updateFactorSelection({ enabled })}
-          />
-        </div>
+            <span className="mr-auto">免费因子重抽与筛选</span>
+            <Toggle
+              label="免费因子重抽与筛选"
+              disabled={factorSelection.transfer_mode === 'direct'}
+              checked={filteringFactors}
+              onChange={(enabled) => updateFactorSelection({ enabled })}
+            />
+          </label>
+        </h3>
+        {factorSelection.transfer_mode === 'direct' && (
+          <p className="text-caption text-slate-500">
+            关闭「养成完成后直接转队」即可使用因子重抽。
+          </p>
+        )}
 
         {filteringFactors && (
           <div className="mt-4 autoResearchAdaptiveColumns grid items-start gap-x-6 gap-y-5">
@@ -1237,29 +1243,18 @@ function OfflineCareerSettings({
             <h3 className="text-section font-semibold text-gray-800">赛程设置</h3>
           </div>
           {setCustomSchedule && (
-            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-label">
-              <span
-                className={
-                  customSchedule
-                    ? 'font-semibold text-indigo-700'
-                    : 'text-slate-500'
-                }
-              >
-                本地
-              </span>
+            <label className="ml-auto flex min-h-11 shrink-0 items-center gap-2 text-label">
+              本地
               <Toggle
-                label="游戏内"
-                checked={!customSchedule}
+                label="本地"
+                checked={customSchedule}
                 disabled={Boolean(busy)}
-                onChange={(useGamePreset) => setCustomSchedule(!useGamePreset)}
+                onChange={setCustomSchedule}
               />
-              <span className={customSchedule ? 'text-slate-500' : 'font-semibold text-indigo-700'}>
-                游戏内
-              </span>
-            </div>
+            </label>
           )}
         </header>
-        {customSchedule && <div className="mt-3">{customScheduleContent}</div>}
+        {customScheduleContent}
         {!customSchedule && (
           <div className="mt-4 max-w-7xl">
             <div>

@@ -6569,8 +6569,11 @@ export default function AutoResearch() {
             }
             html[data-autouma] .successionPickerGrid,
             html[data-autouma] .successionCapturedPickerGrid,
-            html[data-autouma] .plannerSkillGridBody,
             html[data-autouma] .plannerDailyHorseBody,
+            html[data-autouma]
+              .successionPickerOverlay:not(.successionPickerCompactOverlay)
+              > .successionPickerDialog
+              > .plannerSkillGridBody,
             html[data-autouma]
               .successionPickerOverlay:not(.successionPickerCompactOverlay)
               > .successionPickerDialog

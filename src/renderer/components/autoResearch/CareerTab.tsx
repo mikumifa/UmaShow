@@ -557,7 +557,10 @@ function CareerTab(props: CareerTabProps) {
           design={offlineDesign}
           setDesign={setOfflineDesign}
           charaId={selectedUma?.chara_id || 0}
-          scenarioId={offlineScenarioId}
+          scenarioId={offlineScenarioId || defaultLocalScenario(offlineScenarios)}
+          onApplySchedule={() => {
+            if (!offlineScenarioId) changeOfflineScenario(defaultLocalScenario(offlineScenarios));
+          }}
           aptitudes={selectedUmaAptitudes}
           disabled={Boolean(busy)}
         />
@@ -1046,7 +1049,7 @@ function CareerTab(props: CareerTabProps) {
                 {busy === 'career-save'
                   ? '保存中…'
                   : careerDirty
-                    ? '保存修改'
+                    ? '保存'
                     : '已保存'}
               </button>
               <button

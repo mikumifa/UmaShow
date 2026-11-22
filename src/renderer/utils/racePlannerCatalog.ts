@@ -27,6 +27,7 @@ export type GoalRoute = {
   goals: CareerGoal[];
 };
 export type PlanningScenarioEvent = {
+  summaryOnly?: boolean;
   turn: number;
   name: string;
   fans: number;
@@ -147,6 +148,19 @@ export function buildPlanningCalendar(
         thumbnailId: program?.thumbnailId || 0,
       };
     });
+  if (scenarioId === 5) {
+    // The final follows SWBC outside the regular calendar. All course
+    // variants award the same winner fans as program 2842.
+    const final = PLANNER_CATALOG.programs['2842'];
+    automaticRaces.push({
+      turn: scenario.endTurn,
+      name: final.name,
+      fans: final.fans,
+      thumbnailId: final.thumbnailId,
+      programIds: [final.programId],
+      summaryOnly: true,
+    });
+  }
   if (!debut) errors.push('主数据库缺少这位马娘的出道赛目标，暂时无法规划。');
   goals
     .filter((goal) => goal.turn <= scenario.endTurn)

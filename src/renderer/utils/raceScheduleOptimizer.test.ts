@@ -146,10 +146,10 @@ test('catalog marks career goals independently of manually fixed races and inclu
   ).toEqual([46, 70]);
 });
 
-test('year-end races add three guaranteed wins and 0.15 drops without changing regular slots or streaks', () => {
+test('four scenario races add their rewards without changing regular slots or streaks', () => {
   const calendar = buildPlanningCalendar(1001, 5);
   expect(calendar.automaticRaces.map((event) => event.turn)).toEqual([
-    24, 48, 72,
+    24, 48, 72, 72,
   ]);
   const races = [23, 24, 25, 26, 48, 72].map((turn) => ({
     ...race,
@@ -183,11 +183,11 @@ test('year-end races add three guaranteed wins and 0.15 drops without changing r
     ]),
   );
   expect(result.steps.find((step) => step.turn === 24)?.race?.id).toBe(24);
-  expect(result.expectedDrops - baseline.expectedDrops).toBeCloseTo(0.15);
-  expect(result.expectedWins - baseline.expectedWins).toBeCloseTo(3);
-  expect(result.expectedFans - baseline.expectedFans).toBeCloseTo(33770);
+  expect(result.expectedDrops - baseline.expectedDrops).toBeCloseTo(0.20);
+  expect(result.expectedWins - baseline.expectedWins).toBeCloseTo(4);
+  expect(result.expectedFans - baseline.expectedFans).toBeCloseTo(66770);
   expect(result.automaticRaces.map((step) => step.expectedDrops)).toEqual([
-    0.05, 0.05, 0.05,
+    0.05, 0.05, 0.05, 0.05,
   ]);
   expect(
     result.steps.find((step) => step.turn === 25)!.totalExpectedWins -
@@ -204,8 +204,8 @@ test('automatic races still pay on fixed rest dates with all ordinary win rates 
     automaticRaces,
   });
   expect(result.raceCount).toBe(0);
-  expect(result.expectedDrops).toBeCloseTo(0.15);
-  expect(result.expectedWins).toBe(3);
+  expect(result.expectedDrops).toBeCloseTo(0.20);
+  expect(result.expectedWins).toBe(4);
   const partial = optimizeRaceSchedule({
     ...input,
     races: [],

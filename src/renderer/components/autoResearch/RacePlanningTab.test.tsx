@@ -20,11 +20,6 @@ jest.mock('./shared', () => ({
 const savedSettings = () =>
   JSON.parse(localStorage.getItem('uma-race-planner-v1') || '{}');
 const calendar = buildPlanningCalendar(1001, 5);
-const electiveRace = calendar.races.find(
-  (race) => !calendar.fixedRaces[race.turn],
-)!;
-const date = skillPurchaseTurnLabel(electiveRace.turn);
-
 beforeEach(() => localStorage.clear());
 
 test('fan bonus defaults to 120 and persists edited values including zero across remounts', () => {
@@ -92,6 +87,7 @@ test('the result list shows database base fans separately from expected fans wit
     JSON.stringify({ charaId: 1001, fanBonus: 100 }),
   );
   render(<RacePlanningTab />);
+  fireEvent.click(screen.getByRole('button', { name: '列表' }));
   const table = screen.getByRole('table', { name: '最优赛程' });
   expect(
     within(table).getByRole('columnheader', { name: '基础粉丝' }),
@@ -107,71 +103,28 @@ test('the result list shows database base fans separately from expected fans wit
   );
 });
 
-test('a date switches between fixed race, rest and automatic planning and persists', () => {
-  const view = render(<RacePlanningTab />);
-  fireEvent.click(screen.getByRole('button', { name: `${date}，自动规划` }));
-  let picker = screen.getByRole('dialog', { name: `${date}比赛选择` });
-  const raceChoice = within(picker).getByRole('radio', {
-    name: new RegExp(electiveRace.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-  });
-  fireEvent.click(raceChoice);
-  expect(savedSettings().manualIds).toEqual([electiveRace.id]);
-  fireEvent.click(within(picker).getByRole('button', { name: '固定休息' }));
-  expect(savedSettings().manualIds).toEqual([]);
-  expect(savedSettings().restTurns).toEqual([electiveRace.turn]);
-  expect(raceChoice).not.toBeChecked();
-  fireEvent.click(raceChoice);
-  expect(savedSettings().manualIds).toEqual([electiveRace.id]);
-  expect(savedSettings().restTurns).toEqual([]);
-  fireEvent.keyDown(window, { key: 'Escape' });
-  view.unmount();
-
-  render(<RacePlanningTab />);
-  fireEvent.click(
-    screen.getByRole('button', { name: `${date}，已选择${electiveRace.name}` }),
-  );
-  picker = screen.getByRole('dialog', { name: `${date}比赛选择` });
-  fireEvent.click(within(picker).getByRole('button', { name: '恢复自动规划' }));
-  expect(savedSettings().manualIds).toEqual([]);
-  expect(savedSettings().restTurns).toEqual([]);
-});
-
-test('mandatory goals are visible in the calendar and cannot be changed to rest', () => {
-  render(<RacePlanningTab />);
-  const goalTurn = Number(Object.keys(calendar.fixedRaces)[0]);
-  const goalDate = skillPurchaseTurnLabel(goalTurn);
-  fireEvent.click(
-    screen.getByRole('button', { name: new RegExp(`^${goalDate}，生涯目标`) }),
-  );
-  const picker = screen.getByRole('dialog', { name: `${goalDate}比赛选择` });
-  expect(
-    within(picker).queryByRole('button', { name: '固定休息' }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(picker).queryByRole('button', { name: '恢复自动规划' }),
-  ).not.toBeInTheDocument();
-  expect(within(picker).getByRole('radio')).toBeChecked();
-  expect(within(picker).getByRole('radio')).toBeDisabled();
-  expect(
-    screen.getByRole('button', {
-      name: `${skillPurchaseTurnLabel(1)}，规划范围外`,
+test('removed manual settings do not block automatic planning', () => {
+  localStorage.setItem(
+    'uma-race-planner-v1',
+    JSON.stringify({
+      charaId: 1001,
+      manualIds: [-1],
+      restTurns: [calendar.startTurn],
     }),
-  ).toBeDisabled();
+  );
+  render(<RacePlanningTab />);
+  expect(screen.queryByRole('heading', { name: '固定赛程' })).toBeNull();
+  expect(screen.getByRole('heading', { name: '最优赛程日历' })).toBeVisible();
+  expect(savedSettings().manualIds).toBeUndefined();
+  expect(savedSettings().restTurns).toBeUndefined();
 });
 
-test('switching a character uses shared portrait cards and clears manual constraints', () => {
+test('switching a character uses shared portrait cards and keeps the fan bonus', () => {
   localStorage.setItem(
     'uma-race-planner-v1',
     JSON.stringify({ charaId: 1001, fanBonus: 85 }),
   );
   render(<RacePlanningTab />);
-  fireEvent.click(screen.getByRole('button', { name: `${date}，自动规划` }));
-  fireEvent.click(
-    within(screen.getByRole('dialog')).getByRole('button', {
-      name: '固定休息',
-    }),
-  );
-  fireEvent.keyDown(window, { key: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: '育成马娘' }));
   const picker = screen.getByRole('dialog', { name: '选择规划马娘' });
   const character = PLANNER_CATALOG.characters.find(
@@ -187,8 +140,6 @@ test('switching a character uses shared portrait cards and clears manual constra
   );
   expect(savedSettings().charaId).toBe(character.id);
   expect(savedSettings().fanBonus).toBe(85);
-  expect(savedSettings().restTurns).toEqual([]);
-  expect(savedSettings().manualIds).toEqual([]);
   expect(picker).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '育成马娘' }));
   const reopenedPicker = screen.getByRole('dialog', { name: '选择规划马娘' });
@@ -203,10 +154,12 @@ test('switching a character uses shared portrait cards and clears manual constra
 test('results switch between a race list and a read-only calendar', () => {
   render(<RacePlanningTab />);
   expect(
-    screen.queryByRole('checkbox', { name: '显示休息／训练回合' }),
+    screen.queryByRole('checkbox', { name: '显示训练回合' }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole('table', { name: '最优赛程' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '赛程日历' }));
+  expect(screen.getByRole('button', { name: '赛程日历' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   expect(
     screen.queryByRole('table', { name: '最优赛程' }),
   ).not.toBeInTheDocument();
@@ -262,22 +215,30 @@ test('win rates are fixed and hidden, and legacy overrides do not affect the pla
   ).toHaveTextContent(legacyFans);
 });
 
-test('goddess is the only scenario and all three year-end races appear in both result views', () => {
+test('goddess final counts toward four scenario races without a calendar or list entry', () => {
   render(<RacePlanningTab />);
   expect(
     screen.queryByRole('combobox', { name: '规划剧本' }),
   ).not.toBeInTheDocument();
+  expect(screen.getByText(/剧本赛 4 场/)).toBeVisible();
+  expect(screen.queryByText('荣耀女神杯 · 剧本')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '列表' }));
   const table = screen.getByRole('table', { name: '最优赛程' });
-  calendar.automaticRaces.forEach((race) => {
-    const row = within(table).getByText(race.name).closest('tr')!;
-    expect(within(row).getByText('剧本')).toBeInTheDocument();
-    expect(within(row).getByText('100.0%')).toBeInTheDocument();
-    expect(within(row).getByText('0.050')).toBeInTheDocument();
-  });
+  expect(within(table).queryByText('荣耀女神杯')).toBeNull();
+  // Displayed race rows plus the final, excluding the header.
+  expect(screen.getByText('参赛次数').nextElementSibling?.textContent).toBe(
+    String(within(table).getAllByRole('row').length),
+  );
+  calendar.automaticRaces
+    .filter((race) => !race.summaryOnly)
+    .forEach((race) => {
+      const row = within(table).getByText(race.name).closest('tr')!;
+      expect(within(row).getByText('剧本')).toBeInTheDocument();
+      expect(within(row).getByText('100.0%')).toBeInTheDocument();
+      expect(within(row).getByText('0.050')).toBeInTheDocument();
+    });
   fireEvent.click(screen.getByRole('button', { name: '赛程日历' }));
-  calendar.automaticRaces.forEach((race) => {
-    expect(screen.getAllByText(`${race.name} · 剧本`)).toHaveLength(2);
-  });
+  expect(screen.queryByText(/ · 剧本$/)).toBeNull();
 });
 
 test('offline leaderboard follows the objective and applies a reproducible plan then closes', () => {
@@ -314,8 +275,6 @@ test('offline leaderboard follows the objective and applies a reproducible plan 
     charaId: winner.charaId,
     routeId: winner.routeId,
     fanBonus: 40,
-    manualIds: [],
-    restTurns: [],
   });
   const dropStat = screen
     .getByText('期望掉落次数', { selector: 'dt' })

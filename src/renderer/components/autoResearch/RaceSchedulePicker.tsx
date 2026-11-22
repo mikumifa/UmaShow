@@ -4,7 +4,6 @@ import { Coffee, LockKeyhole, Pin } from 'lucide-react';
 import AssetIcon from 'renderer/components/trainingHistory/AssetIcon';
 import { PlannerButton } from 'renderer/components/succession/PlannerComponents';
 import { SuccessionPickerDialog } from 'renderer/components/succession/SuccessionPicker';
-import type { PlanningScenarioEvent } from 'renderer/utils/racePlannerCatalog';
 import {
   compareRaces,
   MONTH_OPTIONS,
@@ -24,7 +23,7 @@ type Props = {
   selectedRaceIds: number[];
   setSelectedRaceIds?: Dispatch<SetStateAction<number[]>>;
   readOnly?: boolean;
-  automaticRaces?: PlanningScenarioEvent[];
+  automaticRaceCount?: number;
   lockedRaces?: Record<number, number[]>;
   planning?: {
     startTurn: number;
@@ -47,7 +46,7 @@ function RaceSchedulePicker({
   setSelectedRaceIds,
   planning,
   readOnly = false,
-  automaticRaces = [],
+  automaticRaceCount = 0,
   lockedRaces,
 }: Props) {
   const [selectedRaceTurn, setSelectedRaceTurn] = useState<number | null>(null);
@@ -72,15 +71,6 @@ function RaceSchedulePicker({
     () => new Set(planning?.blockedTurns || []),
     [planning?.blockedTurns],
   );
-  const automaticRacesByTurn = useMemo(() => {
-    const result = new Map<number, PlanningScenarioEvent[]>();
-    automaticRaces.forEach((race) => {
-      const list = result.get(race.turn) || [];
-      list.push(race);
-      result.set(race.turn, list);
-    });
-    return result;
-  }, [automaticRaces]);
   const racesForSelectedDate = useMemo(
     () =>
       selectedRaceTurn
@@ -110,9 +100,9 @@ function RaceSchedulePicker({
   if (planning)
     selectionSummary = `目标 ${Object.keys(planning.fixedRaces).length} 场 · 手动 ${selectedRaceIds.length} 场 · 休息 ${planning.restTurns.length} 回合`;
   if (readOnly)
-    selectionSummary = `已安排 ${selectedRaceIds.length} 场 · 休息／训练 ${planning?.restTurns.length || 0} 回合`;
-  if (automaticRaces.length)
-    selectionSummary += ` · 剧本赛 ${automaticRaces.length} 场`;
+    selectionSummary = `已安排 ${selectedRaceIds.length} 场 · 训练 ${planning?.restTurns.length || 0} 回合`;
+  if (automaticRaceCount)
+    selectionSummary += ` · 剧本赛 ${automaticRaceCount} 场`;
   let dateDescription = `该日期最多选择一场比赛，共 ${racesForSelectedDate.length} 场可选`;
   if (fixedIds)
     dateDescription = `${planning?.fixedLabels[selectedRaceTurn!] || '目标赛'}必须参加，不能设为休息。${fixedIds.length > 1 ? '可在目标候选比赛中固定一场。' : ''}`;
@@ -129,7 +119,9 @@ function RaceSchedulePicker({
                 {step}
               </span>
             ) : null}
-            <h3 className="text-section font-semibold text-slate-900">{title}</h3>
+            <h3 className="text-section font-semibold text-slate-900">
+              {title}
+            </h3>
           </div>
           <p className="uma-prose text-right text-data text-slate-500">
             {selectionSummary}
@@ -152,7 +144,7 @@ function RaceSchedulePicker({
           </span>
           <span className="inline-flex items-center gap-1 text-sky-800">
             <Coffee size={13} />
-            {readOnly ? '休息／训练' : '固定休息'}
+            {readOnly ? '训练' : '固定休息'}
           </span>
           {!readOnly ? <span>空白日期由自动规划安排</span> : null}
         </div>
@@ -199,8 +191,7 @@ function RaceSchedulePicker({
                       if (!planning && !turnRaces.length) stateLabel = '无赛事';
                       if (selectedRace)
                         stateLabel = `已选择${selectedRace.name}`;
-                      if (rest)
-                        stateLabel = readOnly ? '休息／训练' : '固定休息';
+                      if (rest) stateLabel = readOnly ? '训练' : '固定休息';
                       if (goals)
                         stateLabel = `${planning?.fixedLabels[turn] || (lockedRaces ? '生涯目标' : '目标赛')}，${turnRaces
                           .filter((race) => goals.includes(race.id))
@@ -254,7 +245,7 @@ function RaceSchedulePicker({
                           {!displayRace && rest ? (
                             <span className="flex flex-1 items-center justify-center gap-1">
                               <Coffee size={14} />
-                              {readOnly ? '休／练' : '休息'}
+                              {readOnly ? '训练' : '休息'}
                             </span>
                           ) : null}
                           {blocked && !outside && !displayRace && !rest ? (
@@ -272,25 +263,6 @@ function RaceSchedulePicker({
                       );
                     })}
                   </div>
-                  {(
-                    automaticRacesByTurn.get(
-                      skillPurchaseTurn(year.offset, month, 2),
-                    ) || []
-                  ).map((race) => (
-                      <div
-                        key={race.turn}
-                        className="mt-1 flex items-center justify-center gap-1 rounded bg-slate-100 px-1 py-1 text-caption text-slate-700"
-                        title="回合结束后自动参赛，必成功，掉落率 5%，不影响连战"
-                      >
-                        <LockKeyhole size={11} />
-                        <AssetIcon
-                          path={`race_thumb/${race.thumbnailId}.png`}
-                          alt={race.name}
-                          className="h-6 w-10 object-contain"
-                        />
-                        <span>{race.name} · 剧本</span>
-                      </div>
-                    ))}
                 </div>
               ))}
             </div>
@@ -361,7 +333,9 @@ function RaceSchedulePicker({
               </span>
             </div>
           ) : null}
-          {racesForSelectedDate.some((race) => selectedRaceIdSet.has(race.id)) &&
+          {racesForSelectedDate.some((race) =>
+            selectedRaceIdSet.has(race.id),
+          ) &&
           !readOnly &&
           !lockedDate &&
           (!planning || (fixedIds && fixedIds.length > 1)) ? (
@@ -444,7 +418,7 @@ function RaceSchedulePicker({
               </div>
             ) : (
               <p className="rounded-lg bg-slate-50 px-3 py-10 text-center text-data text-slate-600">
-                {readOnly ? '本回合休息／训练，不参赛。' : '该日期没有可选比赛'}
+                {readOnly ? '本回合训练，不参赛。' : '该日期没有可选比赛'}
               </p>
             )}
           </div>

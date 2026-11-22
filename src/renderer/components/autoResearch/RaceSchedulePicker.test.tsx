@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { createOfflineDesign, normalizeOfflineDesign, offlineRaceRequest } from 'renderer/utils/offlineCareerDesign';
@@ -71,6 +72,19 @@ test('new local schedules apply only additional races and legacy game slots rema
   expect(screen.queryByText(/期望获得|其他生涯目标|已选择 \d+ 场/)).toBeNull();
 });
 
+test('only shows one-click schedule design when the current goal is breeding', () => {
+  const props = { setDesign: jest.fn(), charaId: 1001, scenarioId: 5 };
+  const { rerender } = render(<OfflineCustomSchedule {...props} design={createOfflineDesign('breeding')} />);
+  const action = () => screen.queryByRole('button', { name: '一键设置' });
+  expect(action()).toBeVisible();
+  for (const goal of ['jewels', 'fans'] as const) {
+    rerender(<OfflineCustomSchedule {...props} design={createOfflineDesign(goal)} />);
+    expect(action()).toBeNull();
+  }
+  rerender(<OfflineCustomSchedule {...props} design={createOfflineDesign('breeding')} />);
+  expect(action()).toBeVisible();
+});
+
 test('a nested race picker keeps its selection and closes before the deck editor', () => {
   const saveDeck = jest.fn().mockResolvedValue(true);
   const race = {
@@ -132,34 +146,33 @@ test('a nested race picker keeps its selection and closes before the deck editor
   expect(editor).not.toBeInTheDocument();
 });
 
-test('local mode exposes the designer and the game preset switch opts into the slot editor', () => {
-  const switchMode = jest.fn();
+test('one-click design switches a game slot back to local and fills in races', () => {
   const prepare = jest.fn();
   const props = {
     setup: null, selectedScenarioId: 5, races: [], selectedDeckNum: 0,
     setSelectedDeckNum: jest.fn(), busy: '', prepare, saveDeck: jest.fn(),
     factorSelection: createDefaultOfflineFactorSelection(), setFactorSelection: jest.fn(),
-    parents: [], umas: [], skills: [], setCustomSchedule: switchMode,
-    customScheduleContent: (
-      <OfflineCustomSchedule
-        design={createOfflineDesign()} setDesign={jest.fn()} charaId={1001} scenarioId={5}
-      />
-    ),
+    parents: [], umas: [], skills: [],
   };
-  const { rerender } = render(<OfflineCareerSettings {...props} customSchedule />);
-  const toggle = screen.getByRole('switch', { name: '游戏内' });
-  expect(toggle).toHaveAttribute('aria-checked', 'false');
-  const title = screen.getByRole('heading', { name: '赛程设置' });
-  const header = title.closest('header')!;
-  expect(header).toContainElement(toggle);
-  const action = screen.getByRole('button', { name: '一键设置' });
-  expect(header.nextElementSibling).toContainElement(action);
+  function ScheduleForm() {
+    const [design, setDesign] = useState(createOfflineDesign);
+    return <OfflineCareerSettings {...props}
+      customSchedule={design.source === 'custom'}
+      setCustomSchedule={(local) => setDesign((prev) => ({ ...prev, source: local ? 'custom' : 'api' }))}
+      customScheduleContent={<OfflineCustomSchedule design={design} setDesign={setDesign} charaId={1001} scenarioId={5} />}
+    />;
+  }
+  render(<ScheduleForm />);
+  const toggle = screen.getByRole('switch', { name: '本地' });
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
   expect(screen.queryByText(/槽位 1 ·/)).toBeNull();
   expect(prepare).not.toHaveBeenCalled();
   fireEvent.click(toggle);
-  expect(switchMode).toHaveBeenCalledWith(false);
-  rerender(<OfflineCareerSettings {...props} customSchedule={false} />);
-  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
   expect(screen.getByText(/槽位 1 ·/)).toBeVisible();
-  expect(screen.queryByRole('button', { name: '一键设置' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /，未选择比赛/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '一键设置' }));
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect(screen.queryByText(/槽位 1 ·/)).toBeNull();
+  expect(screen.getAllByRole('button', { name: /，已选择/ }).length).toBeGreaterThan(0);
 });

@@ -32,7 +32,7 @@ test.each([true, false])(
       .mockReturnValue({
         best: hasPair ? { parents: [own1, own2] } : undefined,
         demands: [],
-        schedule: { raceCount: 1, expectedDrops: 0.05, expectedFans: 100 },
+        schedule: { raceCount: 1, automaticRaces: [], expectedDrops: 0.05, expectedFans: 100 },
         raceIds: [],
         notes: [],
       } as unknown as ReturnType<typeof designModel.designOfflineCareer>);

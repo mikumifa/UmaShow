@@ -50,7 +50,7 @@ const rankings = Object.fromEntries(
             expectedWins: recommendation.schedule.expectedWins,
             expectedGradeWins: recommendation.schedule.expectedGradeWins,
             expectedDrops: recommendation.schedule.expectedDrops,
-            raceCount: recommendation.schedule.raceCount,
+            raceCount: recommendation.schedule.raceCount + recommendation.schedule.automaticRaces.length,
             demands: recommendation.demands,
           },
         ];

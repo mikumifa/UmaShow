@@ -401,7 +401,7 @@ test('preset save state persists, sync can retry, and back uses the parent callb
   const props = { ...presetProps(), presetEditorOpen: true };
   const { rerender } = render(<PresetsTab {...props} />);
   expect(screen.getByRole('status')).toHaveTextContent('未保存');
-  fireEvent.click(button('保存修改'));
+  fireEvent.click(button('保存'));
   expect(props.savePreset).toHaveBeenCalledTimes(1);
   rerender(<PresetsTab {...props} presetDirty={false} presetSaved />);
   expect(screen.getByRole('status')).toHaveTextContent('已保存');

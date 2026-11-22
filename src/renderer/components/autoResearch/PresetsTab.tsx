@@ -436,7 +436,7 @@ function PresetsTab(props: PresetsTabProps) {
             {busy === 'preset'
               ? '保存中…'
               : presetDirty
-                ? '保存修改'
+                ? '保存'
                 : presetSyncError
                   ? '重试同步'
                   : presetSaved

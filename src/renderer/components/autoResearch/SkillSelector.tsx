@@ -791,6 +791,7 @@ export default function SkillSelector({
       </SuccessionPickerFilterSheet>
 
       <div
+        key={scope}
         className="plannerSkillGridBody"
         role={obtainableGroups ? 'tabpanel' : undefined}
         id={obtainableGroups ? scopeId : undefined}

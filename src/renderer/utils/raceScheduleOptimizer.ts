@@ -38,6 +38,7 @@ export type PlanningRace = {
 };
 export type WinRates = Record<string, ReadonlyArray<number | null>>;
 export type AutomaticPlanningRace = {
+  summaryOnly?: boolean;
   turn: number;
   name: string;
   fans: number;

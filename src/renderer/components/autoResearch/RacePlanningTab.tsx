@@ -41,7 +41,6 @@ import {
   getSharedStorageItem,
   panelClass,
   setSharedStorageItem,
-  normalizeRaceSelection,
 } from './shared';
 
 const RANKS = ['—', 'G', 'F', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -69,8 +68,6 @@ type Settings = {
   objective: 'fans' | 'wins' | 'jewels';
   gradeThreshold: 100 | 200 | 300;
   fanBonus: number;
-  manualIds: number[];
-  restTurns: number[];
 };
 const DEFAULT_SETTINGS: Settings = {
   charaId: 1001,
@@ -78,8 +75,6 @@ const DEFAULT_SETTINGS: Settings = {
   objective: 'fans',
   gradeThreshold: 100,
   fanBonus: DEFAULT_PLANNER_FAN_BONUS,
-  manualIds: [],
-  restTurns: [],
 };
 
 function loadSettings(): Settings {
@@ -102,12 +97,6 @@ function loadSettings(): Settings {
         ? saved.gradeThreshold
         : 100,
       fanBonus: plannerFanBonus(saved),
-      manualIds: Array.isArray(saved.manualIds)
-        ? saved.manualIds.filter(Number.isInteger)
-        : [],
-      restTurns: Array.isArray(saved.restTurns)
-        ? saved.restTurns.filter(Number.isInteger)
-        : [],
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -135,7 +124,7 @@ export default function RacePlanningTab() {
   const [search, setSearch] = useState('');
   const [characterPickerOpen, setCharacterPickerOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [resultView, setResultView] = useState<'list' | 'calendar'>('list');
+  const [resultView, setResultView] = useState<'list' | 'calendar'>('calendar');
   const [copyStatus, setCopyStatus] = useState('');
   const [storageError, setStorageError] = useState('');
   useEffect(() => {
@@ -160,21 +149,6 @@ export default function RacePlanningTab() {
     () => buildPlanningCalendar(character.id, 5, settings.routeId),
     [character.id, settings.routeId],
   );
-  const selection = useMemo(() => {
-    const fixed = { ...calendar.fixedRaces };
-    const errors = [...calendar.errors];
-    settings.manualIds.forEach((id) => {
-      const race = calendar.races.find((item) => item.id === id);
-      if (!race) {
-        errors.push(`固定比赛 ${id} 不在当前剧本赛历内，请清除或重新选择。`);
-        return;
-      }
-      if (fixed[race.turn] && !fixed[race.turn].includes(id))
-        errors.push(`${planningDate(race.turn)}的手动比赛与生涯目标冲突。`);
-      else fixed[race.turn] = [id];
-    });
-    return { fixed, errors };
-  }, [calendar, settings.manualIds]);
   const input = useMemo<ScheduleInput>(
     () => ({
       races: calendar.races,
@@ -187,9 +161,9 @@ export default function RacePlanningTab() {
       gradeThreshold:
         settings.objective === 'wins' ? settings.gradeThreshold : 100,
       fanBonusPercent: settings.fanBonus,
-      fixedRaces: selection.fixed,
+      fixedRaces: calendar.fixedRaces,
       blockedTurns: calendar.blockedTurns,
-      restTurns: settings.restTurns,
+      restTurns: [],
     }),
     [
       calendar,
@@ -197,8 +171,6 @@ export default function RacePlanningTab() {
       settings.objective,
       settings.gradeThreshold,
       settings.fanBonus,
-      selection.fixed,
-      settings.restTurns,
     ],
   );
   const recommendation = useMemo(
@@ -206,7 +178,7 @@ export default function RacePlanningTab() {
     [input],
   );
   const { aptitudes, schedule: result } = recommendation;
-  const error = selection.errors[0] || result.error;
+  const error = calendar.errors[0] || result.error;
   const calendarOptions = useMemo<RaceOption[]>(
     () =>
       calendar.races
@@ -240,7 +212,7 @@ export default function RacePlanningTab() {
   const planRows = result.steps.flatMap((step) => [
     {
       ...step,
-      name: step.race?.name || '休息／训练',
+      name: step.race?.name || '训练',
       programId: step.race?.programId || '',
       gradeLabel: GRADE_LABELS[step.race?.grade || 0] || '',
       automatic: false,
@@ -251,7 +223,7 @@ export default function RacePlanningTab() {
       baseFans: step.race?.fans || 0,
     },
     ...result.automaticRaces
-      .filter((race) => race.turn === step.turn)
+      .filter((race) => race.turn === step.turn && !race.summaryOnly)
       .map((race) => ({
         ...race,
         race: null,
@@ -275,8 +247,6 @@ export default function RacePlanningTab() {
       step.race &&
       step.race.requiredFans > step.totalExpectedFans - step.expectedFans,
   );
-  const resetCalendar = (value: Partial<Settings>) =>
-    patch({ ...value, manualIds: [], restTurns: [], routeId: 0 });
   const hasResult = !error && result.steps.length > 0;
 
   return (
@@ -334,6 +304,24 @@ export default function RacePlanningTab() {
             <strong>{character.name}</strong>
             <small>点击切换</small>
           </SuccessionPickerTrigger>
+          {calendar.routes.length > 1 && (
+            <label className="text-label text-slate-700">
+              生涯目标路线
+              <select
+                value={settings.routeId || calendar.routes[0].id}
+                onChange={(event) =>
+                  patch({ routeId: Number(event.target.value) })
+                }
+                className="mt-1 block w-full rounded-lg border border-slate-200 p-2"
+              >
+                {calendar.routes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    路线 {route.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="text-label text-slate-700">
             优化目标
             <select
@@ -405,8 +393,6 @@ export default function RacePlanningTab() {
             patch({
               charaId: entry.charaId,
               routeId: entry.routeId,
-              manualIds: [],
-              restTurns: [],
               gradeThreshold: 100,
             });
             setLeaderboardOpen(false);
@@ -418,7 +404,7 @@ export default function RacePlanningTab() {
         <SuccessionPickerDialog
           ariaLabel="选择规划马娘"
           title="选择育成马娘"
-          description="选择角色后自动计算继承需求与赛程。切换角色会清空手动比赛和休息安排。"
+          description="选择角色后自动计算继承需求与赛程。"
           onClose={() => setCharacterPickerOpen(false)}
           searchValue={search}
           searchPlaceholder="搜索马娘名称"
@@ -442,7 +428,8 @@ export default function RacePlanningTab() {
                 title={item.name}
                 onClick={() => {
                   if (item.id !== character.id)
-                    resetCalendar({
+                    patch({
+                      routeId: 0,
                       charaId: item.id,
                     });
                   setCharacterPickerOpen(false);
@@ -470,7 +457,7 @@ export default function RacePlanningTab() {
         </div>
         {error ? (
           <p className="mt-3 text-caption text-amber-800">
-            当前约束下无法生成完整方案，请调整固定赛程。
+            当前生涯目标下无法生成完整方案。
           </p>
         ) : null}
         {!error && recommendation.demands.length > 0 ? (
@@ -504,109 +491,6 @@ export default function RacePlanningTab() {
             </span>
           ))}
         </div>
-      </section>
-
-      <section className={panelClass('p-4 sm:p-5')}>
-        <h3 className="text-section font-semibold">固定赛程</h3>
-        {calendar.routes.length > 1 ? (
-          <label className="mt-2 block text-label">
-            生涯目标路线
-            <select
-              value={settings.routeId || calendar.routes[0].id}
-              onChange={(event) =>
-                patch({
-                  routeId: Number(event.target.value),
-                  manualIds: [],
-                  restTurns: [],
-                })
-              }
-              className="ml-2 rounded border p-2"
-            >
-              {calendar.routes.map((route) => (
-                <option key={route.id} value={route.id}>
-                  路线 {route.id}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <div className="mt-4">
-          <RaceSchedulePicker
-            key={`${character.id}:${settings.routeId}`}
-            id="optimal-race-fixed"
-            title="参赛与休息安排"
-            races={calendarOptions}
-            automaticRaces={calendar.automaticRaces}
-            selectedRaceIds={settings.manualIds}
-            setSelectedRaceIds={(value) =>
-              setSettings((current) => ({
-                ...current,
-                manualIds:
-                  typeof value === 'function'
-                    ? value(current.manualIds)
-                    : value,
-              }))
-            }
-            planning={{
-              startTurn: calendar.startTurn,
-              endTurn: calendar.scenario.endTurn,
-              fixedRaces: calendar.fixedRaces,
-              fixedLabels: calendar.fixedLabels,
-              blockedTurns: calendar.blockedTurns,
-              restTurns: settings.restTurns,
-              onChange: (turn, action) => {
-                if (calendar.fixedRaces[turn] && action === 'rest') return;
-                if (
-                  calendar.fixedRaces[turn] &&
-                  typeof action === 'number' &&
-                  !calendar.fixedRaces[turn].includes(action)
-                )
-                  return;
-                setSettings((current) => ({
-                  ...current,
-                  manualIds: normalizeRaceSelection(
-                    [
-                      ...current.manualIds.filter(
-                        (id) =>
-                          calendar.races.find((race) => race.id === id)
-                            ?.turn !== turn,
-                      ),
-                      ...(typeof action === 'number' ? [action] : []),
-                    ],
-                    calendarOptions,
-                  ),
-                  restTurns: [
-                    ...current.restTurns.filter((value) => value !== turn),
-                    ...(action === 'rest' ? [turn] : []),
-                  ],
-                }));
-              },
-            }}
-          />
-        </div>
-        {settings.manualIds.length || settings.restTurns.length ? (
-          <PlannerButton
-            variant="secondary"
-            size="small"
-            className="mt-4"
-            onClick={() => patch({ manualIds: [], restTurns: [] })}
-          >
-            <RotateCcw size={14} />
-            清除手动安排
-          </PlannerButton>
-        ) : null}
-        {calendar.notes.length ? (
-          <details className="mt-3 text-caption text-slate-600">
-            <summary className="cursor-pointer">
-              其他生涯目标（{calendar.notes.length} 项，不作为固定比赛）
-            </summary>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              {calendar.notes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
       </section>
 
       <section className={panelClass('p-4 sm:p-5')}>
@@ -728,10 +612,7 @@ export default function RacePlanningTab() {
                   String(result.raceCount + result.automaticRaces.length),
                 ],
                 ['期望掉落次数', result.expectedDrops.toFixed(2)],
-                [
-                  '休息／训练回合',
-                  String(result.steps.length - result.raceCount),
-                ],
+                ['训练回合', String(result.steps.length - result.raceCount)],
               ].map(([label, value]) => (
                 <div key={label} className="min-w-28">
                   <dt className="text-caption text-slate-500">{label}</dt>
@@ -777,7 +658,7 @@ export default function RacePlanningTab() {
                   id="optimal-race-result"
                   title="最优赛程日历"
                   races={resultRaces}
-                  automaticRaces={calendar.automaticRaces}
+                  automaticRaceCount={result.automaticRaces.length}
                   selectedRaceIds={resultRaces.map((race) => race.id)}
                   readOnly
                   planning={{

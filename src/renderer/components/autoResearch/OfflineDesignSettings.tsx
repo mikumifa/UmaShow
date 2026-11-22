@@ -46,10 +46,12 @@ export function OfflineCustomSchedule({
   charaId,
   scenarioId,
   aptitudes,
+  onApplySchedule,
   disabled = false,
 }: Pick<Props, 'design' | 'setDesign' | 'charaId'> & {
   scenarioId: number;
   aptitudes?: PlanningAptitudes;
+  onApplySchedule?: () => void;
   disabled?: boolean;
 }) {
   const [designError, setDesignError] = useState('');
@@ -72,6 +74,7 @@ export function OfflineCustomSchedule({
         design.fixedIds,
       );
       setDesign((current) => ({ ...current, source: 'custom', raceIds }));
+      onApplySchedule?.();
       setDesignError('');
     } catch (caught) {
       setDesignError((caught as Error).message);
@@ -117,40 +120,44 @@ export function OfflineCustomSchedule({
         })),
     [calendar],
   );
-  if (!charaId || !supported)
-    return (
-      <p className="mt-4 text-label text-gray-500">
-        {charaId ? '请选择有本地赛历的育成剧本' : '先选择育成马娘'}
-      </p>
-    );
   return (
     <>
-      <PlannerButton size="small" onClick={designSchedule} disabled={disabled || !ranks}>
-        <WandSparkles size={15} /> 一键设置
-      </PlannerButton>
-      {designError && (
-        <p role="alert" className="mt-3 text-label text-red-600">
-          {designError}
-        </p>
+      {design.goal === 'breeding' && (
+        <>
+          <PlannerButton
+            className="mt-3"
+            size="small"
+            onClick={designSchedule}
+            disabled={disabled || !charaId || !supported || !ranks}
+          >
+            <WandSparkles size={15} /> 一键设置
+          </PlannerButton>
+          {designError && (
+            <p role="alert" className="mt-3 text-label text-red-600">
+              {designError}
+            </p>
+          )}
+        </>
       )}
-      <RaceSchedulePicker
-        races={options}
-        lockedRaces={calendar.fixedRaces}
-        selectedRaceIds={design.raceIds}
-        setSelectedRaceIds={
-          disabled
-            ? undefined
-            : (value) => {
-                setDesign((current) => ({
-                  ...current,
-                  raceIds:
-                    typeof value === 'function'
-                      ? value(current.raceIds)
-                      : value,
-                }));
-              }
-        }
-      />
+      {design.source === 'custom' && (
+        charaId && supported ? (
+          <RaceSchedulePicker
+            races={options}
+            lockedRaces={calendar.fixedRaces}
+            selectedRaceIds={design.raceIds}
+            setSelectedRaceIds={disabled ? undefined : (value) =>
+              setDesign((current) => ({
+                ...current,
+                raceIds: typeof value === 'function' ? value(current.raceIds) : value,
+              }))
+            }
+          />
+        ) : (
+          <p className="mt-4 text-label text-gray-500">
+            {charaId ? '请选择有本地赛历的育成剧本' : '先选择育成马娘'}
+          </p>
+        )
+      )}
     </>
   );
 }
@@ -275,7 +282,7 @@ export default function OfflineDesignSettings({
             <strong>
               {result.best ? '已填入种马与赛程' : '赛程已生成 · 待补齐种马'}
             </strong>
-            <span>{result.schedule.raceCount} 场（含目标赛）</span>
+            <span>{result.schedule.raceCount + result.schedule.automaticRaces.length} 场</span>
             {design.goal === 'jewels' ? (
               <span>
                 期望掉落 {result.schedule.expectedDrops.toFixed(2)} 次
