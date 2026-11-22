@@ -843,7 +843,7 @@ function OfflineCareerSettings({
     !factorOnly && '结束时优先学同组金技能或双圈，满足条件的技能会自动进化。',
   ].filter(Boolean).join('');
   const aptitudeChoices = (targets: OfflineFactorTarget[], groupId = 0) => (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div role="group" aria-label="适应性" className="mt-2 flex flex-wrap gap-1.5">
       {APTITUDE_FACTORS.map((target) => {
         const selected = targets.some((item) => item.factor_group_id === target.factor_group_id);
         const occupiedRank = groupId && !selected ? priorityGroups.findIndex((group) =>
@@ -974,10 +974,7 @@ function OfflineCareerSettings({
               <X size={15} />
             </button>
           </div>
-          <fieldset className="min-w-0">
-            <legend className="text-caption text-slate-600">适应性</legend>
-            {aptitudeChoices(group.targets, group.id)}
-          </fieldset>
+          {aptitudeChoices(group.targets, group.id)}
           {group.targets.length > 0 && targetCards(group.targets, group.id)}
         </section>
       ))}
