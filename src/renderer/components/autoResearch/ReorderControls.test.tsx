@@ -22,10 +22,11 @@ jest.mock('../AppMenuPortal', () => ({
   default: ({ children }: { children: ReactNode }) => children,
 }));
 
-function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
+function OfflineForm({ ancestor = false, direct = false }: { ancestor?: boolean; direct?: boolean }) {
   const [factorSelection, setFactorSelection] =
     useState<OfflineFactorSelection>(() => ({
       ...createDefaultOfflineFactorSelection(),
+      transfer_mode: direct ? 'direct' : 'keep',
       evaluation_mode: ancestor ? ('ancestor' as const) : ('parent' as const),
       targets: [
         {
@@ -73,6 +74,22 @@ function OfflineForm({ ancestor = false }: { ancestor?: boolean }) {
 const readState = () => JSON.parse(screen.getByTestId('state').textContent!);
 const button = (name: string) => screen.getByRole('button', { name });
 const priorityGroup = (rank: number) => within(screen.getByRole('region', { name: `优先级 ${rank}` }));
+
+test('direct transfer explains the blocked factor switch only when activated', () => {
+  render(<OfflineForm direct />);
+  const message = '关闭「养成完成后直接转队」即可使用因子重抽。';
+  const toggle = screen.getByRole('switch', { name: '免费因子重抽与筛选' });
+  const original = readState();
+  expect(screen.queryByText(message)).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect(readState()).toEqual(original);
+  fireEvent.click(button('关闭错误提示'));
+  expect(screen.queryByText(message)).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole('alert')).toHaveTextContent(message);
+});
 
 test('mode and priority explanations expand independently of mode selection', () => {
   render(<OfflineForm />);

@@ -4,12 +4,14 @@ import {
   memo,
   ReactNode,
   SetStateAction,
+  useCallback,
   useDeferredValue,
   useEffect,
   useId,
   useMemo,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarDays,
   ChevronDown,
@@ -66,6 +68,7 @@ import {
   readPriorityGroups, writePriorityGroups, usesOfflineFactorTargets, type FactorPriorityGroup,
 } from './offlineCareerSkills';
 import Toggle from './Toggle';
+import ErrorToast from './ErrorToast';
 import { OfflineScheduleHeader } from './OfflineDesignSettings';
 import type { SkillSourcesByGroup } from './obtainableSkills';
 import ParentFactorFilters from './ParentFactorFilters';
@@ -268,6 +271,8 @@ function OfflineCareerSettings({
 }: Props) {
   // Zero opens the ancestor weight editor; positive IDs identify parent priority groups.
   const [skillPickerGroup, setSkillPickerGroup] = useState<number | null>(null);
+  const [showTransferHint, setShowTransferHint] = useState(false);
+  const dismissTransferHint = useCallback(() => setShowTransferHint(false), []);
   const [editingDeckNum, setEditingDeckNum] = useState(0);
   const [editingDeckName, setEditingDeckName] = useState('');
   const [editingRaceIds, setEditingRaceIds] = useState<number[]>([]);
@@ -999,15 +1004,15 @@ function OfflineCareerSettings({
             <Toggle
               label="免费因子重抽与筛选"
               disabled={factorSelection.transfer_mode === 'direct'}
+              onDisabledClick={() => setShowTransferHint(true)}
               checked={filteringFactors}
               onChange={(enabled) => updateFactorSelection({ enabled })}
             />
           </label>
         </h3>
-        {factorSelection.transfer_mode === 'direct' && (
-          <p className="text-caption text-slate-500">
-            关闭「养成完成后直接转队」即可使用因子重抽。
-          </p>
+        {showTransferHint && createPortal(
+          <ErrorToast message="关闭「养成完成后直接转队」即可使用因子重抽。" onClose={dismissTransferHint} />,
+          document.body,
         )}
 
         {filteringFactors && (
